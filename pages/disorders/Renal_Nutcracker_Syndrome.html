@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4198,6 +4266,7 @@ The hard problem in this disease is not the mechanism but the diagnosis. The ana
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4222,6 +4291,7 @@ The hard problem in this disease is not the mechanism but the diagnosis. The ana
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4243,6 +4313,7 @@ The hard problem in this disease is not the mechanism but the diagnosis. The ana
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4327,6 +4398,7 @@ The hard problem in this disease is not the mechanism but the diagnosis. The ana
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4406,6 +4478,7 @@ The hard problem in this disease is not the mechanism but the diagnosis. The ana
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mesoaortic-compression-of-the-left-renal-vein" data-dismech-node="Mesoaortic compression of the left renal vein" data-dismech-type="pathophysiology">
                 <div class="item-name">Mesoaortic compression of the left renal vein</div>
+
 
                 <div class="item-desc">The left renal vein crosses the midline between the superior mesenteric artery and the abdominal aorta. An abnormally narrow take-off angle of the superior mesenteric artery from the aorta narrows that corridor and compresses the vein. The predisposing anatomy is developmental: the left renal vein forms from the aortic collar in the sixth to eighth week of gestation. This is a geometric lesion - the vein itself is structurally normal, and there is no thrombosis, stenosis of the vessel wall, or inflammatory process.</div>
 
@@ -4514,6 +4587,7 @@ This pathophysiological event occurs in Abdominal aorta (UBERON:0001516). UBERON
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4535,6 +4609,7 @@ This pathophysiological event occurs in Abdominal aorta (UBERON:0001516). UBERON
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4560,6 +4635,7 @@ This pathophysiological event occurs in Abdominal aorta (UBERON:0001516). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-left-renal-vein-hypertension" data-dismech-node="Left renal vein hypertension" data-dismech-type="pathophysiology">
                 <div class="item-name">Left renal vein hypertension</div>
+
 
                 <div class="item-desc">Obstructed outflow raises pressure in the left renal vein. This is the one node in the pathograph that is directly measurable in patients, as the renocaval pressure gradient at venography, and it is the measurement used to select patients for intervention rather than to make the initial diagnosis.</div>
 
@@ -4650,6 +4726,7 @@ This pathophysiological event occurs in Left renal vein (UBERON:0001142). UBERON
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4672,6 +4749,7 @@ This pathophysiological event occurs in Left renal vein (UBERON:0001142). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-glomerular-capillary-hypertension-and-orthostatic-proteinuria" data-dismech-node="Glomerular capillary hypertension and orthostatic proteinuria" data-dismech-type="pathophysiology">
                 <div class="item-name">Glomerular capillary hypertension and orthostatic proteinuria</div>
+
 
                 <div class="item-desc">The third downstream limb of renal venous hypertension. Raised outflow pressure is transmitted to the glomerular capillaries, increasing filtration of protein; the effect is postural because the compression itself is. It is not a benign urinary finding - sustained congestion has been shown to induce mesangial change on biopsy - and it is the one limb with a pharmacological treatment, since efferent arteriolar dilatation by ACE inhibition lowers intraglomerular pressure directly.</div>
 
@@ -4731,6 +4809,7 @@ This pathophysiological event occurs in Kidney (UBERON:0002113). UBERON:0002113 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4752,6 +4831,7 @@ This pathophysiological event occurs in Kidney (UBERON:0002113). UBERON:0002113 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4777,6 +4857,7 @@ This pathophysiological event occurs in Kidney (UBERON:0002113). UBERON:0002113 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-venous-collateral-formation" data-dismech-node="Venous collateral formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Venous collateral formation</div>
+
 
                 <div class="item-desc">Collateral drainage through the left gonadal vein and the communicating lumbar veins is the most significant structural effect. It is also clinically double-edged: it decompresses the kidney, which is why some patients remain asymptomatic, but it is itself the cause of the varicocele and pelvic congestion symptoms. It further matters surgically, because unrecognised collaterals complicate retroperitoneal and vascular procedures.</div>
 
@@ -4851,6 +4932,7 @@ This pathophysiological event occurs in Vein (UBERON:0001638). UBERON:0001638 is
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4873,6 +4955,7 @@ This pathophysiological event occurs in Vein (UBERON:0001638). UBERON:0001638 is
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-renal-fornix-varices-and-haematuria" data-dismech-node="Renal fornix varices and haematuria" data-dismech-type="pathophysiology">
                 <div class="item-name">Renal fornix varices and haematuria</div>
+
 
                 <div class="item-desc">Thin septal varices in the renal fornix rupture into the collecting system, producing left-sided haematuria that may be microscopic or gross. This is the commonest presenting feature, and nutcracker syndrome is worth considering specifically in haematuria of unknown origin.</div>
 
@@ -4932,6 +5015,7 @@ This pathophysiological event occurs in Kidney (UBERON:0002113). UBERON:0002113 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4954,6 +5038,7 @@ This pathophysiological event occurs in Kidney (UBERON:0002113). UBERON:0002113 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pelvic-and-gonadal-venous-congestion" data-dismech-node="Pelvic and gonadal venous congestion" data-dismech-type="pathophysiology">
                 <div class="item-name">Pelvic and gonadal venous congestion</div>
+
 
                 <div class="item-desc">Congestion in the gonadal venous territory. In men this presents as a left varicocele; in women as chronic pelvic pain, dyspareunia and dysmenorrhoea, which overlaps with pelvic congestion syndrome and is a common source of diagnostic delay.</div>
 
@@ -5010,6 +5095,7 @@ This pathophysiological event occurs in Gonadal vein (UBERON:0003848). UBERON:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5122,6 +5208,9 @@ This clinical feature is Hematuria (HP:0000790). HP:0000790 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5136,6 +5225,7 @@ This clinical feature is Hematuria (HP:0000790). HP:0000790 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5192,6 +5282,9 @@ This clinical feature is Varicocele (HP:0012871). HP:0012871 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5206,6 +5299,7 @@ This clinical feature is Varicocele (HP:0012871). HP:0012871 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5262,6 +5356,9 @@ This clinical feature is Proteinuria (HP:0000093). HP:0000093 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5276,6 +5373,7 @@ This clinical feature is Proteinuria (HP:0000093). HP:0000093 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5332,6 +5430,9 @@ This clinical feature is Chronic kidney disease (HP:0012622). HP:0012622 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5346,6 +5447,7 @@ This clinical feature is Chronic kidney disease (HP:0012622). HP:0012622 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5402,6 +5504,9 @@ This clinical feature is Renal vein thrombosis (HP:0034239). HP:0034239 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5416,6 +5521,7 @@ This clinical feature is Renal vein thrombosis (HP:0034239). HP:0034239 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5481,6 +5587,9 @@ This clinical feature is Flank pain (HP:0030157). HP:0030157 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5495,6 +5604,7 @@ This clinical feature is Flank pain (HP:0030157). HP:0030157 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5551,6 +5661,9 @@ This clinical feature is Pelvic pain (HP:0034267). HP:0034267 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5565,6 +5678,7 @@ This clinical feature is Pelvic pain (HP:0034267). HP:0034267 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5682,6 +5796,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -5692,6 +5809,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -5728,6 +5848,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5796,6 +5917,7 @@ This treatment targets Hematuria (HP:0000790). HP:0000790 is a phenotype from th
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5817,6 +5939,7 @@ This treatment targets Hematuria (HP:0000790). HP:0000790 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5883,6 +6006,9 @@ This treatment is Vascular Surgical Procedure (NCIT:C157725). NCIT:C157725 is a 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -5893,6 +6019,9 @@ This treatment is Vascular Surgical Procedure (NCIT:C157725). NCIT:C157725 is a 
 
 
     </div>
+
+
+
 
 
 
@@ -5929,6 +6058,7 @@ This treatment is Vascular Surgical Procedure (NCIT:C157725). NCIT:C157725 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5975,6 +6105,7 @@ This treatment is Vascular Surgical Procedure (NCIT:C157725). NCIT:C157725 is a 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5996,6 +6127,7 @@ This treatment is Vascular Surgical Procedure (NCIT:C157725). NCIT:C157725 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6062,6 +6194,9 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6072,6 +6207,9 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
     </div>
+
+
+
 
 
 
@@ -6108,6 +6246,7 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6154,6 +6293,7 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6178,6 +6318,7 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6199,6 +6340,7 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6267,6 +6409,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6277,6 +6422,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -6313,6 +6461,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6381,6 +6530,7 @@ This treatment targets Proteinuria (HP:0000093). HP:0000093 is a phenotype from 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6402,6 +6552,7 @@ This treatment targets Proteinuria (HP:0000093). HP:0000093 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6468,6 +6619,9 @@ This treatment is Vascular Surgical Procedure (NCIT:C157725). NCIT:C157725 is a 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6478,6 +6632,9 @@ This treatment is Vascular Surgical Procedure (NCIT:C157725). NCIT:C157725 is a 
 
 
     </div>
+
+
+
 
 
 
@@ -6514,6 +6671,7 @@ This treatment is Vascular Surgical Procedure (NCIT:C157725). NCIT:C157725 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6599,6 +6757,7 @@ This treatment targets Pelvic pain (HP:0034267). HP:0034267 is a phenotype from 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6662,6 +6821,9 @@ This treatment is Kidney Transplantation (NCIT:C15265). NCIT:C15265 is a clinica
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6672,6 +6834,9 @@ This treatment is Kidney Transplantation (NCIT:C15265). NCIT:C15265 is a clinica
 
 
     </div>
+
+
+
 
 
 
@@ -6708,6 +6873,7 @@ This treatment is Kidney Transplantation (NCIT:C15265). NCIT:C15265 is a clinica
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6751,6 +6917,7 @@ This treatment is Kidney Transplantation (NCIT:C15265). NCIT:C15265 is a clinica
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6816,6 +6983,7 @@ This treatment is Kidney Transplantation (NCIT:C15265). NCIT:C15265 is a clinica
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6864,6 +7032,7 @@ This treatment is Kidney Transplantation (NCIT:C15265). NCIT:C15265 is a clinica
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6940,6 +7109,7 @@ This treatment is Kidney Transplantation (NCIT:C15265). NCIT:C15265 is a clinica
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6964,6 +7134,7 @@ This treatment is Kidney Transplantation (NCIT:C15265). NCIT:C15265 is a clinica
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6985,6 +7156,7 @@ This treatment is Kidney Transplantation (NCIT:C15265). NCIT:C15265 is a clinica
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7102,6 +7274,7 @@ This treatment is Kidney Transplantation (NCIT:C15265). NCIT:C15265 is a clinica
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7204,6 +7377,7 @@ This treatment is Kidney Transplantation (NCIT:C15265). NCIT:C15265 is a clinica
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7280,6 +7454,7 @@ This treatment is Kidney Transplantation (NCIT:C15265). NCIT:C15265 is a clinica
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7338,6 +7513,7 @@ This treatment is Kidney Transplantation (NCIT:C15265). NCIT:C15265 is a clinica
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7433,6 +7609,7 @@ This treatment is Kidney Transplantation (NCIT:C15265). NCIT:C15265 is a clinica
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7498,6 +7675,7 @@ This treatment is Kidney Transplantation (NCIT:C15265). NCIT:C15265 is a clinica
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8807,6 +8985,29 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Evidence grading. There is no randomised trial of any intervention in this disease. That does not mean there is no comparative evidence: a 250-patient multi-institutional cohort and a 20-expert Delphi consensus both bear directly on treatment choice, and both are cited here. Where a treatment claim is graded PARTIAL, the explanation says which specific limitation earned that grade - an outcome from a five-patient non-randomised arm, a single uncontrolled case - rather than leaving PARTIAL to mean &#34;weak&#34; in general. One item is graded REFUTE: the consortium finding that endovascular therapy is not appropriate as initial treatment refutes the first-line role an earlier draft of this entry implied for it.
+What the field agrees and disagrees on. This is worth stating plainly because it runs opposite to intuition. The Delphi panel reached consensus on the practical questions - imaging is obligatory, symptoms must persist at least six months, transposition is the first-choice operation - and failed to reach consensus on both mechanistic ones, withdrawing the haematuria and proteinuria statements after the first round. The mechanism sections of this entry are therefore the least secure part of it, not the most, and the ncs_symptom_mechanisms_unresolved discussion records that.
+Phenomenon versus syndrome. The distinction is load-bearing throughout, and the numbers show why: roughly 23% of the population has imaging evidence of left renal vein compression, essentially all of it asymptomatic. The anatomical compression is the nutcracker phenomenon; the syndrome is the phenomenon plus attributable symptoms after alternatives are excluded. The single prevalence record in this entry is deliberately the phenomenon, marked as such - no reliable prevalence exists for the syndrome. Phenotype frequencies here are proportions among diagnosed patients, so they describe the case mix of the syndrome and say nothing about how often the phenomenon becomes it.
+Anatomy bindings. The gonadal congestion node is bound to UBERON:0003848 gonadal vein, verified by OLS lookup. A review suggestion proposed UBERON:0001152 for this concept; that identifier does not resolve to gonadal vein, so the verified term was used instead.
+Named Entity Confusion preflight. just preflight-dr returned SKIP for this entry&#39;s deep-research report, because MONDO records no causal gene for MONDO:0019105 and the check is gene-identity based. The report was therefore checked manually against title, summary and section content, all of which are unambiguously about left renal vein entrapment. Note the tool&#39;s top-gene list was led by &#34;ACE&#34; at 11 mentions, which is the drug class rather than the gene - a reminder that this check does not degrade gracefully on non-Mendelian disease.
+Subtypes. Anterior and posterior forms are curated as has_subtypes because they share one pathograph and differ only in the compression site. Neither carries a distinct MONDO term.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Renal Nutcracker Syndrome</strong> · 2026-08-28T12:57:25Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Renal_Nutcracker_Syndrome/2026-08-28T125725Z-claude-code-a40920.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of renal nutcracker syndrome, MONDO:0019105. Deliberately a non-genetic pick: the pathograph is haemodynamic - mesoaortic compression of the left renal vein, left renal vein hypertension, then collateral formation and fornix varices - so it exercises schema areas monogenic entries do not, namely imaging_findings, diagnosis, differential_diagnoses and environmental influences_mechanisms. Deep research: one openscientist report, research/Renal_Nutcracker_Syndrome-deep-research-openscientist.md, 31 citations, reference_validation 31/31 verified, confabulation 0.0, 25/31 on topic with 0 off topic. just preflight-dr returned SKIP because MONDO records no causal gene for this term and the Named Entity Confusion check is gene-identity based; the report was checked manually against title, summary and section content instead. Worth recording that the tool&#39;s top-gene list was led by ACE at 11 mentions, which is the drug class not the gene. The report contributed five substantive references that materially changed the entry and were not in my first draft: PMID:39276407 for the low-BMI and fat-pad trigger, PMID:41985840 for the 250-patient multi-institution demographics, PMID:39362632 for the 2024 international Delphi consensus that states no specific diagnostic criteria exist, PMID:16902785 for ACE inhibition of orthostatic proteinuria with mesangial change, and PMID:38617183 for renal autotransplantation outcomes and the roughly 23 percent population prevalence of asymptomatic left renal vein compression. That last figure is the quantitative basis for the phenomenon-versus-syndrome distinction that runs through the entry. Two title-only snippets in the first draft were caught by reference validation and replaced with real outcome data from the same paper. Validated with just validate at 41/41 snippets verified, check-entity-refs and check-duplicate-keys clean.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

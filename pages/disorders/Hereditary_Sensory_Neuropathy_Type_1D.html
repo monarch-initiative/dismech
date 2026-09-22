@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4120,6 +4188,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4222,6 +4291,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4246,6 +4316,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4267,6 +4338,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4351,6 +4423,7 @@
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4385,6 +4458,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-heterozygous-atl1-variant-with-reduced-atlastin-1-gtpase-activity" data-dismech-node="Heterozygous ATL1 Variant with Reduced Atlastin-1 GTPase Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Heterozygous ATL1 Variant with Reduced Atlastin-1 GTPase Activity</div>
+
 
                 <div class="item-desc">HSN1D is caused by heterozygous dominant ATL1 variants (e.g. the missense p.Asn355Lys and p.Glu66Gln alleles and the p.Val326TrpfsX8 frameshift) that reduce the GTPase activity of atlastin-1, a large dynamin-related GTPase. Reduced GTPase activity is the shared molecular defect, and because the disease is dominant with truncating alleles among the mutations, both dominant-negative and haploinsufficiency effects have been proposed; the primary study demonstrated reduced GTPase activity and disrupted ER morphology for the mutant protein.</div>
 
@@ -4519,6 +4593,7 @@ This pathophysiological event involves decreased atlastin-1 GTPase activity, ann
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4540,6 +4615,7 @@ This pathophysiological event involves decreased atlastin-1 GTPase activity, ann
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4565,6 +4641,7 @@ This pathophysiological event involves decreased atlastin-1 GTPase activity, ann
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-homotypic-er-membrane-fusion" data-dismech-node="Impaired Homotypic ER Membrane Fusion" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Homotypic ER Membrane Fusion</div>
+
 
                 <div class="item-desc">Atlastin-1 mediates GTP-dependent homotypic fusion of endoplasmic reticulum tubules; GTPase-deficient atlastin fails to self-associate into the trans-oligomeric complexes needed to tether and fuse apposed ER membranes, so mutant atlastin-1 cannot support the fusion reaction.</div>
 
@@ -4656,6 +4733,7 @@ This pathophysiological event involves decreased homotypic endoplasmic reticulum
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4678,6 +4756,7 @@ This pathophysiological event involves decreased homotypic endoplasmic reticulum
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-tubular-er-network" data-dismech-node="Disrupted Tubular ER Network" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Tubular ER Network</div>
+
 
                 <div class="item-desc">Loss of atlastin-mediated fusion disrupts the branched, interconnected tubular network of the peripheral endoplasmic reticulum. This ER-shaping defect is the cellular abnormality shared by the allelic disorders HSN1D and SPG3A, and the HSN1D mutant atlastin-1 prominently disrupts ER network morphology in cultured cells.</div>
 
@@ -4786,6 +4865,7 @@ This pathophysiological event involves abnormal endoplasmic reticulum organizati
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4807,6 +4887,7 @@ This pathophysiological event involves abnormal endoplasmic reticulum organizati
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4834,6 +4915,7 @@ This pathophysiological event involves abnormal endoplasmic reticulum organizati
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4856,6 +4938,7 @@ This pathophysiological event involves abnormal endoplasmic reticulum organizati
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-distal-degeneration-of-long-sensory-axons" data-dismech-node="Distal Degeneration of Long Sensory Axons" data-dismech-type="pathophysiology">
                 <div class="item-name">Distal Degeneration of Long Sensory Axons</div>
+
 
                 <div class="item-desc">The longest peripheral sensory axons, arising from dorsal root ganglion neurons, degenerate in a length-dependent axonal process, producing a sensory-predominant axonal neuropathy with variable axonal motor involvement. This reveals an unexpected major role for atlastin-1 in sensory neuron function.</div>
 
@@ -4941,6 +5024,7 @@ This pathophysiological event involves dorsal root ganglion sensory neuron, anno
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4962,6 +5046,7 @@ This pathophysiological event involves dorsal root ganglion sensory neuron, anno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5076,6 +5161,9 @@ This clinical feature is Osteomyelitis (HP:0002754). HP:0002754 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5090,6 +5178,7 @@ This clinical feature is Osteomyelitis (HP:0002754). HP:0002754 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5114,6 +5203,7 @@ This clinical feature is Osteomyelitis (HP:0002754). HP:0002754 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5175,6 +5265,9 @@ This clinical feature is Skin ulcer (HP:0200042). HP:0200042 is a phenotype from
 
 
 
+
+
+
                     <div class="item-meta">
                         <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
 
@@ -5198,6 +5291,7 @@ This clinical feature is Skin ulcer (HP:0200042). HP:0200042 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5261,6 +5355,9 @@ This clinical feature is Distal muscle weakness (HP:0002460). HP:0002460 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5275,6 +5372,7 @@ This clinical feature is Distal muscle weakness (HP:0002460). HP:0002460 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5338,6 +5436,9 @@ This clinical feature is Distal sensory impairment (HP:0002936). HP:0002936 is a
 
 
 
+
+
+
                     <div class="item-meta">
                         <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
 
@@ -5361,6 +5462,7 @@ This clinical feature is Distal sensory impairment (HP:0002936). HP:0002936 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5417,6 +5519,9 @@ This clinical feature is Abnormal pyramidal sign (HP:0007256). HP:0007256 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5431,6 +5536,7 @@ This clinical feature is Abnormal pyramidal sign (HP:0007256). HP:0007256 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5485,6 +5591,9 @@ This clinical feature is Sensorimotor neuropathy (HP:0007141). HP:0007141 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5499,6 +5608,7 @@ This clinical feature is Sensorimotor neuropathy (HP:0007141). HP:0007141 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5597,6 +5707,9 @@ This disease-associated gene is ATL1 (atlastin-1), annotated with ATL1 (hgnc:112
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -5611,6 +5724,7 @@ This disease-associated gene is ATL1 (atlastin-1), annotated with ATL1 (hgnc:112
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5638,6 +5752,7 @@ This disease-associated gene is ATL1 (atlastin-1), annotated with ATL1 (hgnc:112
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5659,6 +5774,7 @@ This disease-associated gene is ATL1 (atlastin-1), annotated with ATL1 (hgnc:112
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5821,6 +5937,12 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Meticulous foot and skin care, protective footwear, daily foot inspection, and early treatment of painless injuries to prevent ulceration, osteomyelitis, and amputation. Management follows diabetic-foot-care guidelines — removal of pressure from the ulcer and eradication of infection, followed by protective footwear.</div>
 
 
@@ -5851,6 +5973,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5894,6 +6017,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5965,6 +6089,12 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Counseling for the autosomal dominant inheritance, with 50% transmission risk to offspring. Correct clinical assessment and genetic confirmation of the diagnosis are important for appropriate genetic counselling.</div>
 
 
@@ -5986,6 +6116,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6061,6 +6192,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6112,6 +6244,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6168,6 +6301,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6238,6 +6372,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6303,6 +6438,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6388,6 +6524,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6440,6 +6577,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6558,6 +6696,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7274,6 +7413,21 @@ datasets: []
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Hereditary Sensory Neuropathy Type 1D</strong> · 2026-09-02T13:30:42Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Hereditary_Sensory_Neuropathy_Type_1D/2026-09-02T133042Z-claude-code-93ea56.yaml">View source</a></p>
+                        <p class="research-review-text">Created de novo ATL1 HSN1D (HSAN1D, MONDO:0013381) entry as a dedicated per-type file, following the HSAN2 precedent; read the HSAN umbrella entry first, which does not curate the ATL1 form. Deep research via claude_code provider. Pathophysiology chain: heterozygous ATL1 variant with reduced atlastin-1 GTPase activity (Guelly 2011, PMID:21194679; dimerization PMID:21220294) -&gt; impaired homotypic ER membrane fusion (Orso 2009 PMID:19633650; Hu 2009 PMID:19665976) -&gt; disrupted tubular ER network (PMID:21194679; Rismanchi 2008 PMID:18270207; REEP1/spastin complex PMID:20200447) -&gt; length-dependent distal degeneration of long DRG sensory axons -&gt; distal sensory loss, with sequelae edges to painless skin ulcers -&gt; osteomyelitis/amputations. Phenotypes: distal sensory loss, painless skin ulcers, osteomyelitis/amputations, pyramidal-tract features (Leonardis 2012 N355K family, PMID:22340599), distal muscle weakness and sensorimotor neuropathy on NCS (Orphanet review PMID:18348718).
+
+Round 2 (PR #10549 review response): backfilled reference_title on all evidence; connected the pathograph via phenotype sequelae; added evidence + target_mechanisms to Wound and Skin Care and evidence to Genetic Counseling (PMID:18348718); consumed uncited references — PMID:28396731 (no genotype-phenotype correlation; exons 4/7/8/12 hotspots) in the genetic notes and both knowledge-gap discussions, PMID:11685207 (SPG3A allelic), PMID:20200447 and PMID:21220294 for mechanistic depth; added diagnosis (NCS, imaging, molecular panel), differential_diagnoses (ATL3/HSN1F named-entity hazard, other HSAN), prevalence (ULTRA_RARE), progression (2nd-5th decade), a COS-7 experimental_models entry with a HUMAN_MODEL_MISMATCH discussion (fidelity LOW), and external_assertions for OMIM:613708 and MedGen:C3150972. No HSN1D-specific GeneReviews chapter exists (SPTLC1 chapter does not cover ATL1). Hyporeflexia (research §3, HP:0001265) was NOT added: no exact snippet supports it in the cached sources — the N355K family showed hyperreflexia, and neither abstract states hyporeflexia — so it was omitted rather than fabricated. All 36 snippets exact-verified; validate, validate-terms, validate-disorders, check-entity-refs, check-duplicate-keys all pass.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

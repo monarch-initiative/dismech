@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4239,6 +4307,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4300,6 +4369,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4367,6 +4437,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4428,6 +4499,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4611,6 +4683,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4632,6 +4705,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4803,6 +4877,7 @@
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4824,6 +4899,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4901,6 +4977,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4935,6 +5012,13 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-oral-ingestion-of-oocysts-or-tissue-cysts" data-dismech-node="Oral Ingestion of Oocysts or Tissue Cysts" data-dismech-type="pathophysiology">
                 <div class="item-name">Oral Ingestion of Oocysts or Tissue Cysts</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Human infection begins with ingestion of environmentally resistant oocysts shed by felids (in soil, water or on crops) or of bradyzoite-containing tissue cysts in undercooked meat.</div>
 
@@ -5026,6 +5110,7 @@ This pathophysiological event involves increased symbiont entry into host (GO:00
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5048,6 +5133,13 @@ This pathophysiological event involves increased symbiont entry into host (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-intestinal-epithelial-invasion-and-conversion-to-tachyzoites" data-dismech-node="Intestinal Epithelial Invasion and Conversion to Tachyzoites" data-dismech-type="pathophysiology">
                 <div class="item-name">Intestinal Epithelial Invasion and Conversion to Tachyzoites</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Sporozoites and bradyzoites released in the gut lumen traverse the intestinal epithelium and convert to tachyzoites, the rapidly replicating stage that drives acute infection.</div>
 
@@ -5173,6 +5265,7 @@ This pathophysiological event involves increased symbiont entry into host cell (
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5195,6 +5288,13 @@ This pathophysiological event involves increased symbiont entry into host cell (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-active-host-cell-invasion-and-parasitophorous-vacuole-formation" data-dismech-node="Active Host Cell Invasion and Parasitophorous Vacuole Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Active Host Cell Invasion and Parasitophorous Vacuole Formation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Rather than being passively phagocytosed, the tachyzoite actively penetrates the host cell using microneme and rhoptry-neck adhesins (MIC, AMA and RON proteins) and establishes a parasitophorous vacuole, a replication-permissive compartment that the parasite remodels to control host cell function.</div>
 
@@ -5379,6 +5479,7 @@ This pathophysiological event involves symbiont-containing vacuole membrane (GO:
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5400,6 +5501,7 @@ This pathophysiological event involves symbiont-containing vacuole membrane (GO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5425,6 +5527,13 @@ This pathophysiological event involves symbiont-containing vacuole membrane (GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-rhoptry-and-dense-granule-effector-mediated-immune-subversion" data-dismech-node="Rhoptry and Dense Granule Effector-Mediated Immune Subversion" data-dismech-type="pathophysiology">
                 <div class="item-name">Rhoptry and Dense Granule Effector-Mediated Immune Subversion</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The parasite injects rhoptry (ROP) and dense granule (GRA) effectors that suppress host immunity and reprogram infected-cell gene expression. The polymorphic rhoptry kinase ROP18 is a principal virulence determinant, and the dense granule effector TgIST traffics to the host nucleus to shut down STAT1-dependent, interferon-gamma-driven transcription.</div>
 
@@ -5533,6 +5642,7 @@ This pathophysiological event involves decreased cellular response to type II in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5554,6 +5664,7 @@ This pathophysiological event involves decreased cellular response to type II in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5581,6 +5692,7 @@ This pathophysiological event involves decreased cellular response to type II in
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5605,6 +5717,13 @@ This pathophysiological event involves decreased cellular response to type II in
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tachyzoite-replication-and-haematogenous-dissemination" data-dismech-node="Tachyzoite Replication and Haematogenous Dissemination" data-dismech-type="pathophysiology">
                 <div class="item-name">Tachyzoite Replication and Haematogenous Dissemination</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Repeated cycles of invasion, replication and host cell lysis disseminate tachyzoites throughout the body, seeding immunoprivileged tissues including brain, retina and skeletal and cardiac muscle, and, in pregnancy, the placenta.</div>
 
@@ -5729,6 +5848,7 @@ This pathophysiological event occurs in lymph node (UBERON:0000029). UBERON:0000
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5751,6 +5871,13 @@ This pathophysiological event occurs in lymph node (UBERON:0000029). UBERON:0000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-interferon-gamma-dependent-cell-autonomous-immune-control" data-dismech-node="Interferon-Gamma-Dependent Cell-Autonomous Immune Control" data-dismech-type="pathophysiology">
                 <div class="item-name">Interferon-Gamma-Dependent Cell-Autonomous Immune Control</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Innate activation drives a Th1 response in which CD4- and CD8-positive T cells produce interferon-gamma. IFN-gamma induces a family of IFN-inducible GTPases that accumulate on the parasitophorous vacuole membrane and destroy the vacuole, clearing or arresting the parasite. This response is what restricts T. gondii to opportunistic status in healthy hosts, and its pressure is also what drives the parasite into the cyst stage.</div>
 
@@ -5970,6 +6097,7 @@ This pathophysiological event involves increased cellular response to type II in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5991,6 +6119,7 @@ This pathophysiological event involves increased cellular response to type II in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6018,6 +6147,7 @@ This pathophysiological event involves increased cellular response to type II in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6040,6 +6170,13 @@ This pathophysiological event involves increased cellular response to type II in
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bradyzoite-differentiation-and-tissue-cyst-formation" data-dismech-node="Bradyzoite Differentiation and Tissue Cyst Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Bradyzoite Differentiation and Tissue Cyst Formation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Under stress, tachyzoites differentiate into slow-growing bradyzoites and form intracellular tissue cysts. The Myb-like transcription factor BFD1 is the master regulator of this switch: it accumulates during stress and is sufficient to drive differentiation. The resulting cysts resist both immune clearance and every currently available drug, which is why chronic infection is not curable.</div>
 
@@ -6144,6 +6281,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6165,6 +6303,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6190,6 +6329,13 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lifelong-latent-tissue-cyst-persistence" data-dismech-node="Lifelong Latent Tissue Cyst Persistence" data-dismech-type="pathophysiology">
                 <div class="item-name">Lifelong Latent Tissue Cyst Persistence</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Bradyzoite cysts persist indefinitely in immunoprivileged tissues, above all the brain and retina. This latent reservoir is clinically silent while T-cell-dependent surveillance is intact, and is the substrate for every later reactivation syndrome.</div>
 
@@ -6289,6 +6435,7 @@ This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6310,6 +6457,7 @@ This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6335,6 +6483,13 @@ This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-t-cell-dependent-immune-surveillance" data-dismech-node="Loss of T-Cell-Dependent Immune Surveillance" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of T-Cell-Dependent Immune Surveillance</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Depletion of CD4-positive T cells (advanced HIV infection), transplant immunosuppression or chemotherapy removes the interferon-gamma-dependent surveillance that keeps tissue cysts quiescent. This is the host-side, organism-scale permissive condition; the parasite-side response to it is the separate Bradyzoite-to-Tachyzoite Reversion node.</div>
 
@@ -6460,6 +6615,7 @@ This pathophysiological event involves decreased defense response to protozoan (
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6481,6 +6637,7 @@ This pathophysiological event involves decreased defense response to protozoan (
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6508,6 +6665,7 @@ This pathophysiological event involves decreased defense response to protozoan (
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6530,6 +6688,13 @@ This pathophysiological event involves decreased defense response to protozoan (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bradyzoite-to-tachyzoite-reversion-and-cyst-rupture" data-dismech-node="Bradyzoite-to-Tachyzoite Reversion and Cyst Rupture" data-dismech-type="pathophysiology">
                 <div class="item-name">Bradyzoite-to-Tachyzoite Reversion and Cyst Rupture</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Once immune restraint lifts, bradyzoites within tissue cysts revert to the rapidly replicating tachyzoite stage and the cyst ruptures, releasing parasites into surrounding tissue. This parasite-side, cell-scale event is what converts a lifelong silent reservoir into active disease.</div>
 
@@ -6621,6 +6786,7 @@ This pathophysiological event involves increased symbiont entry into host cell (
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6642,6 +6808,7 @@ This pathophysiological event involves increased symbiont entry into host cell (
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6667,6 +6834,13 @@ This pathophysiological event involves increased symbiont entry into host cell (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-necrotizing-toxoplasmic-encephalitis" data-dismech-node="Necrotizing Toxoplasmic Encephalitis" data-dismech-type="pathophysiology">
                 <div class="item-name">Necrotizing Toxoplasmic Encephalitis</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Recrudescent cerebral infection produces multifocal necrotizing encephalitis. The brain is a preferred site partly because of its low inflammatory reactivity. Lesions are typically multiple and ring-enhancing, concentrated at the grey-white matter junction and the thalamus-basal ganglia region, and the syndrome is a major cause of death in AIDS.</div>
 
@@ -6790,6 +6964,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6811,6 +6986,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6836,6 +7012,13 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-recurrent-necrotizing-retinochoroiditis" data-dismech-node="Recurrent Necrotizing Retinochoroiditis" data-dismech-type="pathophysiology">
                 <div class="item-name">Recurrent Necrotizing Retinochoroiditis</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Episodic recrudescence of retinal cysts produces focal necrotizing retinochoroiditis. Repeated flares accumulate chorioretinal scarring and cause potentially blinding complications; ocular toxoplasmosis is the leading cause of posterior uveitis worldwide.</div>
 
@@ -6929,6 +7112,7 @@ This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6950,6 +7134,7 @@ This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6975,6 +7160,13 @@ This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-toxoplasmic-lymphadenitis" data-dismech-node="Toxoplasmic Lymphadenitis" data-dismech-type="pathophysiology">
                 <div class="item-name">Toxoplasmic Lymphadenitis</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">In the immunocompetent host, acute acquired infection most often manifests as lymphadenitis, typically a solitary node in the head and neck without systemic symptoms and with a benign course.</div>
 
@@ -7034,6 +7226,7 @@ This pathophysiological event occurs in lymph node (UBERON:0000029). UBERON:0000
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7056,6 +7249,13 @@ This pathophysiological event occurs in lymph node (UBERON:0000029). UBERON:0000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-transplacental-transmission-and-fetal-dissemination" data-dismech-node="Transplacental Transmission and Fetal Dissemination" data-dismech-type="pathophysiology">
                 <div class="item-name">Transplacental Transmission and Fetal Dissemination</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">During primary maternal infection, tachyzoites cross the placenta and disseminate in a fetus whose immune system cannot contain them. Transmission probability rises steeply through gestation while the severity of the resulting fetal disease falls, so the timing of maternal seroconversion sets both the risk and the phenotype.</div>
 
@@ -7164,6 +7364,7 @@ This pathophysiological event occurs in placenta (UBERON:0001987). UBERON:000198
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7185,6 +7386,7 @@ This pathophysiological event occurs in placenta (UBERON:0001987). UBERON:000198
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7210,6 +7412,13 @@ This pathophysiological event occurs in placenta (UBERON:0001987). UBERON:000198
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fetal-neuroinflammatory-injury-and-obstructive-hydrocephalus" data-dismech-node="Fetal Neuroinflammatory Injury and Obstructive Hydrocephalus" data-dismech-type="pathophysiology">
                 <div class="item-name">Fetal Neuroinflammatory Injury and Obstructive Hydrocephalus</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Fetal cerebral infection causes necrotizing, inflammatory lesions that calcify and obstruct cerebrospinal fluid pathways, producing the characteristic combination of cerebral calcification, hydrocephalus and retinochoroiditis, with neurocognitive impairment as a long-term sequela.</div>
 
@@ -7269,6 +7478,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7314,7 +7524,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Active Host Cell Invasion and Parasitophorous Vacuole Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Rather than being passively phagocytosed, the tachyzoite actively penetrates the host cell using microneme and rhoptry-neck adhesins (MIC, AMA and RON proteins) and establishes a parasitophorous vacuole, a replication-permissive compartment that the parasite remodels to control host cell function.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"macrophage\", \"dendritic cell\"], \"biological_processes\": [\"symbiont entry into host cell\"], \"role\": \"central_effector\"}}, {\"id\": \"Antiretroviral Therapy for Immune Reconstitution\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"In HIV-associated toxoplasmosis, antiretroviral therapy is the definitive intervention: restoring CD4-positive T-cell-dependent surveillance removes the permissive condition for reactivation, and the incidence of cerebral toxoplasmosis falls where ART access and adherence are good. Anti-parasitic therapy treats the episode; ART is what stops it recurring.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Atovaquone-Based Salvage Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Atovaquone combined with pyrimethamine or sulfadiazine, for patients intolerant of standard regimens. A randomised phase II trial found response rates consistent with usefulness in that role, with gastrointestinal intolerance the main limitation; the trial was explicitly noncomparative, so this is a salvage option rather than a demonstrated equivalent of first-line therapy.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"atovaquone\"]}}, {\"id\": \"Bradyzoite Differentiation and Tissue Cyst Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Under stress, tachyzoites differentiate into slow-growing bradyzoites and form intracellular tissue cysts. The Myb-like transcription factor BFD1 is the master regulator of this switch: it accumulates during stress and is sufficient to drive differentiation. The resulting cysts resist both immune clearance and every currently available drug, which is why chronic infection is not curable.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"role\": \"central_effector\", \"experimental_models\": [{\"name\": \"Stress-induced bradyzoite differentiation in cell culture\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"description\": \"Provides a controllable in vitro readout of the tachyzoite-to-bradyzoite switch.\"}]}}, {\"id\": \"Bradyzoite-to-Tachyzoite Reversion and Cyst Rupture\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Once immune restraint lifts, bradyzoites within tissue cysts revert to the rapidly replicating tachyzoite stage and the cyst ruptures, releasing parasites into surrounding tissue. This parasite-side, cell-scale event is what converts a lifelong silent reservoir into active disease.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"symbiont entry into host cell\"], \"role\": \"effector\"}}, {\"id\": \"Co-trimoxazole Prophylaxis in HIV Infection\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Chemoprophylaxis of toxoplasmic encephalitis in Toxoplasma-seropositive people with advanced HIV. In a comparative cohort no patient receiving low-dose trimethoprim-sulfamethoxazole developed toxoplasmic encephalitis, against 33% of seropositive patients receiving pentamidine. Only seropositive patients are at risk, which is why baseline Toxoplasma IgG serology gates the indication.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"trimethoprim\", \"sulfamethoxazole\"]}}, {\"id\": \"Exposure to oocyst-contaminated soil, water and produce\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Environmental oocysts shed by felids contaminate water, soil and crops and are ingested via untreated water, unwashed produce or soil contact.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Fetal Neuroinflammatory Injury and Obstructive Hydrocephalus\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Fetal cerebral infection causes necrotizing, inflammatory lesions that calcify and obstruct cerebrospinal fluid pathways, producing the characteristic combination of cerebral calcification, hydrocephalus and retinochoroiditis, with neurocognitive impairment as a long-term sequela.\", \"meta\": {\"evidence_count\": 1, \"role\": \"outcome\", \"locations\": [\"brain\"]}}, {\"id\": \"Human cell culture single-cell transcriptomics of ROP/GRA effector injection\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Infected and effector-injected human host cells profiled by single-cell transcriptomics, including the \\\"uninfected-injected\\\" population that receives rhoptry effectors without being invaded. This design separates the ROP arm from the GRA arm of host-cell reprogramming.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"PRIMARY_CELL_CULTURE\", \"publication\": \"PMID:32518180\"}}, {\"id\": \"Ingestion of undercooked meat containing tissue cysts\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Dietary consumption of undercooked meat from infected intermediate hosts is a principal route by which humans acquire T. gondii.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Interferon-Gamma-Dependent Cell-Autonomous Immune Control\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Innate activation drives a Th1 response in which CD4- and CD8-positive T cells produce interferon-gamma. IFN-gamma induces a family of IFN-inducible GTPases that accumulate on the parasitophorous vacuole membrane and destroy the vacuole, clearing or arresting the parasite. This response is what restricts T. gondii to opportunistic status in healthy hosts, and its pressure is also what drives the parasite into the cyst stage.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"CD4-positive, alpha-beta T cell\", \"CD8-positive, alpha-beta T cell\", \"macrophage\"], \"biological_processes\": [\"defense response to protozoan\", \"cellular response to type II interferon\"], \"role\": \"mediator\"}}, {\"id\": \"Intestinal Epithelial Invasion and Conversion to Tachyzoites\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sporozoites and bradyzoites released in the gut lumen traverse the intestinal epithelium and convert to tachyzoites, the rapidly replicating stage that drives acute infection.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"intestinal epithelial cell\"], \"biological_processes\": [\"symbiont entry into host cell\"], \"role\": \"effector\"}}, {\"id\": \"Lifelong Latent Tissue Cyst Persistence\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Bradyzoite cysts persist indefinitely in immunoprivileged tissues, above all the brain and retina. This latent reservoir is clinically silent while T-cell-dependent surveillance is intact, and is the substrate for every later reactivation syndrome.\", \"meta\": {\"evidence_count\": 2, \"role\": \"consequence\", \"locations\": [\"brain\", \"retina\"]}}, {\"id\": \"Loss of T-Cell-Dependent Immune Surveillance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Depletion of CD4-positive T cells (advanced HIV infection), transplant immunosuppression or chemotherapy removes the interferon-gamma-dependent surveillance that keeps tissue cysts quiescent. This is the host-side, organism-scale permissive condition; the parasite-side response to it is the separate Bradyzoite-to-Tachyzoite Reversion node.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"CD4-positive, alpha-beta T cell\"], \"biological_processes\": [\"defense response to protozoan\"], \"role\": \"trigger\"}}, {\"id\": \"Necrotizing Toxoplasmic Encephalitis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Recrudescent cerebral infection produces multifocal necrotizing encephalitis. The brain is a preferred site partly because of its low inflammatory reactivity. Lesions are typically multiple and ring-enhancing, concentrated at the grey-white matter junction and the thalamus-basal ganglia region, and the syndrome is a major cause of death in AIDS.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"microglial cell\", \"astrocyte\"], \"role\": \"outcome\", \"locations\": [\"brain\"]}}, {\"id\": \"Oral Ingestion of Oocysts or Tissue Cysts\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Human infection begins with ingestion of environmentally resistant oocysts shed by felids (in soil, water or on crops) or of bradyzoite-containing tissue cysts in undercooked meat.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"symbiont entry into host\"], \"role\": \"trigger\"}}, {\"id\": \"Pyrimethamine-Clindamycin\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Alternative combination for patients intolerant of sulfadiazine, substituting clindamycin for the sulfonamide component.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"pyrimethamine\", \"clindamycin\"]}}, {\"id\": \"Pyrimethamine-Sulfadiazine with Folinic Acid\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Standard combination antiparasitic therapy for active toxoplasmosis (toxoplasmic encephalitis, confirmed fetal infection, sight-threatening ocular disease). Pyrimethamine and the sulfonamide act sequentially on the parasite folate pathway; folinic acid is co-administered to mitigate pyrimethamine-induced marrow suppression. No regimen eradicates tissue cysts, so treatment suppresses rather than cures chronic infection.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"pyrimethamine\", \"sulfadiazine\"]}}, {\"id\": \"Recurrent Necrotizing Retinochoroiditis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Episodic recrudescence of retinal cysts produces focal necrotizing retinochoroiditis. Repeated flares accumulate chorioretinal scarring and cause potentially blinding complications; ocular toxoplasmosis is the leading cause of posterior uveitis worldwide.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"retinal pigment epithelial cell\"], \"role\": \"outcome\", \"locations\": [\"retina\"]}}, {\"id\": \"Rhoptry and Dense Granule Effector-Mediated Immune Subversion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The parasite injects rhoptry (ROP) and dense granule (GRA) effectors that suppress host immunity and reprogram infected-cell gene expression. The polymorphic rhoptry kinase ROP18 is a principal virulence determinant, and the dense granule effector TgIST traffics to the host nucleus to shut down STAT1-dependent, interferon-gamma-driven transcription.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"cellular response to type II interferon\"], \"role\": \"amplifier\", \"experimental_models\": [{\"name\": \"Human cell culture single-cell transcriptomics of ROP/GRA effector injection\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"description\": \"Dissects which host transcriptional changes are attributable to injected ROP effectors versus MYR1-dependent GRA effectors.\"}]}}, {\"id\": \"Spiramycin in Maternal Infection\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Spiramycin is started as soon as maternal seroconversion is recognised, to reduce the risk of transmission to the fetus, and is switched to pyrimethamine-sulfonamide once fetal infection is confirmed.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"spiramycin\"]}}, {\"id\": \"Stress-induced bradyzoite differentiation in cell culture\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"In vitro differentiation is efficiently triggered by stress, which is what made a Cas9 screen for the differentiation switch possible and yielded BFD1. The system underpins the cyst-formation node and is the natural screening platform for the cyst-active drugs this entry records as missing.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"PRIMARY_CELL_CULTURE\", \"publication\": \"PMID:31955846\"}}, {\"id\": \"Tachyzoite Replication and Haematogenous Dissemination\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Repeated cycles of invasion, replication and host cell lysis disseminate tachyzoites throughout the body, seeding immunoprivileged tissues including brain, retina and skeletal and cardiac muscle, and, in pregnancy, the placenta.\", \"meta\": {\"evidence_count\": 1, \"role\": \"effector\", \"locations\": [\"brain\", \"retina\", \"lymph node\"]}}, {\"id\": \"Toxoplasmic Lymphadenitis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the immunocompetent host, acute acquired infection most often manifests as lymphadenitis, typically a solitary node in the head and neck without systemic symptoms and with a benign course.\", \"meta\": {\"evidence_count\": 1, \"role\": \"outcome\", \"locations\": [\"lymph node\"]}}, {\"id\": \"Transplacental Transmission and Fetal Dissemination\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"During primary maternal infection, tachyzoites cross the placenta and disseminate in a fetus whose immune system cannot contain them. Transmission probability rises steeply through gestation while the severity of the resulting fetal disease falls, so the timing of maternal seroconversion sets both the risk and the phenotype.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"trophoblast cell\"], \"role\": \"trigger\", \"locations\": [\"placenta\"]}}, {\"id\": \"Trimethoprim-Sulfamethoxazole\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"An alternative antifolate regimen for toxoplasmic encephalitis, also used for prophylaxis in HIV infection.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"trimethoprim\", \"sulfamethoxazole\"]}}, {\"id\": \"Ventriculoperitoneal Shunt for Obstructive Hydrocephalus\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Neurosurgical CSF diversion for hydrocephalus complicating congenital toxoplasmosis. Timing matters: in the National Collaborative Chicago-based Congenital Toxoplasmosis Study, shunt placement delayed beyond 25 days after diagnosis was associated with greater cognitive impairment. Outcomes were otherwise highly variable, from normal function to profound disability.\", \"meta\": {\"evidence_count\": 2}}], \"edges\": [{\"source\": \"Oral Ingestion of Oocysts or Tissue Cysts\", \"target\": \"Intestinal Epithelial Invasion and Conversion to Tachyzoites\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ingested parasite stages excyst and invade the gut wall.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intestinal Epithelial Invasion and Conversion to Tachyzoites\", \"target\": \"Active Host Cell Invasion and Parasitophorous Vacuole Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Tachyzoites propagate by repeated cycles of active host-cell invasion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Active Host Cell Invasion and Parasitophorous Vacuole Formation\", \"target\": \"Rhoptry and Dense Granule Effector-Mediated Immune Subversion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Invasion co-delivers rhoptry and dense granule effectors that reprogram the infected cell.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Active Host Cell Invasion and Parasitophorous Vacuole Formation\", \"target\": \"Tachyzoite Replication and Haematogenous Dissemination\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Successful intracellular replication seeds systemic spread.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Rhoptry and Dense Granule Effector-Mediated Immune Subversion\", \"target\": \"Interferon-Gamma-Dependent Cell-Autonomous Immune Control\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Effector-mediated subversion directly antagonises the IFN-gamma-driven killing programme, blunting clearance.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Tachyzoite Replication and Haematogenous Dissemination\", \"target\": \"Interferon-Gamma-Dependent Cell-Autonomous Immune Control\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disseminating parasites elicit the protective Th1/IFN-gamma response.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Tachyzoite Replication and Haematogenous Dissemination\", \"target\": \"Toxoplasmic Lymphadenitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Regional lymph node involvement is the usual symptomatic expression of acute dissemination.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Tachyzoite Replication and Haematogenous Dissemination\", \"target\": \"Transplacental Transmission and Fetal Dissemination\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"During primary maternal infection, circulating tachyzoites can cross the placenta into the fetus.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Interferon-Gamma-Dependent Cell-Autonomous Immune Control\", \"target\": \"Bradyzoite Differentiation and Tissue Cyst Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Immune pressure is the physiological stress that drives tachyzoite-to-bradyzoite conversion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bradyzoite Differentiation and Tissue Cyst Formation\", \"target\": \"Lifelong Latent Tissue Cyst Persistence\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Encystment establishes the lifelong reservoir.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lifelong Latent Tissue Cyst Persistence\", \"target\": \"Loss of T-Cell-Dependent Immune Surveillance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"When immune surveillance fails, cysts rupture and bradyzoites revert to tachyzoites.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lifelong Latent Tissue Cyst Persistence\", \"target\": \"Recurrent Necrotizing Retinochoroiditis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Retinal cysts recrudesce episodically, producing the relapsing ocular disease seen even in immunocompetent hosts.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Local cyst rupture at the margin of a pre-existing retinal scar\", \"Focal inflammatory response to released parasite antigen\"]}, {\"source\": \"Loss of T-Cell-Dependent Immune Surveillance\", \"target\": \"Bradyzoite-to-Tachyzoite Reversion and Cyst Rupture\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Withdrawal of immune pressure permits the encysted parasite to revert to the replicating stage.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bradyzoite-to-Tachyzoite Reversion and Cyst Rupture\", \"target\": \"Necrotizing Toxoplasmic Encephalitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Uncontrolled cerebral tachyzoite replication destroys brain parenchyma.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Transplacental Transmission and Fetal Dissemination\", \"target\": \"Fetal Neuroinflammatory Injury and Obstructive Hydrocephalus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fetal CNS infection produces the defining neurological lesions.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ingestion of undercooked meat containing tissue cysts\", \"target\": \"Oral Ingestion of Oocysts or Tissue Cysts\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Undercooked meat delivers viable bradyzoite tissue cysts to the gut, which is the meat-borne arm of the entry node.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Exposure to oocyst-contaminated soil, water and produce\", \"target\": \"Oral Ingestion of Oocysts or Tissue Cysts\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Environmental oocyst ingestion is the non-meat arm of the entry node and operates independently of direct contact with cats.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Pyrimethamine-Sulfadiazine with Folinic Acid\", \"target\": \"Tachyzoite Replication and Haematogenous Dissemination\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Spiramycin in Maternal Infection\", \"target\": \"Transplacental Transmission and Fetal Dissemination\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Trimethoprim-Sulfamethoxazole\", \"target\": \"Tachyzoite Replication and Haematogenous Dissemination\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Pyrimethamine-Clindamycin\", \"target\": \"Tachyzoite Replication and Haematogenous Dissemination\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Antiretroviral Therapy for Immune Reconstitution\", \"target\": \"Loss of T-Cell-Dependent Immune Surveillance\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Co-trimoxazole Prophylaxis in HIV Infection\", \"target\": \"Tachyzoite Replication and Haematogenous Dissemination\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Atovaquone-Based Salvage Therapy\", \"target\": \"Tachyzoite Replication and Haematogenous Dissemination\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Ventriculoperitoneal Shunt for Obstructive Hydrocephalus\", \"target\": \"Fetal Neuroinflammatory Injury and Obstructive Hydrocephalus\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Human cell culture single-cell transcriptomics of ROP/GRA effector injection\", \"target\": \"Rhoptry and Dense Granule Effector-Mediated Immune Subversion\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Dissects which host transcriptional changes are attributable to injected ROP effectors versus MYR1-dependent GRA effectors.\"}, {\"source\": \"Stress-induced bradyzoite differentiation in cell culture\", \"target\": \"Bradyzoite Differentiation and Tissue Cyst Formation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Provides a controllable in vitro readout of the tachyzoite-to-bradyzoite switch.\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Active Host Cell Invasion and Parasitophorous Vacuole Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Rather than being passively phagocytosed, the tachyzoite actively penetrates the host cell using microneme and rhoptry-neck adhesins (MIC, AMA and RON proteins) and establishes a parasitophorous vacuole, a replication-permissive compartment that the parasite remodels to control host cell function.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"macrophage\", \"dendritic cell\"], \"biological_processes\": [\"symbiont entry into host cell\"], \"role\": \"central_effector\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Antiretroviral Therapy for Immune Reconstitution\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"In HIV-associated toxoplasmosis, antiretroviral therapy is the definitive intervention: restoring CD4-positive T-cell-dependent surveillance removes the permissive condition for reactivation, and the incidence of cerebral toxoplasmosis falls where ART access and adherence are good. Anti-parasitic therapy treats the episode; ART is what stops it recurring.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Atovaquone-Based Salvage Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Atovaquone combined with pyrimethamine or sulfadiazine, for patients intolerant of standard regimens. A randomised phase II trial found response rates consistent with usefulness in that role, with gastrointestinal intolerance the main limitation; the trial was explicitly noncomparative, so this is a salvage option rather than a demonstrated equivalent of first-line therapy.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"atovaquone\"]}}, {\"id\": \"Bradyzoite Differentiation and Tissue Cyst Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Under stress, tachyzoites differentiate into slow-growing bradyzoites and form intracellular tissue cysts. The Myb-like transcription factor BFD1 is the master regulator of this switch: it accumulates during stress and is sufficient to drive differentiation. The resulting cysts resist both immune clearance and every currently available drug, which is why chronic infection is not curable.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"neuron\"], \"role\": \"central_effector\", \"mechanism_confidence\": \"ESTABLISHED\", \"experimental_models\": [{\"name\": \"Stress-induced bradyzoite differentiation in cell culture\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"description\": \"Provides a controllable in vitro readout of the tachyzoite-to-bradyzoite switch.\"}]}}, {\"id\": \"Bradyzoite-to-Tachyzoite Reversion and Cyst Rupture\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Once immune restraint lifts, bradyzoites within tissue cysts revert to the rapidly replicating tachyzoite stage and the cyst ruptures, releasing parasites into surrounding tissue. This parasite-side, cell-scale event is what converts a lifelong silent reservoir into active disease.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"symbiont entry into host cell\"], \"role\": \"effector\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Co-trimoxazole Prophylaxis in HIV Infection\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Chemoprophylaxis of toxoplasmic encephalitis in Toxoplasma-seropositive people with advanced HIV. In a comparative cohort no patient receiving low-dose trimethoprim-sulfamethoxazole developed toxoplasmic encephalitis, against 33% of seropositive patients receiving pentamidine. Only seropositive patients are at risk, which is why baseline Toxoplasma IgG serology gates the indication.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"trimethoprim\", \"sulfamethoxazole\"]}}, {\"id\": \"Exposure to oocyst-contaminated soil, water and produce\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Environmental oocysts shed by felids contaminate water, soil and crops and are ingested via untreated water, unwashed produce or soil contact.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Fetal Neuroinflammatory Injury and Obstructive Hydrocephalus\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Fetal cerebral infection causes necrotizing, inflammatory lesions that calcify and obstruct cerebrospinal fluid pathways, producing the characteristic combination of cerebral calcification, hydrocephalus and retinochoroiditis, with neurocognitive impairment as a long-term sequela.\", \"meta\": {\"evidence_count\": 1, \"role\": \"outcome\", \"locations\": [\"brain\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Human cell culture single-cell transcriptomics of ROP/GRA effector injection\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Infected and effector-injected human host cells profiled by single-cell transcriptomics, including the \\\"uninfected-injected\\\" population that receives rhoptry effectors without being invaded. This design separates the ROP arm from the GRA arm of host-cell reprogramming.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"PRIMARY_CELL_CULTURE\", \"publication\": \"PMID:32518180\"}}, {\"id\": \"Ingestion of undercooked meat containing tissue cysts\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Dietary consumption of undercooked meat from infected intermediate hosts is a principal route by which humans acquire T. gondii.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Interferon-Gamma-Dependent Cell-Autonomous Immune Control\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Innate activation drives a Th1 response in which CD4- and CD8-positive T cells produce interferon-gamma. IFN-gamma induces a family of IFN-inducible GTPases that accumulate on the parasitophorous vacuole membrane and destroy the vacuole, clearing or arresting the parasite. This response is what restricts T. gondii to opportunistic status in healthy hosts, and its pressure is also what drives the parasite into the cyst stage.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"CD4-positive, alpha-beta T cell\", \"CD8-positive, alpha-beta T cell\", \"macrophage\"], \"biological_processes\": [\"defense response to protozoan\", \"cellular response to type II interferon\"], \"role\": \"mediator\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Intestinal Epithelial Invasion and Conversion to Tachyzoites\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sporozoites and bradyzoites released in the gut lumen traverse the intestinal epithelium and convert to tachyzoites, the rapidly replicating stage that drives acute infection.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"intestinal epithelial cell\"], \"biological_processes\": [\"symbiont entry into host cell\"], \"role\": \"effector\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Lifelong Latent Tissue Cyst Persistence\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Bradyzoite cysts persist indefinitely in immunoprivileged tissues, above all the brain and retina. This latent reservoir is clinically silent while T-cell-dependent surveillance is intact, and is the substrate for every later reactivation syndrome.\", \"meta\": {\"evidence_count\": 2, \"role\": \"consequence\", \"locations\": [\"brain\", \"retina\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Loss of T-Cell-Dependent Immune Surveillance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Depletion of CD4-positive T cells (advanced HIV infection), transplant immunosuppression or chemotherapy removes the interferon-gamma-dependent surveillance that keeps tissue cysts quiescent. This is the host-side, organism-scale permissive condition; the parasite-side response to it is the separate Bradyzoite-to-Tachyzoite Reversion node.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"CD4-positive, alpha-beta T cell\"], \"biological_processes\": [\"defense response to protozoan\"], \"role\": \"trigger\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Necrotizing Toxoplasmic Encephalitis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Recrudescent cerebral infection produces multifocal necrotizing encephalitis. The brain is a preferred site partly because of its low inflammatory reactivity. Lesions are typically multiple and ring-enhancing, concentrated at the grey-white matter junction and the thalamus-basal ganglia region, and the syndrome is a major cause of death in AIDS.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"microglial cell\", \"astrocyte\"], \"role\": \"outcome\", \"locations\": [\"brain\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Oral Ingestion of Oocysts or Tissue Cysts\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Human infection begins with ingestion of environmentally resistant oocysts shed by felids (in soil, water or on crops) or of bradyzoite-containing tissue cysts in undercooked meat.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"symbiont entry into host\"], \"role\": \"trigger\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Pyrimethamine-Clindamycin\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Alternative combination for patients intolerant of sulfadiazine, substituting clindamycin for the sulfonamide component.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"pyrimethamine\", \"clindamycin\"]}}, {\"id\": \"Pyrimethamine-Sulfadiazine with Folinic Acid\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Standard combination antiparasitic therapy for active toxoplasmosis (toxoplasmic encephalitis, confirmed fetal infection, sight-threatening ocular disease). Pyrimethamine and the sulfonamide act sequentially on the parasite folate pathway; folinic acid is co-administered to mitigate pyrimethamine-induced marrow suppression. No regimen eradicates tissue cysts, so treatment suppresses rather than cures chronic infection.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"pyrimethamine\", \"sulfadiazine\"]}}, {\"id\": \"Recurrent Necrotizing Retinochoroiditis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Episodic recrudescence of retinal cysts produces focal necrotizing retinochoroiditis. Repeated flares accumulate chorioretinal scarring and cause potentially blinding complications; ocular toxoplasmosis is the leading cause of posterior uveitis worldwide.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"retinal pigment epithelial cell\"], \"role\": \"outcome\", \"locations\": [\"retina\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Rhoptry and Dense Granule Effector-Mediated Immune Subversion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The parasite injects rhoptry (ROP) and dense granule (GRA) effectors that suppress host immunity and reprogram infected-cell gene expression. The polymorphic rhoptry kinase ROP18 is a principal virulence determinant, and the dense granule effector TgIST traffics to the host nucleus to shut down STAT1-dependent, interferon-gamma-driven transcription.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"cellular response to type II interferon\"], \"role\": \"amplifier\", \"mechanism_confidence\": \"ESTABLISHED\", \"experimental_models\": [{\"name\": \"Human cell culture single-cell transcriptomics of ROP/GRA effector injection\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"description\": \"Dissects which host transcriptional changes are attributable to injected ROP effectors versus MYR1-dependent GRA effectors.\"}]}}, {\"id\": \"Spiramycin in Maternal Infection\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Spiramycin is started as soon as maternal seroconversion is recognised, to reduce the risk of transmission to the fetus, and is switched to pyrimethamine-sulfonamide once fetal infection is confirmed.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"spiramycin\"]}}, {\"id\": \"Stress-induced bradyzoite differentiation in cell culture\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"In vitro differentiation is efficiently triggered by stress, which is what made a Cas9 screen for the differentiation switch possible and yielded BFD1. The system underpins the cyst-formation node and is the natural screening platform for the cyst-active drugs this entry records as missing.\", \"meta\": {\"evidence_count\": 1, \"model_type\": \"PRIMARY_CELL_CULTURE\", \"publication\": \"PMID:31955846\"}}, {\"id\": \"Tachyzoite Replication and Haematogenous Dissemination\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Repeated cycles of invasion, replication and host cell lysis disseminate tachyzoites throughout the body, seeding immunoprivileged tissues including brain, retina and skeletal and cardiac muscle, and, in pregnancy, the placenta.\", \"meta\": {\"evidence_count\": 1, \"role\": \"effector\", \"locations\": [\"brain\", \"retina\", \"lymph node\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Toxoplasmic Lymphadenitis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the immunocompetent host, acute acquired infection most often manifests as lymphadenitis, typically a solitary node in the head and neck without systemic symptoms and with a benign course.\", \"meta\": {\"evidence_count\": 1, \"role\": \"outcome\", \"locations\": [\"lymph node\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Transplacental Transmission and Fetal Dissemination\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"During primary maternal infection, tachyzoites cross the placenta and disseminate in a fetus whose immune system cannot contain them. Transmission probability rises steeply through gestation while the severity of the resulting fetal disease falls, so the timing of maternal seroconversion sets both the risk and the phenotype.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"trophoblast cell\"], \"role\": \"trigger\", \"locations\": [\"placenta\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Trimethoprim-Sulfamethoxazole\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"An alternative antifolate regimen for toxoplasmic encephalitis, also used for prophylaxis in HIV infection.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"trimethoprim\", \"sulfamethoxazole\"]}}, {\"id\": \"Ventriculoperitoneal Shunt for Obstructive Hydrocephalus\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Neurosurgical CSF diversion for hydrocephalus complicating congenital toxoplasmosis. Timing matters: in the National Collaborative Chicago-based Congenital Toxoplasmosis Study, shunt placement delayed beyond 25 days after diagnosis was associated with greater cognitive impairment. Outcomes were otherwise highly variable, from normal function to profound disability.\", \"meta\": {\"evidence_count\": 2}}], \"edges\": [{\"source\": \"Oral Ingestion of Oocysts or Tissue Cysts\", \"target\": \"Intestinal Epithelial Invasion and Conversion to Tachyzoites\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Ingested parasite stages excyst and invade the gut wall.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intestinal Epithelial Invasion and Conversion to Tachyzoites\", \"target\": \"Active Host Cell Invasion and Parasitophorous Vacuole Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Tachyzoites propagate by repeated cycles of active host-cell invasion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Active Host Cell Invasion and Parasitophorous Vacuole Formation\", \"target\": \"Rhoptry and Dense Granule Effector-Mediated Immune Subversion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Invasion co-delivers rhoptry and dense granule effectors that reprogram the infected cell.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Active Host Cell Invasion and Parasitophorous Vacuole Formation\", \"target\": \"Tachyzoite Replication and Haematogenous Dissemination\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Successful intracellular replication seeds systemic spread.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Rhoptry and Dense Granule Effector-Mediated Immune Subversion\", \"target\": \"Interferon-Gamma-Dependent Cell-Autonomous Immune Control\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Effector-mediated subversion directly antagonises the IFN-gamma-driven killing programme, blunting clearance.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Tachyzoite Replication and Haematogenous Dissemination\", \"target\": \"Interferon-Gamma-Dependent Cell-Autonomous Immune Control\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disseminating parasites elicit the protective Th1/IFN-gamma response.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Tachyzoite Replication and Haematogenous Dissemination\", \"target\": \"Toxoplasmic Lymphadenitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Regional lymph node involvement is the usual symptomatic expression of acute dissemination.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Tachyzoite Replication and Haematogenous Dissemination\", \"target\": \"Transplacental Transmission and Fetal Dissemination\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"During primary maternal infection, circulating tachyzoites can cross the placenta into the fetus.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Interferon-Gamma-Dependent Cell-Autonomous Immune Control\", \"target\": \"Bradyzoite Differentiation and Tissue Cyst Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Immune pressure is the physiological stress that drives tachyzoite-to-bradyzoite conversion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bradyzoite Differentiation and Tissue Cyst Formation\", \"target\": \"Lifelong Latent Tissue Cyst Persistence\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Encystment establishes the lifelong reservoir.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lifelong Latent Tissue Cyst Persistence\", \"target\": \"Loss of T-Cell-Dependent Immune Surveillance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"When immune surveillance fails, cysts rupture and bradyzoites revert to tachyzoites.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Lifelong Latent Tissue Cyst Persistence\", \"target\": \"Recurrent Necrotizing Retinochoroiditis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Retinal cysts recrudesce episodically, producing the relapsing ocular disease seen even in immunocompetent hosts.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"Local cyst rupture at the margin of a pre-existing retinal scar\", \"Focal inflammatory response to released parasite antigen\"]}, {\"source\": \"Loss of T-Cell-Dependent Immune Surveillance\", \"target\": \"Bradyzoite-to-Tachyzoite Reversion and Cyst Rupture\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Withdrawal of immune pressure permits the encysted parasite to revert to the replicating stage.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Bradyzoite-to-Tachyzoite Reversion and Cyst Rupture\", \"target\": \"Necrotizing Toxoplasmic Encephalitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Uncontrolled cerebral tachyzoite replication destroys brain parenchyma.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Transplacental Transmission and Fetal Dissemination\", \"target\": \"Fetal Neuroinflammatory Injury and Obstructive Hydrocephalus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Fetal CNS infection produces the defining neurological lesions.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Ingestion of undercooked meat containing tissue cysts\", \"target\": \"Oral Ingestion of Oocysts or Tissue Cysts\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Undercooked meat delivers viable bradyzoite tissue cysts to the gut, which is the meat-borne arm of the entry node.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Exposure to oocyst-contaminated soil, water and produce\", \"target\": \"Oral Ingestion of Oocysts or Tissue Cysts\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Environmental oocyst ingestion is the non-meat arm of the entry node and operates independently of direct contact with cats.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Pyrimethamine-Sulfadiazine with Folinic Acid\", \"target\": \"Tachyzoite Replication and Haematogenous Dissemination\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Spiramycin in Maternal Infection\", \"target\": \"Transplacental Transmission and Fetal Dissemination\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Trimethoprim-Sulfamethoxazole\", \"target\": \"Tachyzoite Replication and Haematogenous Dissemination\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Pyrimethamine-Clindamycin\", \"target\": \"Tachyzoite Replication and Haematogenous Dissemination\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Antiretroviral Therapy for Immune Reconstitution\", \"target\": \"Loss of T-Cell-Dependent Immune Surveillance\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Co-trimoxazole Prophylaxis in HIV Infection\", \"target\": \"Tachyzoite Replication and Haematogenous Dissemination\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Atovaquone-Based Salvage Therapy\", \"target\": \"Tachyzoite Replication and Haematogenous Dissemination\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Ventriculoperitoneal Shunt for Obstructive Hydrocephalus\", \"target\": \"Fetal Neuroinflammatory Injury and Obstructive Hydrocephalus\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Human cell culture single-cell transcriptomics of ROP/GRA effector injection\", \"target\": \"Rhoptry and Dense Granule Effector-Mediated Immune Subversion\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Dissects which host transcriptional changes are attributable to injected ROP effectors versus MYR1-dependent GRA effectors.\"}, {\"source\": \"Stress-induced bradyzoite differentiation in cell culture\", \"target\": \"Bradyzoite Differentiation and Tissue Cyst Formation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Provides a controllable in vitro readout of the tachyzoite-to-bradyzoite switch.\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -7386,6 +7596,9 @@ This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7400,6 +7613,7 @@ This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7424,6 +7638,7 @@ This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7505,6 +7720,9 @@ This clinical feature is Chorioretinitis (HP:0012424), qualified as temporality 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7519,6 +7737,7 @@ This clinical feature is Chorioretinitis (HP:0012424), qualified as temporality 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7543,6 +7762,7 @@ This clinical feature is Chorioretinitis (HP:0012424), qualified as temporality 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7615,6 +7835,9 @@ This clinical feature is Visual impairment (HP:0000505), qualified as course pro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7629,6 +7852,7 @@ This clinical feature is Visual impairment (HP:0000505), qualified as course pro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7653,6 +7877,7 @@ This clinical feature is Visual impairment (HP:0000505), qualified as course pro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7716,6 +7941,9 @@ This clinical feature is Infectious encephalitis (HP:0002383). HP:0002383 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7730,6 +7958,7 @@ This clinical feature is Infectious encephalitis (HP:0002383). HP:0002383 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7754,6 +7983,7 @@ This clinical feature is Infectious encephalitis (HP:0002383). HP:0002383 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7819,6 +8049,9 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7833,6 +8066,7 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7896,6 +8130,9 @@ This clinical feature is Cerebral calcification (HP:0002514). HP:0002514 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7910,6 +8147,7 @@ This clinical feature is Cerebral calcification (HP:0002514). HP:0002514 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7973,6 +8211,9 @@ This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7987,6 +8228,7 @@ This clinical feature is Hydrocephalus (HP:0000238). HP:0000238 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8043,6 +8285,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8057,6 +8302,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8113,6 +8359,9 @@ This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8127,6 +8376,7 @@ This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8183,6 +8433,9 @@ This clinical feature is Hemiparesis (HP:0001269). HP:0001269 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8197,6 +8450,7 @@ This clinical feature is Hemiparesis (HP:0001269). HP:0001269 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8251,6 +8505,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8265,6 +8522,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8328,6 +8586,9 @@ This clinical feature is Premature birth (HP:0001622). HP:0001622 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8342,6 +8603,7 @@ This clinical feature is Premature birth (HP:0001622). HP:0001622 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8440,6 +8702,9 @@ This disease-associated gene is NLRP1 (hgnc:14374). hgnc:14374 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8454,6 +8719,7 @@ This disease-associated gene is NLRP1 (hgnc:14374). hgnc:14374 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8478,6 +8744,7 @@ This disease-associated gene is NLRP1 (hgnc:14374). hgnc:14374 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8519,6 +8786,9 @@ This disease-associated gene is NLRP1 (hgnc:14374). hgnc:14374 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8533,6 +8803,7 @@ This disease-associated gene is NLRP1 (hgnc:14374). hgnc:14374 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8557,6 +8828,7 @@ This disease-associated gene is NLRP1 (hgnc:14374). hgnc:14374 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8598,6 +8870,9 @@ This disease-associated gene is NLRP1 (hgnc:14374). hgnc:14374 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8612,6 +8887,7 @@ This disease-associated gene is NLRP1 (hgnc:14374). hgnc:14374 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8636,6 +8912,7 @@ This disease-associated gene is NLRP1 (hgnc:14374). hgnc:14374 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8760,6 +9037,9 @@ This treatment uses sulfadiazine (CHEBI:9328). CHEBI:9328 is a therapeutic agent
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8770,6 +9050,9 @@ This treatment uses sulfadiazine (CHEBI:9328). CHEBI:9328 is a therapeutic agent
 
 
     </div>
+
+
+
 
 
 
@@ -8806,6 +9089,7 @@ This treatment uses sulfadiazine (CHEBI:9328). CHEBI:9328 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8852,6 +9136,7 @@ This treatment uses sulfadiazine (CHEBI:9328). CHEBI:9328 is a therapeutic agent
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8873,6 +9158,7 @@ This treatment uses sulfadiazine (CHEBI:9328). CHEBI:9328 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8961,6 +9247,9 @@ This treatment uses spiramycin (CHEBI:748977). CHEBI:748977 is a therapeutic age
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8971,6 +9260,9 @@ This treatment uses spiramycin (CHEBI:748977). CHEBI:748977 is a therapeutic age
 
 
     </div>
+
+
+
 
 
 
@@ -9007,6 +9299,7 @@ This treatment uses spiramycin (CHEBI:748977). CHEBI:748977 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9053,6 +9346,7 @@ This treatment uses spiramycin (CHEBI:748977). CHEBI:748977 is a therapeutic age
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9074,6 +9368,7 @@ This treatment uses spiramycin (CHEBI:748977). CHEBI:748977 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9179,6 +9474,9 @@ This treatment uses sulfamethoxazole (CHEBI:9332). CHEBI:9332 is a therapeutic a
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9189,6 +9487,9 @@ This treatment uses sulfamethoxazole (CHEBI:9332). CHEBI:9332 is a therapeutic a
 
 
     </div>
+
+
+
 
 
 
@@ -9225,6 +9526,7 @@ This treatment uses sulfamethoxazole (CHEBI:9332). CHEBI:9332 is a therapeutic a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9268,6 +9570,7 @@ This treatment uses sulfamethoxazole (CHEBI:9332). CHEBI:9332 is a therapeutic a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9373,6 +9676,9 @@ This treatment uses clindamycin (CHEBI:3745). CHEBI:3745 is a therapeutic agent 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9383,6 +9689,9 @@ This treatment uses clindamycin (CHEBI:3745). CHEBI:3745 is a therapeutic agent 
 
 
     </div>
+
+
+
 
 
 
@@ -9419,6 +9728,7 @@ This treatment uses clindamycin (CHEBI:3745). CHEBI:3745 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9462,6 +9772,7 @@ This treatment uses clindamycin (CHEBI:3745). CHEBI:3745 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9528,6 +9839,9 @@ This treatment is Antiretroviral Therapy (NCIT:C94631). NCIT:C94631 is a clinica
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9538,6 +9852,9 @@ This treatment is Antiretroviral Therapy (NCIT:C94631). NCIT:C94631 is a clinica
 
 
     </div>
+
+
+
 
 
 
@@ -9574,6 +9891,7 @@ This treatment is Antiretroviral Therapy (NCIT:C94631). NCIT:C94631 is a clinica
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9620,6 +9938,7 @@ This treatment is Antiretroviral Therapy (NCIT:C94631). NCIT:C94631 is a clinica
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9641,6 +9960,7 @@ This treatment is Antiretroviral Therapy (NCIT:C94631). NCIT:C94631 is a clinica
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9746,6 +10066,9 @@ This treatment uses sulfamethoxazole (CHEBI:9332). CHEBI:9332 is a therapeutic a
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9756,6 +10079,9 @@ This treatment uses sulfamethoxazole (CHEBI:9332). CHEBI:9332 is a therapeutic a
 
 
     </div>
+
+
+
 
 
 
@@ -9792,6 +10118,7 @@ This treatment uses sulfamethoxazole (CHEBI:9332). CHEBI:9332 is a therapeutic a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9835,6 +10162,7 @@ This treatment uses sulfamethoxazole (CHEBI:9332). CHEBI:9332 is a therapeutic a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9923,6 +10251,9 @@ This treatment uses atovaquone (CHEBI:575568). CHEBI:575568 is a therapeutic age
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9933,6 +10264,9 @@ This treatment uses atovaquone (CHEBI:575568). CHEBI:575568 is a therapeutic age
 
 
     </div>
+
+
+
 
 
 
@@ -9969,6 +10303,7 @@ This treatment uses atovaquone (CHEBI:575568). CHEBI:575568 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10015,6 +10350,7 @@ This treatment uses atovaquone (CHEBI:575568). CHEBI:575568 is a therapeutic age
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10036,6 +10372,7 @@ This treatment uses atovaquone (CHEBI:575568). CHEBI:575568 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10124,6 +10461,9 @@ This treatment uses corticosteroid (CHEBI:50858). CHEBI:50858 is a therapeutic a
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10134,6 +10474,9 @@ This treatment uses corticosteroid (CHEBI:50858). CHEBI:50858 is a therapeutic a
 
 
     </div>
+
+
+
 
 
 
@@ -10164,6 +10507,7 @@ This treatment uses corticosteroid (CHEBI:50858). CHEBI:50858 is a therapeutic a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10185,6 +10529,7 @@ This treatment uses corticosteroid (CHEBI:50858). CHEBI:50858 is a therapeutic a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10251,6 +10596,9 @@ This treatment is Ventriculoperitoneal Shunt Placement (NCIT:C168483). NCIT:C168
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10261,6 +10609,9 @@ This treatment is Ventriculoperitoneal Shunt Placement (NCIT:C168483). NCIT:C168
 
 
     </div>
+
+
+
 
 
 
@@ -10297,6 +10648,7 @@ This treatment is Ventriculoperitoneal Shunt Placement (NCIT:C168483). NCIT:C168
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10343,6 +10695,7 @@ This treatment is Ventriculoperitoneal Shunt Placement (NCIT:C168483). NCIT:C168
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10364,6 +10717,7 @@ This treatment is Ventriculoperitoneal Shunt Placement (NCIT:C168483). NCIT:C168
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10430,6 +10784,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10440,6 +10797,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -10470,6 +10830,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10494,6 +10855,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10515,6 +10877,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10605,6 +10968,7 @@ This environmental factor is exposure to Toxoplasma gondii (ECTO:3000006). ECTO:
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10653,6 +11017,7 @@ This environmental factor is exposure to Toxoplasma gondii (ECTO:3000006). ECTO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10733,6 +11098,7 @@ This environmental factor is exposure to Toxoplasma gondii (ECTO:3000006). ECTO:
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10784,6 +11150,7 @@ This environmental factor is exposure to Toxoplasma gondii (ECTO:3000006). ECTO:
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10805,6 +11172,7 @@ This environmental factor is exposure to Toxoplasma gondii (ECTO:3000006). ECTO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10881,6 +11249,7 @@ This environmental factor is exposure to Toxoplasma gondii (ECTO:3000006). ECTO:
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10935,6 +11304,7 @@ This environmental factor is exposure to Toxoplasma gondii (ECTO:3000006). ECTO:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10956,6 +11326,7 @@ This environmental factor is exposure to Toxoplasma gondii (ECTO:3000006). ECTO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11013,6 +11384,7 @@ This environmental factor is exposure to Toxoplasma gondii (ECTO:3000006). ECTO:
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11067,6 +11439,7 @@ This environmental factor is exposure to Toxoplasma gondii (ECTO:3000006). ECTO:
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11118,6 +11491,7 @@ This environmental factor is exposure to Toxoplasma gondii (ECTO:3000006). ECTO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11237,6 +11611,7 @@ This environmental factor is exposure to Toxoplasma gondii (ECTO:3000006). ECTO:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11258,6 +11633,7 @@ This environmental factor is exposure to Toxoplasma gondii (ECTO:3000006). ECTO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11325,6 +11701,7 @@ This environmental factor is exposure to Toxoplasma gondii (ECTO:3000006). ECTO:
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11377,6 +11754,7 @@ This environmental factor is exposure to Toxoplasma gondii (ECTO:3000006). ECTO:
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11398,6 +11776,7 @@ This environmental factor is exposure to Toxoplasma gondii (ECTO:3000006). ECTO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11450,6 +11829,7 @@ This environmental factor is exposure to Toxoplasma gondii (ECTO:3000006). ECTO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11526,6 +11906,7 @@ This environmental factor is exposure to Toxoplasma gondii (ECTO:3000006). ECTO:
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11547,6 +11928,7 @@ This environmental factor is exposure to Toxoplasma gondii (ECTO:3000006). ECTO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11600,6 +11982,7 @@ This environmental factor is exposure to Toxoplasma gondii (ECTO:3000006). ECTO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11668,6 +12051,7 @@ This environmental factor is exposure to Toxoplasma gondii (ECTO:3000006). ECTO:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11723,6 +12107,7 @@ This environmental factor is exposure to Toxoplasma gondii (ECTO:3000006). ECTO:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11744,6 +12129,7 @@ This environmental factor is exposure to Toxoplasma gondii (ECTO:3000006). ECTO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11802,6 +12188,7 @@ This environmental factor is exposure to Toxoplasma gondii (ECTO:3000006). ECTO:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11826,6 +12213,7 @@ This environmental factor is exposure to Toxoplasma gondii (ECTO:3000006). ECTO:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11847,6 +12235,7 @@ This environmental factor is exposure to Toxoplasma gondii (ECTO:3000006). ECTO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11944,6 +12333,7 @@ This environmental factor is exposure to Toxoplasma gondii (ECTO:3000006). ECTO:
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11965,6 +12355,7 @@ This environmental factor is exposure to Toxoplasma gondii (ECTO:3000006). ECTO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12026,6 +12417,7 @@ This environmental factor is exposure to Toxoplasma gondii (ECTO:3000006). ECTO:
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -12072,6 +12464,7 @@ This environmental factor is exposure to Toxoplasma gondii (ECTO:3000006). ECTO:
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -12093,6 +12486,7 @@ This environmental factor is exposure to Toxoplasma gondii (ECTO:3000006). ECTO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12142,6 +12536,7 @@ This environmental factor is exposure to Toxoplasma gondii (ECTO:3000006). ECTO:
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -12163,6 +12558,7 @@ This environmental factor is exposure to Toxoplasma gondii (ECTO:3000006). ECTO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12471,6 +12867,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -12515,6 +12912,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12606,6 +13004,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -12650,6 +13049,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12736,6 +13136,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -12812,6 +13213,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -12879,6 +13281,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -15910,6 +16313,57 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (3)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Deep research for this entry was run with the claude_code provider (research/Toxoplasmosis-deep-research-claude_code.md). Its narrative biology was broadly accurate, but every PMID in its citation table proved to be fabricated — all fourteen resolved to unrelated papers — and it also mis-stated the MONDO id (giving MONDO:0005108 for toxoplasmosis rather than MONDO:0005989), the HPO term for chorioretinitis (giving HP:0000585, which is Band keratopathy), and the CHEBI id for pyrimethamine. The report was therefore used only as a topic outline; every reference, snippet and ontology term in this entry was independently searched, fetched and verified.
+Review round 1 (PR #8245) added the genetic, animal_models and experimental_models sections, subtype MONDO bindings, serology/IgG-avidity diagnostics, five further treatments (ART, co-trimoxazole prophylaxis, atovaquone salvage, adjunctive corticosteroids, VP shunt), four further phenotypes and the reactivation-risk epidemiology. The same discipline applied: none of it was sourced from the deep-research citation table. Two deliberate non-additions: no histopathology section, because no source with a quotable abstract describing the microglial-nodule/necrotizing pattern in humans could be found, and no purine-salvage node, for the same reason. Both are better left absent than fabricated.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Review round 1: address PR #8245 completeness gaps</strong> · 2026-08-09T00:49:37Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Toxoplasmosis/2026-08-09T004937Z-claude-code-466e38.yaml">View source</a></p>
+                        <p class="research-review-text">Round-1 review response for PR #8245 (reviewer: ai4c-reviewer, REQUEST_CHANGES, no CRITICAL issues, 6 IMPORTANT + 5 SUGGESTION items).
+
+All six IMPORTANT items addressed:
+1. Subtype MONDO bindings — added subtype_term to Congenital (MONDO:0005715), Ocular (MONDO:0005879) and Reactivation (MONDO:0005697). Acquired deliberately left unbound: MONDO has no term for postnatally acquired immunocompetent toxoplasmosis, and the reason is stated in its description rather than left implicit.
+2. genetic: section added — NLRP1/NALP1 host susceptibility locus (hgnc:14374, SUSCEPTIBILITY, PMID:21098108), the three-clonal-lineage parasite population structure (PMID:7594717, Howe &amp; Sibley), and the NE-II serotype/prematurity-severity association (PMID:22499837, NCCCTS). No gene_term on the two parasite entries — HGNC is a human gene nomenclature and has no identifier for a parasite strain lineage; this is stated in the notes rather than forced.
+3. diagnosis: expanded — serology as primary modality (PMID:35694771) and IgG avidity dating of maternal infection (PMID:27762213), alongside the existing amniotic-fluid PCR and neuroimaging entries.
+4. treatments: five added — antiretroviral therapy (NCIT:C94631), co-trimoxazole prophylaxis (NCIT:C15604, PMID:1351371), atovaquone salvage (PMID:11941551), adjunctive corticosteroids (PMID:28125765) and VP shunt (NCIT:C168483, PMID:31491752).
+5. target_mechanisms added to TMP-SMX and pyrimethamine-clindamycin, plus to all five new treatments; every treatment now joins the pathograph.
+6. animal_models: (3 murine models) and experimental_models: (2 cell-culture models) added, with modeled_mechanisms linking back to the ROP/GRA effector and bradyzoite-differentiation nodes.
+
+Suggestions taken: split the bundled node &#34;Loss of T-Cell Control and Cyst Recrudescence&#34; into &#34;Loss of T-Cell-Dependent Immune Surveillance&#34; (ORGANISM, trigger) and &#34;Bradyzoite-to-Tachyzoite Reversion and Cyst Rupture&#34; (CELLULAR, effector), rewiring all three inbound references; four phenotypes added with quantitative frequency support (headache FREQUENT 56%, hemiparesis OCCASIONAL 29%, fever OCCASIONAL 29% from PMID:40985660; premature birth from PMID:22499837); reactivation-risk epidemiology added (30% lifetime risk untreated, 48% attack rate at CD4&lt;50 seropositive vs 1.3% seronegative); treatment terms made more specific where a real NCIT action term existed; GSE276786 dataset title corrected.
+
+Suggestions NOT taken, with reasons: no histopathology: section and no purine-salvage node — no source with a quotable abstract describing the human microglial-nodule/necrotizing pattern or the salvage-pathway drug rationale could be found, and fabricating either would be exactly the failure mode this entry was built to avoid. The other two flagged &#34;bundled&#34; nodes were left intact: their paired events occur at the same scale in the same compartment, unlike the T-cell node whose ORGANISM/CELLULAR split was a genuine scale violation.
+
+Notable evidence-honesty decisions in this round: adjunctive corticosteroids curated with supports: NO_EVIDENCE because the Cochrane review found no eligible RCTs in either direction; atovaquone marked PARTIAL because its trial was explicitly noncomparative; VP shunt marked PARTIAL because outcomes were highly variable; and the prenatal-screening treatment now carries BOTH the SYROCOT null result (REFUTE) and the supportive REIV-TOXO cohort (PMID:39436926, SUPPORT), with the confounding-by-indication caveat stated rather than the conflict resolved in one direction.
+
+Validation: just validate-disorders passed (schema + terms + references, batched); snippets 150/150 verified against cached references; 4 GEO accessions re-verified OK; weighted compliance 96.4% (up from 95.0%); 7686 relevant pytest data-integrity tests pass. No DR-sourced citations were used for any addition.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Toxoplasmosis (MONDO:0005989)</strong> · 2026-08-08T23:49:37Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Toxoplasmosis/2026-08-08T234937Z-claude-code-e4469f.yaml">View source</a></p>
+                        <p class="research-review-text">De-novo curation of systemic Toxoplasmosis (MONDO:0005989), previously absent from the KB — only ocular toxoplasmosis existed, as an infectious subtype of the Choroiditis entry.
+
+Deep research provider: claude_code (research/Toxoplasmosis-deep-research-claude_code.md; 164 s, run metadata in the report frontmatter).
+
+IMPORTANT PROVIDER FINDING — the claude_code run produced accurate narrative biology but a wholly fabricated citation apparatus. All 14 PMIDs in its &#34;Summary of Key PMID Citations&#34; table resolve to unrelated papers (each checked via NCBI esummary): 17825405 is a trial of food additives and hyperactive behaviour, not the SYROCOT meta-analysis; 16709124 is a Raman-spectroscopy paper on water, not Taylor et al. on ROP18; 24581229 is about soccer-pitch injuries. The report also mis-stated the MONDO id for toxoplasmosis (gave MONDO:0005108; correct is MONDO:0005989), gave HP:0000585 for chorioretinitis (that id is Band keratopathy; correct is HP:0012424), and gave CHEBI:8460 for pyrimethamine (correct is CHEBI:8673). The report was therefore used strictly as a topic outline. Every reference here was found independently via PubMed esearch/esummary, cached with `just fetch-reference`, and every snippet quoted from the cached abstract. The landmark papers the report intended to cite do exist and are now cited under their real PMIDs: SYROCOT PMID:17223474; Taylor ROP18 PMID:17170305; Gay TgIST PMID:27503074; Pappas seroprevalence PMID:19433092; Robert-Gangneux PMID:22491772.
+
+Content: 14-node pathograph running ingestion -&gt; intestinal invasion -&gt; active invasion and parasitophorous vacuole formation -&gt; ROP/GRA effector immune subversion -&gt; dissemination -&gt; IFN-gamma-dependent cell-autonomous control -&gt; BFD1-driven bradyzoite differentiation -&gt; lifelong tissue-cyst persistence, branching to the three clinical outcomes (toxoplasmic encephalitis, recurrent retinochoroiditis, congenital neuroinflammatory injury and hydrocephalus) plus toxoplasmic lymphadenitis. Four subtypes — Acquired, Congenital, Ocular, Reactivation — with subtype-keyed phenotypes, progression and imaging. Treatments cover pyrimethamine-sulfadiazine with folinic acid, spiramycin, TMP-SMX, pyrimethamine-clindamycin and prenatal screening; the SYROCOT null result on clinical manifestations is curated as REFUTE rather than omitted, so the entry does not overstate prenatal-treatment benefit.
+
+Deliberately NOT asserted: no conforms_to on bacterial_folate_synthesis_inhibition despite the identical DHFR/DHPS sequential-blockade pattern, because that module is explicitly scoped to bacteria and Toxoplasma is a protozoan; recorded instead as a CURATION_TODO discussion (antifolate_module_scope) proposing either module generalisation or a separate protozoal module. Two KNOWLEDGE_GAP discussions record the unresolved parasite-versus-immune basis of ocular tissue destruction and the absence of any cyst-active drug.
+
+Validation: `just validate-disorders` (batched schema + terms + references) passed; snippets 107/107 verified against cached references; `just validate-terms` passed; 4 GEO dataset accessions confirmed with `just verify-datasets` (all OK, DIRECT relevance tier, relevance triaged manually against pathograph nodes); weighted compliance 95.0%.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

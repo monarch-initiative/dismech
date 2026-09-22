@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4120,6 +4188,7 @@ Prolapse is extremely common as an anatomic finding and much less common as a co
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4145,6 +4214,7 @@ Prolapse is extremely common as an anatomic finding and much less common as a co
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4167,6 +4237,7 @@ Prolapse is extremely common as an anatomic finding and much less common as a co
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4239,6 +4310,7 @@ Prolapse is extremely common as an anatomic finding and much less common as a co
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4261,6 +4333,7 @@ Prolapse is extremely common as an anatomic finding and much less common as a co
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4289,6 +4362,7 @@ Prolapse is extremely common as an anatomic finding and much less common as a co
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4469,6 +4543,7 @@ Prolapse is extremely common as an anatomic finding and much less common as a co
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4546,6 +4621,7 @@ Prolapse is extremely common as an anatomic finding and much less common as a co
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4568,6 +4644,7 @@ Prolapse is extremely common as an anatomic finding and much less common as a co
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4739,6 +4816,7 @@ Prolapse is extremely common as an anatomic finding and much less common as a co
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4764,6 +4842,7 @@ Prolapse is extremely common as an anatomic finding and much less common as a co
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4845,6 +4924,7 @@ Prolapse is extremely common as an anatomic finding and much less common as a co
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4880,6 +4960,7 @@ Prolapse is extremely common as an anatomic finding and much less common as a co
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-vaginal-childbirth-mechanical-overload" data-dismech-node="Vaginal Childbirth Mechanical Overload" data-dismech-type="pathophysiology">
                 <div class="item-name">Vaginal Childbirth Mechanical Overload</div>
+
 
                 <div class="item-desc">Passage of the fetal head requires the levator ani and the soft tissues of the birth canal to stretch to more than three times their resting length. This is the single largest modifiable risk factor for prolapse, and the mechanism of damage is specifically overstretch rather than compression ischaemia or pudendal neuropathy - a distinction that matters because it identifies the tissue at risk (the vulnerable muscle origin) and the obstetric variables that load it. It is a normal physiological event that most women recover from; the disease begins where recovery fails.
 </div>
@@ -5020,6 +5101,7 @@ This pathophysiological event occurs in vagina (UBERON:0000996). UBERON:0000996 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5042,6 +5124,7 @@ This pathophysiological event occurs in vagina (UBERON:0000996). UBERON:0000996 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5070,6 +5153,7 @@ This pathophysiological event occurs in vagina (UBERON:0000996). UBERON:0000996 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5093,6 +5177,7 @@ This pathophysiological event occurs in vagina (UBERON:0000996). UBERON:0000996 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-levator-ani-muscle-injury-and-avulsion" data-dismech-node="Levator Ani Muscle Injury and Avulsion" data-dismech-type="pathophysiology">
                 <div class="item-name">Levator Ani Muscle Injury and Avulsion</div>
+
 
                 <div class="item-desc">Detachment or tearing of the levator ani, typically of its pubococcygeal portion, and typically unrecognised at the time it happens. It is the strongest single anatomic correlate of later prolapse and it does not heal: the muscle is not reconstituted, which is why the lesion is a permanent change in the mechanics of the pelvic floor rather than a recoverable injury. Bilateral and complete avulsions are associated with more advanced stage and with involvement of more compartments than unilateral or partial ones.
 </div>
@@ -5238,6 +5323,7 @@ This pathophysiological event occurs in pubococcygeus muscle (UBERON:0011528). U
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5260,6 +5346,7 @@ This pathophysiological event occurs in pubococcygeus muscle (UBERON:0011528). U
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5286,6 +5373,7 @@ This pathophysiological event occurs in pubococcygeus muscle (UBERON:0011528). U
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-urogenital-hiatus-enlargement-and-loss-of-levator-closure" data-dismech-node="Urogenital Hiatus Enlargement and Loss of Levator Closure" data-dismech-type="pathophysiology">
                 <div class="item-name">Urogenital Hiatus Enlargement and Loss of Levator Closure</div>
+
 
                 <div class="item-desc">Widening of the levator hiatus, so that the pelvic floor no longer closes. This is the hinge of the whole entry. With the hiatus closed, pressures above and below the vaginal wall are equal and cancel; once it is open and vaginal wall descends below the hymen, that wall lies between abdominal and atmospheric pressure and a net downward force appears where none existed. The node therefore has two distinct outputs: it permits descent directly, and it converts intra-abdominal pressure into abnormal tension on the suspensory attachments. It is also the lesion that prolapse surgery does not address, which is why it reappears below as a predictor of recurrence.
 </div>
@@ -5418,6 +5506,7 @@ This pathophysiological event occurs in levator ani muscle (UBERON:0001326). UBE
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5440,6 +5529,7 @@ This pathophysiological event occurs in levator ani muscle (UBERON:0001326). UBE
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5466,6 +5556,7 @@ This pathophysiological event occurs in levator ani muscle (UBERON:0001326). UBE
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-constitutional-connective-tissue-susceptibility" data-dismech-node="Constitutional Connective Tissue Susceptibility" data-dismech-type="pathophysiology">
                 <div class="item-name">Constitutional Connective Tissue Susceptibility</div>
+
 
                 <div class="item-desc">Inherited variation in the composition and turnover of pelvic connective tissue, which sets how much obstetric and gravitational load a woman&#39;s support system tolerates before it fails. The evidence is of two kinds and they agree. Common-variant association studies return loci whose nearest genes are connective tissue and oestrogen-pathway genes rather than muscle genes, and they replicate across ancestries. At the other end of the allelic spectrum, monogenic heritable connective tissue disorders carry a strikingly high prolapse burden at low parity. Neither is a deterministic cause; both make this a susceptibility node feeding the matrix and elastogenesis arms rather than a trigger in its own right.
 </div>
@@ -5568,6 +5659,7 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5590,6 +5682,7 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5618,6 +5711,7 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5643,6 +5737,7 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-elastic-fiber-assembly-and-postpartum-elastogenesis" data-dismech-node="Impaired Elastic Fiber Assembly and Postpartum Elastogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Elastic Fiber Assembly and Postpartum Elastogenesis</div>
+
 
                 <div class="item-desc">Failure of the LOXL1- and fibulin-5-dependent programme that deposits and cross-links new elastic fibers in the vaginal wall after delivery. Elastic fibers were long assumed to be laid down once and left alone; the reproductive tract is the exception, and pelvic support turns out to depend on that exception. In mice, deleting either LOXL1 or fibulin-5 produces prolapse, and the two do so by different routes - Loxl1-null animals fail to repair after birth, Fbln5-null animals prolapse with age - which is why this node has both an obstetric and an ageing input.
 </div>
@@ -5830,6 +5925,7 @@ This pathophysiological event occurs in vagina (UBERON:0000996). UBERON:0000996 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5852,6 +5948,7 @@ This pathophysiological event occurs in vagina (UBERON:0000996). UBERON:0000996 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5880,6 +5977,7 @@ This pathophysiological event occurs in vagina (UBERON:0000996). UBERON:0000996 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5903,6 +6001,7 @@ This pathophysiological event occurs in vagina (UBERON:0000996). UBERON:0000996 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-oxidative-stress-in-pelvic-floor-connective-tissue" data-dismech-node="Oxidative Stress in Pelvic Floor Connective Tissue" data-dismech-type="pathophysiology">
                 <div class="item-name">Oxidative Stress in Pelvic Floor Connective Tissue</div>
+
 
                 <div class="item-desc">Accumulation of oxidative damage in the fibroblasts and matrix of the uterosacral ligament, evidenced by raised 8-hydroxyguanosine and 4-hydroxynonenal in prolapsed tissue. Its interest is not the marker but the dose-dependence found when uterosacral ligament fibroblasts are exposed to peroxide directly: low-level oxidative stress stimulates collagen synthesis while higher levels flip the cell into net catabolism. That non-monotonic response is a plausible account of why an ageing, mechanically loaded tissue could pass from compensated remodelling into net loss without any change in the insult itself.
 </div>
@@ -6030,6 +6129,7 @@ This pathophysiological event involves increased response to oxidative stress (G
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6052,6 +6152,7 @@ This pathophysiological event involves increased response to oxidative stress (G
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6078,6 +6179,7 @@ This pathophysiological event involves increased response to oxidative stress (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-collagen-and-mmp-timp-remodelling-imbalance" data-dismech-node="Collagen and MMP-TIMP Remodelling Imbalance" data-dismech-type="pathophysiology">
                 <div class="item-name">Collagen and MMP-TIMP Remodelling Imbalance</div>
+
 
                 <div class="item-desc">A shift in the composition and turnover of the pelvic connective tissue matrix: less type I collagen (the load-bearing form) and less TIMP-1, more type III collagen (thinner, more extensible) and more MMP-1, MMP-2 and MMP-9. Pooled across thirty studies the direction is consistent, but the meta-analysis is explicit that the picture is site-dependent and that some comparisons remain contradictory - in the anterior vaginal wall, type I collagen and MMP-1 showed no difference at all. The node is curated with those exceptions attached rather than smoothed away, and its causal position is the subject of an open knowledge gap in this entry.
 </div>
@@ -6239,6 +6341,7 @@ This pathophysiological event involves increased extracellular matrix disassembl
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6264,6 +6367,7 @@ This pathophysiological event involves increased extracellular matrix disassembl
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6293,6 +6397,7 @@ This pathophysiological event involves increased extracellular matrix disassembl
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6316,6 +6421,7 @@ This pathophysiological event involves increased extracellular matrix disassembl
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-vaginal-wall-smooth-muscle-depletion" data-dismech-node="Vaginal Wall Smooth Muscle Depletion" data-dismech-type="pathophysiology">
                 <div class="item-name">Vaginal Wall Smooth Muscle Depletion</div>
+
 
                 <div class="item-desc">Reduction in the fractional area of nonvascular smooth muscle in the muscularis of the anterior vaginal wall. The vaginal wall is not a passive membrane; its muscularis contributes actively to wall mechanics, and losing it reduces the wall&#39;s own contribution to support. The finding is independent of age and of prolapse stage, which argues against it being a simple function of severity, and it is present in premenopausal women too - but it is most marked in postmenopausal women not taking oestrogen, which is the observation linking this node to the hormonal arm.
 </div>
@@ -6426,6 +6532,7 @@ This pathophysiological event occurs in vagina (UBERON:0000996). UBERON:0000996 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6448,6 +6555,7 @@ This pathophysiological event occurs in vagina (UBERON:0000996). UBERON:0000996 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6474,6 +6582,7 @@ This pathophysiological event occurs in vagina (UBERON:0000996). UBERON:0000996 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-oestrogen-withdrawal-and-ageing-of-the-pelvic-support-tissues" data-dismech-node="Oestrogen Withdrawal and Ageing of the Pelvic Support Tissues" data-dismech-type="pathophysiology">
                 <div class="item-name">Oestrogen Withdrawal and Ageing of the Pelvic Support Tissues</div>
+
 
                 <div class="item-desc">Advancing age and the menopausal fall in oestrogen, consistently among the strongest epidemiological risk factors for prolapse. The mechanistic reading of this node has to be handled carefully, because the obvious therapeutic inference from it is wrong. Oestrogen-pathway loci come out of GWAS, vaginal smooth muscle is most depleted in postmenopausal women not taking oestrogen, and the Fbln5-null mouse prolapses with ageing - yet in 1443 postmenopausal women, past hormone therapy, its duration, and current vaginal oestrogen were all unassociated with pelvic organ support, and current systemic therapy was if anything associated with slightly worse support. Both edges out of this node are therefore typed conservatively.
 </div>
@@ -6576,6 +6685,7 @@ This pathophysiological event involves decreased extracellular matrix organizati
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6598,6 +6708,7 @@ This pathophysiological event involves decreased extracellular matrix organizati
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6626,6 +6737,7 @@ This pathophysiological event involves decreased extracellular matrix organizati
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6649,6 +6761,7 @@ This pathophysiological event involves decreased extracellular matrix organizati
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chronically-increased-intra-abdominal-load" data-dismech-node="Chronically Increased Intra-Abdominal Load" data-dismech-type="pathophysiology">
                 <div class="item-name">Chronically Increased Intra-Abdominal Load</div>
+
 
                 <div class="item-desc">Sustained or repeated rises in intra-abdominal pressure from obesity, chronic straining at stool, chronic cough or heavy lifting, transmitted onto an already weakened pelvic floor. Rising body-mass index is one of the three most consistent risk factors and is the one most obviously modifiable, but the occupational and exercise literature does not support a general &#34;strain causes prolapse&#34; story: women recruited from the community with prolapse on examination report the same lifetime strenuous activity as women without it, and the association with heavy work appears mainly in surgical series, where referral is itself selected on symptoms. This node is therefore curated as a genuine load with a deliberately weak causal edge.
 </div>
@@ -6742,6 +6855,7 @@ This pathophysiological event involves increased response to mechanical stimulus
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6764,6 +6878,7 @@ This pathophysiological event involves increased response to mechanical stimulus
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6792,6 +6907,7 @@ This pathophysiological event involves increased response to mechanical stimulus
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6817,6 +6933,7 @@ This pathophysiological event involves increased response to mechanical stimulus
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-apical-and-lateral-connective-tissue-attachment" data-dismech-node="Failure of Apical and Lateral Connective Tissue Attachment" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Apical and Lateral Connective Tissue Attachment</div>
+
 
                 <div class="item-desc">Loss of effective suspension of the uterus and upper vagina from the pelvic sidewall by the cardinal, uterosacral and paravaginal attachments. Measured in living women under maximal Valsalva, these three are strongly related to prolapse and are strongly correlated with one another, which is the evidence that they fail as one system rather than as separable &#34;defects&#34;. The character of the failure is informative: what differs between women with and without prolapse is ligament length, not ligament stiffness - the tissue has lengthened rather than become intrinsically floppier, which fits accumulated mechanical failure better than it fits a pure material defect.
 </div>
@@ -6966,6 +7083,7 @@ This pathophysiological event occurs in uterus (UBERON:0000995). UBERON:0000995 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6988,6 +7106,7 @@ This pathophysiological event occurs in uterus (UBERON:0000995). UBERON:0000995 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7014,6 +7133,7 @@ This pathophysiological event occurs in uterus (UBERON:0000995). UBERON:0000995 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-descent-of-the-pelvic-organs-beyond-the-hymen" data-dismech-node="Descent of the Pelvic Organs Beyond the Hymen" data-dismech-type="pathophysiology">
                 <div class="item-name">Descent of the Pelvic Organs Beyond the Hymen</div>
+
 
                 <div class="item-desc">The disease-defining lesion: bladder, uterus, post-hysterectomy vaginal cuff or bowel descending so that the vaginal walls or uterus protrude toward and past the hymen. Everything clinically recognisable follows from here, and so does the entry&#39;s central epidemiological oddity - descent on examination is far commoner than the complaint, the two correlate poorly, and of the many symptoms attributed to prolapse only the sensation of a vaginal bulge is actually specific to it.
 </div>
@@ -7108,6 +7228,7 @@ This pathophysiological event occurs in urinary bladder (UBERON:0001255). UBERON
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7130,6 +7251,7 @@ This pathophysiological event occurs in urinary bladder (UBERON:0001255). UBERON
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7158,6 +7280,7 @@ This pathophysiological event occurs in urinary bladder (UBERON:0001255). UBERON
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7181,6 +7304,7 @@ This pathophysiological event occurs in urinary bladder (UBERON:0001255). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-recurrence-after-reconstructive-surgery" data-dismech-node="Recurrence After Reconstructive Surgery" data-dismech-type="pathophysiology">
                 <div class="item-name">Recurrence After Reconstructive Surgery</div>
+
 
                 <div class="item-desc">Anatomic or symptomatic failure of a prolapse repair. It is curated as a node rather than as a treatment outcome because it is mechanistically informative: reconstructive surgery restores the suspensory attachments and does not restore the levator, so a wide genital hiatus persists across the operation, and it is that persisting hiatus that predicts failure. Recurrence is thus the clinical readout of the part of the mechanism that current surgery leaves untouched, and it explains why apical suspensions differ in durability while none abolishes recurrence.
 </div>
@@ -7241,6 +7365,7 @@ This pathophysiological event occurs in vagina (UBERON:0000996). UBERON:0000996 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7266,6 +7391,7 @@ This pathophysiological event occurs in vagina (UBERON:0000996). UBERON:0000996 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7288,6 +7414,7 @@ This pathophysiological event occurs in vagina (UBERON:0000996). UBERON:0000996 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7401,6 +7528,9 @@ This clinical feature is Pelvic organ prolapse (HP:0031607). HP:0031607 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7415,6 +7545,7 @@ This clinical feature is Pelvic organ prolapse (HP:0031607). HP:0031607 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7470,6 +7601,9 @@ This clinical feature is Cystocele (HP:0100645). HP:0100645 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7484,6 +7618,7 @@ This clinical feature is Cystocele (HP:0100645). HP:0100645 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7536,6 +7671,9 @@ This clinical feature is Rectocele (HP:0100822). HP:0100822 is a phenotype from 
                     </div>
 
 
+
+
+
                     <div class="item-desc">Deliberately left without an incoming pathograph edge, unlike Cystocele and Uterine Prolapse. The compartment-specific risk carried by levator avulsion is concentrated in the anterior and apical compartments, and the study that quantified it attributes the overall association to those two; no comparable quantified route from either the muscular or the connective-tissue arm to the posterior compartment was found. Wiring rectocele off the levator node anyway would assert an attribution the source specifically does not make. The mechanism of posterior compartment descent is a real gap in this entry rather than an omission.
 </div>
 
@@ -7556,6 +7694,7 @@ This clinical feature is Rectocele (HP:0100822). HP:0100822 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7581,6 +7720,7 @@ This clinical feature is Rectocele (HP:0100822). HP:0100822 is a phenotype from 
 
 
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+
 
 
 
@@ -7636,6 +7776,9 @@ This clinical feature is Constipation (HP:0002019). HP:0002019 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7650,6 +7793,7 @@ This clinical feature is Constipation (HP:0002019). HP:0002019 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7714,6 +7858,9 @@ This clinical feature is Uterine prolapse (HP:0000139). HP:0000139 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7728,6 +7875,7 @@ This clinical feature is Uterine prolapse (HP:0000139). HP:0000139 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7785,6 +7933,9 @@ This clinical feature is Urinary retention (HP:0000016). HP:0000016 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7799,6 +7950,7 @@ This clinical feature is Urinary retention (HP:0000016). HP:0000016 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7854,6 +8006,9 @@ This clinical feature is Dyspareunia (HP:0030016). HP:0030016 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7868,6 +8023,7 @@ This clinical feature is Dyspareunia (HP:0030016). HP:0030016 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7893,6 +8049,7 @@ This clinical feature is Dyspareunia (HP:0030016). HP:0030016 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7957,6 +8114,9 @@ This clinical feature is Stress urinary incontinence (HP:0010992). HP:0010992 is
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7971,6 +8131,7 @@ This clinical feature is Stress urinary incontinence (HP:0010992). HP:0010992 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7996,6 +8157,7 @@ This clinical feature is Stress urinary incontinence (HP:0010992). HP:0010992 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8051,6 +8213,9 @@ This clinical feature is Pelvic pain (HP:0034267). HP:0034267 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8068,6 +8233,7 @@ This clinical feature is Pelvic pain (HP:0034267). HP:0034267 is a phenotype fro
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8166,6 +8332,9 @@ This disease-associated gene is WNT4 (hgnc:12783). hgnc:12783 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8180,6 +8349,7 @@ This disease-associated gene is WNT4 (hgnc:12783). hgnc:12783 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8238,6 +8408,9 @@ This disease-associated gene is EFEMP1 (hgnc:3218). hgnc:3218 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8252,6 +8425,7 @@ This disease-associated gene is EFEMP1 (hgnc:3218). hgnc:3218 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8310,6 +8484,9 @@ This disease-associated gene is WT1 (hgnc:12796). hgnc:12796 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8324,6 +8501,7 @@ This disease-associated gene is WT1 (hgnc:12796). hgnc:12796 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8382,6 +8560,9 @@ This disease-associated gene is FGFR2 (hgnc:3689). hgnc:3689 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8396,6 +8577,7 @@ This disease-associated gene is FGFR2 (hgnc:3689). hgnc:3689 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8454,6 +8636,9 @@ This disease-associated gene is LOXL1 (hgnc:6665). hgnc:6665 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8468,6 +8653,7 @@ This disease-associated gene is LOXL1 (hgnc:6665). hgnc:6665 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8526,6 +8712,9 @@ This disease-associated gene is FBLN5 (hgnc:3602). hgnc:3602 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8540,6 +8729,7 @@ This disease-associated gene is FBLN5 (hgnc:3602). hgnc:3602 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8627,6 +8817,9 @@ This treatment is pelvic floor physical therapy, annotated with Physical Therapy
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8637,6 +8830,9 @@ This treatment is pelvic floor physical therapy, annotated with Physical Therapy
 
 
     </div>
+
+
+
 
 
 
@@ -8680,6 +8876,7 @@ This treatment is pelvic floor physical therapy, annotated with Physical Therapy
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8721,6 +8918,7 @@ This treatment is pelvic floor physical therapy, annotated with Physical Therapy
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8789,6 +8987,9 @@ This treatment is vaginal pessary placement, annotated with Therapeutic Procedur
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8799,6 +9000,9 @@ This treatment is vaginal pessary placement, annotated with Therapeutic Procedur
 
 
     </div>
+
+
+
 
 
 
@@ -8837,6 +9041,7 @@ This treatment is vaginal pessary placement, annotated with Therapeutic Procedur
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8886,6 +9091,7 @@ This treatment is vaginal pessary placement, annotated with Therapeutic Procedur
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8911,6 +9117,7 @@ This treatment is vaginal pessary placement, annotated with Therapeutic Procedur
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8978,6 +9185,9 @@ This treatment is reconstructive pelvic floor surgery, annotated with Gynecologi
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8988,6 +9198,9 @@ This treatment is reconstructive pelvic floor surgery, annotated with Gynecologi
 
 
     </div>
+
+
+
 
 
 
@@ -9026,6 +9239,7 @@ This treatment is reconstructive pelvic floor surgery, annotated with Gynecologi
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9075,6 +9289,7 @@ This treatment is reconstructive pelvic floor surgery, annotated with Gynecologi
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9100,6 +9315,7 @@ This treatment is reconstructive pelvic floor surgery, annotated with Gynecologi
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9167,6 +9383,9 @@ This treatment is lifestyle and dietary modification, annotated with Dietary Int
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9177,6 +9396,9 @@ This treatment is lifestyle and dietary modification, annotated with Dietary Int
 
 
     </div>
+
+
+
 
 
 
@@ -9208,6 +9430,7 @@ This treatment is lifestyle and dietary modification, annotated with Dietary Int
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9275,6 +9498,9 @@ This treatment is local oestrogen therapy, annotated with Estrogen Therapy (NCIT
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9285,6 +9511,9 @@ This treatment is local oestrogen therapy, annotated with Estrogen Therapy (NCIT
 
 
     </div>
+
+
+
 
 
 
@@ -9316,6 +9545,7 @@ This treatment is local oestrogen therapy, annotated with Estrogen Therapy (NCIT
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9338,6 +9568,7 @@ This treatment is local oestrogen therapy, annotated with Estrogen Therapy (NCIT
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -9448,6 +9679,7 @@ This treatment is local oestrogen therapy, annotated with Estrogen Therapy (NCIT
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9473,6 +9705,7 @@ This treatment is local oestrogen therapy, annotated with Estrogen Therapy (NCIT
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9495,6 +9728,7 @@ This treatment is local oestrogen therapy, annotated with Estrogen Therapy (NCIT
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9592,6 +9826,7 @@ This treatment is local oestrogen therapy, annotated with Estrogen Therapy (NCIT
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9614,6 +9849,7 @@ This treatment is local oestrogen therapy, annotated with Estrogen Therapy (NCIT
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9699,6 +9935,7 @@ This treatment is local oestrogen therapy, annotated with Estrogen Therapy (NCIT
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9759,6 +9996,7 @@ This treatment is local oestrogen therapy, annotated with Estrogen Therapy (NCIT
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9816,6 +10054,7 @@ This treatment is local oestrogen therapy, annotated with Estrogen Therapy (NCIT
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9985,6 +10224,7 @@ This treatment is local oestrogen therapy, annotated with Estrogen Therapy (NCIT
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10025,6 +10265,7 @@ This treatment is local oestrogen therapy, annotated with Estrogen Therapy (NCIT
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10167,6 +10408,7 @@ This treatment is local oestrogen therapy, annotated with Estrogen Therapy (NCIT
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10207,6 +10449,7 @@ This treatment is local oestrogen therapy, annotated with Estrogen Therapy (NCIT
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13579,6 +13822,52 @@ notes: &gt;
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (3)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Curation notes and deliberate omissions.
+Scope. This entry covers pelvic organ prolapse in women. Rectal prolapse and prolapse of the male pelvic organs are different diseases and are out of scope.
+Two things a reader might expect and will not find. There is no conforms_to on any node: the candidate module, emphysema_protease_antiprotease_imbalance, was examined and declined on the record in the interpretation discussion above rather than omitted silently. And no phenotype carries a frequency band. Frequency in prolapse is ascertainment-dependent to an unusual degree, since the same population yields roughly 3% symptomatic prolapse and a far higher rate of descent on examination, so a band lifted from any one source would have been quoting a measure whose denominator does not match this entry. The discordance itself is curated as a knowledge gap instead.
+Hysterectomy is named as a risk factor by two of the cited reviews and is not curated as a pathophysiology node. Post-hysterectomy vault prolapse is real and is covered by the apical phenotype and by the surgical treatments, but no source used here supplies a mechanism for it beyond the assertion that the operation predisposes, and a node with no mechanism would be a restatement of the risk factor. It is a reasonable target for a later pass.
+POP-Q is now curated in the diagnosis section as the staged clinical examination it is. It is still not curated as a definitions entry with definition_type PHENOTYPE_ALGORITHM, and neither is POP-SS (the symptom score that was the POPPY trial&#39;s primary endpoint), because the instrument-validation studies behind either have not been read. The posterior compartment is the other acknowledged gap: rectocele is curated as a phenotype but deliberately carries no incoming pathograph edge, for the reason recorded in its own notes.
+Provenance. The entry was written first from direct PubMed search, with every reference fetched by just fetch-reference; no citation was taken from a synthesised summary, so sections 2a and 2b of the evidence SOP do not apply to any evidence item here. A Claude Code deep-research report was generated afterwards as a coverage cross-check (research/Pelvic_Organ_Prolapse-deep-research-claude_code.md, 34 references, all verified, confabulation rate 0.0). It cited no primary source this entry had missed, independently reached the same levator-primary canonical arm and the same five susceptibility genes, and its one substantive coverage finding - that POP-Q is the diagnostic standard and was absent - is what prompted the diagnosis section. preflight-dr returns SKIP because MONDO records no RO:0004003 causal gene for MONDO:0000082, which is expected for a complex non-Mendelian disease and means the automated gene-identity check cannot discriminate; the manual check is the gene-list concordance just described.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Review response: address CHANGES_REQUESTED on PR 9414</strong> · 2026-08-28T06:08:27Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Pelvic_Organ_Prolapse/2026-08-28T060827Z-claude-code-6554d9.yaml">View source</a></p>
+                        <p class="research-review-text">Response to the ai4c-reviewer CHANGES_REQUESTED review on PR #9414, run by the curation scanner (high_effort tier) against issue #7837.
+
+Blocking item 1 - truncated snippet. The PMID:26936098 conclusion snippet on the oxidative-stress node ended on a dangling &#34;in a severity&#34;, stopping before the word that carries the severity-dependence claim the explanation described. Extended to &#34;...in a severity-dependent manner in hUSLFs&#34;, reproducing the source&#39;s U+2011 non-breaking hyphen, and the explanation reworded to match what the quote now contains.
+
+Blocking item 2 - no deep-research artifact. Generated research/Pelvic_Organ_Prolapse-deep-research-claude_code.md and its citations sidecar with &#34;just research-disorder claude_code Pelvic_Organ_Prolapse&#34;. 34 references, 34 verified, confabulation rate 0.0, 29/34 assessed on topic. preflight-dr returns SKIP because MONDO records no RO:0004003 causal gene for MONDO:0000082; the manual substitute is that the report&#39;s top genes (WNT4, EFEMP1, FGFR2, LOXL1, WT1) are exactly this entry&#39;s genetic section. qc-deep-research reports 0 missing and 0 unresolved refs for this disorder. The report cited no primary source the entry had missed and independently reproduced the levator-primary canonical arm; its one substantive coverage finding was the absent diagnosis section.
+
+Suggestion 3 - phenotypes disconnected from the pathograph. Three compartment phenotypes were wired in, but not as consequences of the descent node: descent beyond the hymen is definitionally the same event as cystocele or uterine prolapse in a named compartment, so an edge there would be taxonomic rather than causal. Instead the edges carry published compartment-specific attribution. Levator Ani Muscle Injury and Avulsion now runs to Cystocele and Uterine Prolapse, typed INDIRECT_KNOWN_INTERMEDIATES because the compartment-selectivity step is unknown even though hiatal enlargement and descent are both in the graph, evidenced by PMID:18503571 (RR 2.3 and RR 4.0 in 781 women). Failure of Apical and Lateral Connective Tissue Attachment now runs to Cystocele (DIRECT, PMID:16579933: half the variation in anterior compartment support is explained by apical support, r = 0.73 in 153 women) and to Uterine Prolapse (DIRECT, existing PMID:27517338 evidence). Rectocele deliberately keeps no incoming edge: the same PMID:18503571 sentence attributes the avulsion effect to the anterior and apical compartments, so a posterior edge would assert what the source declines to. That is recorded in the phenotype&#39;s own notes plus a PARTIAL evidence item.
+
+Suggestion 4 - no diagnosis section. Added two entries. POP-Q Staged Pelvic Examination (NCIT:C214455 Pelvic Organ Prolapse Exam) with the 1996 tri-society consensus (PMID:8694033), a later appraisal against earlier systems (PMID:21505577), and the anatomy-symptom discordance (PMID:31851453) as the reason a stage is not by itself an indication to treat. Pelvic Floor Transperineal Ultrasound (NCIT:C17230 Ultrasound Imaging) as the mechanism-resolving investigation rather than a diagnostic standard, evidenced by PMID:36343586 and PMID:18503571. Dynamic MRI and defecography are named in notes and not curated, since no cached reference substantiates a specific claim about them.
+
+Suggestion 5 - GO:0009612 at tissue and organism scale. Left in place, deliberately. GO&#39;s own definition of &#34;response to mechanical stimulus&#34; is &#34;any process that results in a change in state or activity of a cell or an organism ... as a result of a mechanical stimulus&#34;, so the term is scoped to organism-level response by the ontology itself and its use here is not a scale violation. The reviewer noted the term is &#34;not wrong&#34;; removing three correct annotations to satisfy a rule the ontology does not impose would lose queryable content.
+
+Suggestion 6 - history record. The CREATE record&#39;s empty links.issues and links.prs were filled with issue 7837 and PR 9414, and its &#34;Ten phenotypes&#34; corrected to nine. That record has not merged, so this is a pre-merge factual correction rather than a rewrite of committed history.
+
+Branch refresh. GitHub&#39;s update-branch API returned 422 (merge conflict), so origin/main was merged locally; no rebase was used. The conflict was confined to four derived cache CSVs (diseaseterm, treatmentactionterm, mondo/terms, ncit/terms), resolved by taking main&#39;s rows and re-deriving this entry&#39;s own rows with just validate-terms. Post-merge diff against origin/main is additions plus additive cache rows only, with no deletions.
+
+Four new references, all found by PubMed search and fetched with just fetch-reference: PMID:18503571, PMID:16579933, PMID:8694033, PMID:21505577.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Pelvic Organ Prolapse (MONDO:0000082)</strong> · 2026-08-24T21:08:45Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Pelvic_Organ_Prolapse/2026-08-24T210845Z-claude-code-cd6b65.yaml">View source</a></p>
+                        <p class="research-review-text">Created kb/disorders/Pelvic_Organ_Prolapse.yaml against the obstetrics coverage gap tracked in issue #7837. Thirteen pathophysiology nodes across a muscular arm (childbirth overstretch, levator avulsion, urogenital hiatus enlargement) and a connective tissue arm (constitutional susceptibility, elastogenesis failure, oxidative stress, collagen and MMP/TIMP imbalance, vaginal smooth muscle depletion), converging on failure of apical and lateral attachment and descent beyond the hymen, plus a post-surgical recurrence node. Two competing mechanistic_hypotheses: CANONICAL levator-primary and ALTERNATIVE matrix-primary. Four discussions: two KNOWLEDGE_GAPs (matrix cause versus consequence, and anatomy/symptom discordance), one HUMAN_MODEL_MISMATCH on the Loxl1 and Fbln5 knockout mice, and one INTERPRETATION recording why conformance to emphysema_protease_antiprotease_imbalance was declined. Nine phenotypes with no frequency bands, deliberately; six genetic entries; two animal models with modeled_mechanisms and readouts; five treatments, two of which carry only negative or partial evidence and no target_mechanisms edge. Twenty-four references, all fetched with just fetch-reference from PubMed searches; no deep-research provider report was used, so evidence SOP sections 2a and 2b do not apply. Validation: just validate-disorders passed schema, terms and references, reporting Snippets checked 100/100 verified against cached references. check-folded-hyphens, check-duplicate-keys, check-snippet-length, check-title-snippets, check-environmental-evidence, check-snippet-boundaries and check-source-defect-claims are all clean for this file; 9272 targeted tests/test_data.py tests passed.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

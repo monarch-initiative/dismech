@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4177,6 +4245,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4227,6 +4296,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cytotoxic-chemotherapy-exposure-and-intestinal-drug-delivery" data-dismech-node="Cytotoxic chemotherapy exposure and intestinal drug delivery" data-dismech-type="pathophysiology">
                 <div class="item-name">Cytotoxic chemotherapy exposure and intestinal drug delivery</div>
+
 
                 <div class="item-desc">Exposure to diarrheagenic antineoplastic agents, especially fluoropyrimidines and irinotecan, initiates intestinal toxicity by delivering cytotoxic drugs and metabolites to the intestinal mucosa and lumen.</div>
 
@@ -4313,6 +4383,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4334,6 +4405,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4359,6 +4431,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-crypt-stem-progenitor-apoptosis-and-epithelial-injury" data-dismech-node="Crypt stem/progenitor apoptosis and epithelial injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Crypt stem/progenitor apoptosis and epithelial injury</div>
+
 
                 <div class="item-desc">Rapidly renewing crypt stem and progenitor cells and surface epithelium are damaged after chemotherapy exposure, leading to apoptosis, impaired epithelial renewal, and mucositis.</div>
 
@@ -4587,6 +4660,7 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4609,6 +4683,7 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mlck-actomyosin-mediated-tight-junction-remodeling" data-dismech-node="MLCK/actomyosin-mediated tight-junction remodeling" data-dismech-type="pathophysiology">
                 <div class="item-name">MLCK/actomyosin-mediated tight-junction remodeling</div>
+
 
                 <div class="item-desc">Chemotherapy-associated tight-junction defects can increase paracellular permeability through MLCK/MLC-dependent actomyosin remodeling of the tight junction.</div>
 
@@ -4755,6 +4830,7 @@ This pathophysiological event involves actomyosin (GO:0042641). GO:0042641 is a 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4776,6 +4852,7 @@ This pathophysiological event involves actomyosin (GO:0042641). GO:0042641 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4801,6 +4878,7 @@ This pathophysiological event involves actomyosin (GO:0042641). GO:0042641 is a 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-paracellular-barrier-leak-and-mucosal-break-formation" data-dismech-node="Paracellular barrier leak and mucosal break formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Paracellular barrier leak and mucosal break formation</div>
+
 
                 <div class="item-desc">Chemotherapy-induced mucosal injury compromises epithelial barrier function, increases paracellular permeability, and produces visible small-intestinal mucosal breaks in affected patients.</div>
 
@@ -4979,6 +5057,7 @@ This pathophysiological event involves decreased tight junction assembly (GO:012
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5000,6 +5079,7 @@ This pathophysiological event involves decreased tight junction assembly (GO:012
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5025,6 +5105,7 @@ This pathophysiological event involves decreased tight junction assembly (GO:012
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chemotherapy-associated-gut-microbial-dysbiosis" data-dismech-node="Chemotherapy-associated gut microbial dysbiosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Chemotherapy-associated gut microbial dysbiosis</div>
+
 
                 <div class="item-desc">Chemotherapy and mucosal barrier injury alter gut microbial community structure, with patient studies showing diarrhea-associated diversity and taxonomic shifts and preclinical irinotecan models showing Enterobacteriaceae expansion.</div>
 
@@ -5103,6 +5184,7 @@ This pathophysiological event involves decreased tight junction assembly (GO:012
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5124,6 +5206,7 @@ This pathophysiological event involves decreased tight junction assembly (GO:012
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5149,6 +5232,7 @@ This pathophysiological event involves decreased tight junction assembly (GO:012
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-microbial-beta-glucuronidase-reactivation-of-irinotecan-metabolites" data-dismech-node="Microbial beta-glucuronidase reactivation of irinotecan metabolites" data-dismech-type="pathophysiology">
                 <div class="item-name">Microbial beta-glucuronidase reactivation of irinotecan metabolites</div>
+
 
                 <div class="item-desc">Gut bacterial beta-glucuronidase activity reactivates glucuronidated irinotecan metabolites in the intestinal lumen, increasing local epithelial toxicity and linking drug metabolism to microbiome-dependent injury.</div>
 
@@ -5274,6 +5358,7 @@ This pathophysiological event involves increased beta-glucuronidase activity (GO
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5296,6 +5381,7 @@ This pathophysiological event involves increased beta-glucuronidase activity (GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysbiosis-associated-inflammatory-amplification" data-dismech-node="Dysbiosis-associated inflammatory amplification" data-dismech-type="pathophysiology">
                 <div class="item-name">Dysbiosis-associated inflammatory amplification</div>
+
 
                 <div class="item-desc">Altered microbial communities and barrier leak amplify mucosal inflammatory injury, reinforcing epithelial damage and diarrheal severity.</div>
 
@@ -5456,6 +5542,7 @@ This pathophysiological event involves increased symbiont-mediated perturbation 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5477,6 +5564,7 @@ This pathophysiological event involves increased symbiont-mediated perturbation 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5502,6 +5590,7 @@ This pathophysiological event involves increased symbiont-mediated perturbation 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-enterocyte-apoptosis-villus-blunting-and-surface-loss" data-dismech-node="Enterocyte apoptosis, villus blunting, and surface loss" data-dismech-type="pathophysiology">
                 <div class="item-name">Enterocyte apoptosis, villus blunting, and surface loss</div>
+
 
                 <div class="item-desc">Chemotherapy-induced epithelial apoptosis and failed renewal shorten villi, blunt the absorptive surface, and reduce functional enterocyte area.</div>
 
@@ -5657,6 +5746,7 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5678,6 +5768,7 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5703,6 +5794,7 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-fluid-absorption-and-diarrheal-output" data-dismech-node="Reduced fluid absorption and diarrheal output" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced fluid absorption and diarrheal output</div>
+
 
                 <div class="item-desc">Reduced absorptive surface area, villus injury, and transport imbalance lower net fluid absorption and increase stool water loss.</div>
 
@@ -5836,6 +5928,7 @@ This pathophysiological event involves decreased intestinal absorption (GO:00508
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5857,6 +5950,7 @@ This pathophysiological event involves decreased intestinal absorption (GO:00508
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5969,6 +6063,9 @@ This clinical feature is Diarrhea (HP:0002014). HP:0002014 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5983,6 +6080,7 @@ This clinical feature is Diarrhea (HP:0002014). HP:0002014 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6046,6 +6144,9 @@ This clinical feature is Dehydration (HP:0001944). HP:0001944 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6060,6 +6161,7 @@ This clinical feature is Dehydration (HP:0001944). HP:0001944 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6084,6 +6186,7 @@ This clinical feature is Dehydration (HP:0001944). HP:0001944 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6140,6 +6243,9 @@ This clinical feature is Electrolyte imbalance with hypokalemia risk, annotated 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6154,6 +6260,7 @@ This clinical feature is Electrolyte imbalance with hypokalemia risk, annotated 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6217,6 +6324,9 @@ This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6231,6 +6341,7 @@ This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6333,6 +6444,9 @@ This disease-associated gene is DPYD (hgnc:3012). hgnc:3012 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6347,6 +6461,7 @@ This disease-associated gene is DPYD (hgnc:3012). hgnc:3012 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6371,6 +6486,7 @@ This disease-associated gene is DPYD (hgnc:3012). hgnc:3012 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6405,6 +6521,12 @@ This disease-associated gene is DPYD (hgnc:3012). hgnc:3012 is a gene from the H
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Splice variant c.1905+1G&gt;A, repeatedly implicated in severe fluoropyrimidine toxicity and highlighted in the deep-research artifact as a high-effect diarrhea risk allele.</div>
 
 
@@ -6427,6 +6549,12 @@ This disease-associated gene is DPYD (hgnc:3012). hgnc:3012 is a gene from the H
         DPYD*13
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">Reduced-function variant c.1679T&gt;G, repeatedly implicated in severe fluoropyrimidine toxicity.</div>
@@ -6453,6 +6581,12 @@ This disease-associated gene is DPYD (hgnc:3012). hgnc:3012 is a gene from the H
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Missense variant p.D949V, associated with increased fluoropyrimidine toxicity risk.</div>
 
 
@@ -6475,6 +6609,12 @@ This disease-associated gene is DPYD (hgnc:3012). hgnc:3012 is a gene from the H
         DPYD HapB3
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">Reduced-function haplotype, included among the key clinically actionable DPYD variants in pharmacogenomics reviews.</div>
@@ -6533,6 +6673,9 @@ This disease-associated gene is UGT1A1 (hgnc:12530). hgnc:12530 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6547,6 +6690,7 @@ This disease-associated gene is UGT1A1 (hgnc:12530). hgnc:12530 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6571,6 +6715,7 @@ This disease-associated gene is UGT1A1 (hgnc:12530). hgnc:12530 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6605,6 +6750,12 @@ This disease-associated gene is UGT1A1 (hgnc:12530). hgnc:12530 is a gene from t
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Promoter repeat allele associated with lower SN-38 glucuronidation and increased irinotecan gastrointestinal toxicity susceptibility.</div>
 
 
@@ -6627,6 +6778,12 @@ This disease-associated gene is UGT1A1 (hgnc:12530). hgnc:12530 is a gene from t
         UGT1A1*6
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">Reduced-function allele included in pharmacogenomic irinotecan dosing guidance, especially in Asian ancestry populations.</div>
@@ -6737,6 +6894,12 @@ This treatment uses loperamide (CHEBI:6532). CHEBI:6532 is a therapeutic agent f
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">First-line symptomatic antidiarrheal pharmacotherapy used in routine management of chemotherapy-induced diarrhea.</div>
 
 
@@ -6758,6 +6921,7 @@ This treatment uses loperamide (CHEBI:6532). CHEBI:6532 is a therapeutic agent f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6830,6 +6994,12 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Supportive management focusing on hydration and clinical reassessment, especially for patients with significant volume loss or ongoing symptoms.</div>
 
 
@@ -6851,6 +7021,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6922,6 +7093,12 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Escalation pharmacotherapy for patients who do not respond adequately to initial antidiarrheal treatment.</div>
 
 
@@ -6943,6 +7120,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7031,6 +7209,7 @@ This environmental factor is exposure to fluoropyrimidine chemotherapy, annotate
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7079,6 +7258,7 @@ This environmental factor is exposure to fluoropyrimidine chemotherapy, annotate
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7159,6 +7339,7 @@ This environmental factor is exposure to fluoropyrimidine chemotherapy, annotate
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7207,6 +7388,7 @@ This environmental factor is exposure to fluoropyrimidine chemotherapy, annotate
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7474,6 +7656,7 @@ This experimental model uses small intestine (UBERON:0002108). UBERON:0002108 is
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7495,6 +7678,7 @@ This experimental model uses small intestine (UBERON:0002108). UBERON:0002108 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7538,6 +7722,7 @@ This experimental model uses small intestine (UBERON:0002108). UBERON:0002108 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7735,6 +7920,7 @@ This experimental model uses small intestine (UBERON:0002108). UBERON:0002108 is
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7775,6 +7961,7 @@ This experimental model uses small intestine (UBERON:0002108). UBERON:0002108 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7988,6 +8175,7 @@ This experimental model uses intestine (UBERON:0000160). UBERON:0000160 is an an
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -8009,6 +8197,7 @@ This experimental model uses intestine (UBERON:0000160). UBERON:0000160 is an an
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8052,6 +8241,7 @@ This experimental model uses intestine (UBERON:0000160). UBERON:0000160 is an an
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8263,6 +8453,7 @@ This experimental model uses intestine (UBERON:0000160). UBERON:0000160 is an an
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -8284,6 +8475,7 @@ This experimental model uses intestine (UBERON:0000160). UBERON:0000160 is an an
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8327,6 +8519,7 @@ This experimental model uses intestine (UBERON:0000160). UBERON:0000160 is an an
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8552,6 +8745,7 @@ This experimental model uses intestine (UBERON:0000160). UBERON:0000160 is an an
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -8592,6 +8786,7 @@ This experimental model uses intestine (UBERON:0000160). UBERON:0000160 is an an
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8775,6 +8970,7 @@ This experimental model uses intestine (UBERON:0000160). UBERON:0000160 is an an
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -8796,6 +8992,7 @@ This experimental model uses intestine (UBERON:0000160). UBERON:0000160 is an an
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8839,6 +9036,7 @@ This experimental model uses intestine (UBERON:0000160). UBERON:0000160 is an an
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8928,6 +9126,7 @@ This experimental model uses intestine (UBERON:0000160). UBERON:0000160 is an an
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8998,6 +9197,7 @@ This experimental model uses intestine (UBERON:0000160). UBERON:0000160 is an an
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9074,6 +9274,7 @@ This experimental model uses intestine (UBERON:0000160). UBERON:0000160 is an an
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9095,6 +9296,7 @@ This experimental model uses intestine (UBERON:0000160). UBERON:0000160 is an an
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10659,6 +10861,7 @@ references:
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10727,6 +10930,7 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10801,6 +11005,7 @@ references:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10869,6 +11074,7 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10943,6 +11149,7 @@ references:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11014,6 +11221,7 @@ references:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11048,6 +11256,8 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1056,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1071,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1125,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1138,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1296,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1306,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1347,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -1600,7 +1637,7 @@
                 
                 <span class="badge badge-category">Module</span>
                 <span class="badge badge-module">disabled_macroautophagy</span>
-                <span class="badge badge-count">10 disorders</span>
+                <span class="badge badge-count">12 disorders</span>
                 
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 7</a>
                 
@@ -1861,7 +1898,7 @@ Two consequences worth stating for curators. First, do not import a single LC3 o
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">↗</div>
                 <h2 class="card-title">Used By Disorder Entries</h2>
-                <span class="card-count">10</span>
+                <span class="card-count">12</span>
             </div>
             
             <div class="crosslink-list">
@@ -1955,6 +1992,36 @@ Two consequences worth stating for curators. First, do not import a single LC3 o
                         
                         
                         Defective ubiquitin-containing autophagosome maturation → Autophagy Machinery Decline
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Ischemic_Stroke.html">Ischemic Stroke</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Post-Ischemic Autophagic-Lysosomal Dysfunction → Failure of Cytoplasmic Quality Control
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Multiple_Sclerosis.html">Multiple Sclerosis</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Oligodendrocyte Precursor and Microglial Autophagic-Mitophagic Dysregulation → Failure of Cytoplasmic Quality Control
                         
                         
                     </span>
@@ -2060,11 +2127,13 @@ Two consequences worth stating for curators. First, do not import a single LC3 o
             
             <div class="item-box anchor-target" id="module-pathophysiology-autophagy-machinery-decline" data-dismech-node="Autophagy Machinery Decline" data-dismech-type="pathophysiology">
                 <div class="item-name">Autophagy Machinery Decline</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The macroautophagy pathway - autophagosome formation and lysosomal fusion, mediated by the conserved autophagy-related (ATG) genes - declines in capacity during normal and pathological aging. This reduced autophagic potential is the initiating lesion of the hallmark.</div>
                 
@@ -2175,11 +2244,13 @@ This pathophysiological event involves decreased Autophagosome Assembly (GO:0000
             
             <div class="item-box anchor-target" id="module-pathophysiology-failure-of-cytoplasmic-quality-control" data-dismech-node="Failure of Cytoplasmic Quality Control" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Cytoplasmic Quality Control</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">central effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Autophagy selectively targets dysfunctional organelles, intracellular microbes, and pathogenic proteins for recycling, counteracting the age-associated accumulation of damaged organelles and proteins. When macroautophagy is disabled, this cytoplasmic quality-control and recycling function is lost - the central effector state that disease-specific autophagy lesions converge upon.</div>
                 
@@ -2270,6 +2341,20 @@ This pathophysiological event involves decreased Autophagy (GO:0006914). GO:0006
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Ischemic_Stroke.html">Ischemic Stroke</a>
+                            
+                            <span class="crosslink-desc">as Post-Ischemic Autophagic-Lysosomal Dysfunction</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Multiple_Sclerosis.html">Multiple Sclerosis</a>
+                            
+                            <span class="crosslink-desc">as Oligodendrocyte Precursor and Microglial Autophagic-Mitophagic Dysregulation</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/OPTN-related_Open_Angle_Glaucoma.html">OPTN-related Open Angle Glaucoma</a>
                             
                             <span class="crosslink-desc">as Impaired Autophagic Flux in Retinal Ganglion Cells</span>
@@ -2311,11 +2396,13 @@ This pathophysiological event involves decreased Autophagy (GO:0006914). GO:0006
             
             <div class="item-box anchor-target" id="module-pathophysiology-accumulated-cellular-damage-and-age-related-disease" data-dismech-node="Accumulated Cellular Damage and Age-Related Disease" data-dismech-type="pathophysiology">
                 <div class="item-name">Accumulated Cellular Damage and Age-Related Disease</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">With cytoplasmic quality control disabled, damaged organelles and pathogenic proteins accumulate, producing degenerative changes and predisposing to age-related disease, especially neurodegenerative and inflammatory disorders. This is the conserved consequence of disabled macroautophagy; the specific clinical phenotype is supplied by the conforming disorder.</div>
                 
@@ -2393,6 +2480,9 @@ This treatment uses aspirin, annotated with acetylsalicylic acid (CHEBI:15365). 
     
     
     
+    
+    
+    
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
         
@@ -2403,6 +2493,9 @@ This treatment uses aspirin, annotated with acetylsalicylic acid (CHEBI:15365). 
         
         
     </div>
+    
+    
+    
     
     
     
@@ -2494,6 +2587,9 @@ This treatment uses metformin (CHEBI:6801). CHEBI:6801 is a therapeutic agent fr
     
     
     
+    
+    
+    
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
         
@@ -2504,6 +2600,9 @@ This treatment uses metformin (CHEBI:6801). CHEBI:6801 is a therapeutic agent fr
         
         
     </div>
+    
+    
+    
     
     
     
@@ -2627,6 +2726,9 @@ This treatment uses canagliflozin (CHEBI:73274). CHEBI:73274 is a therapeutic ag
     
     
     
+    
+    
+    
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
         
@@ -2637,6 +2739,9 @@ This treatment uses canagliflozin (CHEBI:73274). CHEBI:73274 is a therapeutic ag
         
         
     </div>
+    
+    
+    
     
     
     

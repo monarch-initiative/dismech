@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4115,6 +4183,7 @@ One recent finding unsettles the &#34;nonsyndromic&#34; label. A five-generation
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4139,6 +4208,7 @@ One recent finding unsettles the &#34;nonsyndromic&#34; label. A five-generation
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4160,6 +4230,7 @@ One recent finding unsettles the &#34;nonsyndromic&#34; label. A five-generation
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4365,6 +4436,7 @@ What would settle it is a carrier cohort with dosimetry rather than recalled exp
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4389,6 +4461,7 @@ What would settle it is a carrier cohort with dosimetry rather than recalled exp
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4410,6 +4483,7 @@ What would settle it is a carrier cohort with dosimetry rather than recalled exp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4589,6 +4663,7 @@ The gene-editing study bears on this indirectly and encouragingly: rescuing the 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4613,6 +4688,7 @@ The gene-editing study bears on this indirectly and encouragingly: rescuing the 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4634,6 +4710,7 @@ The gene-editing study bears on this indirectly and encouragingly: rescuing the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4718,6 +4795,7 @@ Practically, the caution belongs at the point of variant interpretation rather t
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4742,6 +4820,7 @@ Practically, the caution belongs at the point of variant interpretation rather t
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4763,6 +4842,7 @@ Practically, the caution belongs at the point of variant interpretation rather t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4802,6 +4882,7 @@ Practically, the caution belongs at the point of variant interpretation rather t
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-p2x2-receptor-loss-of-function" data-dismech-node="P2X2 Receptor Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">P2X2 Receptor Loss of Function</div>
+
 
                 <div class="item-desc">Heterozygous P2RX2 alleles that cripple the ATP-gated channel. The best-characterised is p.Val60Leu, which abolishes both defining properties of P2X2 receptors: the ATP-evoked inward current and the ATP-stimulated macropore permeability measured as loss of ATP-activated FM1-43 labelling. Other reported alleles are p.Gly353Arg in an Italian family, predicted by comparative modelling to destabilise the fold near the region controlling channel gating, p.Asp201Tyr in a Japanese family, and a stop-loss variant p.Ter350Glu in an Iranian family that would extend translation into the 3-prime untranslated region and yield a longer protein.
 The dominant mechanism is subunit poisoning rather than simple haploinsufficiency. P2X2 channels assemble from three subunits, and coexpressing mutant with wild-type subunits significantly reduced ATP-activated permeability, so a single mutant allele degrades the function of channels that also contain wild-type subunits.</div>
@@ -4898,6 +4979,8 @@ This genetic context concerns P2RX2 (hgnc:15459). hgnc:15459 is a gene from the 
 
 
 
+
+
         <span class="tag tag-classification">allele_type: SNV</span>
 
 
@@ -4913,6 +4996,9 @@ This genetic context concerns P2RX2 (hgnc:15459). hgnc:15459 is a gene from the 
         <span class="tag tag-classification">functional_impact_category: DOMINANT_NEGATIVE</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Heterozygous germline missense and stop-loss alleles. Recorded as DOMINANT_NEGATIVE rather than LOSS_OF_FUNCTION because the mutant subunit does not merely fail: it is incorporated into a trimeric channel alongside wild-type subunits and degrades that channel&#39;s function, which was measured directly in coexpression and is the reading ClinGen&#39;s Hearing Loss Gene Curation Expert Panel also takes.</div>
 
@@ -5021,6 +5107,7 @@ This pathophysiological event involves decreased extracellularly ATP-gated monoa
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5042,6 +5129,7 @@ This pathophysiological event involves decreased extracellularly ATP-gated monoa
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5069,6 +5157,7 @@ This pathophysiological event involves decreased extracellularly ATP-gated monoa
 
 
 
+
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
 
                 </div>
@@ -5093,6 +5182,7 @@ This pathophysiological event involves decreased extracellularly ATP-gated monoa
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-purinergic-adaptation-to-elevated-sound-levels" data-dismech-node="Loss of Purinergic Adaptation to Elevated Sound Levels" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Purinergic Adaptation to Elevated Sound Levels</div>
+
 
                 <div class="item-desc">The core mechanism, and the one that makes DFNA41 unlike the structural deafness genes. As sound level rises, ATP is released from the tissues of the cochlear partition and activates P2X2 receptors distributed on the epithelial cells lining the endolymphatic compartment. The resulting conductance reduces the gain of the cochlear amplifier, which appears in auditory brainstem responses as a temporary threshold shift. This is an adaptive response to loud sound rather than injury.
 P2RX2-null mice do not develop that shift under sustained 85 dB noise, and the supporting measurements show the failure is upstream in the intended place: outer hair cell distortion product emissions are suppressed by noise significantly more in wild-type than in null mice, and suprathreshold response gain falls more in wild-type animals. Losing the adaptation is not protective; it removes a brake. At 95 dB and above the nulls are more vulnerable than wild-type mice to permanent hearing loss through hair cell synapse disruption.</div>
@@ -5286,6 +5376,7 @@ This pathophysiological event involves decreased purinergic nucleotide receptor 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5307,6 +5398,7 @@ This pathophysiological event involves decreased purinergic nucleotide receptor 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5334,6 +5426,7 @@ This pathophysiological event involves decreased purinergic nucleotide receptor 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5358,6 +5451,7 @@ This pathophysiological event involves decreased purinergic nucleotide receptor 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-inner-hair-cell-and-ribbon-synapse-disorganisation" data-dismech-node="Inner Hair Cell and Ribbon Synapse Disorganisation" data-dismech-type="pathophysiology">
                 <div class="item-name">Inner Hair Cell and Ribbon Synapse Disorganisation</div>
+
 
                 <div class="item-desc">The structural correlate seen in the knock-in mouse carrying the human founding allele. Abnormal inner hair cell and ribbon synapse morphology appears progressively, which the authors read as P2rx2 having a role in where ribbon synapses sit in the membrane. This is consistent with the finding in null mice that above the adaptive range, permanent loss occurs through hair cell synapse disruption.
 The node is drawn with an unknown-intermediate link from the channel defect because nothing connects loss of ATP-gated conductance to synaptic placement mechanistically; the two are observed in the same animals, not shown to be steps in one chain.</div>
@@ -5464,6 +5558,7 @@ This pathophysiological event involves cochlear inner hair cell (CL:0000589). CL
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5485,6 +5580,7 @@ This pathophysiological event involves cochlear inner hair cell (CL:0000589). CL
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5597,6 +5693,9 @@ This clinical feature is Progressive sensorineural hearing impairment (HP:000040
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5611,6 +5710,7 @@ This clinical feature is Progressive sensorineural hearing impairment (HP:000040
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5635,6 +5735,7 @@ This clinical feature is Progressive sensorineural hearing impairment (HP:000040
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5690,6 +5791,9 @@ This clinical feature is Adult-onset sensorineural hearing impairment, annotated
                     </div>
 
 
+
+
+
                     <div class="item-desc">The 25-to-35-year window is the RESULTS statement of PMID:31593348, the ten-year follow-up of the founding kindred. Yan 2013 (PMID:23345450) reports a 12-to-20-year window for what is the same family, so the two published descriptions of one kindred disagree; the later, prospectively followed report is the one cited here.
 frequency is FREQUENT rather than VERY_FREQUENT for that reason. Adult onset is not established in 80 to 99 percent of carriers: one published reading of the founding kindred puts onset in adolescence, and the Chinese p.Val60Leu family had onset earlier still. What is uncontested across every report is postlingual onset, which is curated separately and graded OBLIGATE; adulthood specifically is the part the sources disagree about.</div>
 
@@ -5710,6 +5814,7 @@ frequency is FREQUENT rather than VERY_FREQUENT for that reason. Adult onset is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5734,6 +5839,7 @@ frequency is FREQUENT rather than VERY_FREQUENT for that reason. Adult onset is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5790,6 +5896,9 @@ This clinical feature is Bilateral sensorineural hearing impairment (HP:0008619)
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5804,6 +5913,7 @@ This clinical feature is Bilateral sensorineural hearing impairment (HP:0008619)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5859,6 +5969,9 @@ This clinical feature is High-frequency sensorineural hearing impairment (HP:000
                     </div>
 
 
+
+
+
                     <div class="item-desc">Frequency is FREQUENT rather than higher because it is conditional on exposure: the phenotype is reported in family members who had noise exposure, and no reported series quantifies what fraction of all carriers that is.</div>
 
 
@@ -5878,6 +5991,7 @@ This clinical feature is High-frequency sensorineural hearing impairment (HP:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5902,6 +6016,7 @@ This clinical feature is High-frequency sensorineural hearing impairment (HP:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5958,6 +6073,9 @@ This clinical feature is Postlingual sensorineural hearing impairment (HP:000859
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5972,6 +6090,7 @@ This clinical feature is Postlingual sensorineural hearing impairment (HP:000859
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6023,6 +6142,9 @@ This clinical feature is Tinnitus (HP:0000360). HP:0000360 is a phenotype from t
                     </div>
 
 
+
+
+
                     <div class="item-desc">frequency is deliberately absent. The source says &#34;in one family&#34; out of the four probands curated, which is a count of families rather than of affected individuals, so there is no patient denominator to grade a FrequencyEnum band against.</div>
 
 
@@ -6042,6 +6164,7 @@ This clinical feature is Tinnitus (HP:0000360). HP:0000360 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6104,6 +6227,9 @@ This clinical feature is Hyperalgesia, annotated with Dysesthesia (HP:0012534). 
                     </div>
 
 
+
+
+
                     <div class="item-desc">HPO has no separate term for hyperalgesia. HP:0012534 carries Hyperalgesia and Hyperpathia as exact synonyms and its definition names both, so the binding is the one HPO intends, but the canonical label is Dysesthesia and its text describes pain from a nonpainful stimulus, which is closer to allodynia. preferred_term carries the accurate finding.
 frequency is deliberately absent rather than set to a low band. Pain perception was measured in one family and no other DFNA41 report tested it, so there is no denominator to grade against, and FrequencyEnum has no value meaning &#34;not established&#34;.</div>
 
@@ -6124,6 +6250,7 @@ frequency is deliberately absent rather than set to a low band. Pain perception 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6222,6 +6349,9 @@ This disease-associated gene is P2RX2 (hgnc:15459). hgnc:15459 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (7 references)
@@ -6236,6 +6366,7 @@ This disease-associated gene is P2RX2 (hgnc:15459). hgnc:15459 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6263,6 +6394,7 @@ This disease-associated gene is P2RX2 (hgnc:15459). hgnc:15459 is a gene from th
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6284,6 +6416,7 @@ This disease-associated gene is P2RX2 (hgnc:15459). hgnc:15459 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6340,6 +6473,9 @@ This disease-associated gene is P2RX2 (hgnc:15459). hgnc:15459 is a gene from th
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6350,6 +6486,9 @@ This disease-associated gene is P2RX2 (hgnc:15459). hgnc:15459 is a gene from th
 
 
     </div>
+
+
+
 
 
 
@@ -6381,6 +6520,7 @@ This is behavioural rather than pharmacological, and no trial has tested whether
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6402,6 +6542,7 @@ This is behavioural rather than pharmacological, and no trial has tested whether
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6469,6 +6610,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6479,6 +6623,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -6509,6 +6656,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6530,6 +6678,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6597,6 +6746,9 @@ This treatment is cochlear implantation, annotated with Surgical Procedure (NCIT
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6607,6 +6759,9 @@ This treatment is cochlear implantation, annotated with Surgical Procedure (NCIT
 
 
     </div>
+
+
+
 
 
 
@@ -6634,6 +6789,7 @@ This treatment is cochlear implantation, annotated with Surgical Procedure (NCIT
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6722,6 +6878,7 @@ This environmental factor is exposure to sound radiation (ECTO:8000044). ECTO:80
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6743,6 +6900,7 @@ This environmental factor is exposure to sound radiation (ECTO:8000044). ECTO:80
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6797,6 +6955,7 @@ This environmental factor is exposure to sound radiation (ECTO:8000044). ECTO:80
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6818,6 +6977,7 @@ This environmental factor is exposure to sound radiation (ECTO:8000044). ECTO:80
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6870,6 +7030,7 @@ This environmental factor is exposure to sound radiation (ECTO:8000044). ECTO:80
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6891,6 +7052,7 @@ This environmental factor is exposure to sound radiation (ECTO:8000044). ECTO:80
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6968,6 +7130,7 @@ The noise history still matters, but as a modifier rather than as an alternative
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6989,6 +7152,7 @@ The noise history still matters, but as a modifier rather than as an alternative
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7063,6 +7227,7 @@ The noise history still matters, but as a modifier rather than as an alternative
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7219,6 +7384,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7268,6 +7434,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7289,6 +7456,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7479,6 +7647,7 @@ This experimental model concerns P2RX2 (hgnc:15459). hgnc:15459 is a gene from t
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7538,6 +7707,7 @@ This experimental model concerns P2RX2 (hgnc:15459). hgnc:15459 is a gene from t
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7577,6 +7747,7 @@ This experimental model concerns P2RX2 (hgnc:15459). hgnc:15459 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7764,6 +7935,7 @@ This experimental model concerns P2RX2 (hgnc:15459). hgnc:15459 is a gene from t
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7823,6 +7995,7 @@ This experimental model concerns P2RX2 (hgnc:15459). hgnc:15459 is a gene from t
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7862,6 +8035,7 @@ This experimental model concerns P2RX2 (hgnc:15459). hgnc:15459 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8049,6 +8223,7 @@ This experimental model concerns P2RX2 (hgnc:15459). hgnc:15459 is a gene from t
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8108,6 +8283,7 @@ This experimental model concerns P2RX2 (hgnc:15459). hgnc:15459 is a gene from t
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8147,6 +8323,7 @@ This experimental model concerns P2RX2 (hgnc:15459). hgnc:15459 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8191,6 +8368,7 @@ This experimental model concerns P2RX2 (hgnc:15459). hgnc:15459 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9826,6 +10004,37 @@ discussions:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Autosomal Dominant Nonsyndromic Hearing Loss 41 (DFNA41, P2RX2)</strong> · 2026-08-28T19:24:24Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Autosomal_Dominant_Nonsyndromic_Hearing_Loss_41/2026-08-28T192424Z-claude-code-701c04.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of DFNA41 (MONDO:0011994, P2RX2 hgnc:15459) from the stub queue. entry_type decided as DISEASE: one causal gene, no MONDO descendants, MONDO&#39;s own definition is gene-scoped, and the reported alleles converge functionally rather than diverging. Nothing in kb/ previously mentioned P2RX2.
+
+Organising point: P2X2 is not a structural hair bundle protein but part of a protective feedback system. Rising sound levels release ATP into the endolymphatic compartment, ATP opens P2X2 channels on the epithelium lining it, and the resulting conductance turns down cochlear amplifier gain - which is what a temporary threshold shift is. DFNA41 is therefore a disorder of a protective mechanism, and the noise interaction is the disease rather than a lifestyle note.
+
+The noise interaction is modelled structurally as required by issue #9904: an environmental entry bound to ECTO:8000044 (exposure to sound radiation, already cached from Noise_Induced_Hearing_Loss) with two influences_mechanisms links - EXACERBATES onto the noise-exacerbated high-frequency phenotype, and MODULATES onto the purinergic adaptation node, because sound level is the physiological input to that mechanism rather than an aggravating agent applied to it. Entry-level evidence is present, so check-environmental-evidence passes.
+
+Three animal models are curated in animal_models with modeled_mechanisms: the P2rx2 null (where the adaptation mechanism was established), the allele-matched V60L knock-in, and the AAV-SaCas9 editing rescue, which carries a RESCUES link. The editing model&#39;s limitations record that juvenile intervention broadened the rescued frequency range, so the timing that works best has no counterpart in a disease diagnosed in adults.
+
+Acted on the automated second opinion posted to #9904, which flagged ClinGen&#39;s Moderate classification. Fetched the assertion (CGGV:assertion_c1dae6b6-4ed7-4c5a-ba4e-bcfaba026be8-2022-09-21T160000.000Z) via just clingen-rebuild and used it three ways. First, a KNOWLEDGE_GAP discussion on gene-disease validity: the entry is mechanistically rich and genetically thin, and the two are easy to confuse. Second, the ClinGen narrative reads the coexpression result as a dominant-negative mechanism, so functional_impact_category was changed from LOSS_OF_FUNCTION to DOMINANT_NEGATIVE. Third, and most importantly, ClinGen reviewed the MELAS family (PMID:25788561) and did not accept it - the evidence for pathogenicity was not strong and the variant is in gnomAD. An earlier draft of this entry cited that family as a clean natural experiment supporting the gene-disease relationship. That was corrected to PARTIAL with ClinGen&#39;s reason quoted alongside, rather than either dropping it or continuing to believe it.
+
+One real defect caught by just check-snippet-grading before push: the concluding sentence of PMID:23345450 is a synthesis of human and mouse results, and was graded HUMAN_CLINICAL in the environmental and treatment blocks but MODEL_ORGANISM on an animal model link. Fixed by re-quoting the animal model link with a mouse-specific sentence from PMID:23592720 rather than by re-grading a shared quote.
+
+Also removed a Vestibular Dysfunction phenotype from an earlier draft. It was supported only by MODEL_ORGANISM evidence, which the evidence policy says should not be the sole support for a human phenotype; no vestibular testing is reported for any molecularly confirmed DFNA41 carrier. The finding is retained in the knock-in mouse limitations, where its human status is stated as untested.
+
+Evidence: 8 references cited plus one ClinGen assertion; 62/62 snippets verified against the local cache. High-frequency phenotype bound to HP:0001757 rather than HP:0005101, matching the DFNB103 entry in the same batch. Hearing amplification and cochlear implantation are not curated because no DFNA41-specific report documents either; genome editing is not curated as a treatment because it is preclinical.
+
+Deep research: falcon report run and preflighted against MONDO:0011994, verdict PASS (P2RX2=25 mentions, next gene at 2; OMIM 608224 matched on both sides). Entry curated from primary sources regardless.
+
+Validation: just validate exit 0, just validate-terms exit 0, just check-entity-refs exit 0, just check-duplicate-keys exit 0, just check-snippet-grading exit 0 after the fix.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

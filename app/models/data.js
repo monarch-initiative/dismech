@@ -1194,6 +1194,50 @@ window.searchData = [
     "source_file": "kb/disorders/Ulcerative_Colitis.yaml"
   },
   {
+    "model_key": "apparent_mineralocorticoid_excess--computational-model-hsd11b2-homology-and-molecular-dynamics-variant-analysis--0",
+    "name": "HSD11B2 homology and molecular-dynamics variant analysis",
+    "description": "HSD17B1 templates were used to model HSD11B2 residues 81\u2013369, with cortisol docking and 500-ns monomer/dimer simulations. The authors proposed allele-specific effects on cofactor/substrate interactions, dimerization and structural stability. Template homology was limited and previously published activity data informed interpretation; the study did not newly assay all variants or validate an individual prenatal prognostic test.",
+    "model_type": "Structural Prediction",
+    "model_type_raw": "STRUCTURAL_PREDICTION",
+    "model_format": "Format not recorded",
+    "model_software": "Software not recorded",
+    "base_model": "HSD17B1 structural templates 1IOL, 1JTV and 1FDV",
+    "model_id": "",
+    "repository_url": "",
+    "repository_host": "No repository link",
+    "publication": "PMID:29229831",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "apparent mineralocorticoid excess",
+    "disease_id": "MONDO:0009025",
+    "category": "Mendelian",
+    "parents": [
+      "hereditary disease"
+    ],
+    "variables": [],
+    "variable_ids": [],
+    "variable_terms": [],
+    "num_variables": 0,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "Biallelic HSD11B2 Dysfunction"
+    ],
+    "num_mechanisms": 1,
+    "findings": [
+      "Structural hypotheses are distinct from measured enzyme activity; the reported fetal cell-free-DNA diagnostic example concerns congenital adrenal hyperplasia, not a validated AME application."
+    ],
+    "num_findings": 1,
+    "evidence_refs": [
+      "PMID:29229831"
+    ],
+    "num_evidence": 1,
+    "notes": "",
+    "creation_date": "2026-07-24T00:00:00Z",
+    "page_url": "../../pages/disorders/apparent_mineralocorticoid_excess.html#computational-model-hsd11b2-homology-and-molecular-dynamics-variant-analysis",
+    "source_file": "kb/disorders/Apparent_Mineralocorticoid_Excess.yaml"
+  },
+  {
     "model_key": "Conserved_Cellular_Senescence_Module--computational-model-karin-alon-saturating-removal-model-of-senescent-cell-accumulation--1",
     "name": "Karin-Alon Saturating-Removal Model of Senescent Cell Accumulation",
     "description": "Mathematical model of senescent-cell turnover fitted to longitudinal senescent-cell measurements and induction experiments in mice. Senescent cells turn over rapidly in young mice (half-life of days) but slow their own removal rate in old mice (half-life of weeks), producing a critical slowing-down with persistent fluctuations. Modelling death as the first crossing of a senescent-cell threshold quantitatively recapitulates the Gompertz law of mortality in mice and humans, and extends to lifespan-modulating interventions in Drosophila and C. elegans.",
@@ -3412,6 +3456,52 @@ window.searchData = [
     "source_file": "kb/disorders/Advanced_Sleep_Phase_Syndrome.yaml"
   },
   {
+    "model_key": "Rosacea--computational-model-rosacea-innate-immune-axis-boolean-model--0",
+    "name": "Rosacea Innate-Immune Axis Boolean Model",
+    "description": "A synchronous Boolean network of the cutaneous innate-immune arm of rosacea: barrier impairment and Demodex proliferation through pro-cathelicidin transcription, TLR2, KLK5/KLK7 and LL-37 to the inflammasome, mast-cell, Th1/Th17 and angiogenic branches, and on to the vascular and papulopustular phenotypes. Authored in this repository rather than curated from a publication, because no Boolean, logical or other dynamical model of rosacea has been published; PubMed returns nothing for rosacea combined with Boolean network, logical model, agent-based or mathematical model, and the computational rosacea literature is entirely network pharmacology and molecular docking. Every node maps to a pathophysiology, environmental, treatment or phenotype node in this entry, and every rule transcribes causal edges curated here, so the model asserts no biology of its own: it makes the curated chain executable, so that what the chain implies can be derived instead of argued. Nothing in it is fitted to data.",
+    "model_type": "Boolean Network",
+    "model_type_raw": "BOOLEAN_NETWORK",
+    "model_format": "Boolean rule specification (YAML)",
+    "model_software": "Python (standard library and PyYAML)",
+    "base_model": "",
+    "model_id": "rosacea_innate_boolean",
+    "repository_url": "",
+    "repository_host": "No repository link",
+    "publication": "",
+    "runnable": "Reference only",
+    "source_type": "Disorder",
+    "source_name": "Rosacea",
+    "disease_id": "MONDO:0006604",
+    "category": "Complex",
+    "parents": [
+      "Dermatological Disease",
+      "Inflammatory Skin Disease"
+    ],
+    "variables": [],
+    "variable_ids": [],
+    "variable_terms": [],
+    "num_variables": 0,
+    "perturbations": [],
+    "perturbation_ids": [],
+    "modeled_mechanisms": [
+      "Papulopustular inflammation",
+      "Neurovascular vasodilation"
+    ],
+    "num_mechanisms": 2,
+    "findings": [
+      "No combination of the interventions that can be grounded in this entry switches off the papulopustular phenotype in the model.",
+      "Removing mites alone clears only telangiectasia in the model, which overstates what an acaricide does to the cathelicidin axis.",
+      "The erythematotelangiectatic scenario produces papules and pustules, which is clinically wrong and exposes the absence of subtype gating in the curated graph."
+    ],
+    "num_findings": 3,
+    "evidence_refs": [],
+    "num_evidence": 0,
+    "notes": "Spec models/rosacea_innate_boolean.yaml, runner models/rosacea_innate_boolean.py, committed results models/rosacea_innate_boolean.results.json. Regenerate with `uv run python models/rosacea_innate_boolean.py`; `--check` fails if the committed results are stale and `--print` shows the summary. The runner is deterministic, uses only the standard library and PyYAML, and parses the rule language rather than calling eval. NOT wired to dismech-perturb and deliberately given no models/rosacea_innate_boolean.config.yaml: that runner executes SBML through tellurium and cannot run a logical network, so the model is correctly reported as not runnable in-repo by the models browser. The spec records, per rule, which curated edges it encodes and which Boolean choices (the AND at LL-37 generation, the ORs elsewhere) the edge list did not itself determine.",
+    "creation_date": "2026-04-05T12:00:00Z",
+    "page_url": "../../pages/disorders/Rosacea.html#computational-model-rosacea-innate-immune-axis-boolean-model",
+    "source_file": "kb/disorders/Rosacea.yaml"
+  },
+  {
     "model_key": "Cystic_Fibrosis--computational-model-sandefur-purinergic-model-of-airway-surface-liquid-homeostasis--1",
     "name": "Sandefur purinergic model of airway-surface-liquid homeostasis",
     "description": "Systems model coupling epithelial ion and water transport to extracellular ATP and adenosine signaling. Fifteen ODEs represent baseline ASL homeostasis; a 23-equation extension simulates prolonged low-dose P2Y2-agonist delivery.",
@@ -4854,9 +4944,9 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_models": 103,
-  "total_source_entries": 40,
-  "total_model_types": 8,
+  "total_models": 105,
+  "total_source_entries": 42,
+  "total_model_types": 9,
   "total_runnable": 4,
   "total_with_repository": 43
 };

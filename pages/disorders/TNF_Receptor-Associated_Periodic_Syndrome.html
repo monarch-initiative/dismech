@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4161,6 +4229,23 @@
 
             </div>
 
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">IUIS Category</div>
+
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="IUIS 2022 phenotypic classification (Tangye et al., PMID:35748970), Table 7 &#34;Autoinflammatory disorders&#34;, section 3 &#34;Non-Inflammasome Related Conditions&#34;, the TNFRSF1A row. IUIS places TRAPS outside the inflammasome section because the primary lesion is misfolding and intracellular retention of the 55-kD TNF receptor rather than a sensor that assembles an inflammasome, even though the resulting phenotype is the same sterile periodic fever with serositis.">autoinflammatory syndrome</span>
+
+                </div>
+
+            </div>
+
         </div>
 
 
@@ -4234,6 +4319,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4256,6 +4342,7 @@ episodes of fever and severe localized inflammation."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4402,6 +4489,7 @@ those with other variants."</div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tnfrsf1a-misfolding-and-er-retention" data-dismech-node="TNFRSF1A Misfolding and ER Retention" data-dismech-type="pathophysiology">
                 <div class="item-name">TNFRSF1A Misfolding and ER Retention</div>
+
 
                 <div class="item-desc">Pathogenic TNFRSF1A variants, especially cysteine-residue substitutions that disrupt conserved extracellular disulfide bonds, cause misfolding of the TNFR1 protein. The mutant receptor forms abnormal disulfide-linked oligomers, fails to bind TNF, and is retained intracellularly in the endoplasmic reticulum rather than trafficking to the cell surface, distinguishing the mechanism from a simple loss of the soluble TNF-decoy receptor.</div>
 
@@ -4592,6 +4680,7 @@ This pathophysiological event involves ERAD pathway (GO:0036503). GO:0036503 is 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4618,6 +4707,7 @@ molecules through the preligand assembly domain (PLAD)"</div>
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4641,6 +4731,7 @@ intracellularly and colocalized with endoplasmic reticulum (ER) markers."</div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-enhanced-innate-cytokine-signaling" data-dismech-node="Enhanced Innate Cytokine Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Enhanced Innate Cytokine Signaling</div>
+
 
                 <div class="item-desc">Misfolded ER-retained TNFR1 raises mitochondrial reactive oxygen species, which potentiate MAPK signaling and the LPS-driven production of a broad set of pro-inflammatory cytokines (IL-1 beta, IL-6, and TNF) by monocytes and macrophages. This enhanced innate immune responsiveness, rather than loss of TNF decoy function, drives the autoinflammatory state.</div>
 
@@ -4962,6 +5053,7 @@ This pathophysiological event involves increased inflammatory response (GO:00069
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4984,6 +5076,7 @@ MAPK phosphorylation and inflammatory cytokine production."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5010,6 +5103,7 @@ capacity and mitochondrial ROS generation"</div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-systemic-autoinflammation" data-dismech-node="Systemic Autoinflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">Systemic Autoinflammation</div>
+
 
                 <div class="item-desc">Recurrent, prolonged sterile inflammatory attacks affecting multiple systems: fever, sterile peritonitis, migratory myalgia with overlying rash, periorbital edema, conjunctivitis, arthralgia, and serositis, accompanied by a marked acute-phase response.</div>
 
@@ -5203,6 +5297,7 @@ This pathophysiological event occurs in skeletal muscle tissue (UBERON:0001134).
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5227,6 +5322,7 @@ amyloidosis."</div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aa-amyloidosis" data-dismech-node="AA Amyloidosis" data-dismech-type="pathophysiology">
                 <div class="item-name">AA Amyloidosis</div>
+
 
                 <div class="item-desc">Reactive (AA) systemic amyloidosis arising from chronically elevated serum amyloid A, with renal-predominant amyloid fibril deposition leading to proteinuria, nephrotic syndrome, and progressive kidney failure. It is the principal organ-threatening, potentially fatal complication of TRAPS and is largely preventable with sustained suppression of inflammation.</div>
 
@@ -5283,6 +5379,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5401,6 +5498,9 @@ This clinical feature is Migratory erythematous rash, annotated with Migratory e
                     </div>
 
 
+
+
+
                     <div class="item-desc">Migratory erythematous rash that characteristically overlies the painful muscle group.</div>
 
 
@@ -5420,6 +5520,7 @@ This clinical feature is Migratory erythematous rash, annotated with Migratory e
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5474,6 +5575,9 @@ This clinical feature is Conjunctivitis (HP:0000509). HP:0000509 is a phenotype 
                     </div>
 
 
+
+
+
                     <div class="item-desc">Ocular inflammation; part of the characteristic eye manifestations of TRAPS.</div>
 
 
@@ -5493,6 +5597,7 @@ This clinical feature is Conjunctivitis (HP:0000509). HP:0000509 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5518,6 +5623,7 @@ manifestations (45%)"</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5570,6 +5676,9 @@ This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype
                     </div>
 
 
+
+
+
                     <div class="item-desc">More common in children at presentation.</div>
 
 
@@ -5589,6 +5698,7 @@ This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5650,6 +5760,9 @@ This clinical feature is Proteinuria (HP:0000093). HP:0000093 is a phenotype fro
                     </div>
 
 
+
+
+
                     <div class="item-desc">Manifestation of renal AA amyloidosis; the basis for renal surveillance in TRAPS.</div>
 
 
@@ -5669,6 +5782,7 @@ This clinical feature is Proteinuria (HP:0000093). HP:0000093 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5732,6 +5846,9 @@ This clinical feature is Periorbital edema (HP:0100539). HP:0100539 is a phenoty
                     </div>
 
 
+
+
+
                     <div class="item-desc">Highly characteristic ocular sign of TRAPS.</div>
 
 
@@ -5751,6 +5868,7 @@ This clinical feature is Periorbital edema (HP:0100539). HP:0100539 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5834,6 +5952,9 @@ This clinical feature is Recurrent fever (HP:0001954), qualified as temporality 
                     </div>
 
 
+
+
+
                     <div class="item-desc">Hallmark of TRAPS; attacks characteristically last 5-25 days (often more than one week), longer than the short attacks of FMF and MKD.</div>
 
 
@@ -5853,6 +5974,7 @@ This clinical feature is Recurrent fever (HP:0001954), qualified as temporality 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5878,6 +6000,7 @@ fever (88%)"</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5934,6 +6057,9 @@ This clinical feature is Amyloidosis, annotated with Amyloid deposition (HP:0011
                     </div>
 
 
+
+
+
                     <div class="item-desc">Late complication; renal-predominant AA amyloidosis, the major cause of TRAPS mortality.</div>
 
 
@@ -5953,6 +6079,7 @@ This clinical feature is Amyloidosis, annotated with Amyloid deposition (HP:0011
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6016,6 +6143,9 @@ This clinical feature is Myalgia (HP:0003326). HP:0003326 is a phenotype from th
                     </div>
 
 
+
+
+
                     <div class="item-desc">Characteristically migratory, due to underlying monocytic fasciitis, often with overlying erythematous rash.</div>
 
 
@@ -6035,6 +6165,7 @@ This clinical feature is Myalgia (HP:0003326). HP:0003326 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6089,6 +6220,9 @@ This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype 
                     </div>
 
 
+
+
+
                     <div class="item-desc">Sterile peritonitis; may mimic a surgical abdomen.</div>
 
 
@@ -6108,6 +6242,7 @@ This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6165,6 +6300,9 @@ This clinical feature is Arthralgia (HP:0002829). HP:0002829 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6179,6 +6317,7 @@ This clinical feature is Arthralgia (HP:0002829). HP:0002829 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6278,6 +6417,9 @@ This disease-associated gene is TNFRSF1A (hgnc:11916). hgnc:11916 is a gene from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -6292,6 +6434,7 @@ This disease-associated gene is TNFRSF1A (hgnc:11916). hgnc:11916 is a gene from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6321,6 +6464,7 @@ receptor (TNFR1), five of which disrupt conserved extracellular disulfide bonds.
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6345,6 +6489,7 @@ polymorphisms."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6393,6 +6538,7 @@ symptoms in individuals with noncysteine mutations."</div>
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -6408,7 +6554,13 @@ This variant is in TNFRSF1A.</span>
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Common low-penetrance TNFRSF1A variant (legacy nomenclature; c.362G&gt;A) present in approximately 1% of control chromosomes. It behaves like the wild-type receptor in cell-biological assays and is associated with a milder phenotype and rare progression to amyloidosis; it is best regarded as a reduced-penetrance susceptibility/risk allele rather than a fully pathogenic variant.</div>
@@ -6435,6 +6587,7 @@ This variant is in TNFRSF1A.</span>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6471,6 +6624,7 @@ in approximately 1% of control chromosomes."</div>
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -6486,7 +6640,13 @@ This variant is in TNFRSF1A.</span>
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Common low-penetrance TNFRSF1A variant present in approximately 1% of control chromosomes, enriched in individuals of African ancestry, associated with a milder TRAPS-like phenotype; a reduced-penetrance susceptibility/risk allele.</div>
@@ -6513,6 +6673,7 @@ This variant is in TNFRSF1A.</span>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6549,6 +6710,7 @@ in approximately 1% of control chromosomes."</div>
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -6564,7 +6726,13 @@ This variant is in TNFRSF1A.</span>
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">High-penetrance structural TNFRSF1A variant occurring at a CpG hotspot, strongly associated with persistent disease and AA amyloidosis.</div>
@@ -6591,6 +6759,7 @@ This variant is in TNFRSF1A.</span>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6675,6 +6844,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6685,6 +6857,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -6730,6 +6905,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6820,6 +6996,9 @@ This treatment uses monoclonal antibody (NCIT:C20401). NCIT:C20401 is a therapeu
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6830,6 +7009,9 @@ This treatment uses monoclonal antibody (NCIT:C20401). NCIT:C20401 is a therapeu
 
 
     </div>
+
+
+
 
 
 
@@ -6875,6 +7057,7 @@ This treatment uses monoclonal antibody (NCIT:C20401). NCIT:C20401 is a therapeu
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6965,6 +7148,9 @@ This treatment uses etanercept (CHEBI:4875). CHEBI:4875 is a therapeutic agent f
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6975,6 +7161,9 @@ This treatment uses etanercept (CHEBI:4875). CHEBI:4875 is a therapeutic agent f
 
 
     </div>
+
+
+
 
 
 
@@ -7002,6 +7191,7 @@ This treatment uses etanercept (CHEBI:4875). CHEBI:4875 is a therapeutic agent f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7097,6 +7287,12 @@ This treatment uses prednisone (CHEBI:8382). CHEBI:8382 is a therapeutic agent f
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">High-dose corticosteroids can attenuate acute attacks but are not sufficient for long-term management or for preventing amyloidosis, and chronic use causes toxicity.</div>
 
 
@@ -7118,6 +7314,7 @@ This treatment uses prednisone (CHEBI:8382). CHEBI:8382 is a therapeutic agent f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7191,6 +7388,12 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Counseling regarding autosomal dominant transmission with a 50% risk to offspring, variable expressivity, and the interpretive challenges of the low-penetrance R92Q and P46L variants.</div>
 
 
@@ -7212,6 +7415,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7280,6 +7484,7 @@ those with other variants."</div>
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7327,6 +7532,7 @@ sedimentation rate (ESR), and serum amyloid A are typically elevated."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7380,6 +7586,7 @@ sedimentation rate (ESR), and serum amyloid A are typically elevated."</div>
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7427,6 +7634,7 @@ even in the absence of clinical symptoms."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7496,6 +7704,7 @@ even in the absence of clinical symptoms."</div>
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7551,6 +7760,7 @@ pathogenic) variant in TNFRSF1A identified by molecular genetic testing."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7620,6 +7830,7 @@ sedimentation rate (ESR), and serum amyloid A are typically elevated."</div>
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7666,6 +7877,7 @@ sedimentation rate (ESR), and serum amyloid A are typically elevated."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7732,6 +7944,7 @@ four to six weeks and lasting between five and 25 days."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7937,6 +8150,7 @@ This clinical trial targets Recurrent fever (HP:0001954). HP:0001954 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8761,6 +8975,26 @@ classifications:
   harrisons_chapter:
   - classification_value: IMMUNE_RHEUMATOLOGIC
   - classification_value: GENETICS_ENVIRONMENT_DISEASE
+  iuis_category:
+    classification_value: autoinflammatory syndrome
+    notes: &gt;-
+      IUIS 2022 phenotypic classification (Tangye et al., PMID:35748970), Table 7
+      &#34;Autoinflammatory disorders&#34;, section 3 &#34;Non-Inflammasome Related
+      Conditions&#34;, the TNFRSF1A row. IUIS places TRAPS outside the inflammasome
+      section because the primary lesion is misfolding and intracellular
+      retention of the 55-kD TNF receptor rather than a sensor that assembles an
+      inflammasome, even though the resulting phenotype is the same sterile
+      periodic fever with serositis.
+    evidence:
+    - reference: PMID:35748970
+      reference_title: &#34;Human Inborn Errors of Immunity: 2022 Update on the Classification from the International Union of Immunological Societies Expert Committee.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;TNF receptor-associated periodic syndrome (TRAPS) TNFRSF1A AD 142680 PMNs, monocytes&#34;
+      explanation: &gt;-
+        The IUIS Table 7 non-inflammasome-section row places TRAPS, with its
+        TNFRSF1A genetic defect, autosomal dominant inheritance, OMIM 142680 and
+        neutrophil/monocyte affected cells, among the autoinflammatory disorders.
 discussions:
 - discussion_id: traps_mouse_model_mismatch
   kind: HUMAN_MODEL_MISMATCH
@@ -8838,6 +9072,8 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -9336,7 +9572,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "TNF Receptor-Associated Periodic Syndrome", "mondoId": "MONDO:0007727", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "TNF_Receptor-Associated_Periodic_Syndrome", "yamlRevision": "ec8ebdb19e42"};
+        const OS_CONFIG = {"diseaseName": "TNF Receptor-Associated Periodic Syndrome", "mondoId": "MONDO:0007727", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "TNF_Receptor-Associated_Periodic_Syndrome", "yamlRevision": "fe6b2755eddb"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

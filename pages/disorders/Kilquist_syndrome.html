@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4169,6 +4237,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4215,6 +4284,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-slc12a2-nkcc1-deficiency" data-dismech-node="Biallelic SLC12A2 / NKCC1 deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic SLC12A2 / NKCC1 deficiency</div>
+
 
                 <div class="item-desc">Kilquist syndrome is caused by biallelic pathogenic variants in SLC12A2, which encodes the NKCC1 cotransporter.</div>
 
@@ -4349,6 +4419,7 @@ This pathophysiological event involves abnormal monoatomic ion transmembrane tra
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4370,6 +4441,7 @@ This pathophysiological event involves abnormal monoatomic ion transmembrane tra
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4395,6 +4467,7 @@ This pathophysiological event involves abnormal monoatomic ion transmembrane tra
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-truncated-or-absent-nkcc1-protein" data-dismech-node="Truncated or absent NKCC1 protein" data-dismech-type="pathophysiology">
                 <div class="item-name">Truncated or absent NKCC1 protein</div>
+
 
                 <div class="item-desc">Pathogenic splice variants produce truncated NKCC1 and impair dimerization or eliminate detectable transporter protein.</div>
 
@@ -4507,6 +4580,7 @@ This pathophysiological event involves SLC12A2 (hgnc:10911). hgnc:10911 is a gen
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4528,6 +4602,7 @@ This pathophysiological event involves SLC12A2 (hgnc:10911). hgnc:10911 is a gen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4555,6 +4630,7 @@ This pathophysiological event involves SLC12A2 (hgnc:10911). hgnc:10911 is a gen
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4577,6 +4653,7 @@ This pathophysiological event involves SLC12A2 (hgnc:10911). hgnc:10911 is a gen
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cochlear-endolymph-secretion-failure" data-dismech-node="Cochlear endolymph secretion failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Cochlear endolymph secretion failure</div>
+
 
                 <div class="item-desc">NKCC1 deficiency disrupts the inner-ear fluid-secretion program required for normal auditory function and underlies profound hearing loss.</div>
 
@@ -4630,6 +4707,7 @@ This pathophysiological event involves SLC12A2 (hgnc:10911). hgnc:10911 is a gen
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4652,6 +4730,7 @@ This pathophysiological event involves SLC12A2 (hgnc:10911). hgnc:10911 is a gen
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neuronal-ion-homeostasis-disruption" data-dismech-node="Neuronal ion-homeostasis disruption" data-dismech-type="pathophysiology">
                 <div class="item-name">Neuronal ion-homeostasis disruption</div>
+
 
                 <div class="item-desc">NKCC1 deficiency perturbs neuronal chloride transport and brain-development programs, contributing to severe developmental impairment and hypotonia.</div>
 
@@ -4705,6 +4784,7 @@ This pathophysiological event involves SLC12A2 (hgnc:10911). hgnc:10911 is a gen
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4727,6 +4807,7 @@ This pathophysiological event involves SLC12A2 (hgnc:10911). hgnc:10911 is a gen
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-secretory-epithelial-fluid-secretion-failure" data-dismech-node="Secretory epithelial fluid-secretion failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Secretory epithelial fluid-secretion failure</div>
+
 
                 <div class="item-desc">Loss of NKCC1 compromises secretory epithelial function, producing marked salivary and other exocrine secretion defects with gastrointestinal and respiratory consequences.</div>
 
@@ -4788,6 +4869,7 @@ This pathophysiological event involves SLC12A2 (hgnc:10911). hgnc:10911 is a gen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4809,6 +4891,7 @@ This pathophysiological event involves SLC12A2 (hgnc:10911). hgnc:10911 is a gen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4834,6 +4917,7 @@ This pathophysiological event involves SLC12A2 (hgnc:10911). hgnc:10911 is a gen
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-profound-sensorineural-hearing-impairment" data-dismech-node="Profound sensorineural hearing impairment" data-dismech-type="pathophysiology">
                 <div class="item-name">Profound sensorineural hearing impairment</div>
+
 
                 <div class="item-desc">Inner-ear dysfunction produces the hallmark profound bilateral sensorineural hearing loss of Kilquist syndrome.</div>
 
@@ -4887,6 +4971,7 @@ This pathophysiological event involves SLC12A2 (hgnc:10911). hgnc:10911 is a gen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4909,6 +4994,7 @@ This pathophysiological event involves SLC12A2 (hgnc:10911). hgnc:10911 is a gen
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-severe-neurodevelopmental-impairment" data-dismech-node="Severe neurodevelopmental impairment" data-dismech-type="pathophysiology">
                 <div class="item-name">Severe neurodevelopmental impairment</div>
+
 
                 <div class="item-desc">Neuronal NKCC1 dysfunction contributes to global developmental delay and hypotonia.</div>
 
@@ -4970,6 +5056,7 @@ This pathophysiological event involves SLC12A2 (hgnc:10911). hgnc:10911 is a gen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4992,6 +5079,7 @@ This pathophysiological event involves SLC12A2 (hgnc:10911). hgnc:10911 is a gen
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-xerostomia-and-epithelial-secretion-defects" data-dismech-node="Xerostomia and epithelial secretion defects" data-dismech-type="pathophysiology">
                 <div class="item-name">Xerostomia and epithelial secretion defects</div>
+
 
                 <div class="item-desc">Secretory failure produces profound impairment of salivary and other epithelial secretions.</div>
 
@@ -5061,6 +5149,7 @@ This pathophysiological event involves SLC12A2 (hgnc:10911). hgnc:10911 is a gen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5083,6 +5172,7 @@ This pathophysiological event involves SLC12A2 (hgnc:10911). hgnc:10911 is a gen
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-gastrointestinal-and-respiratory-complications" data-dismech-node="Gastrointestinal and respiratory complications" data-dismech-type="pathophysiology">
                 <div class="item-name">Gastrointestinal and respiratory complications</div>
+
 
                 <div class="item-desc">NKCC1-related secretory dysfunction contributes to severe gastrointestinal abnormalities and mucus-related respiratory disease.</div>
 
@@ -5149,6 +5239,7 @@ This pathophysiological event involves SLC12A2 (hgnc:10911). hgnc:10911 is a gen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5275,6 +5366,9 @@ This clinical feature is Absent tear production, annotated with Keratoconjunctiv
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5289,6 +5383,7 @@ This clinical feature is Absent tear production, annotated with Keratoconjunctiv
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5352,6 +5447,9 @@ This clinical feature is Gastrointestinal dysmotility (HP:0002579). HP:0002579 i
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5366,6 +5464,7 @@ This clinical feature is Gastrointestinal dysmotility (HP:0002579). HP:0002579 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5429,6 +5528,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5443,6 +5545,7 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5506,6 +5609,9 @@ This clinical feature is Xerostomia (HP:0000217). HP:0000217 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5520,6 +5626,7 @@ This clinical feature is Xerostomia (HP:0000217). HP:0000217 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5583,6 +5690,9 @@ This clinical feature is Anhidrosis (HP:0000970). HP:0000970 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5597,6 +5707,7 @@ This clinical feature is Anhidrosis (HP:0000970). HP:0000970 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5660,6 +5771,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5674,6 +5788,7 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5737,6 +5852,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5751,6 +5869,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5816,6 +5935,9 @@ This clinical feature is Mucus plugging with airway obstruction, annotated with 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5830,6 +5952,7 @@ This clinical feature is Mucus plugging with airway obstruction, annotated with 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5893,6 +6016,9 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5907,6 +6033,7 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6005,6 +6132,9 @@ This disease-associated gene is SLC12A2 (hgnc:10911). hgnc:10911 is a gene from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6019,6 +6149,7 @@ This disease-associated gene is SLC12A2 (hgnc:10911). hgnc:10911 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6110,6 +6241,12 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Management remains supportive and should be multidisciplinary because the reported biallelic cases involve profound hearing loss, severe developmental impairment, growth failure, gastrointestinal abnormalities, and secretory epithelial complications.</div>
 
 
@@ -6131,6 +6268,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6203,6 +6341,12 @@ This treatment is cochlear device implantation, annotated with Surgical Procedur
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Hearing-directed management may include hearing aids, cochlear implant evaluation, and ongoing audiology support, but published experience is limited and benefit may be incomplete.</div>
 
 
@@ -6224,6 +6368,7 @@ This treatment is cochlear device implantation, annotated with Surgical Procedur
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6296,6 +6441,12 @@ This treatment is gastrostomy (NCIT:C52006). NCIT:C52006 is a clinical intervent
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Nutrition support, feeding therapy, and gastrostomy care may be required for severe growth failure and feeding/GI complications.</div>
 
 
@@ -6317,6 +6468,7 @@ This treatment is gastrostomy (NCIT:C52006). NCIT:C52006 is a clinical intervent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6389,6 +6541,12 @@ This treatment is respiratory tract agent therapy, annotated with Pharmacotherap
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Respiratory management should address mucus plugging, airway obstruction, and cystic-fibrosis-like pulmonary complications when present.</div>
 
 
@@ -6410,6 +6568,7 @@ This treatment is respiratory tract agent therapy, annotated with Pharmacotherap
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6482,6 +6641,12 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Supportive management should include care for absent tear production, xerostomia, and related oral or ocular surface complications.</div>
 
 
@@ -6503,6 +6668,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6575,6 +6741,12 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Children with Kilquist syndrome should receive developmental surveillance and rehabilitation services tailored to profound global developmental impairment and hypotonia.</div>
 
 
@@ -6596,6 +6768,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6706,6 +6879,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6727,6 +6901,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6819,6 +6994,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6905,6 +7081,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6997,6 +7174,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7086,6 +7264,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7107,6 +7286,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7217,6 +7397,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7241,6 +7422,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7262,6 +7444,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7438,6 +7621,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8360,6 +8544,71 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Asta deep research was run as requested, but final curation relied on direct review of PubMed references because the retrieval output was noisy and only partially disease-specific. The entry is intentionally scoped to biallelic Kilquist syndrome / OMIM 619080, with phenotypic claims treated as case-based because only a small number of molecularly confirmed biallelic cases have been reported. Heterozygous or de novo SLC12A2-related cochleovestibular and neurodevelopmental disorders are documented separately as a differential scope issue rather than as Kilquist syndrome subtypes.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Review: Kilquist syndrome (Changes required)</strong> · 2026-05-30T02:52:33Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Kilquist_Syndrome/2026-05-30T025233Z-github-review-3406.yaml">View source</a></p>
+                        <p class="research-review-text">GitHub review issue: https://github.com/monarch-initiative/dismech/issues/3406
+Issue state: OPEN
+Issue created: 2026-05-30T02:52:33Z
+Issue updated: 2026-05-30T02:55:58Z
+Issue closed: not closed
+Review decision: Changes required
+Labels: review
+
+## Completed curation review
+
+- Disease: **Kilquist syndrome**
+- Entry: `kb/disorders/Kilquist_Syndrome.yaml`
+- Selection basis: #19 of 50 least-recently edited Mendelian entries
+- Review decision: **Changes required**
+- Validation stance: assumes schema/term/reference validation passes; this is a biological and clinical-content review.
+
+## Findings
+
+1. **The entry needs a stronger diagnosis/management layer.** It has no diagnosis section and only one generic treatment. Kilquist syndrome / SLC12A2-related disorder should include molecular testing, audiology, neurodevelopmental evaluation, nutrition/growth support, salivary/secretory complications, and multidisciplinary supportive care.
+2. **Phenotype coverage is probably incomplete.** The YAML lists sensorineural hearing impairment, global developmental delay, hypotonia, failure to thrive, and xerostomia. Reported SLC12A2/NKCC1 disease includes severe developmental impairment, congenital/profound hearing loss, vestibular dysfunction in some reports, GI/respiratory/secretory epithelial issues, and potentially broader neurologic findings. These should be compared against the primary cases.
+3. **Evidence is sparse and should be signposted.** This is a very rare disorder. Frequency and pathophysiology statements should avoid appearing cohort-level when based on single families or a handful of cases.
+4. **Pathophysiology is rich but needs evidence-source stratification.** The YAML contains nine mechanism nodes, including cochlear endolymph secretion failure, neuronal ion homeostasis, epithelial secretion failure, and GI/respiratory complications. Ensure each is clearly supported by human, model, or inference evidence; do not overstate tissue-specific effects from general NKCC1 biology.
+5. **Inheritance scope should include variant heterogeneity.** The YAML has autosomal recessive inheritance, but recent literature also reports de novo SLC12A2 variants with vestibular/hearing phenotypes; the entry should decide whether it is strictly biallelic Kilquist syndrome or broader SLC12A2-related disease.
+
+## Research-artifact cross-check
+
+Checked `research/Kilquist_Syndrome-deep-research-asta.md` and `.citations.md`. Because this is an Asta artifact and the disease is ultra-rare, it should be treated as a lead list. PubMed primary literature from 2019 and 2025 should be used to re-anchor the entry.
+
+## Content-completeness summary
+
+- **Phenotypes:** likely incomplete and needs cohort/case-level wording.
+- **Subtype/lumping:** define biallelic Kilquist syndrome versus broader SLC12A2-related disease.
+- **Pathophysiology:** substantial but should distinguish direct evidence from inferred NKCC1 biology.
+- **Management/diagnosis:** missing/too generic; add molecular, audiologic, developmental, nutritional, and secretory-system care.
+- **References:** add primary SLC12A2 disease papers if updating YAML.
+
+## Suggested remediation
+
+Add diagnosis and management, re-check phenotypes against primary cases, and clarify whether the file is Kilquist syndrome strictly or broader SLC12A2-related disease.
+
+## Sources used
+
+- PMID:30740830: https://pubmed.ncbi.nlm.nih.gov/30740830/
+- PMID:40678848: https://pubmed.ncbi.nlm.nih.gov/40678848/
+- PMID:40503591: https://pubmed.ncbi.nlm.nih.gov/40503591/
+
+No YAML files or `references_cache/*.md` files were edited.
+
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

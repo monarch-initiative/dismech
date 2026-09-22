@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4308,6 +4376,7 @@ Curation scope: IHPRF3 is kept as a standalone entry rather than lumped with the
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4329,6 +4398,7 @@ Curation scope: IHPRF3 is kept as a standalone entry rather than lumped with the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4518,6 +4588,7 @@ Curation scope: IHPRF3 is kept as a standalone entry rather than lumped with the
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4539,6 +4610,7 @@ Curation scope: IHPRF3 is kept as a standalone entry rather than lumped with the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4650,6 +4722,7 @@ Curation scope: IHPRF3 is kept as a standalone entry rather than lumped with the
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4671,6 +4744,7 @@ Curation scope: IHPRF3 is kept as a standalone entry rather than lumped with the
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -4847,6 +4921,7 @@ Curation scope: IHPRF3 is kept as a standalone entry rather than lumped with the
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4921,6 +4996,7 @@ Curation scope: IHPRF3 is kept as a standalone entry rather than lumped with the
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4942,6 +5018,7 @@ Curation scope: IHPRF3 is kept as a standalone entry rather than lumped with the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5007,6 +5084,7 @@ Curation scope: IHPRF3 is kept as a standalone entry rather than lumped with the
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-tbck-loss-of-function" data-dismech-node="Biallelic TBCK Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic TBCK Loss of Function</div>
+
 
                 <div class="item-desc">Homozygous or compound heterozygous loss-of-function variants in TBCK (nonsense, frameshift, canonical splice-site, and a recurrent single-exon deletion of exon 23) abolish the major TBCK isoform. TBCK protein is absent from patient cells, so the disorder behaves as a complete loss of TBCK function rather than a hypomorphic or dominant-negative state.</div>
 
@@ -5120,6 +5198,8 @@ This genetic context concerns TBCK (hgnc:28261). hgnc:28261 is a gene from the H
 
 
 
+
+
         <span class="tag tag-classification">allele_type: SNV</span>
 
 
@@ -5135,6 +5215,9 @@ This genetic context concerns TBCK (hgnc:28261). hgnc:28261 is a gene from the H
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Reported alleles are predominantly biallelic truncating variants, including the Puerto Rican founder allele c.376C&gt;T (p.Arg126Ter); compound heterozygosity and a recurrent exon 23 deletion also occur.</div>
 
@@ -5242,6 +5325,7 @@ This genetic context concerns TBCK (hgnc:28261). hgnc:28261 is a gene from the H
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5263,6 +5347,7 @@ This genetic context concerns TBCK (hgnc:28261). hgnc:28261 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5288,6 +5373,7 @@ This genetic context concerns TBCK (hgnc:28261). hgnc:28261 is a gene from the H
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-tbck-ppp1r21-ferry3-rab5-gap-activity" data-dismech-node="Loss of TBCK-PPP1R21-FERRY3 RAB5-GAP Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of TBCK-PPP1R21-FERRY3 RAB5-GAP Activity</div>
+
 
                 <div class="item-desc">TBCK forms a heterotrimer with PPP1R21 and FERRY3/C12orf4 that acts as a specific GTPase-activating protein for RAB5, and is a subunit of the wider five-subunit FERRY complex (with CRYZL1 and GATD1) that couples early endosomes to mRNA for peripheral local translation. Loss of the GAP leaves RAB5 constitutively GTP-bound. Despite the gene name, TBCK&#39;s N-terminal kinase-like domain is a catalytically inactive class I pseudokinase lacking the VAIK, HRD and DFG motifs and nucleotide binding, so the disease-relevant activity resides in the central TBC/Rab-GAP domain.</div>
 
@@ -5448,6 +5534,7 @@ This pathophysiological event involves RAB5 GTPase-activating protein activity, 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5469,6 +5556,7 @@ This pathophysiological event involves RAB5 GTPase-activating protein activity, 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5496,6 +5584,7 @@ This pathophysiological event involves RAB5 GTPase-activating protein activity, 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5520,6 +5609,7 @@ This pathophysiological event involves RAB5 GTPase-activating protein activity, 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-constitutive-rab5-hyperactivation-and-endosomal-maturation-arrest" data-dismech-node="Constitutive RAB5 Hyperactivation and Endosomal Maturation Arrest" data-dismech-type="pathophysiology">
                 <div class="item-name">Constitutive RAB5 Hyperactivation and Endosomal Maturation Arrest</div>
+
 
                 <div class="item-desc">Without GAP-mediated GTP hydrolysis, RAB5 remains active, the early-to-late endosome transition is blocked, and massively enlarged RAB5-positive endosomes accumulate. RAB5 hyperactivation also constitutively activates the PIK3C3/VPS34 complex.</div>
 
@@ -5665,6 +5755,7 @@ This pathophysiological event involves decreased endosomal transport (GO:0016197
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5687,6 +5778,7 @@ This pathophysiological event involves decreased endosomal transport (GO:0016197
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-mtorc1-signaling" data-dismech-node="Reduced mTORC1 Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced mTORC1 Signaling</div>
+
 
                 <div class="item-desc">Patient fibroblasts and lymphocytes show markedly decreased phosphorylation of ribosomal protein S6, a canonical mTORC1 readout. Unlike most mTOR-pathway neurodevelopmental disorders, which involve mTOR over-activation and brain overgrowth, TBCK deficiency is associated with reduced signaling and progressive loss of brain volume. The finding does not generalize: in human neural progenitors and neurons mTORC1 activity is unchanged, and inhibition across patient lines is inconsistent, so the node is curated as hypothesis-scoped rather than as an established step.</div>
 
@@ -5849,6 +5941,7 @@ This pathophysiological event involves decreased TORC1 signaling (GO:0038202). G
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5870,6 +5963,7 @@ This pathophysiological event involves decreased TORC1 signaling (GO:0038202). G
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5897,6 +5991,7 @@ This pathophysiological event involves decreased TORC1 signaling (GO:0038202). G
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5919,6 +6014,7 @@ This pathophysiological event involves decreased TORC1 signaling (GO:0038202). G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-er-to-golgi-vesicle-transport-in-neural-progenitors" data-dismech-node="Impaired ER-to-Golgi Vesicle Transport in Neural Progenitors" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired ER-to-Golgi Vesicle Transport in Neural Progenitors</div>
+
 
                 <div class="item-desc">In induced neuroprogenitor cells derived from affected individuals, absent TBCK is accompanied by defective early secretory (ER-to-Golgi) vesicle transport, impaired autophagosome biogenesis, altered cell-cycle progression, and severely reduced migratory capacity — processes required for neurogenesis and cortical cytoarchitecture, and therefore a candidate substrate for the neurodevelopmental (as opposed to neurodegenerative) half of the phenotype.</div>
 
@@ -6095,6 +6191,7 @@ This pathophysiological event involves decreased neuron migration (GO:0001764). 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6116,6 +6213,7 @@ This pathophysiological event involves decreased neuron migration (GO:0001764). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6141,6 +6239,7 @@ This pathophysiological event involves decreased neuron migration (GO:0001764). 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-axonal-mrna-and-lysosome-trafficking-failure" data-dismech-node="Axonal mRNA and Lysosome Trafficking Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Axonal mRNA and Lysosome Trafficking Failure</div>
+
 
                 <div class="item-desc">TBCK localizes preferentially to endolysosomal vesicle surfaces and can co-localize with mRNA in lysosomes. In patient-derived neurons homozygous for the Boricua p.R126X allele, axonal mRNA content is reduced relative to the soma and the lysosomal dynein/dynactin adaptor JIP4 is depleted, producing lysosomal axonal retrograde-trafficking defects. This compartment-specific failure is the leading candidate explanation for why long-projection neurons — and hence motor neurons — are selectively vulnerable.</div>
 
@@ -6347,6 +6446,7 @@ This pathophysiological event involves decreased lysosomal transport (GO:0007041
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6369,6 +6469,7 @@ This pathophysiological event involves decreased lysosomal transport (GO:0007041
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-ribosomal-function-and-translation" data-dismech-node="Impaired Ribosomal Function and Translation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Ribosomal Function and Translation</div>
+
 
                 <div class="item-desc">Unbiased transcriptomic and proteomic profiling of patient-derived TBCK-deficient cells shows disruption of ribosomal and translation-related pathways together with widespread alternative-splicing defects and altered miRNA networks, and puromycin-incorporation (SUnSET) assays confirm globally reduced nascent protein synthesis. This is the translational-output arm predicted by TBCK&#39;s membership of the FERRY complex - the Five-subunit Endosomal Rab5 and RNA/ribosome intermediarY - whose proposed role is to deliver mRNA to peripheral translation machinery. Measured in fibroblasts rather than neurons, so its relationship to the axonal mRNA-trafficking defect is convergent rather than demonstrated in a single system.</div>
 
@@ -6513,6 +6614,7 @@ This pathophysiological event involves dysregulated alternative mRNA splicing, v
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6534,6 +6636,7 @@ This pathophysiological event involves dysregulated alternative mRNA splicing, v
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6559,6 +6662,7 @@ This pathophysiological event involves dysregulated alternative mRNA splicing, v
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-autophagic-lysosomal-degradation-failure" data-dismech-node="Autophagic-Lysosomal Degradation Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Autophagic-Lysosomal Degradation Failure</div>
+
 
                 <div class="item-desc">Patient fibroblasts accumulate LC3-positive autophagosomes with increased autophagic flux while lysosomal proteolytic capacity is significantly reduced, and degradation of glycosylated proteins is impaired, producing abnormal free oligosaccharide profiles in cells and urine. The combination of excess autophagosome formation with an incompetent degradative endpoint is the convergence point of both curated mechanistic models.</div>
 
@@ -6722,6 +6826,7 @@ This pathophysiological event involves decreased lysosomal protein catabolic pro
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6743,6 +6848,7 @@ This pathophysiological event involves decreased lysosomal protein catabolic pro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6768,6 +6874,7 @@ This pathophysiological event involves decreased lysosomal protein catabolic pro
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-mitochondrial-quality-control" data-dismech-node="Impaired Mitochondrial Quality Control" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Mitochondrial Quality Control</div>
+
 
                 <div class="item-desc">Mitophagosomes accumulate while mitochondrial respiratory capacity and mtDNA content fall, and the degree of mitochondrial dysfunction tracks with a neurodegenerative clinical course. This is a secondary mitochondriopathy — rescued by acidifying lysosomal nanoparticles — and explains why affected children are frequently investigated for a primary mitochondrial disorder.</div>
 
@@ -6920,6 +7027,7 @@ This pathophysiological event involves decreased oxidative phosphorylation (GO:0
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6941,6 +7049,7 @@ This pathophysiological event involves decreased oxidative phosphorylation (GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6966,6 +7075,7 @@ This pathophysiological event involves decreased oxidative phosphorylation (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-intraneuronal-lipofuscin-and-carbohydrate-storage" data-dismech-node="Intraneuronal Lipofuscin and Carbohydrate Storage" data-dismech-type="pathophysiology">
                 <div class="item-name">Intraneuronal Lipofuscin and Carbohydrate Storage</div>
+
 
                 <div class="item-desc">Post-mortem neuropathology shows widespread, massive accumulation of lipofuscin storage material in CNS neurons, storage deposits in a minority of astrocytes, carbohydrate-rich deposits in brain, spleen and liver, and vacuolated lymphocytes, with more than twenty known lysosomal storage diseases excluded biochemically. Because the predominant deposit is intraneuronal lipofuscin, the authors proposed classifying TBCK deficiency as a new neuronal ceroid lipofuscinosis subtype (CLN15); that classification remains a proposal and is not adopted by MONDO.</div>
 
@@ -7083,6 +7193,7 @@ This pathophysiological event involves astrocyte (CL:0000127). CL:0000127 is a c
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7105,6 +7216,7 @@ This pathophysiological event involves astrocyte (CL:0000127). CL:0000127 is a c
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-motor-neuronopathy" data-dismech-node="Progressive Motor Neuronopathy" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Motor Neuronopathy</div>
+
 
                 <div class="item-desc">Nerve conduction studies, EMG and muscle ultrasound in affected children show absent or markedly reduced motor compound muscle action potentials with preserved sensory responses, chronic partial denervation/reinnervation, and fasciculations — a pattern most consistent with anterior horn cell disease. Electrophysiology is essentially normal in infancy and becomes neurogenic later in childhood, so this is an acquired, progressive lesion rather than a developmental one, and it drives the distal-onset muscle wasting and the respiratory failure.</div>
 
@@ -7190,6 +7302,7 @@ This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7211,6 +7324,7 @@ This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7236,6 +7350,7 @@ This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-brain-atrophy-and-leukoencephalopathy" data-dismech-node="Progressive Brain Atrophy and Leukoencephalopathy" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Brain Atrophy and Leukoencephalopathy</div>
+
 
                 <div class="item-desc">Brain MRI shows white-matter lesions (ranging from non-specific change to a leukodystrophy-like or periventricular-leukomalacia-like pattern) with progressive cortical atrophy and ex vacuo ventriculomegaly; corpus callosum dysgenesis and cerebellar vermis hypoplasia were described in the original cohort. The loss of brain volume is progressive, distinguishing TBCK deficiency from the overgrowth mTORopathies.</div>
 
@@ -7287,6 +7402,7 @@ This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7308,6 +7424,7 @@ This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7333,6 +7450,7 @@ This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-coarsening-of-facial-features" data-dismech-node="Progressive Coarsening of Facial Features" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Coarsening of Facial Features</div>
+
 
                 <div class="item-desc">The &#34;characteristic facies&#34; of the disorder name is not a fixed dysmorphic gestalt present at birth but a phenotype that evolves: minor non-specific dysmorphism in infancy that coarsens through childhood, with bitemporal narrowing, macroglossia, high-arched eyebrows, high palate and a tented upper lip, resembling the facies of a lysosomal storage disorder.</div>
 
@@ -7371,6 +7489,7 @@ This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7392,6 +7511,7 @@ This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7417,6 +7537,7 @@ This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chronic-respiratory-insufficiency" data-dismech-node="Chronic Respiratory Insufficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Chronic Respiratory Insufficiency</div>
+
 
                 <div class="item-desc">Progressive hypoventilation from neuromuscular weakness and diminished respiratory drive: most affected individuals require nocturnal non-invasive support by age five and about 75% of teenagers require tracheostomy. Respiratory complications are the usual cause of premature death.</div>
 
@@ -7455,6 +7576,7 @@ This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7476,6 +7598,7 @@ This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7501,6 +7624,7 @@ This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-profound-neurodevelopmental-impairment" data-dismech-node="Profound Neurodevelopmental Impairment" data-dismech-type="pathophysiology">
                 <div class="item-name">Profound Neurodevelopmental Impairment</div>
+
 
                 <div class="item-desc">The clinical convergence point: profound global developmental delay and intellectual disability with absent or minimal speech, failure to achieve independent ambulation, epilepsy, and later developmental regression and neurologic decompensation with intercurrent illness.</div>
 
@@ -7559,6 +7683,7 @@ This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7580,6 +7705,7 @@ This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7642,6 +7768,7 @@ This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7689,6 +7816,7 @@ This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7713,6 +7841,7 @@ This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7734,6 +7863,7 @@ This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7781,6 +7911,7 @@ This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7904,6 +8035,9 @@ This clinical feature is Vacuolated lymphocytes (HP:0001922). HP:0001922 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7918,6 +8052,7 @@ This clinical feature is Vacuolated lymphocytes (HP:0001922). HP:0001922 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7981,6 +8116,9 @@ This clinical feature is Left ventricular hypertrophy (HP:0001712). HP:0001712 i
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7995,6 +8133,7 @@ This clinical feature is Left ventricular hypertrophy (HP:0001712). HP:0001712 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8051,6 +8190,9 @@ This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8065,6 +8207,7 @@ This clinical feature is Abnormal heart morphology (HP:0001627). HP:0001627 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8130,6 +8273,9 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8144,6 +8290,7 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8200,6 +8347,9 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8214,6 +8364,7 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8268,6 +8419,9 @@ This clinical feature is Pancreatitis (HP:0001733). HP:0001733 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8282,6 +8436,7 @@ This clinical feature is Pancreatitis (HP:0001733). HP:0001733 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8336,6 +8491,9 @@ This clinical feature is Constipation (HP:0002019). HP:0002019 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8350,6 +8508,7 @@ This clinical feature is Constipation (HP:0002019). HP:0002019 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8413,6 +8572,9 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8427,6 +8589,7 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8481,6 +8644,9 @@ This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8495,6 +8661,7 @@ This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8549,6 +8716,9 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8563,6 +8733,7 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8644,6 +8815,9 @@ This clinical feature is Nephrolithiasis (HP:0000787), qualified as temporality 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8658,6 +8832,7 @@ This clinical feature is Nephrolithiasis (HP:0000787), qualified as temporality 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8712,6 +8887,9 @@ This clinical feature is Recurrent urinary tract infections (HP:0000010). HP:000
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8726,6 +8904,7 @@ This clinical feature is Recurrent urinary tract infections (HP:0000010). HP:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8780,6 +8959,9 @@ This clinical feature is Neurogenic bladder (HP:0000011). HP:0000011 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8794,6 +8976,7 @@ This clinical feature is Neurogenic bladder (HP:0000011). HP:0000011 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8875,6 +9058,9 @@ This clinical feature is Coarse facial features (HP:0000280), qualified as cours
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8889,6 +9075,7 @@ This clinical feature is Coarse facial features (HP:0000280), qualified as cours
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8913,6 +9100,7 @@ This clinical feature is Coarse facial features (HP:0000280), qualified as cours
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8967,6 +9155,9 @@ This clinical feature is Macroglossia (HP:0000158). HP:0000158 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8981,6 +9172,7 @@ This clinical feature is Macroglossia (HP:0000158). HP:0000158 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9035,6 +9227,9 @@ This clinical feature is Bitemporal narrowing, annotated with Narrow forehead (H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9049,6 +9244,7 @@ This clinical feature is Bitemporal narrowing, annotated with Narrow forehead (H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9103,6 +9299,9 @@ This clinical feature is High palate (HP:0000218). HP:0000218 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9117,6 +9316,7 @@ This clinical feature is High palate (HP:0000218). HP:0000218 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9171,6 +9371,9 @@ This clinical feature is Highly arched eyebrow (HP:0002553). HP:0002553 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9185,6 +9388,7 @@ This clinical feature is Highly arched eyebrow (HP:0002553). HP:0002553 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9239,6 +9443,9 @@ This clinical feature is Tented upper lip vermilion (HP:0010804). HP:0010804 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9253,6 +9460,7 @@ This clinical feature is Tented upper lip vermilion (HP:0010804). HP:0010804 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9318,6 +9526,9 @@ This clinical feature is Hyperlipidemia (HP:0003077). HP:0003077 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9332,6 +9543,7 @@ This clinical feature is Hyperlipidemia (HP:0003077). HP:0003077 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9417,6 +9629,9 @@ This clinical feature is Generalized hypotonia (HP:0001290), qualified as tempor
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9431,6 +9646,7 @@ This clinical feature is Generalized hypotonia (HP:0001290), qualified as tempor
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9485,6 +9701,9 @@ This clinical feature is Neonatal hypotonia (HP:0001319). HP:0001319 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9499,6 +9718,7 @@ This clinical feature is Neonatal hypotonia (HP:0001319). HP:0001319 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9571,6 +9791,9 @@ This clinical feature is Distal amyotrophy (HP:0003693), qualified as course pro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9585,6 +9808,7 @@ This clinical feature is Distal amyotrophy (HP:0003693), qualified as course pro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9641,6 +9865,9 @@ This clinical feature is EMG: neuropathic changes (HP:0003445). HP:0003445 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9655,6 +9882,7 @@ This clinical feature is EMG: neuropathic changes (HP:0003445). HP:0003445 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9727,6 +9955,9 @@ This clinical feature is Scoliosis (HP:0002650), qualified as course progressive
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9741,6 +9972,7 @@ This clinical feature is Scoliosis (HP:0002650), qualified as course progressive
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9815,6 +10047,9 @@ This clinical feature is Flexion contracture (HP:0001371), qualified as course p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9829,6 +10064,7 @@ This clinical feature is Flexion contracture (HP:0001371), qualified as course p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9883,6 +10119,9 @@ This clinical feature is Osteoporosis (HP:0000939). HP:0000939 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9897,6 +10136,7 @@ This clinical feature is Osteoporosis (HP:0000939). HP:0000939 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9951,6 +10191,9 @@ This clinical feature is Recurrent fractures (HP:0002757). HP:0002757 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9965,6 +10208,7 @@ This clinical feature is Recurrent fractures (HP:0002757). HP:0002757 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10030,6 +10274,9 @@ This clinical feature is Profound global developmental delay (HP:0012736). HP:00
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -10044,6 +10291,7 @@ This clinical feature is Profound global developmental delay (HP:0012736). HP:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10071,6 +10319,7 @@ This clinical feature is Profound global developmental delay (HP:0012736). HP:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10092,6 +10341,7 @@ This clinical feature is Profound global developmental delay (HP:0012736). HP:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10148,6 +10398,9 @@ This clinical feature is Profound intellectual disability (HP:0002187). HP:00021
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10162,6 +10415,7 @@ This clinical feature is Profound intellectual disability (HP:0002187). HP:00021
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10218,6 +10472,9 @@ This clinical feature is Absent speech (HP:0001344). HP:0001344 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10232,6 +10489,7 @@ This clinical feature is Absent speech (HP:0001344). HP:0001344 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10288,6 +10546,9 @@ This clinical feature is Inability to walk (HP:0002540). HP:0002540 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10302,6 +10563,7 @@ This clinical feature is Inability to walk (HP:0002540). HP:0002540 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10356,6 +10618,9 @@ This clinical feature is Areflexia (HP:0001284). HP:0001284 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10370,6 +10635,7 @@ This clinical feature is Areflexia (HP:0001284). HP:0001284 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10426,6 +10692,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10440,6 +10709,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10494,6 +10764,9 @@ This clinical feature is Infantile spasms (HP:0012469). HP:0012469 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10508,6 +10781,7 @@ This clinical feature is Infantile spasms (HP:0012469). HP:0012469 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10582,6 +10856,9 @@ This clinical feature is Developmental regression (HP:0002376), qualified as cou
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10596,6 +10873,7 @@ This clinical feature is Developmental regression (HP:0002376), qualified as cou
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10650,6 +10928,9 @@ This clinical feature is Fasciculations (HP:0002380). HP:0002380 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10664,6 +10945,7 @@ This clinical feature is Fasciculations (HP:0002380). HP:0002380 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10718,6 +11000,9 @@ This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10732,6 +11017,7 @@ This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10815,6 +11101,9 @@ This clinical feature is Hypoventilation (HP:0002791), qualified as course progr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10829,6 +11118,7 @@ This clinical feature is Hypoventilation (HP:0002791), qualified as course progr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10903,6 +11193,9 @@ This clinical feature is Respiratory insufficiency (HP:0002093), qualified as co
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10917,6 +11210,7 @@ This clinical feature is Respiratory insufficiency (HP:0002093), qualified as co
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11017,6 +11311,9 @@ This disease-associated gene is TBCK (hgnc:28261). hgnc:28261 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -11031,6 +11328,7 @@ This disease-associated gene is TBCK (hgnc:28261). hgnc:28261 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11055,6 +11353,7 @@ This disease-associated gene is TBCK (hgnc:28261). hgnc:28261 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11101,6 +11400,7 @@ This disease-associated gene is TBCK (hgnc:28261). hgnc:28261 is a gene from the
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -11122,7 +11422,13 @@ This variant is in TBCK (hgnc:28261). hgnc:28261 is a gene from the HUGO Gene No
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A recurrent nonsense variant found in homozygosity in unrelated Puerto Rican families without known consanguinity, defining the severe TBCK-encephaloneuronopathy (TBCKE) end of the spectrum with progressive motor neuronopathy, leukoencephalopathy and epilepsy.</div>
@@ -11152,6 +11458,7 @@ This variant is in TBCK (hgnc:28261). hgnc:28261 is a gene from the HUGO Gene No
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11173,6 +11480,7 @@ This variant is in TBCK (hgnc:28261). hgnc:28261 is a gene from the HUGO Gene No
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11208,6 +11516,7 @@ This variant is in TBCK (hgnc:28261). hgnc:28261 is a gene from the HUGO Gene No
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -11229,7 +11538,13 @@ This variant is in TBCK (hgnc:28261). hgnc:28261 is a gene from the HUGO Gene No
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A missense variant altering a conserved residue within the TBC1 domain; structural analysis implicates Arg511 as required for Rab-GAP function. This is also the variant reported in the consanguineous family whose affected sibs had cardiac malformations.</div>
@@ -11259,6 +11574,7 @@ This variant is in TBCK (hgnc:28261). hgnc:28261 is a gene from the HUGO Gene No
 
 
 
+
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
 
                 </div>
@@ -11280,6 +11596,7 @@ This variant is in TBCK (hgnc:28261). hgnc:28261 is a gene from the HUGO Gene No
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11315,6 +11632,7 @@ This variant is in TBCK (hgnc:28261). hgnc:28261 is a gene from the HUGO Gene No
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -11336,7 +11654,13 @@ This variant is in TBCK (hgnc:28261). hgnc:28261 is a gene from the HUGO Gene No
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A recurrent homozygous or compound-heterozygous deletion of TBCK exon 23 producing out-of-frame transcripts. Because single-exon copy-number variants are poorly detected by short-read exome sequencing, this allele is likely under-ascertained in hypotonic infants who have had a non-diagnostic exome.</div>
@@ -11366,6 +11690,7 @@ This variant is in TBCK (hgnc:28261). hgnc:28261 is a gene from the HUGO Gene No
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11387,6 +11712,7 @@ This variant is in TBCK (hgnc:28261). hgnc:28261 is a gene from the HUGO Gene No
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11422,6 +11748,7 @@ This variant is in TBCK (hgnc:28261). hgnc:28261 is a gene from the HUGO Gene No
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -11443,7 +11770,13 @@ This variant is in TBCK (hgnc:28261). hgnc:28261 is a gene from the HUGO Gene No
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A homozygous nonsense variant reported in a Chinese proband — the first non-Caucasian individual described with IHPRF3 — with an ExAC frequency of 0.0000082 and an ACMG pathogenic classification. Its report establishes that the disorder is not restricted to populations of European ancestry.</div>
@@ -11470,6 +11803,7 @@ This variant is in TBCK (hgnc:28261). hgnc:28261 is a gene from the HUGO Gene No
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11553,6 +11887,9 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -11563,6 +11900,9 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -11612,6 +11952,7 @@ This treatment targets Dysphagia (HP:0002015). HP:0002015 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11678,6 +12019,9 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -11688,6 +12032,9 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
     </div>
+
+
+
 
 
 
@@ -11724,6 +12071,7 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11792,6 +12140,7 @@ This treatment targets Hypoventilation (HP:0002791). HP:0002791 is a phenotype f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11813,6 +12162,7 @@ This treatment targets Hypoventilation (HP:0002791). HP:0002791 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11879,6 +12229,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -11889,6 +12242,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -11938,6 +12294,7 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12004,6 +12361,9 @@ This treatment is Rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical interv
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -12014,6 +12374,9 @@ This treatment is Rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical interv
 
 
     </div>
+
+
+
 
 
 
@@ -12041,6 +12404,7 @@ This treatment is Rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical interv
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12107,6 +12471,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -12117,6 +12484,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -12166,6 +12536,7 @@ This treatment targets Osteoporosis (HP:0000939). HP:0000939 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12254,6 +12625,9 @@ This treatment uses L-leucine (CHEBI:15603). CHEBI:15603 is a therapeutic agent 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -12264,6 +12638,9 @@ This treatment uses L-leucine (CHEBI:15603). CHEBI:15603 is a therapeutic agent 
 
 
     </div>
+
+
+
 
 
 
@@ -12300,6 +12677,7 @@ This treatment uses L-leucine (CHEBI:15603). CHEBI:15603 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12343,6 +12721,7 @@ This treatment uses L-leucine (CHEBI:15603). CHEBI:15603 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12409,6 +12788,9 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -12419,6 +12801,9 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
     </div>
+
+
+
 
 
 
@@ -12453,6 +12838,7 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12496,6 +12882,7 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12561,6 +12948,7 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12608,6 +12996,7 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -12629,6 +13018,7 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -12698,6 +13088,7 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12719,6 +13110,7 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12836,6 +13228,7 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12935,6 +13328,7 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13038,6 +13432,7 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -13135,6 +13530,7 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13236,6 +13632,7 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -13300,6 +13697,7 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -13349,6 +13747,7 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13404,6 +13803,7 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -13425,6 +13825,7 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13477,6 +13878,7 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13553,6 +13955,7 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -13608,6 +14011,7 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13693,6 +14097,7 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -13745,6 +14150,7 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13803,6 +14209,7 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -13855,6 +14262,7 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14032,6 +14440,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -14091,6 +14500,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -14130,6 +14540,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14177,6 +14588,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14335,6 +14747,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -14394,6 +14807,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -14433,6 +14847,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14480,6 +14895,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14616,6 +15032,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -14660,6 +15077,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14796,6 +15214,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -14872,6 +15291,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -14911,6 +15331,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14958,6 +15379,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -15076,6 +15498,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -15117,6 +15540,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -15222,6 +15646,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -15263,6 +15688,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -18552,6 +18978,29 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Hypotonia, Infantile, with Psychomotor Retardation and Characteristic Facies 3 [IHPRF3, TBCK]</strong> · 2026-08-19T09:49:06Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Hypotonia_Infantile_with_Psychomotor_Retardation_and_Characteristic_Facies_3/2026-08-19T094906Z-claude-code-494875.yaml">View source</a></p>
+                        <p class="research-review-text">De-novo curation of IHPRF3 [MONDO:0014823, OMIM:616900, TBCK / hgnc:28261] as a standalone Mendelian entry.
+
+Duplicate preflight: git grep over origin/main kb/disorders plus GitHub PR and issue search found no existing entry and no in-flight PR. Open discussion issue #8451 - lump-vs-split of the IHPRF numbered series - recommends keeping TBCK separate from the NALCN/UNC80 channelosome pair; this entry follows that and records the rationale in the description and in an OPEN_QUESTION discussion.
+
+Deep research: the default falcon provider failed with HTTP 402 - the Edison account is out of credit - so two other providers were run instead, claude_code and openscientist. Both passed just preflight-dr against MONDO:0014823 with verdict PASS: TBCK was the dominant gene mention in each report and the report OMIM matched the MONDO xref 616900. Report reference validation: claude_code 9/9 references resolved, confabulation_rate 0.0; openscientist 20/20 resolved, confabulation_rate 0.0 but needs_review true for one unsupported quote from PMID:42563865, which was not used in this entry. The openscientist report also carried three incorrect identifiers - MONDO:0014635, ORPHA:494526, HGNC:28348 - so every identifier in the entry was taken from OAK lookups instead.
+
+GeneReviews baseline: PMID:40504974 TBCK-Related Neurodevelopmental Disorder was fetched, cached, and tagged GeneReviews in the top-level references block. Its Clinical Characteristics were cross-referenced item by item into phenotypes - hypotonia, non-ambulation, absent speech, dysphagia and gastrostomy, distal-onset motor neuronopathy, respiratory progression, seizures, regression, white-matter lesions and cortical atrophy, optic atrophy, contractures, neuromuscular scoliosis, coarsening facies, nephrolithiasis, recurrent UTIs, dyslipidemia, left ventricular hypertrophy - and into treatments. The Agents/circumstances to avoid warning about adverse reactions to bisphosphonate infusions is captured on the bisphosphonate treatment entry.
+
+Content: 14 pathophysiology nodes spanning the molecular-to-organism chain, with two competing curated mechanistic_hypotheses - the emerging TBCK-PPP1R21-FERRY3 RAB5-GAP endolysosomal model and the original mTORC1-downregulation model - and hypothesis-scoped causal edges rather than one blended chain. The negative result that mTORC1 is not inhibited in human neural progenitors or neurons is retained as REFUTE evidence and as a FAILS_TO_RECAPITULATE model link. Two animal models, four experimental models with readouts, and three discussions: the mTORC1 primary-versus-secondary knowledge gap, the proposed CLN15 classification, and the IHPRF series scope question. No lysosomal_storage classification is asserted while CLN15 remains a proposal. No datasets block was added: GEO returned zero hits for TBCK and just discover-datasets found no candidates, so none were invented.
+
+Validation actually run and read: just validate passed for schema and references; just validate-terms passed; just count-verified-snippets reported 157/157 verified against cached references; just check-duplicate-keys reported OK; just check-title-snippets reported no new title-quoting snippets; just validate-disorders - the batched pre-PR sweep CI runs, with --no-full-text - exited 0 with 157/157 snippets verified. Compliance was 98.2 percent global and 98.4 percent weighted.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

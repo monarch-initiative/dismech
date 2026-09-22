@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4112,6 +4180,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4133,6 +4202,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4208,6 +4278,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4229,6 +4300,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4343,6 +4415,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4402,6 +4475,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4497,6 +4571,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4556,6 +4631,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4620,6 +4696,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4915,6 +4992,7 @@ Both sides of the question now have a structural anchor in this entry. The zebra
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-developmental-gene-dosage-disruption" data-dismech-node="Developmental Gene Dosage Disruption" data-dismech-type="pathophysiology">
                 <div class="item-name">Developmental Gene Dosage Disruption</div>
 
+
                 <div class="item-desc">The upstream molecular trigger of most severe CHD: loss of normal dosage or function of genes required for cardiac morphogenesis. Three genetic mechanisms converge here — chromosomal aneuploidy, recurrent and non-recurrent copy-number variants, and point mutations (predominantly de novo in severe sporadic cases). De novo damaging variants are concentrated in genes highly expressed in the developing heart and, strikingly, in chromatin-modifying genes that write, read and erase H3K4 methylation and H2BK120 ubiquitination — the marks that characterise the &#34;poised&#34; promoters and enhancers of key developmental genes. Because the same genes are also highly expressed in the developing brain, this node also explains the co-occurrence of CHD with neurodevelopmental disability and extracardiac anomalies. Roughly 400 developing-heart-expressed genes are inferred to contribute.</div>
 
 
@@ -5083,6 +5161,7 @@ This pathophysiological event involves decreased regulation of transcription by 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5104,6 +5183,7 @@ This pathophysiological event involves decreased regulation of transcription by 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5131,6 +5211,7 @@ This pathophysiological event involves decreased regulation of transcription by 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5153,6 +5234,7 @@ This pathophysiological event involves decreased regulation of transcription by 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-maternal-metabolic-and-teratogenic-perturbation-of-cardiogenesis" data-dismech-node="Maternal Metabolic and Teratogenic Perturbation of Cardiogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Maternal Metabolic and Teratogenic Perturbation of Cardiogenesis</div>
+
 
                 <div class="item-desc">The non-genetic arm of CHD causation. During the window of cardiac organogenesis (roughly gestational weeks 3-8) the embryonic heart is vulnerable to the maternal metabolic and pharmacological environment. Pregestational diabetes is by a wide margin the strongest established modifiable risk factor; the proposed mediators are persistent embryonic hyperglycaemia, oxidative stress, dysregulation of hypoxia-inducible factor 1, and downregulation of the very NOTCH1 and NKX2-5 programmes that the genetic arm of this entry disrupts. Definitive teratogenic exposures include maternal rubella, untreated maternal phenylketonuria, thalidomide, retinoids and vitamin A congeners, and indomethacin tocolysis. Periconceptional folic acid / multivitamin intake is the principal candidate protective exposure.</div>
 
@@ -5248,6 +5330,7 @@ This pathophysiological event involves increased cellular response to oxidative 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5269,6 +5352,7 @@ This pathophysiological event involves increased cellular response to oxidative 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5296,6 +5380,7 @@ This pathophysiological event involves increased cellular response to oxidative 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5318,6 +5403,7 @@ This pathophysiological event involves increased cellular response to oxidative 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiac-progenitor-specification-and-second-heart-field-deployment-failure" data-dismech-node="Cardiac Progenitor Specification and Second Heart Field Deployment Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiac Progenitor Specification and Second Heart Field Deployment Failure</div>
+
 
                 <div class="item-desc">The heart is not built from a single progenitor pool. The first heart field forms the linear heart tube and gives rise principally to the left ventricle and part of the atria; the second heart field (SHF) is a distinct population of progenitors that is progressively added to both poles of the elongating tube. The SHF supplies the right ventricle, the outflow tract myocardium and the ventricular septal myocardium at the arterial pole, and atrial including atrial septal myocardium at the venous pole. Because SHF deployment lays down the template on which septation is later performed, and because it orchestrates outflow tract development jointly with the neural crest, a deficit in progenitor addition is a single upstream lesion that can produce conotruncal, right ventricular hypoplastic, and septal phenotypes. This node is the reason a &#34;root&#34; CHD entry is mechanistically coherent rather than merely a list.</div>
 
@@ -5499,6 +5585,7 @@ This pathophysiological event involves decreased heart development (GO:0007507).
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5520,6 +5607,7 @@ This pathophysiological event involves decreased heart development (GO:0007507).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5547,6 +5635,7 @@ This pathophysiological event involves decreased heart development (GO:0007507).
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5569,6 +5658,7 @@ This pathophysiological event involves decreased heart development (GO:0007507).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-left-right-patterning-and-cardiac-looping-failure" data-dismech-node="Left-Right Patterning and Cardiac Looping Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Left-Right Patterning and Cardiac Looping Failure</div>
+
 
                 <div class="item-desc">The linear heart tube must break bilateral symmetry and loop rightward (dextral looping) for the systemic and pulmonary circulations to be placed in their correct series arrangement. Handedness is set upstream at the embryonic left-right organizer, where motile-cilium-driven leftward flow establishes asymmetric NODAL, LEFTY and PITX2 expression; ZIC3 acts at the earliest stages of this process. Failure randomises the axis, producing situs ambiguus (heterotaxy) with its complex atrial, venous and ventriculoarterial mis-connections, or complete situs inversus. This node is the point at which the CHD root meets the ciliopathy_dysfunction and Visceral_Heterotaxy entries; those curate the ciliary machinery and the individual HTX loci in detail and are deliberately not re-derived here.</div>
 
@@ -5744,6 +5834,7 @@ This pathophysiological event involves decreased heart looping (GO:0001947). GO:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5765,6 +5856,7 @@ This pathophysiological event involves decreased heart looping (GO:0001947). GO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5790,6 +5882,7 @@ This pathophysiological event involves decreased heart looping (GO:0001947). GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiac-neural-crest-migration-and-outflow-tract-septation-failure" data-dismech-node="Cardiac Neural Crest Migration and Outflow Tract Septation Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiac Neural Crest Migration and Outflow Tract Septation Failure</div>
+
 
                 <div class="item-desc">Cardiac neural crest cells delaminate from the postotic (vagal) hindbrain, migrate through the caudal pharyngeal arches, and enter the outflow tract, where they are indispensable for formation of the aorticopulmonary septum that divides the common truncus into aorta and pulmonary trunk. The same population patterns the aortic arch arteries and contributes to the semilunar valves and the proximal coronary arteries. Crucially, cardiac neural crest and second heart field cells migrate in opposite directions at the same developmental stage, so a perturbation of either population produces overlapping conotruncal phenotypes. Because these cells also build craniofacial and pharyngeal-arch derivatives, their failure explains the recurrent clinical co-occurrence of conotruncal CHD with craniofacial and pharyngeal anomalies (22q11.2 deletion, CHARGE) — the cardiac face of the neurocristopathy concept.</div>
 
@@ -6036,6 +6129,7 @@ This pathophysiological event occurs in outflow tract (UBERON:0004145). UBERON:0
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6057,6 +6151,7 @@ This pathophysiological event occurs in outflow tract (UBERON:0004145). UBERON:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6084,6 +6179,7 @@ This pathophysiological event occurs in outflow tract (UBERON:0004145). UBERON:0
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6108,6 +6204,7 @@ This pathophysiological event occurs in outflow tract (UBERON:0004145). UBERON:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-endocardial-cushion-formation-and-endothelial-to-mesenchymal-transition-failure" data-dismech-node="Endocardial Cushion Formation and Endothelial-to-Mesenchymal Transition Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Endocardial Cushion Formation and Endothelial-to-Mesenchymal Transition Failure</div>
+
 
                 <div class="item-desc">The atrioventricular canal and outflow tract cushions are the swellings of cardiac jelly that are colonised when a subset of endocardial cells loses cell-cell adhesion, delaminates and transforms into invasive mesenchyme (endothelial-to-mesenchymal transition, a cardiac-specific instance of EMT driven by TGF-beta, BMP and NOTCH signalling from the adjacent myocardium). Those mesenchymal cells then remodel into the atrioventricular and semilunar valve leaflets and into the membranous portions of the atrial and ventricular septa. Failure at this step is therefore simultaneously a valve lesion and a septation lesion, which is why the atrioventricular septal defect is a single malformation rather than a coincidence of two. NOTCH1 loss of function in this programme is the established cause of bicuspid aortic valve with early calcification.</div>
 
@@ -6402,6 +6499,7 @@ This pathophysiological event occurs in endocardial cushion (UBERON:0002062). UB
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6423,6 +6521,7 @@ This pathophysiological event occurs in endocardial cushion (UBERON:0002062). UB
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6448,6 +6547,7 @@ This pathophysiological event occurs in endocardial cushion (UBERON:0002062). UB
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiac-septation-transcription-factor-network-failure" data-dismech-node="Cardiac Septation Transcription Factor Network Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiac Septation Transcription Factor Network Failure</div>
+
 
                 <div class="item-desc">Division of the looped, chambered heart into four cavities depends on a small, combinatorially acting transcription factor network — NKX2-5, GATA4/GATA6, TBX5 and TBX20 — whose members physically interact and are dosage-sensitive. Haploinsufficiency of any one member permits septation to begin but not to complete. Two features of this network are diagnostically important and are curated here rather than in the lesion entries: the same factors that direct septation also build and maintain the atrioventricular conduction system, so NKX2-5 haploinsufficiency yields septal defect plus progressive atrioventricular block; and the GATA4-TBX5 physical interaction is disrupted by septal-defect-causing missense alleles in either partner, which is the molecular basis of the cardiac overlap between isolated septal defects and Holt-Oram syndrome.</div>
 
@@ -6665,6 +6765,7 @@ This pathophysiological event involves decreased cardiac septum morphogenesis (G
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6686,6 +6787,7 @@ This pathophysiological event involves decreased cardiac septum morphogenesis (G
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6713,6 +6815,7 @@ This pathophysiological event involves decreased cardiac septum morphogenesis (G
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6737,6 +6840,7 @@ This pathophysiological event involves decreased cardiac septum morphogenesis (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-flow-dependent-cardiac-morphogenesis-failure" data-dismech-node="Flow-Dependent Cardiac Morphogenesis Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Flow-Dependent Cardiac Morphogenesis Failure</div>
+
 
                 <div class="item-desc">Cardiac morphogenesis is not driven by the genome alone. The developing heart begins to function while it is still being built, and the resulting haemodynamic forces — shear stress on the endocardium and cyclic strain on the myocardium — are themselves morphogenetic inputs that the tissue senses and responds to. Removing or altering those forces produces abnormal heart development. This is the mechanistic content of the clinical &#34;no flow, no grow&#34; principle, and it is what converts a focal primary lesion into a global one: an early valvar or arch obstruction reduces flow through the structures downstream of it, whose growth is then secondarily curtailed, so that a point stenosis becomes hypoplastic left heart syndrome or aortic arch hypoplasia. It also means that a CHD lesion at birth is the compound product of the original developmental error and months of altered loading — a caveat that limits how directly a neonatal anatomical phenotype can be read back to a single genetic first cause. This node is unbroken ground in dismech; the Hypoplastic_Left_Heart_Syndrome and Coarctation_of_the_Aorta entries assert the flow-limitation step in prose without anchoring the general mechanism.</div>
 
@@ -6944,6 +7048,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6965,6 +7070,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6990,6 +7096,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-structural-cardiac-malformation" data-dismech-node="Structural Cardiac Malformation" data-dismech-type="pathophysiology">
                 <div class="item-name">Structural Cardiac Malformation</div>
+
 
                 <div class="item-desc">The convergence node of this entry: an anatomically abnormal heart or great vessels at birth. Every mechanistic arm above terminates here, and every lesion-specific dismech entry begins from a member of this node&#39;s phenotype set. The malformation is fixed at birth (surgery repairs or palliates anatomy but does not restore normal development), which is why CHD is a lifelong condition rather than a neonatal event.</div>
 
@@ -7062,6 +7169,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7084,6 +7192,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-altered-circulatory-physiology" data-dismech-node="Altered Circulatory Physiology" data-dismech-type="pathophysiology">
                 <div class="item-name">Altered Circulatory Physiology</div>
+
 
                 <div class="item-desc">The shared physiological consequence of structural malformation, and the level at which otherwise unrelated lesions become clinically interchangeable. Four patterns recur: left-to-right shunting with pulmonary overcirculation and volume loading; outflow obstruction with pressure loading of the upstream ventricle; obligatory mixing or right-to-left shunting with systemic hypoxaemia and cyanosis; and duct-dependent circulation, in which either systemic or pulmonary blood flow is supplied through the arterial duct and collapses when it closes in the first days of life. Long-term, the volume- and pressure-loaded and hypoxaemic circulations drive pulmonary vascular remodelling, ventricular hypertrophy and fibrosis, arrhythmia and heart failure. The lesion-specific elaboration of each pattern is curated in the individual lesion entries (notably Eisenmenger_Syndrome for the shunt-to-pulmonary-vascular-disease trajectory) and is deliberately not re-derived here.</div>
 
@@ -7162,6 +7271,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7278,6 +7388,9 @@ This clinical feature is Conotruncal defect (HP:0001710). HP:0001710 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7292,6 +7405,7 @@ This clinical feature is Conotruncal defect (HP:0001710). HP:0001710 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7346,6 +7460,9 @@ This clinical feature is Tetralogy of Fallot (HP:0001636). HP:0001636 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7360,6 +7477,7 @@ This clinical feature is Tetralogy of Fallot (HP:0001636). HP:0001636 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7414,6 +7532,9 @@ This clinical feature is Transposition of the great arteries (HP:0001669). HP:00
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7428,6 +7549,7 @@ This clinical feature is Transposition of the great arteries (HP:0001669). HP:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7482,6 +7604,9 @@ This clinical feature is Atrial septal defect (HP:0001631). HP:0001631 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7496,6 +7621,7 @@ This clinical feature is Atrial septal defect (HP:0001631). HP:0001631 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7550,6 +7676,9 @@ This clinical feature is Ventricular septal defect (HP:0001629). HP:0001629 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7564,6 +7693,7 @@ This clinical feature is Ventricular septal defect (HP:0001629). HP:0001629 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7622,6 +7752,9 @@ This clinical feature is Complete atrioventricular canal defect (HP:0001674). HP
 
 
 
+
+
+
                 </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-left-ventricular-outflow-tract-obstruction" data-dismech-node="Left ventricular outflow tract obstruction" data-dismech-type="phenotype">
@@ -7652,6 +7785,9 @@ This clinical feature is Left ventricular outflow tract obstruction (HP:0032092)
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7666,6 +7802,7 @@ This clinical feature is Left ventricular outflow tract obstruction (HP:0032092)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7724,6 +7861,9 @@ This clinical feature is Coarctation of aorta (HP:0001680). HP:0001680 is a phen
 
 
 
+
+
+
                 </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-pulmonic-stenosis" data-dismech-node="Pulmonic stenosis" data-dismech-type="phenotype">
@@ -7754,6 +7894,9 @@ This clinical feature is Pulmonic stenosis (HP:0001642). HP:0001642 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7768,6 +7911,7 @@ This clinical feature is Pulmonic stenosis (HP:0001642). HP:0001642 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7826,6 +7970,9 @@ This clinical feature is Abnormal pulmonary vein morphology (HP:0030968). HP:003
 
 
 
+
+
+
                 </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-patent-ductus-arteriosus" data-dismech-node="Patent ductus arteriosus" data-dismech-type="phenotype">
@@ -7856,6 +8003,9 @@ This clinical feature is Patent ductus arteriosus (HP:0001643). HP:0001643 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7870,6 +8020,7 @@ This clinical feature is Patent ductus arteriosus (HP:0001643). HP:0001643 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7928,6 +8079,9 @@ This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a 
 
 
 
+
+
+
                 </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-pulmonary-arterial-hypertension" data-dismech-node="Pulmonary arterial hypertension" data-dismech-type="phenotype">
@@ -7953,6 +8107,9 @@ This clinical feature is Pulmonary arterial hypertension (HP:0002092). HP:000209
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7992,6 +8149,9 @@ This clinical feature is Arrhythmia (HP:0011675). HP:0011675 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8006,6 +8166,7 @@ This clinical feature is Arrhythmia (HP:0011675). HP:0011675 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8030,6 +8191,7 @@ This clinical feature is Arrhythmia (HP:0011675). HP:0011675 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8084,6 +8246,9 @@ This clinical feature is Sudden cardiac death (HP:0001645). HP:0001645 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -8098,6 +8263,7 @@ This clinical feature is Sudden cardiac death (HP:0001645). HP:0001645 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8125,6 +8291,7 @@ This clinical feature is Sudden cardiac death (HP:0001645). HP:0001645 is a phen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8146,6 +8313,7 @@ This clinical feature is Sudden cardiac death (HP:0001645). HP:0001645 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8209,6 +8377,9 @@ This clinical feature is Cyanosis (HP:0000961). HP:0000961 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8223,6 +8394,7 @@ This clinical feature is Cyanosis (HP:0000961). HP:0000961 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8286,6 +8458,9 @@ This clinical feature is Neurodevelopmental abnormality (HP:0012759). HP:0012759
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8300,6 +8475,7 @@ This clinical feature is Neurodevelopmental abnormality (HP:0012759). HP:0012759
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8363,6 +8539,9 @@ This clinical feature is Heterotaxy (HP:0030853). HP:0030853 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8377,6 +8556,7 @@ This clinical feature is Heterotaxy (HP:0030853). HP:0030853 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8435,6 +8615,9 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
 
+
+
+
                 </div>
 
             </details>
@@ -8452,6 +8635,9 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">NEEDS TERM / NTR CANDIDATE. Deliberately left unbound. The claim is an extracardiac structural or functional anomaly of ANY organ system, and the cited evidence is likewise system-agnostic. HPO was searched (2026-08-19) for a system-agnostic congenital-anomaly class: the only &#34;congenital malformation of&#34; terms are cardiac (HP:0011603, HP:0011723, HP:0045017), there is no &#34;multiple congenital anomalies&#34; class, and every &#34;Abnormality of the X system&#34; term names a single system. An earlier revision bound this to HP:0000924 (Abnormality of the skeletal system), which silently narrowed a whole-organism claim to the skeleton and was removed on review - no term beats a bad term. An HPO new-term request for a system-agnostic extracardiac/multiple congenital anomaly class would be the right resolution.</div>
@@ -8473,6 +8659,7 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8571,6 +8758,9 @@ This disease-associated gene is NKX2-5 (hgnc:2488). hgnc:2488 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8585,6 +8775,7 @@ This disease-associated gene is NKX2-5 (hgnc:2488). hgnc:2488 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8642,6 +8833,9 @@ This disease-associated gene is GATA4 (hgnc:4173). hgnc:4173 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8656,6 +8850,7 @@ This disease-associated gene is GATA4 (hgnc:4173). hgnc:4173 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8715,6 +8910,9 @@ This disease-associated gene is TBX5 (hgnc:11604). hgnc:11604 is a gene from the
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-notch1" data-dismech-node="NOTCH1" data-dismech-type="genetic">
@@ -8750,6 +8948,9 @@ This disease-associated gene is NOTCH1 (hgnc:7881). hgnc:7881 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8764,6 +8965,7 @@ This disease-associated gene is NOTCH1 (hgnc:7881). hgnc:7881 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8821,6 +9023,9 @@ This disease-associated gene is ZIC3 (hgnc:12874). hgnc:12874 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8835,6 +9040,7 @@ This disease-associated gene is ZIC3 (hgnc:12874). hgnc:12874 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8894,6 +9100,9 @@ This disease-associated gene is TBX1 (hgnc:11592). hgnc:11592 is a gene from the
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-gdf1" data-dismech-node="GDF1" data-dismech-type="genetic">
@@ -8929,6 +9138,9 @@ This disease-associated gene is GDF1 (hgnc:4214). hgnc:4214 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8943,6 +9155,7 @@ This disease-associated gene is GDF1 (hgnc:4214). hgnc:4214 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9000,6 +9213,9 @@ This disease-associated gene is MYH6 (hgnc:7576). hgnc:7576 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9014,6 +9230,7 @@ This disease-associated gene is MYH6 (hgnc:7576). hgnc:7576 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9071,6 +9288,9 @@ This disease-associated gene is FLT4 (hgnc:3767). hgnc:3767 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9085,6 +9305,7 @@ This disease-associated gene is FLT4 (hgnc:3767). hgnc:3767 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9142,6 +9363,9 @@ This disease-associated gene is KMT2D (hgnc:7133). hgnc:7133 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9156,6 +9380,7 @@ This disease-associated gene is KMT2D (hgnc:7133). hgnc:7133 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9213,6 +9438,9 @@ This disease-associated gene is CHD7 (hgnc:20626). hgnc:20626 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9227,6 +9455,7 @@ This disease-associated gene is CHD7 (hgnc:20626). hgnc:20626 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9284,6 +9513,9 @@ This disease-associated gene is RBFOX2 (hgnc:9906). hgnc:9906 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9298,6 +9530,7 @@ This disease-associated gene is RBFOX2 (hgnc:9906). hgnc:9906 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9333,6 +9566,9 @@ This disease-associated gene is RBFOX2 (hgnc:9906). hgnc:9906 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9347,6 +9583,7 @@ This disease-associated gene is RBFOX2 (hgnc:9906). hgnc:9906 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9371,6 +9608,7 @@ This disease-associated gene is RBFOX2 (hgnc:9906). hgnc:9906 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9478,6 +9716,9 @@ This treatment uses alprostadil, annotated with prostaglandin E1 (CHEBI:15544). 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9488,6 +9729,9 @@ This treatment uses alprostadil, annotated with prostaglandin E1 (CHEBI:15544). 
 
 
     </div>
+
+
+
 
 
 
@@ -9524,6 +9768,7 @@ This treatment uses alprostadil, annotated with prostaglandin E1 (CHEBI:15544). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9570,6 +9815,7 @@ This treatment uses alprostadil, annotated with prostaglandin E1 (CHEBI:15544). 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9591,6 +9837,7 @@ This treatment uses alprostadil, annotated with prostaglandin E1 (CHEBI:15544). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9658,6 +9905,9 @@ This treatment is cardiac surgery (NCIT:C157806). NCIT:C157806 is a clinical int
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9668,6 +9918,9 @@ This treatment is cardiac surgery (NCIT:C157806). NCIT:C157806 is a clinical int
 
 
     </div>
+
+
+
 
 
 
@@ -9704,6 +9957,7 @@ This treatment is cardiac surgery (NCIT:C157806). NCIT:C157806 is a clinical int
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9750,6 +10004,7 @@ This treatment is cardiac surgery (NCIT:C157806). NCIT:C157806 is a clinical int
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9771,6 +10026,7 @@ This treatment is cardiac surgery (NCIT:C157806). NCIT:C157806 is a clinical int
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9838,6 +10094,9 @@ This treatment is heart transplantation (NCIT:C15246). NCIT:C15246 is a clinical
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9848,6 +10107,9 @@ This treatment is heart transplantation (NCIT:C15246). NCIT:C15246 is a clinical
 
 
     </div>
+
+
+
 
 
 
@@ -9884,6 +10146,7 @@ This treatment is heart transplantation (NCIT:C15246). NCIT:C15246 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9927,6 +10190,7 @@ This treatment is heart transplantation (NCIT:C15246). NCIT:C15246 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9994,6 +10258,9 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10004,6 +10271,9 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
     </div>
+
+
+
 
 
 
@@ -10040,6 +10310,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10116,6 +10387,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10164,6 +10436,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10220,6 +10493,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10317,6 +10591,7 @@ This environmental factor is exposure to drinking alcohol via maternal (ECTO:030
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10409,6 +10684,7 @@ This environmental factor is exposure to cigarette smoking via maternal (ECTO:03
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10477,6 +10753,7 @@ This environmental factor is exposure to cigarette smoking via maternal (ECTO:03
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10549,6 +10826,7 @@ This environmental factor is exposure to cigarette smoking via maternal (ECTO:03
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10570,6 +10848,7 @@ This environmental factor is exposure to cigarette smoking via maternal (ECTO:03
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10696,6 +10975,7 @@ This environmental factor is exposure to cigarette smoking via maternal (ECTO:03
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10717,6 +10997,7 @@ This environmental factor is exposure to cigarette smoking via maternal (ECTO:03
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10809,6 +11090,7 @@ This environmental factor is exposure to cigarette smoking via maternal (ECTO:03
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10833,6 +11115,7 @@ This environmental factor is exposure to cigarette smoking via maternal (ECTO:03
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10854,6 +11137,7 @@ This environmental factor is exposure to cigarette smoking via maternal (ECTO:03
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10944,6 +11228,7 @@ This environmental factor is exposure to cigarette smoking via maternal (ECTO:03
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11024,6 +11309,7 @@ This environmental factor is exposure to cigarette smoking via maternal (ECTO:03
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11083,6 +11369,7 @@ This environmental factor is exposure to cigarette smoking via maternal (ECTO:03
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11139,6 +11426,7 @@ This environmental factor is exposure to cigarette smoking via maternal (ECTO:03
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11316,6 +11604,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -11375,6 +11664,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -11414,6 +11704,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11567,6 +11858,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -11606,6 +11898,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14319,6 +14612,85 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Address PR #8981 review: fix CRITICAL prevalence_class mis-banding, truncated snippets, add arrhythmia/SCD, treatment evidence, model layer</strong> · 2026-08-19T20:18:22Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Congenital_Heart_Disease/2026-08-19T201822Z-claude-code-d043da.yaml">View source</a></p>
+                        <p class="research-review-text">Review-response session addressing the ai4c-reviewer CHANGES_REQUESTED on PR #8981 (one CRITICAL, six IMPORTANT findings). All seven addressed.
+
+CRITICAL - finding 1, prevalence_class mis-banding. All three prevalence records carried prevalence_class BAND_1_5_PER_10000 alongside rate_per_100000 of 941.0 (Worldwide), 231.5 (Africa) and 934.2 (Asia). Independently confirmed the reviewer is correct by reading both the schema enum (BAND_1_5_PER_10000 = &#34;1 to 9 per 10,000 (10-99 per 100,000)&#34;; ABOVE_1_IN_1000 = &#34;More than 1 in 1,000 (more than 100 per 100,000)&#34;) and the reference implementation scripts/migrate_prevalence.py::_band_from_rate(), which returns ABOVE_1_IN_1000 for any rate &gt;= 100. All three records are 2.3x to 9.4x above the declared band, so the commonest congenital anomaly in humans was coded as rare in queryable data. Set prevalence_class: ABOVE_1_IN_1000 on all three (the reviewer said &#34;all four&#34;; the entry has three, and every one was re-checked, not only the named ones). Rewrote the Worldwide notes, which had entrenched the error by describing ABOVE_1_IN_1000 as a class the rate &#34;also exceeds&#34; - it is unbounded above, so nothing exceeds it. Added to the Africa notes that its lower confidence bound (42.9 per 100,000) would fall a band lower while the point estimate sets the class, so the choice is auditable.
+
+IMPORTANT - finding 2, wrap-truncated snippets. Treated as a class of error rather than two instances, as instructed. Wrote an audit script that normalises unicode (middle-dot decimals, en-dashes, curly quotes, U+223C tilde), locates every PMID-backed snippet in its cached body, and flags any that ends without terminal punctuation while the source sentence continues. It flagged 26 of 99; manual triage found most were complete findings whose continuation only added interpretation. Two were genuine payload-cuts, both the reviewer&#39;s: PMID:16025100 stopped at &#34;...NOTCH1 cause a&#34;, cutting the aortic-valve-anomaly result, and PMID:12845333 stopped at &#34;Here, we show that isolated cardiac septal&#34;, cutting the GATA4 G296S linkage result. Both replaced with the reviewer-supplied corrected text. The audit is clean of payload-cuts now. Note no deterministic repo check catches this class - count-verified-snippets passed 81/81 with both defects present.
+
+IMPORTANT - finding 2b follow-on, unsupported explanation clause. The GATA4 explanation asserted a TBX5 interaction absent from the quoted text. Rather than drop the clause, added a second evidence item quoting the abstract&#39;s actual TBX5 sentences (&#34;Furthermore, the Gata4 mutation abrogated a physical interaction between Gata4 and TBX5... Conversely, interaction of Gata4 and TBX5 was disrupted by specific human TBX5 missense mutations that cause similar cardiac septal defects.&#34;), which evidences the bidirectional interaction the septation-network node relies on.
+
+IMPORTANT - finding 3, NOTCH1 background prose. The genetic-section NOTCH1 evidence quoted the paper&#39;s setup (&#34;The incidence increases with age...&#34;) and its explanation conceded it only &#34;frames&#34; the phenotype (CLAUDE.md section 6: a topic is not a result). Replaced with the paper&#39;s finding sentence and rewrote the explanation to state the result.
+
+IMPORTANT - finding 4, HP:0000924 mis-binding. &#34;Extracardiac congenital anomaly&#34; was bound to Abnormality of the skeletal system while its description and PMID:26785492 evidence concern anomalies of any organ system. Searched HPO first for a better term (2026-08-19): the only &#34;congenital malformation of&#34; classes are cardiac (HP:0011603, HP:0011723, HP:0045017), there is no &#34;multiple congenital anomalies&#34; class, and every &#34;Abnormality of the X system&#34; term names a single system. Dropped term:, kept the free-text preferred_term, and added a NEEDS TERM / NTR CANDIDATE note recording the search and the removed binding. No term beats a bad term.
+
+IMPORTANT - finding 5, arrhythmia and sudden cardiac death. Added both phenotypes. Note the reviewer&#39;s suggested HP:0001644 is Dilated cardiomyopathy; verified with OAK and used HP:0001645 Sudden cardiac death instead, alongside HP:0011675 Arrhythmia. Evidence from Salzillo 2024 PMID:39768857 (newly cited): SCD rates 20-30x the general population; highest-risk lesions tetralogy of Fallot, TGA, cyanotic heart disease, Ebstein anomaly, Fontan circulation; incidence greater in adults than children. Also wired both into the pathograph rather than leaving them as disconnected list entries: Altered Circulatory Physiology -&gt; Arrhythmia and -&gt; Sudden cardiac death (both INDIRECT_KNOWN_INTERMEDIATES with named intermediates), plus a DIRECT edge Cardiac Septation Transcription Factor Network Failure -&gt; Arrhythmia carrying the NKX2-5 septation-plus-AV-node quote, which keeps the developmental route to arrhythmia distinct from the acquired scar/dilation route.
+
+IMPORTANT - finding 6, unevidenced treatments. Cardiac surgical repair or palliation and Heart transplantation had no evidence at either level. Searched PubMed and fetched two new sources. Troost 2019 PMID:30413300 now evidences the surgical entry at both levels, including the specific lifelong-residual-risk claim the reviewer flagged as unevidenced (&#34;adult patients with CHD carry residual lesions and sequelae putting them at risk for premature death related to re-interventions or complications; most commonly heart failure and arrhythmia&#34;) attached directly to the RESTORES target_mechanisms link, so the qualification on that edge is now substantiated where it is asserted. Transplantation evidenced with the failing-Fontan combined heart-liver transplantation meta-analysis PMID:40320589, curated supports: PARTIAL because it covers CHLT in failing Fontan (4 retrospective cohorts, 67 patients) rather than heart transplantation across CHD as a whole.
+
+IMPORTANT - finding 7, missing model layer. Added animal_models and experimental_models, both with modeled_mechanisms so they attach to the pathograph rather than sitting as disconnected lists. (1) Zebrafish embryonic heart-function model (PMID:26969993), PERTURBS -&gt; Flow-Dependent Cardiac Morphogenesis Failure, fidelity MODERATE, with limitations naming the divergence that matters here - a two-chambered heart with no septation and no separate pulmonary circulation cannot represent the septation, conotruncal or duct-dependent arms at all - plus one readout. This gives the chd_flow_dependent_human_evidence HUMAN_MODEL_MISMATCH discussion the structural anchor it lacked. (2) HLHS patient-derived iPSC-cardiomyocytes (PMID:39273002, newly cited), MEASURES -&gt; the same node, with two readouts (reduced CX43 with failure of myocyte alignment; irregular myofibril arrangement). This was added for a specific argumentative reason rather than model-system completeness: if HLHS were purely flow deprivation, patient cardiomyocytes cultured outside any haemodynamic environment should behave normally, and they do not - so it is human-derived evidence for the cell-autonomous alternative the mismatch discussion sets against pure flow dependence. Updated that discussion&#39;s rationale to state both anchors and note that neither settles the share of each contribution. The DR-surfaced Dyrk1a trisomic mouse septation rescue was NOT added: PubMed searches for it returned no resolvable record, and fabricating or guessing a citation for it would be worse than the omission.
+
+Non-blocking suggestions 8 (clinical_trials) and 9 (catheter-based intervention) not actioned this pass; the DR-surfaced NCTs are registries/observational, and catheter intervention is noted as a genuine modelling gap for a follow-up.
+
+VALIDATION (every check run to completion and its output read, post-fix).
+  just validate                                            -&gt; passed; 99/99 snippets verified
+  just count-verified-snippets                             -&gt; Snippets checked: 99/99 verified against cached references
+  just validate-terms                                      -&gt; Validation passed
+  scripts/check_snippet_length.py --against-ref origin/main -&gt; OK: no new snippets under 5 words
+  scripts/check_folded_hyphens.py                          -&gt; OK: no new folded-scalar hyphen splits (330 grandfathered)
+  just check-duplicate-keys                                -&gt; OK: no duplicate mapping keys
+  just check-title-snippets                                -&gt; OK: no new title-quoting snippets
+  just check-empty-snippets                                -&gt; no empty (non-NO_EVIDENCE) evidence snippets
+  just validate-disorders (batched --no-full-text, CI-equiv) -&gt; passed; 99/99 verified; exit 0
+  just compliance                                          -&gt; 84.6% weighted (was 82.7%)
+Snippet count rose 81 -&gt; 99; cited PMIDs 20 -&gt; 24 (added PMID:39768857, PMID:30413300, PMID:40320589, PMID:39273002).
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Congenital Heart Disease (MONDO:0005453) mechanistic root with seven lesion-class subtypes</strong> · 2026-08-19T19:35:47Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Congenital_Heart_Disease/2026-08-19T193547Z-claude-code-9b37ab.yaml">View source</a></p>
+                        <p class="research-review-text">New root Disease entry for the congenital heart disease umbrella (MONDO:0005453), curated per the priority dashboard&#39;s CURATE_ROOT_WITH_SUBTYPES recommendation (issue #8916).
+
+SCOPE. Deliberately curated as the MECHANISTIC ROOT of the CHD family rather than a superset of the ~24 lesion-specific and many syndromic entries already in kb/disorders (Atrial_Septal_Defect, Tetralogy_of_Fallot, Coarctation_of_the_Aorta, Hypoplastic_Left_Heart_Syndrome, Dextro_Transposition_of_the_Great_Arteries, Persistent_Truncus_Arteriosus, Double_Outlet_Right_Ventricle, Ebstein_Anomaly, Visceral_Heterotaxy, 22q11.2_Deletion_Syndrome, CHARGE_Syndrome, Alagille_syndrome, Down_syndrome, Holt-Oram_Syndrome, Noonan_Syndrome, Turner_Syndrome, Kabuki_Syndrome and others). The entry models the shared cardiac developmental biology those entries individually assume but none asserts: (1) Developmental Gene Dosage Disruption (de novo variants in chromatin modifiers and high-heart-expression genes, CNVs, aneuploidy); (2) Maternal Metabolic and Teratogenic Perturbation of Cardiogenesis; (3) Cardiac Progenitor Specification and Second Heart Field Deployment Failure; (4) Left-Right Patterning and Cardiac Looping Failure; (5) Cardiac Neural Crest Migration and Outflow Tract Septation Failure; (6) Endocardial Cushion Formation and Endothelial-to-Mesenchymal Transition Failure; (7) Cardiac Septation Transcription Factor Network Failure; (8) Flow-Dependent Cardiac Morphogenesis Failure (&#34;no flow, no grow&#34;); converging on (9) Structural Cardiac Malformation and (10) Altered Circulatory Physiology. Lesion-specific pathographs, post-operative course, and the shunt-to-Eisenmenger trajectory are referenced by entry name and NOT re-derived here.
+
+SUBTYPES. Seven has_subtypes lesion classes with short slug-friendly foreign-key names used by the phenotypes and genetic blocks: CTD (MONDO:0016581 conotruncal heart malformations), Septal (no single MONDO class covers the atrial-plus-ventricular septal group; constituent lesions curated separately), AVSD (MONDO:0859565), LVOTO, RVOTO, HTX (MONDO:0018677 visceral heterotaxy), APVR (MONDO:0017705). Classes follow the analytic groupings used in the CHD genomics and epidemiology literature rather than a surgical classification, because differential genetic architecture has actually been reported for those classes - notably the absence of a de novo variant excess in heterotaxy (PMID:26785492) and the distinctive isolated-CHD diagnostic yield in LVOTO (PMID:34440418). LVOTO, RVOTO and Septal carry no subtype_term because SubtypeDescriptor binds MONDO/NCIT only and no suitable MONDO class exists; HP:0032092 (Left ventricular outflow tract obstruction) is carried on the corresponding phenotype instead.
+
+DISEASE ENTRY VS GROUPING. Concluded that a Disease entry is correct here and a kb/groupings Grouping would be complementary rather than a substitute. The subtype classes are anatomical/developmental partitions of one mechanistic model, not a curated union over already-distinct Disease entries; the pathograph (10 nodes, 22 causal edges) is a single shared mechanism no member entry asserts, and a Grouping cannot carry a pathograph. A future Grouping recording the audited membership boundary over the existing lesion entries would follow the Familial_Hypertrophic_Cardiomyopathy precedent (umbrella Disease plus Grouping) and is recorded as the open discussion chd_root_scope rather than forced into this PR.
+
+DEEP RESEARCH. Provider: falcon (Edison Scientific Literature), 674s, research/Congenital_Heart_Disease-deep-research-falcon.md plus its .citations.md sidecar and one markdown artifact. Report reference_validation: 7/7 references resolved, confabulation_rate 0.0, no unresolved_references, no off_topic references. The report was DOI-keyed and mechanistically thin, so it was used as a LEAD SOURCE ONLY: its five DOIs were converted to PMIDs via the PMC ID converter API and every curated claim was re-anchored on primary literature independently searched through the PubMed E-utilities API and independently fetched with just fetch-reference.
+
+NEC CHECK. just preflight-dr research/Congenital_Heart_Disease-deep-research-falcon.md MONDO:0005453 returned SKIP as anticipated (MONDO records no causal gene RO:0004003 for this complex/multifactorial root term, so the gene-identity check cannot discriminate). Fell back to the manual CLAUDE.md section 2b checks against uv run runoak -i sqlite:obo:mondo info MONDO:0005453 -O obo: no OMIM xref exists for this term; every synonym (&#34;congenital heart defect&#34;, &#34;congenital anomaly of heart&#34;, &#34;heart malformation&#34;, the MESH:D006330 variants) denotes the same concept with no eponymic, numbered-series, or acronym collision; and the report&#39;s top gene mentions (NKX2-5=9, GATA4=6, TBX20=6, TBX1=6, MYH6=6) are all canonical CHD genes consistent with the intended entity. Manual NEC check: PASS.
+
+GENEREVIEWS. No GeneReviews chapter exists for the CHD umbrella - PubMed esearch on 2026-08-19 with term &#34;congenital heart disease[TI] AND GeneReviews[All Fields]&#34; returned zero results. Expected for a complex multifactorial root term, and recorded in the entry notes. GeneReviews chapters do exist for several syndromic causes and are cited in those entries.
+
+EVIDENCE. 81 evidence snippets across 20 independently fetched and verified PMIDs. Core sources: Zaidi 2013 Nature PMID:23665959 (de novo chromatin-modifier burden, H3K4/H2BK120), Homsy 2015 Science PMID:26785492 (1213 trios; CHD/NDD/CA shared genetics; RBFOX2-HLHS; heterotaxy exception), Jin 2017 Nat Genet PMID:28991257 (2871 probands; GDF1 Ashkenazi founder, MYH6/Shone, FLT4/TOF, ~440 genes), Guijarro and Kelly 2024 PMID:38488639 (second heart field), cardiac neural crest review PMID:32405705, Zubrzycki 2024 IJMS PMID:39000221 (cardiac development), Garg 2003 Nature PMID:12845333 (GATA4-TBX5), Schott 1998 Science PMID:9651244 (NKX2-5 septation plus AV conduction), Garg 2005 Nature PMID:16025100 (NOTCH1 aortic valve), Gebbia 1997 Nat Genet PMID:9354794 (ZIC3), zebrafish flow-dependent morphogenesis PMID:26969993, Liu 2019 Int J Epidemiol PMID:30783674 and van der Linde 2011 PMID:22078432 (birth prevalence), Can J Cardiol 2024 prenatal risk-factor meta-analysis PMID:38996968 and AHA non-inherited risk factor statement PMID:17519397, Thangaratinam 2012 Lancet PMID:22554860 (pulse oximetry screening), Helm 2021 PMID:34440418 and Peterlin 2024 PMID:39337901 (genetic testing yield), prostaglandin E1 PMID:29162633, maternal pregestational diabetes PMID:35838899.
+
+ONTOLOGY. Three CL/GO terms used here were previously unused or near-unused in this knowledge base: CL:2000073 (migratory cardiac neural crest cell), which existing entries had been naming only as free text; GO:0003272 and GO:0003203 (endocardial cushion formation and morphogenesis), which had no prior use; and GO:0003198 (epithelial to mesenchymal transition involved in endocardial cushion formation), which had one. All terms were verified with OAK before use. Two ECTO exposure terms bound (ECTO:0300001, ECTO:0300003); maternal pregestational diabetes and maternal adiposity are deliberately left unbound with a note recording that ECTO was searched and has no class for a maternal metabolic disease state as an exposure.
+
+DISCUSSIONS. Four open discussions recorded: chd_root_scope (CURATION_TODO - what this adds over the existing entries and whether a complementary kb/groupings Grouping should enforce the boundary); chd_module_candidate (CURATION_TODO - whether the cardiac morphogenesis chain should be factored into a kb/modules mechanism module that the eight-plus lesion entries could declare conforms_to, since no module currently covers cardiac development); chd_flow_dependent_human_evidence (HUMAN_MODEL_MISMATCH - the direct evidence that haemodynamic force is a necessary morphogenetic input is zebrafish, human support is inferential, with a proposed fetal aortic valvuloplasty growth-trajectory experiment); chd_prevalence_ascertainment (KNOWLEDGE_GAP - reported prevalence variation is dominated by ascertainment rather than biology, which is why the prevalence records are curated as reported birth prevalence).
+
+VALIDATION (every check below was run to completion and its output read).
+  just validate                          -&gt; passed; 81/81 snippets verified against cached references
+  just count-verified-snippets           -&gt; Snippets checked: 81/81 verified against cached references (0 skipped by prefix)
+  just validate-terms                    -&gt; Validation passed
+  just check-duplicate-keys              -&gt; OK: no duplicate mapping keys
+  scripts/check_snippet_length.py --against-ref origin/main -&gt; OK: no new snippets under 5 words
+  just check-title-snippets              -&gt; OK: no new title-quoting snippets
+  just check-empty-snippets              -&gt; no empty (non-NO_EVIDENCE) evidence snippets found
+  just validate-disorders                -&gt; passed (the batched --no-full-text sweep CI runs); 81/81 verified; exit 0
+  just compliance                        -&gt; 82.7% weighted
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

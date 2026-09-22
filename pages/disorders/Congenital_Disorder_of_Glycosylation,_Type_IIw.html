@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4123,6 +4191,7 @@ The coagulopathy is the clinically dominant feature and is not a simple bleeding
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4144,6 +4213,7 @@ The coagulopathy is the clinically dominant feature and is not a simple bleeding
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4253,6 +4323,7 @@ The coagulopathy is the clinically dominant feature and is not a simple bleeding
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4274,6 +4345,7 @@ The coagulopathy is the clinically dominant feature and is not a simple bleeding
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4362,6 +4434,7 @@ The coagulopathy is the clinically dominant feature and is not a simple bleeding
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4557,6 +4630,7 @@ The coagulopathy is the clinically dominant feature and is not a simple bleeding
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-the-g6pt1-c-terminal-er-retrieval-motif" data-dismech-node="Loss of the G6PT1 C-terminal ER Retrieval Motif" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of the G6PT1 C-terminal ER Retrieval Motif</div>
 
+
                 <div class="item-desc">The recurrent c.1267C&gt;T (p.Arg423*) allele truncates the last seven residues of G6PT1, deleting the C-terminal ER retrieval signal that normally returns the transporter to the endoplasmic reticulum. This is the initiating lesion, and it is a loss of an address label rather than a loss of transport activity.
 </div>
 
@@ -4609,6 +4683,8 @@ This genetic context concerns SLC37A4 (hgnc:4061). hgnc:4061 is a gene from the 
 
 
 
+
+
         <span class="tag tag-classification">allele_type: SNV</span>
 
 
@@ -4624,6 +4700,9 @@ This genetic context concerns SLC37A4 (hgnc:4061). hgnc:4061 is a gene from the 
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Heterozygous de novo nonsense allele removing the ER retrieval motif. The functional impact is scored against the retrieval motif, which is abolished; transporter catalytic function is not the affected property.</div>
 
@@ -4709,6 +4788,7 @@ This pathophysiological event involves decreased protein retention in ER lumen (
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4730,6 +4810,7 @@ This pathophysiological event involves decreased protein retention in ER lumen (
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4755,6 +4836,7 @@ This pathophysiological event involves decreased protein retention in ER lumen (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mislocalization-of-g6pt1-out-of-the-endoplasmic-reticulum" data-dismech-node="Mislocalization of G6PT1 out of the Endoplasmic Reticulum" data-dismech-type="pathophysiology">
                 <div class="item-name">Mislocalization of G6PT1 out of the Endoplasmic Reticulum</div>
+
 
                 <div class="item-desc">Freed of its retrieval signal, the truncated transporter moves into the secretory pathway. Its destination is disputed - the Golgi on the original model, a distinct non-Golgi compartment such as ER exit sites on the later one - and the two readings are carried as separate hypothesis groups. The edges out of this node are annotated to both groups because each account produces the same downstream Golgi disturbance.
 </div>
@@ -4864,6 +4946,7 @@ This pathophysiological event involves Golgi apparatus (GO:0005794). GO:0005794 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4886,6 +4969,7 @@ This pathophysiological event involves Golgi apparatus (GO:0005794). GO:0005794 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-intraluminal-golgi-ph-and-altered-golgi-morphology" data-dismech-node="Reduced Intraluminal Golgi pH and Altered Golgi Morphology" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Intraluminal Golgi pH and Altered Golgi Morphology</div>
+
 
                 <div class="item-desc">The mislocalized transporter lowers Golgi intraluminal pH and alters Golgi morphology in a manner that tracks allele dosage. The pH change is the mechanistic hinge: Golgi glycosyltransferases and glycosidases have narrow pH optima, so an acidification shift is sufficient to derange processing without any defect in the glycosylation enzymes themselves. Independent support comes from serum bikunin proteoglycan isoforms, whose esterified heavy forms are known to report Golgi pH and are severely reduced here.
 </div>
@@ -5027,6 +5111,7 @@ This pathophysiological event involves decreased Golgi organization (GO:0007030)
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5048,6 +5133,7 @@ This pathophysiological event involves decreased Golgi organization (GO:0007030)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5073,6 +5159,7 @@ This pathophysiological event involves decreased Golgi organization (GO:0007030)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disturbed-n-glycan-processing-of-secreted-hepatic-glycoproteins" data-dismech-node="Disturbed N-glycan Processing of Secreted Hepatic Glycoproteins" data-dismech-type="pathophysiology">
                 <div class="item-name">Disturbed N-glycan Processing of Secreted Hepatic Glycoproteins</div>
+
 
                 <div class="item-desc">Golgi processing of N-glycans fails, giving accumulation of high-mannose and hybrid structures on secreted glycoproteins together with hyposialylation and hypogalactosylation. The defect is tissue-restricted in a way that is diagnostically and mechanistically informative: serum glycoproteins are grossly abnormal while N-glycans in fibroblasts and undifferentiated iPSC are normal, which points at the liver as the site of disease and rules out a cell-autonomous defect of the glycosylation machinery.
 </div>
@@ -5203,6 +5290,7 @@ This pathophysiological event involves decreased protein N-linked glycosylation 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5224,6 +5312,7 @@ This pathophysiological event involves decreased protein N-linked glycosylation 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5249,6 +5338,7 @@ This pathophysiological event involves decreased protein N-linked glycosylation 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hepatic-coagulation-factor-deficiency" data-dismech-node="Hepatic Coagulation Factor Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Hepatic Coagulation Factor Deficiency</div>
+
 
                 <div class="item-desc">Liver-derived coagulation proteins are deficient, giving a prolonged prothrombin time and activated partial thromboplastin time, hypofibrinogenaemia and severely reduced antithrombin activity. The deficiency is multifactorial and, importantly, is not one-sided: procoagulant factors II and XI fall alongside the anticoagulant antithrombin, so the haemostatic balance is partly preserved and reported patients have tolerated major surgery. That observation rests on a small number of cases and is curated as a treatment consideration, not as an established safety claim.
 </div>
@@ -5369,6 +5459,7 @@ This pathophysiological event involves decreased blood coagulation (GO:0007596).
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5390,6 +5481,7 @@ This pathophysiological event involves decreased blood coagulation (GO:0007596).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5417,6 +5509,7 @@ This pathophysiological event involves decreased blood coagulation (GO:0007596).
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5441,6 +5534,7 @@ This pathophysiological event involves decreased blood coagulation (GO:0007596).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hepatocellular-injury-and-steatosis" data-dismech-node="Hepatocellular Injury and Steatosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Hepatocellular Injury and Steatosis</div>
+
 
                 <div class="item-desc">Affected individuals have hepatopathy with raised transaminases and hepatic steatosis on biopsy. Biopsy in the index patient showed increased hepatocyte volume and steatosis without necrosis, apoptosis or inflammatory infiltrate, which distinguishes this from an inflammatory or infectious hepatitis and is consistent with a metabolic or secretory lesion of the hepatocyte.
 </div>
@@ -5545,6 +5639,7 @@ This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5567,6 +5662,7 @@ This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-preserved-glucose-6-phosphate-transport-from-the-intact-allele" data-dismech-node="Preserved Glucose-6-phosphate Transport from the Intact Allele" data-dismech-type="pathophysiology">
                 <div class="item-name">Preserved Glucose-6-phosphate Transport from the Intact Allele</div>
+
 
                 <div class="item-desc">The wild-type allele supplies sufficient transporter for normal glucose-6-phosphate handling, so none of the glycogen storage disease Ib phenotype appears: no fasting hypoglycaemia, no lactic acidosis, no neutropenia. This node records a mechanistic negative, and it is what makes CDG-IIw a different disease from GSD Ib rather than a variant of it. It has no downstream edges by design.
 </div>
@@ -5606,6 +5702,7 @@ This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5627,6 +5724,7 @@ This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5654,6 +5752,7 @@ This pathophysiological event involves hepatocyte (CL:0000182). CL:0000182 is a 
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5781,6 +5880,9 @@ This clinical feature is Abnormality of coagulation (HP:0001928). HP:0001928 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5795,6 +5897,7 @@ This clinical feature is Abnormality of coagulation (HP:0001928). HP:0001928 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5819,6 +5922,7 @@ This clinical feature is Abnormality of coagulation (HP:0001928). HP:0001928 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5873,6 +5977,9 @@ This clinical feature is Prolonged prothrombin time (HP:0008151). HP:0008151 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5887,6 +5994,7 @@ This clinical feature is Prolonged prothrombin time (HP:0008151). HP:0008151 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5941,6 +6049,9 @@ This clinical feature is Prolonged partial thromboplastin time (HP:0003645). HP:
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5955,6 +6066,7 @@ This clinical feature is Prolonged partial thromboplastin time (HP:0003645). HP:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6009,6 +6121,9 @@ This clinical feature is Hypofibrinogenemia (HP:0011900). HP:0011900 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6023,6 +6138,7 @@ This clinical feature is Hypofibrinogenemia (HP:0011900). HP:0011900 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6079,6 +6195,9 @@ This clinical feature is Reduced antithrombin III activity (HP:0001976). HP:0001
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6093,6 +6212,7 @@ This clinical feature is Reduced antithrombin III activity (HP:0001976). HP:0001
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6147,6 +6267,9 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6161,6 +6284,7 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6217,6 +6341,9 @@ This clinical feature is Reduced factor XI activity (HP:0001929). HP:0001929 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6231,6 +6358,7 @@ This clinical feature is Reduced factor XI activity (HP:0001929). HP:0001929 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6255,6 +6383,7 @@ This clinical feature is Reduced factor XI activity (HP:0001929). HP:0001929 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6320,6 +6449,9 @@ This clinical feature is Cardiac involvement, lesion unspecified in the availabl
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -6334,6 +6466,7 @@ This clinical feature is Cardiac involvement, lesion unspecified in the availabl
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6363,6 +6496,7 @@ This clinical feature is Cardiac involvement, lesion unspecified in the availabl
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6384,6 +6518,7 @@ This clinical feature is Cardiac involvement, lesion unspecified in the availabl
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -6447,6 +6582,9 @@ This clinical feature is Hepatic steatosis (HP:0001397). HP:0001397 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6461,6 +6599,7 @@ This clinical feature is Hepatic steatosis (HP:0001397). HP:0001397 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6524,6 +6663,9 @@ This clinical feature is Type I diabetes mellitus (HP:0100651). HP:0100651 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6538,6 +6680,7 @@ This clinical feature is Type I diabetes mellitus (HP:0100651). HP:0100651 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6601,6 +6744,9 @@ This clinical feature is Membranoproliferative glomerulonephritis (HP:0000793). 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6615,6 +6761,7 @@ This clinical feature is Membranoproliferative glomerulonephritis (HP:0000793). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6678,6 +6825,9 @@ This clinical feature is Choanal atresia (HP:0000453). HP:0000453 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6692,6 +6842,7 @@ This clinical feature is Choanal atresia (HP:0000453). HP:0000453 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6716,6 +6867,7 @@ This clinical feature is Choanal atresia (HP:0000453). HP:0000453 is a phenotype
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -6770,6 +6922,9 @@ This clinical feature is Micrognathia (HP:0000347). HP:0000347 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6784,6 +6939,7 @@ This clinical feature is Micrognathia (HP:0000347). HP:0000347 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6838,6 +6994,9 @@ This clinical feature is Ankyloglossia (HP:0010296). HP:0010296 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6852,6 +7011,7 @@ This clinical feature is Ankyloglossia (HP:0010296). HP:0010296 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6917,6 +7077,9 @@ This clinical feature is Elevated circulating aspartate aminotransferase concent
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6931,6 +7094,7 @@ This clinical feature is Elevated circulating aspartate aminotransferase concent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6985,6 +7149,9 @@ This clinical feature is Elevated circulating alanine aminotransferase concentra
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6999,6 +7166,7 @@ This clinical feature is Elevated circulating alanine aminotransferase concentra
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7062,6 +7230,9 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7076,6 +7247,7 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7139,6 +7311,9 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7153,6 +7328,7 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7255,6 +7431,9 @@ This disease-associated gene is SLC37A4 (hgnc:4061). hgnc:4061 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -7269,6 +7448,7 @@ This disease-associated gene is SLC37A4 (hgnc:4061). hgnc:4061 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7296,6 +7476,7 @@ This disease-associated gene is SLC37A4 (hgnc:4061). hgnc:4061 is a gene from th
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7317,6 +7498,7 @@ This disease-associated gene is SLC37A4 (hgnc:4061). hgnc:4061 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7351,6 +7533,12 @@ This disease-associated gene is SLC37A4 (hgnc:4061). hgnc:4061 is a gene from th
         <span class="variant-significance variant-significance-pathogenic">Pathogenic</span>
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">Recurrent de novo nonsense allele truncating the final seven residues of the widely expressed G6PT1 isoform, removing the C-terminal ER retrieval motif.</div>
@@ -7434,6 +7622,9 @@ This treatment is transfusion of fresh frozen plasma and coagulation factor conc
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7444,6 +7635,9 @@ This treatment is transfusion of fresh frozen plasma and coagulation factor conc
 
 
     </div>
+
+
+
 
 
 
@@ -7493,6 +7687,7 @@ This treatment is transfusion of fresh frozen plasma and coagulation factor conc
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7514,6 +7709,7 @@ This treatment is transfusion of fresh frozen plasma and coagulation factor conc
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7579,6 +7775,7 @@ This treatment is transfusion of fresh frozen plasma and coagulation factor conc
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7600,6 +7797,7 @@ This treatment is transfusion of fresh frozen plasma and coagulation factor conc
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7650,6 +7848,7 @@ This treatment is transfusion of fresh frozen plasma and coagulation factor conc
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7671,6 +7870,7 @@ This treatment is transfusion of fresh frozen plasma and coagulation factor conc
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7718,6 +7918,7 @@ This treatment is transfusion of fresh frozen plasma and coagulation factor conc
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7798,6 +7999,7 @@ This treatment is transfusion of fresh frozen plasma and coagulation factor conc
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7819,6 +8021,7 @@ This treatment is transfusion of fresh frozen plasma and coagulation factor conc
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7928,6 +8131,7 @@ This treatment is transfusion of fresh frozen plasma and coagulation factor conc
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9071,6 +9275,29 @@ experimental_models:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Congenital Disorder of Glycosylation, Type IIw (SLC37A4-CDG)</strong> · 2026-09-03T15:12:51Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Congenital_Disorder_of_Glycosylation_Type_IIw/2026-09-03T151251Z-claude-code-133831.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of SLC37A4-CDG (MONDO:0030437) as a Disease entry, distinct from the recessive glycogen storage disease Ib caused by biallelic variants in the same gene. Entry type decided DISEASE: the lesion is escape of a truncated transporter from the ER, not loss of transport activity, and the intact allele supplies normal glucose-6-phosphate handling, so none of the GSD Ib phenotype is present.
+
+Deep research: one openscientist run (research/Congenital_Disorder_of_Glycosylation_Type_IIw-deep-research-openscientist.md, 766s, 5 iterations). Its reference validation reported 17/17 resolved, confabulation_rate 0.0, but only 6 of 17 weighed as on topic; term_validation needs_review was true (3 obsolete GO terms, 1 mislabelled MONDO name). just preflight-dr PASSed with SLC37A4 mentioned 16 times, though it also flagged that the report carries OMIM 232220 (GSD Ib) alongside 619525, which is the gene-sharing conflation the on-topic ratio was signalling.
+
+Used from the report: PMID:10940311 (structure-function study showing the last 12 residues of the G6PT cytoplasmic tail are dispensable for transport activity, cited INDIRECT since it pre-dates the disease and was done on GSD Ib alleles) and PMID:37193126 (CDG hemostatic-defect review giving the antithrombin-plus-factor-XI signature and its diagnostic discriminating value). Deliberately not used: PMID:28126686 and PMID:35506446, which are about GSD Ib and G6PC3 neutropenia rather than this disorder, and PMID:41136424, a 2025 G6PT cryo-EM structure paper whose text is framed entirely around GSD Ib.
+
+The four primary sources are PMID:32884905 (index patient, Golgi retention model), PMID:33964207 (seven patients, four families, base-edited hepatoma line, non-Golgi localization), PMID:33728255 (second patient, phenotype expansion) and PMID:34245688 (nine patients, bikunin isoforms as a Golgi pH readout).
+
+The localization disagreement between PMID:32884905 and PMID:33964207 is curated as two mechanistic_hypotheses groups (golgi_retention_model CANONICAL, er_exit_site_model EMERGING) rather than resolved, with the shared downstream edge annotated to both. Two REFUTE evidence items are recorded deliberately: PMID:37193126 against the reassuring reading of the reported preserved procoagulant/anticoagulant balance.
+
+Validation: just validate passes (schema, terms, references); 54/54 snippets verified against the local cache. check-duplicate-keys, check-entity-refs, check-causal-targets, check-qualifier-terms and check-enum-values all pass. reference_title values were filled with just normalize-reference-titles after hand-typed titles failed the title check.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

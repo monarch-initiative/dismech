@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4220,6 +4288,7 @@ Two naming hazards are worth recording before citing anything here. First, MONDO
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4322,6 +4391,7 @@ Two naming hazards are worth recording before citing anything here. First, MONDO
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4346,6 +4416,7 @@ Two naming hazards are worth recording before citing anything here. First, MONDO
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4367,6 +4438,7 @@ Two naming hazards are worth recording before citing anything here. First, MONDO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4451,6 +4523,7 @@ Two naming hazards are worth recording before citing anything here. First, MONDO
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4472,6 +4545,7 @@ Two naming hazards are worth recording before citing anything here. First, MONDO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4509,6 +4583,7 @@ Two naming hazards are worth recording before citing anything here. First, MONDO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bmp2-haploinsufficiency" data-dismech-node="BMP2 Haploinsufficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">BMP2 Haploinsufficiency</div>
+
 
                 <div class="item-desc">A heterozygous truncating variant or a whole-gene deletion halves the functional BMP2 gene dose, so the amount of secreted BMP2 ligand available to the tissues that depend on it falls below the level those tissues require. The mouse heterozygote reproduces the human growth and skeletal phenotype, which is what identifies dose rather than a dominant-negative protein as the lesion.</div>
 
@@ -4676,6 +4751,7 @@ This pathophysiological event involves decreased BMP2 growth factor activity, an
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4697,6 +4773,7 @@ This pathophysiological event involves decreased BMP2 growth factor activity, an
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4722,6 +4799,7 @@ This pathophysiological event involves decreased BMP2 growth factor activity, an
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-canonical-bmp-smad-signalling-output" data-dismech-node="Reduced Canonical BMP-SMAD Signalling Output" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Canonical BMP-SMAD Signalling Output</div>
+
 
                 <div class="item-desc">Reduced ligand gives reduced phosphorylation of the receptor-regulated SMADs 1, 5 and 9 and less transcriptional output from BMP-responsive genes in every tissue that depends on BMP2 rather than on a redundant family member. Where BMP4 or BMP7 is co-expressed the deficit is buffered; where BMP2 is the principal ligand it is not, and this is what selects the affected tissues.</div>
 
@@ -4857,6 +4935,7 @@ This pathophysiological event involves decreased SMAD protein signal transductio
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4883,6 +4962,7 @@ This pathophysiological event involves decreased SMAD protein signal transductio
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4905,6 +4985,7 @@ This pathophysiological event involves decreased SMAD protein signal transductio
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-cranial-neural-crest-osteogenic-differentiation" data-dismech-node="Impaired Cranial Neural Crest Osteogenic Differentiation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Cranial Neural Crest Osteogenic Differentiation</div>
+
 
                 <div class="item-desc">Cranial neural crest cells populate the pharyngeal arches and give rise, by intramembranous ossification, to most of the facial skeleton. With less BMP2 they proliferate and differentiate into osteoblasts less well, so the mandible, maxilla and zygoma are built undersized.
 On the cell-type binding: CL:0000008 is narrower than this claim. The node concerns osteogenic differentiation of cranial-neural-crest-derived mesenchyme, which is post-migratory, and CL has no post-migratory cranial neural crest term. The migratory term is the closest accurate ancestor of that population, so read the binding as naming the lineage rather than the developmental stage.</div>
@@ -5113,6 +5194,7 @@ This pathophysiological event involves decreased osteoblast differentiation (GO:
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5135,6 +5217,7 @@ This pathophysiological event involves decreased osteoblast differentiation (GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-craniofacial-skeletal-hypoplasia" data-dismech-node="Craniofacial Skeletal Hypoplasia" data-dismech-type="pathophysiology">
                 <div class="item-name">Craniofacial Skeletal Hypoplasia</div>
+
 
                 <div class="item-desc">The undersized facial skeleton is what the clinic sees as the recognisable gestalt: midface hypoplasia, micrognathia, a long philtrum and a crowded dentition in a maxilla too small for it. The mouse mutant quantifies it as roughly a 40 per cent reduction in zygomatic volume and 10 per cent in mandibular length, with the proximal mandible worse affected than the distal.</div>
 
@@ -5348,6 +5431,7 @@ This pathophysiological event involves abnormal embryonic cranial skeleton morph
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5370,6 +5454,7 @@ This pathophysiological event involves abnormal embryonic cranial skeleton morph
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-tongue-descent-and-palatal-shelf-elevation" data-dismech-node="Failure of Tongue Descent and Palatal Shelf Elevation" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Tongue Descent and Palatal Shelf Elevation</div>
+
 
                 <div class="item-desc">The mechanical step between a small mandible and a cleft palate, and the reason the cleft in this disorder is palatal rather than a cleft lip. It is given its own node because the mouse work shows it is genuinely mechanical and not a BMP2 signalling defect in the palate at all: mutant palatal shelves elevate and fuse normally once the mandible and tongue are removed, and BMP/SMAD activity in the mutant palate is largely preserved through BMP4 and BMP7 redundancy. Collapsing this into the hypoplasia node would imply a palatal signalling lesion that the evidence specifically excludes.</div>
 
@@ -5465,6 +5550,7 @@ This pathophysiological event involves abnormal roof of mouth development (GO:00
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5486,6 +5572,7 @@ This pathophysiological event involves abnormal roof of mouth development (GO:00
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -5513,6 +5600,7 @@ This pathophysiological event involves abnormal roof of mouth development (GO:00
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5537,6 +5625,7 @@ This pathophysiological event involves abnormal roof of mouth development (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-osteogenic-output-of-skeletal-progenitors" data-dismech-node="Reduced Osteogenic Output of Skeletal Progenitors" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Osteogenic Output of Skeletal Progenitors</div>
+
 
                 <div class="item-desc">In the limb and axial skeleton the sensitive step is osteogenesis from cartilage templates, not chondrocyte differentiation. Two negative results in the mouse limb genetics constrain this node and are worth stating plainly, because they are easy to overread in the opposite direction: once a condensation has formed, chondrogenic differentiation proceeds normally even without BMP2, and severe osteogenic impairment appears only when BMP4 is removed as well. BMP4 and BMP7 are therefore substantially redundant with BMP2 in the limb, which is the most likely reason the human heterozygote has hypoplastic and dysmorphic bones rather than absent skeletal elements, and the reason this node is annotated for osteogenesis alone.</div>
 
@@ -5698,6 +5787,7 @@ This pathophysiological event involves decreased osteoblast differentiation (GO:
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5719,6 +5809,7 @@ This pathophysiological event involves decreased osteoblast differentiation (GO:
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -5746,6 +5837,7 @@ This pathophysiological event involves decreased osteoblast differentiation (GO:
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5768,6 +5860,7 @@ This pathophysiological event involves decreased osteoblast differentiation (GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-endochondral-bone-growth" data-dismech-node="Impaired Endochondral Bone Growth" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Endochondral Bone Growth</div>
+
 
                 <div class="item-desc">Reduced growth of the long bones through the endochondral route produces proportionate to mildly disproportionate short stature. Growth hormone axis testing is normal in most affected individuals, which locates the deficit in the growth plate rather than in pituitary output.</div>
 
@@ -5927,6 +6020,7 @@ This pathophysiological event involves decreased growth plate cartilage developm
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5949,6 +6043,7 @@ This pathophysiological event involves decreased growth plate cartilage developm
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-deficient-skeletal-repair-and-bone-homeostasis" data-dismech-node="Deficient Skeletal Repair and Bone Homeostasis" data-dismech-type="pathophysiology">
                 <div class="item-name">Deficient Skeletal Repair and Bone Homeostasis</div>
+
 
                 <div class="item-desc">BMP2 is not required to build the skeleton once other BMPs are present, but it is required to initiate repair of it. Limb-conditional Bmp2 null mice accumulate spontaneous fractures that never heal, so the postnatal role is maintenance rather than morphogenesis. This is the most plausible frame for the phalangeal osteolysis reported in one patient, and it is the reason skeletal surveillance in this disorder is longitudinal rather than a single baseline survey.</div>
 
@@ -6058,6 +6153,7 @@ This pathophysiological event involves abnormal bone remodeling (GO:0046849). GO
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6080,6 +6176,7 @@ This pathophysiological event involves abnormal bone remodeling (GO:0046849). GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failed-endocardial-cushion-mesenchymal-transition" data-dismech-node="Failed Endocardial Cushion Mesenchymal Transition" data-dismech-type="pathophysiology">
                 <div class="item-name">Failed Endocardial Cushion Mesenchymal Transition</div>
+
 
                 <div class="item-desc">In the atrioventricular canal, endocardial cells respond to a myocardium-derived BMP2 signal by undergoing epithelial-to-mesenchymal transition and populating the cushions that become the septa and valves. Reduced BMP2 attenuates that induction. The variable penetrance of cardiac disease here, against near-complete penetrance of the skeletal features, suggests this field tolerates a halved dose better than the skeletal ones do.</div>
 
@@ -6223,6 +6320,7 @@ This pathophysiological event involves decreased epithelial to mesenchymal trans
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6244,6 +6342,7 @@ This pathophysiological event involves decreased epithelial to mesenchymal trans
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6273,6 +6372,7 @@ This pathophysiological event involves decreased epithelial to mesenchymal trans
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6295,6 +6395,7 @@ This pathophysiological event involves decreased epithelial to mesenchymal trans
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-congenital-septal-and-valvuloseptal-defects" data-dismech-node="Congenital Septal and Valvuloseptal Defects" data-dismech-type="pathophysiology">
                 <div class="item-name">Congenital Septal and Valvuloseptal Defects</div>
+
 
                 <div class="item-desc">Structural congenital heart disease, most often septal, in a minority of affected individuals. Cardiac involvement is the least penetrant arm of this syndrome and is absent in several well-characterised patients.
 One reported patient extends this beyond septation to the left ventricular outflow tract, with a bicuspid aortic valve and aortic root and ascending aortic aneurysm. That is a different morphogenetic field from the atrioventricular cushions the mechanism above runs through, and the mouse literature is explicit that BMP2&#39;s role in semilunar valvulogenesis is less well established than its role in the AV cushions. It is curated as part of the cardiac spectrum on the strength of the human observation, not on a mechanism this entry can trace.</div>
@@ -6365,6 +6466,7 @@ One reported patient extends this beyond septation to the left ventricular outfl
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6386,6 +6488,7 @@ One reported patient extends this beyond septation to the left ventricular outfl
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6411,6 +6514,7 @@ One reported patient extends this beyond septation to the left ventricular outfl
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-eustachian-tube-dysfunction-and-middle-ear-effusion" data-dismech-node="Eustachian Tube Dysfunction and Middle Ear Effusion" data-dismech-type="pathophysiology">
                 <div class="item-name">Eustachian Tube Dysfunction and Middle Ear Effusion</div>
+
 
                 <div class="item-desc">Recurrent secretory otitis media, driven by the craniofacial anatomy rather than by any primary defect of the inner ear or of immunity. The hearing loss that follows is therefore conductive and, in principle, correctable, which is why it is worth separating from the sensorineural loss seen in other skeletal dysplasias.</div>
 
@@ -6473,6 +6577,7 @@ One reported patient extends this beyond septation to the left ventricular outfl
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6601,6 +6706,9 @@ This clinical feature is Bicuspid aortic valve (HP:0001647). HP:0001647 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6615,6 +6723,7 @@ This clinical feature is Bicuspid aortic valve (HP:0001647). HP:0001647 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6671,6 +6780,9 @@ This clinical feature is Aortic root and ascending aortic aneurysm, annotated wi
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6685,6 +6797,7 @@ This clinical feature is Aortic root and ascending aortic aneurysm, annotated wi
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6741,6 +6854,9 @@ This clinical feature is Wolff-Parkinson-White syndrome (HP:0001716). HP:0001716
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6755,6 +6871,7 @@ This clinical feature is Wolff-Parkinson-White syndrome (HP:0001716). HP:0001716
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6811,6 +6928,9 @@ This clinical feature is Congenital heart disease, annotated with Abnormal heart
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6825,6 +6945,7 @@ This clinical feature is Congenital heart disease, annotated with Abnormal heart
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6849,6 +6970,7 @@ This clinical feature is Congenital heart disease, annotated with Abnormal heart
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -6912,6 +7034,9 @@ This clinical feature is Low-set, posteriorly rotated ears, annotated with Low-s
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6926,6 +7051,7 @@ This clinical feature is Low-set, posteriorly rotated ears, annotated with Low-s
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6980,6 +7106,9 @@ This clinical feature is Posteriorly rotated ears (HP:0000358). HP:0000358 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6994,6 +7123,7 @@ This clinical feature is Posteriorly rotated ears (HP:0000358). HP:0000358 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7050,6 +7180,9 @@ This clinical feature is Recurrent secretory otitis media, annotated with Recurr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7064,6 +7197,7 @@ This clinical feature is Recurrent secretory otitis media, annotated with Recurr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7120,6 +7254,9 @@ This clinical feature is Conductive hearing impairment (HP:0000405). HP:0000405 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7134,6 +7271,7 @@ This clinical feature is Conductive hearing impairment (HP:0000405). HP:0000405 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7201,6 +7339,9 @@ This clinical feature is Endocrinopathy, annotated with Abnormality of the endoc
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7215,6 +7356,7 @@ This clinical feature is Endocrinopathy, annotated with Abnormality of the endoc
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7278,6 +7420,9 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7292,6 +7437,7 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7357,6 +7503,9 @@ This clinical feature is Midface hypoplasia, annotated with Midface retrusion (H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7371,6 +7520,7 @@ This clinical feature is Midface hypoplasia, annotated with Midface retrusion (H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7427,6 +7577,9 @@ This clinical feature is Long philtrum (HP:0000343). HP:0000343 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7441,6 +7594,7 @@ This clinical feature is Long philtrum (HP:0000343). HP:0000343 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7497,6 +7651,9 @@ This clinical feature is Dental crowding (HP:0000678). HP:0000678 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7511,6 +7668,7 @@ This clinical feature is Dental crowding (HP:0000678). HP:0000678 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7565,6 +7723,9 @@ This clinical feature is Micrognathia (HP:0000347). HP:0000347 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7579,6 +7740,7 @@ This clinical feature is Micrognathia (HP:0000347). HP:0000347 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7635,6 +7797,9 @@ This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7649,6 +7814,7 @@ This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7673,6 +7839,7 @@ This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7729,6 +7896,9 @@ This clinical feature is Pierre-Robin sequence (HP:0000201). HP:0000201 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7743,6 +7913,7 @@ This clinical feature is Pierre-Robin sequence (HP:0000201). HP:0000201 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7797,6 +7968,9 @@ This clinical feature is Downslanted palpebral fissures (HP:0000494). HP:0000494
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7811,6 +7985,7 @@ This clinical feature is Downslanted palpebral fissures (HP:0000494). HP:0000494
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7865,6 +8040,9 @@ This clinical feature is Broad forehead (HP:0000337). HP:0000337 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7879,6 +8057,7 @@ This clinical feature is Broad forehead (HP:0000337). HP:0000337 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7935,6 +8114,9 @@ This clinical feature is Thin upper lip, annotated with Thin upper lip vermilion
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7949,6 +8131,7 @@ This clinical feature is Thin upper lip, annotated with Thin upper lip vermilion
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8014,6 +8197,9 @@ This clinical feature is Toenail dysplasia (HP:0100797). HP:0100797 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8028,6 +8214,7 @@ This clinical feature is Toenail dysplasia (HP:0100797). HP:0100797 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8093,6 +8280,9 @@ This clinical feature is Brachydactyly (HP:0001156). HP:0001156 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8107,6 +8297,7 @@ This clinical feature is Brachydactyly (HP:0001156). HP:0001156 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8131,6 +8322,7 @@ This clinical feature is Brachydactyly (HP:0001156). HP:0001156 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8187,6 +8379,9 @@ This clinical feature is Short toes, annotated with Short toe (HP:0001831). HP:0
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8201,6 +8396,7 @@ This clinical feature is Short toes, annotated with Short toe (HP:0001831). HP:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8257,6 +8453,9 @@ This clinical feature is Sandal gap (HP:0001852). HP:0001852 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8271,6 +8470,7 @@ This clinical feature is Sandal gap (HP:0001852). HP:0001852 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8327,6 +8527,9 @@ This clinical feature is Fifth finger clinodactyly, annotated with Clinodactyly 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8341,6 +8544,7 @@ This clinical feature is Fifth finger clinodactyly, annotated with Clinodactyly 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8406,6 +8610,9 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8420,6 +8627,7 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8476,6 +8684,9 @@ This clinical feature is Prominent sternum (HP:0000884). HP:0000884 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8490,6 +8701,7 @@ This clinical feature is Prominent sternum (HP:0000884). HP:0000884 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8546,6 +8758,9 @@ This clinical feature is Osteolysis of the phalanges, annotated with Osteolysis 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8560,6 +8775,7 @@ This clinical feature is Osteolysis of the phalanges, annotated with Osteolysis 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8618,6 +8834,9 @@ This clinical feature is Hypotonia in infancy, annotated with Floppy infant (HP:
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8632,6 +8851,7 @@ This clinical feature is Hypotonia in infancy, annotated with Floppy infant (HP:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8697,6 +8917,9 @@ This clinical feature is Neural tube defect (HP:0045005). HP:0045005 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8711,6 +8934,7 @@ This clinical feature is Neural tube defect (HP:0045005). HP:0045005 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8769,6 +8993,9 @@ This clinical feature is Structural brain anomaly, annotated with Abnormal brain
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8783,6 +9010,7 @@ This clinical feature is Structural brain anomaly, annotated with Abnormal brain
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8839,6 +9067,9 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8853,6 +9084,7 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8877,6 +9109,7 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8942,6 +9175,9 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8956,6 +9192,7 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9056,6 +9293,9 @@ This disease-associated gene is BMP2 (hgnc:1069). hgnc:1069 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (5 references)
@@ -9070,6 +9310,7 @@ This disease-associated gene is BMP2 (hgnc:1069). hgnc:1069 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9097,6 +9338,7 @@ This disease-associated gene is BMP2 (hgnc:1069). hgnc:1069 is a gene from the H
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9118,6 +9360,7 @@ This disease-associated gene is BMP2 (hgnc:1069). hgnc:1069 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9206,6 +9449,9 @@ This treatment is myringotomy with ear tube placement (NCIT:C70906). NCIT:C70906
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9216,6 +9462,9 @@ This treatment is myringotomy with ear tube placement (NCIT:C70906). NCIT:C70906
 
 
     </div>
+
+
+
 
 
 
@@ -9252,6 +9501,7 @@ This treatment is myringotomy with ear tube placement (NCIT:C70906). NCIT:C70906
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9295,6 +9545,7 @@ This treatment is myringotomy with ear tube placement (NCIT:C70906). NCIT:C70906
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9362,6 +9613,9 @@ This treatment is adenoidectomy (NCIT:C51697). NCIT:C51697 is a clinical interve
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9372,6 +9626,9 @@ This treatment is adenoidectomy (NCIT:C51697). NCIT:C51697 is a clinical interve
 
 
     </div>
+
+
+
 
 
 
@@ -9406,6 +9663,7 @@ This treatment is adenoidectomy (NCIT:C51697). NCIT:C51697 is a clinical interve
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9449,6 +9707,7 @@ This treatment is adenoidectomy (NCIT:C51697). NCIT:C51697 is a clinical interve
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9538,6 +9797,9 @@ This treatment uses recombinant human growth hormone, annotated with Somatropin 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9548,6 +9810,9 @@ This treatment uses recombinant human growth hormone, annotated with Somatropin 
 
 
     </div>
+
+
+
 
 
 
@@ -9578,6 +9843,7 @@ This treatment uses recombinant human growth hormone, annotated with Somatropin 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9599,6 +9865,7 @@ This treatment uses recombinant human growth hormone, annotated with Somatropin 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9666,6 +9933,9 @@ This treatment is speech and language therapy, annotated with Speech Language Th
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9676,6 +9946,9 @@ This treatment is speech and language therapy, annotated with Speech Language Th
 
 
     </div>
+
+
+
 
 
 
@@ -9743,6 +10016,7 @@ This treatment targets Delayed speech and language development (HP:0000750). HP:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9820,6 +10094,7 @@ This treatment targets Delayed speech and language development (HP:0000750). HP:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9873,6 +10148,7 @@ This treatment targets Delayed speech and language development (HP:0000750). HP:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9932,6 +10208,7 @@ This treatment targets Delayed speech and language development (HP:0000750). HP:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9988,6 +10265,7 @@ This treatment targets Delayed speech and language development (HP:0000750). HP:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10041,6 +10319,7 @@ This treatment targets Delayed speech and language development (HP:0000750). HP:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10118,6 +10397,7 @@ This treatment targets Delayed speech and language development (HP:0000750). HP:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10139,6 +10419,7 @@ This treatment targets Delayed speech and language development (HP:0000750). HP:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10208,6 +10489,7 @@ This treatment targets Delayed speech and language development (HP:0000750). HP:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10229,6 +10511,7 @@ This treatment targets Delayed speech and language development (HP:0000750). HP:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10324,6 +10607,7 @@ This treatment targets Delayed speech and language development (HP:0000750). HP:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10345,6 +10629,7 @@ This treatment targets Delayed speech and language development (HP:0000750). HP:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10422,6 +10707,7 @@ This treatment targets Delayed speech and language development (HP:0000750). HP:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10491,6 +10777,7 @@ Wolff-Parkinson-White syndrome does not belong on that list any more, and the co
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10512,6 +10799,7 @@ Wolff-Parkinson-White syndrome does not belong on that list any more, and the co
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10661,6 +10949,7 @@ Wolff-Parkinson-White syndrome does not belong on that list any more, and the co
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10700,6 +10989,7 @@ Wolff-Parkinson-White syndrome does not belong on that list any more, and the co
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10744,6 +11034,7 @@ Wolff-Parkinson-White syndrome does not belong on that list any more, and the co
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10849,6 +11140,7 @@ Wolff-Parkinson-White syndrome does not belong on that list any more, and the co
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10903,6 +11195,7 @@ Wolff-Parkinson-White syndrome does not belong on that list any more, and the co
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10944,6 +11237,7 @@ Wolff-Parkinson-White syndrome does not belong on that list any more, and the co
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11049,6 +11343,7 @@ Wolff-Parkinson-White syndrome does not belong on that list any more, and the co
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -11090,6 +11385,7 @@ Wolff-Parkinson-White syndrome does not belong on that list any more, and the co
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11195,6 +11491,7 @@ Wolff-Parkinson-White syndrome does not belong on that list any more, and the co
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -11236,6 +11533,7 @@ Wolff-Parkinson-White syndrome does not belong on that list any more, and the co
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11341,6 +11639,7 @@ Wolff-Parkinson-White syndrome does not belong on that list any more, and the co
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -11382,6 +11681,7 @@ Wolff-Parkinson-White syndrome does not belong on that list any more, and the co
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14005,6 +14305,41 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (3)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">No GeneReviews chapter exists for BMP2 or for SSFSC1; PubMed searches for &#34;BMP2 GeneReviews&#34; and for the disease name with GeneReviews returned no matching article. The mandatory GeneReviews phenotype baseline is therefore not available for this entry, and the phenotype set is anchored on the defining series (PMID:29198724) and the largest recent cohort (PMID:39970956) instead.
+On frequency bands: the numeric denominators available are small (7 and 12 individuals), so frequencies here are the observed cohort proportions and should be read as provisional. Where the literature reports a feature without a denominator, frequency has been left at the band the cohort supports rather than inferred upward.
+On datasets: none are curated, and the absence is a finding rather than an omission. `just discover-datasets` returns 12 candidates and classifies all 12 as GENE_ONLY, with zero DIRECT matches; the top-scoring hit is a glioma cell line treated with recombinant BMP2. That is the failure mode the dataset guidance warns about - searching a causal gene surfaces whatever the gene is famous for, and BMP2 is famous as an osteoinductive reagent rather than as this syndrome&#39;s gene. No omics dataset of BMP2-haploinsufficient patient material appears to exist, which is unsurprising for a disorder with roughly 50 to 60 reported individuals.
+On the deep-research report accompanying this entry (research/BMP2-Related_Short_Stature-Facial_Dysmorphism-Skeletal_Anomalies_Syndrome-deep-research-openscientist.md): falcon was the requested provider and its key returned 403, so the run was re-issued with --fallback and openscientist produced the report; the frontmatter records that rather than the report claiming to be a falcon run. Its 20 citations all resolve with no confabulations. Two quotes are flagged as not found in source; both are the report&#39;s own ellipsis-shortened renderings of sentences that are present verbatim, not fabrications, and one of them matches an evidence snippet used here word for word.
+The report earned its place by catching a real gap rather than by confirming what was already written. Three of its citations were adopted after reading them, and two of those changed the entry&#39;s claims: PMID:37125634, an international 18-patient cohort that establishes missense alleles as a third disease-causing class and adds neural tube defects, brain anomalies and endocrinopathies to the spectrum, and PMID:33247540, which supplies the only BMP2-only-lesion evidence for scoliosis and for Wolff-Parkinson-White and reports bicuspid aortic valve with aortopathy. PMID:10362015 was taken for the cushion mechanism. Citations about other genes and other disorders (BMPER, BMPR1B, Dubowitz, Robinow) were not used; they are Named Entity Confusion risks rather than errors in the report.
+None of the report&#39;s ontology suggestions were adopted. Term validation found 1 of 4 checked labels matching, and among the mismatches it offered NCIT:C15192 as &#34;Speech Therapy&#34; when that code is Blood Transfusion. An earlier run of the same provider offered UBERON:0006618 for &#34;growth plate&#34;, which is the atrium auricular region.
+On five phenotypes left unconnected to the pathograph - hypotonia in infancy, toenail dysplasia, neural tube defect, structural brain anomaly and endocrinopathy: no cited source proposes a mechanism linking any of them to the BMP2 chain, and inventing an edge to tidy the graph would assert causation that nothing supports. The last three arrive from the 18-patient cohort as a bare spectrum expansion, listed in one sentence with no denominator and no mechanism, which is also why they carry the lowest frequency band the schema offers rather than one inferred from cohort size. They are curated as observed features without an upstream node.
+Neural tube and brain findings are the ones to watch here. BMP signalling has a real role in neural tube closure, so a mechanism is plausible, and that is exactly the reason not to draw the edge from plausibility alone.
+On scoliosis: it is curated, but only on the strength of one specific observation, and the route there is worth recording because an earlier draft of this entry got it wrong twice. Scoliosis was first curated with no source at all, then removed on review after a check showed the word appeared exactly once across the cached references, inside a sentence about JAG1 deletions and Alagille syndrome. Removing it was right on that evidence. It is back because a later reference supplies what was missing: progressive thoracic scoliosis requiring surgery at 13, in a patient whose BMP2 lesion is an intragenic de novo nonsense variant with no deletion, so no neighbouring gene is available to explain it.
+On frequency bands for the facial gestalt: midface hypoplasia, long philtrum and dental crowding carry bands because the cohort states counts for them. Micrognathia, downslanted palpebral fissures, hypertelorism, broad forehead and the ear findings deliberately carry none. The only cached source for those is a three-patient photographic figure legend, which supports a denominator somewhere between 1/7 and 3/7 without fixing it; the real counts are in a table the reference cache does not carry.
+On research-surfaced phenotypes considered and not curated: the deep-research report names 11 pairs of ribs as a cardinal skeletal anomaly and as part of the triad that discriminates this disorder from other short-stature syndromes. No human rib phenotype is curated, but the reason is not that the cache is silent on the subject. An earlier revision of this paragraph said the only rib sentences were about Bmp4 mutant mice and dismissed them as a different gene; that was a misreading and is corrected here. The sentence in PMID:19116164 names Bmp4 heterozygotes only as prior art defining the assay, and reports its own result in Bmp2 heterozygotes: defects in formation of the 13th rib in 77 per cent of skeletons, with cervical vertebral fusion in 33 per cent. Mice carry 13 rib pairs and humans 12, so loss of the terminal pair is the species-appropriate counterpart of the human reduction rather than an unrelated finding, and this is real dose evidence at the genotype this disorder has. What it cannot do is carry a human phenotype entry by itself, because model-organism evidence must not be the sole support for a human phenotype. The measurement is therefore recorded as a readout on the heterozygous Bmp2 knockout model, and the human rib count stays uncurated until a human report supplies a quotable count. Hip dysplasia, coxa vara and osteopenia are the genuinely silent cases: named in the report, absent from every cached file. Fifth finger clinodactyly and thin upper lip vermilion were in that category until PMID:33247540 was cached; both are now curated from its facial-and-skeletal summary sentence.
+On what has deliberately not been curated as a BMP2 phenotype: congenital hypopituitarism and Alagille syndrome appear in the 20p12 deletion literature and are attributable to co-deleted genes, PROKR2 and JAG1 respectively, rather than to BMP2 dose. They are recorded under differential diagnoses. Wolff-Parkinson-White was on that list and has been moved off it: it is now reported in a patient with an intragenic BMP2 nonsense variant and no deletion, so the neighbouring-gene explanation no longer covers it. Growth hormone deficiency is a separate case and is curated as an open question rather than either a phenotype or an exclusion: it has been seen in one individual with an isolated BMP2 lesion, and the reporting authors explicitly leave open whether it belongs to the syndrome.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Review round: act on red-team findings and integrate deep-research report</strong> · 2026-09-05T07:59:19Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/BMP2-Related_Short_Stature-Facial_Dysmorphism-Skeletal_Anomalies_Syndrome/2026-09-05T075919Z-claude-code-e32eac.yaml">View source</a></p>
+                        <p class="research-review-text">Pre-PR red-team review (dismech-pr-review skill, fresh-context subagent) plus integration of the deep-research report that landed after the first commit. Five blocking findings fixed. First, scoliosis was removed as a phenotype and as a causal edge: across every reference cached for this entry the word appears exactly once, inside a sentence about JAG1 deletions and Alagille syndrome in PMID:21671386, which is a contiguous-gene phenotype this entry excludes elsewhere. That was the single Named Entity Confusion escape and it is now recorded in notes so it is not reintroduced. Second, the chondrogenesis node misrepresented PMID:17194222: its chondrocyte-differentiation DECREASED annotation is contradicted by that paper, which reports chondrogenic differentiation proceeds normally without BMP2, and its osteogenesis finding is from a compound Bmp2/Bmp4 knockout rather than BMP2 alone. The node was renamed Reduced Osteogenic Output of Skeletal Progenitors, rebound to osteoblast differentiation, the compound-knockout qualification stated in the explanation, and the contrary result added as an explicit REFUTE item. Third, brachydactyly was over-graded from a single figure legend; real hand data (short fifth fingers segregating through three generations of the BMP2-only deletion family) was added from PMID:21671386. Fourth, two nodes bundled multiple mechanistic steps: the craniofacial node was split into Craniofacial Skeletal Hypoplasia and Failure of Tongue Descent and Palatal Shelf Elevation, which also let the entry record PMID:30413887&#39;s measured negative results, that BMP/SMAD activity is largely preserved in the mutant palate through BMP4 and BMP7 redundancy and that BMP2 is not an intrinsic regulator of shelf elevation. Fifth, the deep-research report is now present. Important fixes: frequency bands removed from six craniofacial phenotypes whose only source is a three-patient photographic figure legend; homozygosity caveats added to four causal-edge explanations that rest on homozygous conditional mouse mutants; the SCUBE3 evidence item now names SSFSC2 explicitly because its quoted phrase &#39;the human disorder&#39; means the sibling entity; hypotonia rebound from HP:0001319 Neonatal hypotonia to HP:0008947 Floppy infant since both sources describe infancy; myringotomy and adenoidectomy rebound from generic NCIT:C15329 to NCIT:C70906 and NCIT:C51697; ten orphaned phenotypes connected to the pathograph, leaving two deliberately unconnected because no source proposes a mechanism; module-expected GO terms added to both conforming nodes; congenital heart disease frequency removed for want of a denominator and its arrhythmia claim reconciled with the entry&#39;s own Wolff-Parkinson-White exclusion. Minor fixes: better short-stature snippet carrying the actual 6/7 count, cranial neural crest cell rebound to CL:0000008, MONDO:0007216 added to the brachydactyly type A2 differential with a note that BMPR1B and GDF5 are the commoner causes, bone remodeling GO term added, speech therapy joined to the pathograph, and an unverifiable Cre-driver genotype softened to what the cached source supports. Deep research: the requested falcon provider returned 403 and the run fell back to openscientist, recorded in the report frontmatter. Reference validation 16/16 resolved, zero confabulations, one off-topic flag (PMID:24022823, not used). Term validation found 0 of 11 checked terms named correctly, so none of the report&#39;s ontology suggestions were adopted; one offered UBERON:0006618 for growth plate, which is the atrium auricular region. Two of its citations were adopted after reading them: PMID:19116164 for BMP2 dosage sensitivity, which supplies the dose claim the compound limb knockout does not, and PMID:22965927 for a second multigenerational deletion family that independently replicates the clefting phenotype and gives a second within-family developmental-delay discordance. Validation after changes: just validate-disorders passes with 92/92 snippets verified, term validation passes, and check-entity-refs, check-causal-targets, check-duplicate-keys, check-qualifier-terms, check-enum-values, check-folded-hyphens, check-snippet-length, check-title-snippets and check-snippet-grading all pass. Compliance 89.3 percent, down from 91.7 because the denominator grew with the added nodes and evidence.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: BMP2-Related Short Stature-Facial Dysmorphism-Skeletal Anomalies Syndrome</strong> · 2026-09-05T07:32:53Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/BMP2-Related_Short_Stature-Facial_Dysmorphism-Skeletal_Anomalies_Syndrome/2026-09-05T073253Z-claude-code-9d1a9f.yaml">View source</a></p>
+                        <p class="research-review-text">Created MONDO:0100297 (SSFSC1, OMIM 617877, BMP2 haploinsufficiency) from the curation stub, which is deleted in the same change. Deep research: falcon was requested but its EDISON_API_KEY returns 403 (providers --check reports UNREACHABLE); the run was re-issued with --fallback so the substitution is recorded by the run rather than chosen by hand. The entry as committed is built from primary literature retrieved directly via the PubMed E-utilities API, not from a deep-research report. Anchors: PMID:29198724 (defining 12-patient series), PMID:39970956 (2025 seven-patient cohort, full text cached), PMID:21671386 (20p12.3 deletion cleft palate series), PMID:40285376 (osteolysis case), plus mechanism sources PMID:30413887 (Wnt1-Cre cranial neural crest conditional KO), PMID:17194222 (limb BMP2/4/7 genetics), PMID:16314491 (AV cushion EMT), PMID:17099713 (fracture-healing requirement), PMID:19327734 (BDA2 enhancer duplication), PMID:33308444 (SCUBE3 as BMP2 co-receptor), PMID:28586151 and PMID:37572998 (contiguous-gene and laterality caveats). No GeneReviews chapter exists for BMP2 or SSFSC1; PubMed searches for both returned nothing, and the absence is recorded in the entry notes. Named Entity Confusion was the main hazard and was handled explicitly: MONDO:0100297 (SSFSC1) versus MONDO:0030953 (SSFSC2, SCUBE3) differ only by a trailing digit and are separated by OMIM number throughout; brachydactyly type A2 is a BMP2 enhancer duplication and therefore mechanistically opposite; and Alagille/JAG1, hypopituitarism/PROKR2 and Wolff-Parkinson-White are contiguous-gene phenotypes of larger 20p12 deletions. All three are curated as differential diagnoses rather than as BMP2 phenotypes. No datasets curated: just discover-datasets returned 12 candidates, all GENE_ONLY with zero DIRECT, the top hit being a glioma cell line treated with recombinant BMP2; the negative result is recorded in notes. Two module conformances declared against pharyngeal_arch_patterning_serial_homology (trigger and consequence nodes); its central-effector node is deliberately not claimed because it is written around arch-identity mis-specification, which BMP2 does not show. Validation: just validate passes, just validate-disorders passes with 84/84 snippets verified against the cached references, term validation passes, and check-entity-refs, check-causal-targets, check-duplicate-keys, check-qualifier-terms, check-enum-values, check-snippet-length, check-title-snippets, check-snippet-grading and check-folded-hyphens all pass. linkml-data-qc reports 91.7 percent global compliance.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

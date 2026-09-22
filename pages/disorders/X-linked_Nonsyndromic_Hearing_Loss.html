@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4122,6 +4190,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4146,6 +4215,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4167,6 +4237,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4298,6 +4369,7 @@ This subtype is caused by variation in PRPS1 (hgnc:9462). hgnc:9462 is a gene fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4381,6 +4453,7 @@ This subtype is caused by variation in POU3F4 (hgnc:9217). hgnc:9217 is a gene f
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4402,6 +4475,7 @@ This subtype is caused by variation in POU3F4 (hgnc:9217). hgnc:9217 is a gene f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4464,6 +4538,7 @@ This subtype is caused by variation in POU3F4 (hgnc:9217). hgnc:9217 is a gene f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4550,6 +4625,7 @@ This subtype is caused by variation in SMPX (hgnc:11122). hgnc:11122 is a gene f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4630,6 +4706,7 @@ This subtype is caused by variation in AIFM1 (hgnc:8768). hgnc:8768 is a gene fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4716,6 +4793,7 @@ This subtype is caused by variation in COL4A6 (hgnc:2208). hgnc:2208 is a gene f
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4737,6 +4815,7 @@ This subtype is caused by variation in COL4A6 (hgnc:2208). hgnc:2208 is a gene f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4937,6 +5016,7 @@ This subtype is caused by variation in COL4A6 (hgnc:2208). hgnc:2208 is a gene f
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4971,6 +5051,7 @@ This subtype is caused by variation in COL4A6 (hgnc:2208). hgnc:2208 is a gene f
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-prps1-enzymatic-activity-deficiency" data-dismech-node="PRPS1 enzymatic activity deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">PRPS1 enzymatic activity deficiency</div>
+
 
                 <div class="item-desc">DFNX1 missense variants reduce phosphoribosyl pyrophosphate synthetase 1 activity. The available human biochemical evidence establishes reduced enzyme activity but does not yet resolve why partial PRPS1 deficiency is selectively expressed as hearing loss in milder cases.</div>
 
@@ -5067,6 +5148,7 @@ This pathophysiological event involves PRPS1 (hgnc:9462). hgnc:9462 is a gene fr
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5089,6 +5171,7 @@ This pathophysiological event involves PRPS1 (hgnc:9462). hgnc:9462 is a gene fr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pou3f4-related-inner-ear-developmental-malformation" data-dismech-node="POU3F4-related inner ear developmental malformation" data-dismech-type="pathophysiology">
                 <div class="item-name">POU3F4-related inner ear developmental malformation</div>
+
 
                 <div class="item-desc">POU3F4 encodes a POU-family transcription factor required for middle and inner ear development. POU3F4 defects can disrupt inner-ear morphogenesis, producing incomplete partition type III and predisposing to perilymphatic gusher during otologic surgery.</div>
 
@@ -5265,6 +5348,7 @@ This pathophysiological event involves abnormal regulation of DNA-templated tran
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5287,6 +5371,7 @@ This pathophysiological event involves abnormal regulation of DNA-templated tran
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-smpx-related-hair-cell-mechanotransduction-defect" data-dismech-node="SMPX-related hair-cell mechanotransduction defect" data-dismech-type="pathophysiology">
                 <div class="item-name">SMPX-related hair-cell mechanotransduction defect</div>
+
 
                 <div class="item-desc">SMPX encodes a cytoskeleton-associated protein expressed in inner-ear hair cells. Model-organism evidence supports a role in hair-cell differentiation, stereociliary and kinociliary integrity, and mechanotransduction, providing a cellular mechanism for progressive DFNX4 hearing loss.</div>
 
@@ -5489,6 +5574,7 @@ This pathophysiological event involves abnormal cell projection organization (GO
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5510,6 +5596,7 @@ This pathophysiological event involves abnormal cell projection organization (GO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5537,6 +5624,7 @@ This pathophysiological event involves abnormal cell projection organization (GO
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5559,6 +5647,7 @@ This pathophysiological event involves abnormal cell projection organization (GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aifm1-related-auditory-signal-transmission-defect" data-dismech-node="AIFM1-related auditory signal transmission defect" data-dismech-type="pathophysiology">
                 <div class="item-name">AIFM1-related auditory signal transmission defect</div>
+
 
                 <div class="item-desc">The reported AIFM1 phenotype is an auditory and sensory neuropathy spectrum in which transmission from the inner ear to the auditory nerve and brainstem is distorted. The cited human cohort does not establish a single cellular lesion in every affected individual or isolate hearing loss from the delayed neurologic phenotype.</div>
 
@@ -5655,6 +5744,7 @@ This pathophysiological event involves AIFM1 (hgnc:8768). hgnc:8768 is a gene fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5677,6 +5767,13 @@ This pathophysiological event involves AIFM1 (hgnc:8768). hgnc:8768 is a gene fr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-candidate-col4a6-associated-cochlear-basement-membrane-involvement" data-dismech-node="Candidate COL4A6-associated cochlear basement-membrane involvement" data-dismech-type="pathophysiology">
                 <div class="item-name">Candidate COL4A6-associated cochlear basement-membrane involvement</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
 
                 <div class="item-desc">COL4A6 encodes the alpha-6 chain of type IV collagen in basement membranes. The ClinGen assertion classifies the DFNX6 relationship as Limited. Human segregation and a variant-specific minigene assay provide candidate support, while expression in animal inner ears supports biological plausibility. In conflict, Col4a6-knockout mice had normal click-ABR thresholds and cochlear morphology. That result narrowly argues against simple loss of expression being sufficient in the mouse model, but does not test allele-specific human effects or establish a general cochlear mechanism.</div>
 
@@ -5773,6 +5870,7 @@ This pathophysiological event involves COL4A6 (hgnc:2208). hgnc:2208 is a gene f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5794,6 +5892,7 @@ This pathophysiological event involves COL4A6 (hgnc:2208). hgnc:2208 is a gene f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5842,7 +5941,7 @@ This pathophysiological event involves COL4A6 (hgnc:2208). hgnc:2208 is a gene f
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"AIFM1 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"AIFM1\"], \"gene_terms\": [{\"label\": \"AIFM1\", \"id\": \"hgnc:8768\"}], \"subtypes\": [\"DFNX5\"], \"presence\": \"Pathogenic\", \"association\": \"Definitive ClinGen validity for the broader X-linked auditory and sensory neuropathy spectrum, not isolated nonsyndromic hearing loss\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"AIFM1-related auditory signal transmission defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The reported AIFM1 phenotype is an auditory and sensory neuropathy spectrum in which transmission from the inner ear to the auditory nerve and brainstem is distorted. The cited human cohort does not establish a single cellular lesion in every affected individual or isolate hearing loss from the delayed neurologic phenotype.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"AIFM1\"], \"gene_terms\": [{\"label\": \"AIFM1\", \"id\": \"hgnc:8768\"}]}}, {\"id\": \"Auditory neuropathy spectrum disorder\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The reported AIFM1-associated DFNX5 phenotype includes auditory neuropathy, with distorted transmission from the inner ear to the auditory nerve and brainstem; delayed sensory neuropathy means it should not be assumed to remain nonsyndromic. No exact HPO term was found locally, so the specific phenotype is retained without a broader substitute.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"DFNX5\"]}}, {\"id\": \"Candidate COL4A6-associated cochlear basement-membrane involvement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"COL4A6 encodes the alpha-6 chain of type IV collagen in basement membranes. The ClinGen assertion classifies the DFNX6 relationship as Limited. Human segregation and a variant-specific minigene assay provide candidate support, while expression in animal inner ears supports biological plausibility. In conflict, Col4a6-knockout mice had normal click-ABR thresholds and cochlear morphology. That result narrowly argues against simple loss of expression being sufficient in the mouse model, but does not test allele-specific human effects or establish a general cochlear mechanism.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"COL4A6\"], \"gene_terms\": [{\"label\": \"COL4A6\", \"id\": \"hgnc:2208\"}]}}, {\"id\": \"Cochlear implantation for POU3F4/IP-III anatomy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Cochlear implantation is a major intervention for severe POU3F4-related IP-III hearing loss, but the malformation increases surgical complexity and requires careful preoperative assessment and postoperative verification.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hearing-aid amplification\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Hearing aids are a primary treatment option for childhood-onset bilateral sensorineural hearing loss. The available abstract-level evidence supports this general treatment statement.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Incomplete partition type III\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"POU3F4-related DFNX2/DFN3 is associated with incomplete partition type III, a characteristic inner-ear malformation that affects surgical planning.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"DFNX2\"], \"term_id\": \"HP:0011373\"}}, {\"id\": \"POU3F4 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"POU3F4\"], \"gene_terms\": [{\"label\": \"POU3F4\", \"id\": \"hgnc:9217\"}], \"subtypes\": [\"DFNX2\"], \"presence\": \"Pathogenic\", \"association\": \"Definitive ClinGen gene-disease validity for nonsyndromic genetic hearing loss\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"POU3F4-related inner ear developmental malformation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"POU3F4 encodes a POU-family transcription factor required for middle and inner ear development. POU3F4 defects can disrupt inner-ear morphogenesis, producing incomplete partition type III and predisposing to perilymphatic gusher during otologic surgery.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"inner ear morphogenesis\", \"regulation of DNA-templated transcription\"], \"genes\": [\"POU3F4\"], \"gene_terms\": [{\"label\": \"POU3F4\", \"id\": \"hgnc:9217\"}]}}, {\"id\": \"PRPS1 enzymatic activity deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"DFNX1 missense variants reduce phosphoribosyl pyrophosphate synthetase 1 activity. The available human biochemical evidence establishes reduced enzyme activity but does not yet resolve why partial PRPS1 deficiency is selectively expressed as hearing loss in milder cases.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"PRPS1\"], \"gene_terms\": [{\"label\": \"PRPS1\", \"id\": \"hgnc:9462\"}]}}, {\"id\": \"PRPS1 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"PRPS1\"], \"gene_terms\": [{\"label\": \"PRPS1\", \"id\": \"hgnc:9462\"}], \"subtypes\": [\"DFNX1\"], \"presence\": \"Pathogenic\", \"association\": \"Definitive ClinGen validity for the lumped PRPS1 deficiency disorder, not for isolated DFNX1 alone\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Progressive sensorineural hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive sensorineural hearing loss is especially emphasized for PRPS1 and SMPX-related DFNX subtypes.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000408\"}}, {\"id\": \"Reported COL4A6 variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"COL4A6\"], \"gene_terms\": [{\"label\": \"COL4A6\", \"id\": \"hgnc:2208\"}], \"subtypes\": [\"DFNX6\"], \"presence\": \"Reported\", \"association\": \"Limited ClinGen gene-disease validity; family and minigene observations provide variant-level partial evidence without establishing gene-level causality\"}}, {\"id\": \"SMPX pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"SMPX\"], \"gene_terms\": [{\"label\": \"SMPX\", \"id\": \"hgnc:11122\"}], \"subtypes\": [\"DFNX4\"], \"presence\": \"Pathogenic\", \"association\": \"Definitive ClinGen gene-disease validity for nonsyndromic genetic hearing loss\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"SMPX-related hair-cell mechanotransduction defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SMPX encodes a cytoskeleton-associated protein expressed in inner-ear hair cells. Model-organism evidence supports a role in hair-cell differentiation, stereociliary and kinociliary integrity, and mechanotransduction, providing a cellular mechanism for progressive DFNX4 hearing loss.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Auditory hair cell\"], \"biological_processes\": [\"detection of mechanical stimulus involved in sensory perception\", \"cell projection organization\"], \"genes\": [\"SMPX\"], \"gene_terms\": [{\"label\": \"SMPX\", \"id\": \"hgnc:11122\"}]}}, {\"id\": \"Sensorineural hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sensorineural hearing impairment is directly documented in DFNX1; the auditory phenotype is not uniform across every DFNX subtype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000407\"}}], \"edges\": [{\"source\": \"PRPS1 enzymatic activity deficiency\", \"target\": \"Progressive sensorineural hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Partial PRPS1 deficiency is associated with postlingual bilateral progressive hearing loss in DFNX1 families.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"POU3F4-related inner ear developmental malformation\", \"target\": \"Incomplete partition type III\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Developmental disruption causes the characteristic IP-III inner-ear malformation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"POU3F4-related inner ear developmental malformation\", \"target\": \"Sensorineural hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"POU3F4-related developmental disruption is associated with both IP-III and hearing impairment, but the evidence does not isolate IP-III itself as the sole causal route to the auditory deficit.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"SMPX-related hair-cell mechanotransduction defect\", \"target\": \"Progressive sensorineural hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced hair-cell mechanotransduction provides a cellular route from SMPX deficiency to progressive sensorineural hearing impairment.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"AIFM1-related auditory signal transmission defect\", \"target\": \"Auditory neuropathy spectrum disorder\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"AIFM1 variants segregated with auditory and peripheral sensory neuropathy in several families and were also identified in sporadic ANSD cases in a Chinese cohort.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Candidate COL4A6-associated cochlear basement-membrane involvement\", \"target\": \"Sensorineural hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reported human families support a possible COL4A6-hearing-impairment association, but the Limited ClinGen classification leaves gene-level causality and the intervening mechanism unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Hearing-aid amplification\", \"target\": \"Sensorineural hearing impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Cochlear implantation for POU3F4/IP-III anatomy\", \"target\": \"Sensorineural hearing impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"PRPS1 pathogenic variants\", \"target\": \"PRPS1 enzymatic activity deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"POU3F4 pathogenic variants\", \"target\": \"POU3F4-related inner ear developmental malformation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SMPX pathogenic variants\", \"target\": \"SMPX-related hair-cell mechanotransduction defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"AIFM1 pathogenic variants\", \"target\": \"AIFM1-related auditory signal transmission defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Reported COL4A6 variants\", \"target\": \"Candidate COL4A6-associated cochlear basement-membrane involvement\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"AIFM1 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"AIFM1\"], \"gene_terms\": [{\"label\": \"AIFM1\", \"id\": \"hgnc:8768\"}], \"subtypes\": [\"DFNX5\"], \"presence\": \"Pathogenic\", \"association\": \"Definitive ClinGen validity for the broader X-linked auditory and sensory neuropathy spectrum, not isolated nonsyndromic hearing loss\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"AIFM1-related auditory signal transmission defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The reported AIFM1 phenotype is an auditory and sensory neuropathy spectrum in which transmission from the inner ear to the auditory nerve and brainstem is distorted. The cited human cohort does not establish a single cellular lesion in every affected individual or isolate hearing loss from the delayed neurologic phenotype.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"AIFM1\"], \"gene_terms\": [{\"label\": \"AIFM1\", \"id\": \"hgnc:8768\"}]}}, {\"id\": \"Auditory neuropathy spectrum disorder\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The reported AIFM1-associated DFNX5 phenotype includes auditory neuropathy, with distorted transmission from the inner ear to the auditory nerve and brainstem; delayed sensory neuropathy means it should not be assumed to remain nonsyndromic. No exact HPO term was found locally, so the specific phenotype is retained without a broader substitute.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"DFNX5\"]}}, {\"id\": \"Candidate COL4A6-associated cochlear basement-membrane involvement\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"COL4A6 encodes the alpha-6 chain of type IV collagen in basement membranes. The ClinGen assertion classifies the DFNX6 relationship as Limited. Human segregation and a variant-specific minigene assay provide candidate support, while expression in animal inner ears supports biological plausibility. In conflict, Col4a6-knockout mice had normal click-ABR thresholds and cochlear morphology. That result narrowly argues against simple loss of expression being sufficient in the mouse model, but does not test allele-specific human effects or establish a general cochlear mechanism.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"COL4A6\"], \"gene_terms\": [{\"label\": \"COL4A6\", \"id\": \"hgnc:2208\"}], \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Cochlear implantation for POU3F4/IP-III anatomy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Cochlear implantation is a major intervention for severe POU3F4-related IP-III hearing loss, but the malformation increases surgical complexity and requires careful preoperative assessment and postoperative verification.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Hearing-aid amplification\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Hearing aids are a primary treatment option for childhood-onset bilateral sensorineural hearing loss. The available abstract-level evidence supports this general treatment statement.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Incomplete partition type III\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"POU3F4-related DFNX2/DFN3 is associated with incomplete partition type III, a characteristic inner-ear malformation that affects surgical planning.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"DFNX2\"], \"term_id\": \"HP:0011373\"}}, {\"id\": \"POU3F4 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"POU3F4\"], \"gene_terms\": [{\"label\": \"POU3F4\", \"id\": \"hgnc:9217\"}], \"subtypes\": [\"DFNX2\"], \"presence\": \"Pathogenic\", \"association\": \"Definitive ClinGen gene-disease validity for nonsyndromic genetic hearing loss\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"POU3F4-related inner ear developmental malformation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"POU3F4 encodes a POU-family transcription factor required for middle and inner ear development. POU3F4 defects can disrupt inner-ear morphogenesis, producing incomplete partition type III and predisposing to perilymphatic gusher during otologic surgery.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"inner ear morphogenesis\", \"regulation of DNA-templated transcription\"], \"genes\": [\"POU3F4\"], \"gene_terms\": [{\"label\": \"POU3F4\", \"id\": \"hgnc:9217\"}]}}, {\"id\": \"PRPS1 enzymatic activity deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"DFNX1 missense variants reduce phosphoribosyl pyrophosphate synthetase 1 activity. The available human biochemical evidence establishes reduced enzyme activity but does not yet resolve why partial PRPS1 deficiency is selectively expressed as hearing loss in milder cases.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"PRPS1\"], \"gene_terms\": [{\"label\": \"PRPS1\", \"id\": \"hgnc:9462\"}]}}, {\"id\": \"PRPS1 pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"PRPS1\"], \"gene_terms\": [{\"label\": \"PRPS1\", \"id\": \"hgnc:9462\"}], \"subtypes\": [\"DFNX1\"], \"presence\": \"Pathogenic\", \"association\": \"Definitive ClinGen validity for the lumped PRPS1 deficiency disorder, not for isolated DFNX1 alone\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Progressive sensorineural hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive sensorineural hearing loss is especially emphasized for PRPS1 and SMPX-related DFNX subtypes.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000408\"}}, {\"id\": \"Reported COL4A6 variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"COL4A6\"], \"gene_terms\": [{\"label\": \"COL4A6\", \"id\": \"hgnc:2208\"}], \"subtypes\": [\"DFNX6\"], \"presence\": \"Reported\", \"association\": \"Limited ClinGen gene-disease validity; family and minigene observations provide variant-level partial evidence without establishing gene-level causality\"}}, {\"id\": \"SMPX pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"SMPX\"], \"gene_terms\": [{\"label\": \"SMPX\", \"id\": \"hgnc:11122\"}], \"subtypes\": [\"DFNX4\"], \"presence\": \"Pathogenic\", \"association\": \"Definitive ClinGen gene-disease validity for nonsyndromic genetic hearing loss\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"SMPX-related hair-cell mechanotransduction defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"SMPX encodes a cytoskeleton-associated protein expressed in inner-ear hair cells. Model-organism evidence supports a role in hair-cell differentiation, stereociliary and kinociliary integrity, and mechanotransduction, providing a cellular mechanism for progressive DFNX4 hearing loss.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Auditory hair cell\"], \"biological_processes\": [\"detection of mechanical stimulus involved in sensory perception\", \"cell projection organization\"], \"genes\": [\"SMPX\"], \"gene_terms\": [{\"label\": \"SMPX\", \"id\": \"hgnc:11122\"}]}}, {\"id\": \"Sensorineural hearing impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sensorineural hearing impairment is directly documented in DFNX1; the auditory phenotype is not uniform across every DFNX subtype.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000407\"}}], \"edges\": [{\"source\": \"PRPS1 enzymatic activity deficiency\", \"target\": \"Progressive sensorineural hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Partial PRPS1 deficiency is associated with postlingual bilateral progressive hearing loss in DFNX1 families.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"POU3F4-related inner ear developmental malformation\", \"target\": \"Incomplete partition type III\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Developmental disruption causes the characteristic IP-III inner-ear malformation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"POU3F4-related inner ear developmental malformation\", \"target\": \"Sensorineural hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"POU3F4-related developmental disruption is associated with both IP-III and hearing impairment, but the evidence does not isolate IP-III itself as the sole causal route to the auditory deficit.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"SMPX-related hair-cell mechanotransduction defect\", \"target\": \"Progressive sensorineural hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced hair-cell mechanotransduction provides a cellular route from SMPX deficiency to progressive sensorineural hearing impairment.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"AIFM1-related auditory signal transmission defect\", \"target\": \"Auditory neuropathy spectrum disorder\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"AIFM1 variants segregated with auditory and peripheral sensory neuropathy in several families and were also identified in sporadic ANSD cases in a Chinese cohort.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Candidate COL4A6-associated cochlear basement-membrane involvement\", \"target\": \"Sensorineural hearing impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reported human families support a possible COL4A6-hearing-impairment association, but the Limited ClinGen classification leaves gene-level causality and the intervening mechanism unresolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Hearing-aid amplification\", \"target\": \"Sensorineural hearing impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Cochlear implantation for POU3F4/IP-III anatomy\", \"target\": \"Sensorineural hearing impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"PRPS1 pathogenic variants\", \"target\": \"PRPS1 enzymatic activity deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"POU3F4 pathogenic variants\", \"target\": \"POU3F4-related inner ear developmental malformation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SMPX pathogenic variants\", \"target\": \"SMPX-related hair-cell mechanotransduction defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"AIFM1 pathogenic variants\", \"target\": \"AIFM1-related auditory signal transmission defect\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"Reported COL4A6 variants\", \"target\": \"Candidate COL4A6-associated cochlear basement-membrane involvement\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5904,6 +6003,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5918,6 +6020,7 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5972,6 +6075,9 @@ This clinical feature is Progressive sensorineural hearing impairment (HP:000040
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5986,6 +6092,7 @@ This clinical feature is Progressive sensorineural hearing impairment (HP:000040
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6010,6 +6117,7 @@ This clinical feature is Progressive sensorineural hearing impairment (HP:000040
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6066,6 +6174,9 @@ This clinical feature is Incomplete partition type III, annotated with Incomplet
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6080,6 +6191,7 @@ This clinical feature is Incomplete partition type III, annotated with Incomplet
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6104,6 +6216,7 @@ This clinical feature is Incomplete partition type III, annotated with Incomplet
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6150,6 +6263,9 @@ This clinical feature is Incomplete partition type III, annotated with Incomplet
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6164,6 +6280,7 @@ This clinical feature is Incomplete partition type III, annotated with Incomplet
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6201,6 +6318,9 @@ This clinical feature is Incomplete partition type III, annotated with Incomplet
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6215,6 +6335,7 @@ This clinical feature is Incomplete partition type III, annotated with Incomplet
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6315,6 +6436,9 @@ This disease-associated gene is PRPS1 (hgnc:9462). hgnc:9462 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6329,6 +6453,7 @@ This disease-associated gene is PRPS1 (hgnc:9462). hgnc:9462 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6353,6 +6478,7 @@ This disease-associated gene is PRPS1 (hgnc:9462). hgnc:9462 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6412,6 +6538,9 @@ This disease-associated gene is POU3F4 (hgnc:9217). hgnc:9217 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6426,6 +6555,7 @@ This disease-associated gene is POU3F4 (hgnc:9217). hgnc:9217 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6450,6 +6580,7 @@ This disease-associated gene is POU3F4 (hgnc:9217). hgnc:9217 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6509,6 +6640,9 @@ This disease-associated gene is SMPX (hgnc:11122). hgnc:11122 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6523,6 +6657,7 @@ This disease-associated gene is SMPX (hgnc:11122). hgnc:11122 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6547,6 +6682,7 @@ This disease-associated gene is SMPX (hgnc:11122). hgnc:11122 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6606,6 +6742,9 @@ This disease-associated gene is AIFM1 (hgnc:8768). hgnc:8768 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6620,6 +6759,7 @@ This disease-associated gene is AIFM1 (hgnc:8768). hgnc:8768 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6644,6 +6784,7 @@ This disease-associated gene is AIFM1 (hgnc:8768). hgnc:8768 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6701,6 +6842,9 @@ This disease-associated gene is COL4A6 (hgnc:2208). hgnc:2208 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6715,6 +6859,7 @@ This disease-associated gene is COL4A6 (hgnc:2208). hgnc:2208 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6739,6 +6884,7 @@ This disease-associated gene is COL4A6 (hgnc:2208). hgnc:2208 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6793,6 +6939,9 @@ This disease-associated gene is COL4A6 (hgnc:2208). hgnc:2208 is a gene from the
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6803,6 +6952,9 @@ This disease-associated gene is COL4A6 (hgnc:2208). hgnc:2208 is a gene from the
 
 
     </div>
+
+
+
 
 
 
@@ -6852,6 +7004,7 @@ This treatment targets Sensorineural hearing impairment (HP:0000407). HP:0000407
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6919,6 +7072,9 @@ This treatment is cochlear implantation, annotated with Surgical Procedure (NCIT
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6929,6 +7085,9 @@ This treatment is cochlear implantation, annotated with Surgical Procedure (NCIT
 
 
     </div>
+
+
+
 
 
 
@@ -6978,6 +7137,7 @@ This treatment targets Sensorineural hearing impairment (HP:0000407). HP:0000407
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7049,6 +7209,12 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Genetic counseling is important for recurrence-risk counseling, sex-linked inheritance counseling, and genotype-informed management decisions in DFNX families.</div>
 
 
@@ -7070,6 +7236,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7147,6 +7314,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7168,6 +7336,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7227,6 +7396,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7280,6 +7450,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7337,6 +7508,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7358,6 +7530,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7477,6 +7650,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7578,6 +7752,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7693,6 +7868,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7768,6 +7944,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7834,6 +8011,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7855,6 +8033,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7928,6 +8107,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7952,6 +8132,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7973,6 +8154,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8054,6 +8236,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8075,6 +8258,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8148,6 +8332,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8215,6 +8400,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9772,6 +9958,8 @@ datasets: []
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

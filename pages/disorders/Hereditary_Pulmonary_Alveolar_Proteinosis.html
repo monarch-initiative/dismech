@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3765,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -4076,6 +4144,127 @@
         <!-- Classifications -->
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
+                <h2 class="card-title">Classifications</h2>
+            </div>
+
+
+
+
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="An interstitial lung disease presenting with dyspnea, cough, hypoxemia and a restrictive ventilatory defect.">RESPIRATORY</span>
+
+
+                    <span class="tag tag-classification" title="A Mendelian disorder caused by biallelic defects in the GM-CSF receptor subunit genes CSF2RA and CSF2RB.">GENETICS ENVIRONMENT DISEASE</span>
+
+                </div>
+
+            </div>
+
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">IUIS Category</div>
+
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="IUIS 2022 phenotypic classification (Tangye et al., PMID:35748970), Table 5 &#34;Congenital defects of phagocyte number or function&#34;, section 4 (Other Non-Lymphoid Defects). This entry covers BOTH pulmonary alveolar proteinosis rows of that section, one per receptor subunit: CSF2RA (XL, biallelic mutations in a pseudoautosomal gene, MIM 300770) and CSF2RB (AR, MIM 614370). Affected cells are alveolar macrophages and the affected function is GM-CSF signaling — the phagocyte here is the tissue macrophage rather than the neutrophil, which is why a lung disease sits in the phagocyte table.
+The published table prints the second gene as &#34;CSFR2B&#34;. That is a typo in the source: the gene is CSF2RB (hgnc:2436), which is what this entry binds. The transposition is preserved inside the quoted snippet because the quote belongs to the source, and must not be propagated into any gene_term or prose.
+Not to be confused with the autoimmune disease of the same name. Autoimmune pulmonary alveolar proteinosis, caused by neutralizing anti-GM-CSF autoantibody, is a Table 10 phenocopy of an inborn error of immunity and is curated separately; splitting the two on mechanism rather than on gene matters here because both entries bind CSF2RA and CSF2RB.">phagocyte defect</span>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+
         <!-- Mappings -->
 
         <div class="card" id="mappings">
@@ -4194,6 +4383,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4215,6 +4405,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4301,6 +4492,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4322,6 +4514,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4371,6 +4564,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-gm-csf-receptor-subunit-dysfunction" data-dismech-node="Biallelic GM-CSF receptor subunit dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic GM-CSF receptor subunit dysfunction</div>
+
 
                 <div class="item-desc">Germline pathogenic variants in CSF2RA or CSF2RB disrupt the alpha or beta subunits of the GM-CSF receptor, reducing or abolishing GM-CSF receptor signaling in myeloid cells.
 </div>
@@ -4550,6 +4744,7 @@ This pathophysiological event occurs in alveolus of lung (UBERON:0002299). UBERO
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4571,6 +4766,7 @@ This pathophysiological event occurs in alveolus of lung (UBERON:0002299). UBERO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4596,6 +4792,7 @@ This pathophysiological event occurs in alveolus of lung (UBERON:0002299). UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-alveolar-macrophage-surfactant-clearance" data-dismech-node="Defective alveolar macrophage surfactant clearance" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective alveolar macrophage surfactant clearance</div>
+
 
                 <div class="item-desc">Impaired GM-CSF-dependent macrophage function reduces cholesterol and surfactant clearance from alveoli, producing dysfunctional alveolar macrophages and progressive surfactant retention.
 </div>
@@ -4815,6 +5012,7 @@ This pathophysiological event occurs in alveolus of lung (UBERON:0002299). UBERO
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4836,6 +5034,7 @@ This pathophysiological event occurs in alveolus of lung (UBERON:0002299). UBERO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4861,6 +5060,7 @@ This pathophysiological event occurs in alveolus of lung (UBERON:0002299). UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-alveolar-surfactant-and-proteinaceous-material-accumulation" data-dismech-node="Alveolar surfactant and proteinaceous material accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Alveolar surfactant and proteinaceous material accumulation</div>
+
 
                 <div class="item-desc">Unprocessed surfactant lipids and proteins accumulate in alveolar spaces, creating proteinaceous material, foamy macrophages, crazy-paving HRCT, gas exchange impairment, hypoxemia, and respiratory failure in severe disease.
 </div>
@@ -5048,6 +5248,7 @@ This pathophysiological event occurs in alveolus of lung (UBERON:0002299). UBERO
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5069,6 +5270,7 @@ This pathophysiological event occurs in alveolus of lung (UBERON:0002299). UBERO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5132,6 +5334,7 @@ This pathophysiological event occurs in alveolus of lung (UBERON:0002299). UBERO
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5153,6 +5356,7 @@ This pathophysiological event occurs in alveolus of lung (UBERON:0002299). UBERO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5268,6 +5472,9 @@ This clinical feature is tachycardia (HP:0001649). HP:0001649 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5282,6 +5489,7 @@ This clinical feature is tachycardia (HP:0001649). HP:0001649 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5338,6 +5546,9 @@ This clinical feature is foam cells (HP:0003651). HP:0003651 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5352,6 +5563,7 @@ This clinical feature is foam cells (HP:0003651). HP:0003651 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5417,6 +5629,9 @@ This clinical feature is acute infectious pneumonia (HP:0011949). HP:0011949 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5431,6 +5646,7 @@ This clinical feature is acute infectious pneumonia (HP:0011949). HP:0011949 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5487,6 +5703,9 @@ This clinical feature is autoimmune antibody positivity (HP:0030057). HP:0030057
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5501,6 +5720,7 @@ This clinical feature is autoimmune antibody positivity (HP:0030057). HP:0030057
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5568,6 +5788,9 @@ This clinical feature is abnormal circulating protein concentration (HP:0010876)
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5582,6 +5805,7 @@ This clinical feature is abnormal circulating protein concentration (HP:0010876)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5606,6 +5830,7 @@ This clinical feature is abnormal circulating protein concentration (HP:0010876)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5662,6 +5887,9 @@ This clinical feature is elevated circulating CEA concentration (HP:0031029). HP
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5676,6 +5904,7 @@ This clinical feature is elevated circulating CEA concentration (HP:0031029). HP
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5741,6 +5970,9 @@ This clinical feature is restrictive ventilatory defect (HP:0002091). HP:0002091
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5755,6 +5987,7 @@ This clinical feature is restrictive ventilatory defect (HP:0002091). HP:0002091
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5811,6 +6044,9 @@ This clinical feature is respiratory distress (HP:0002098). HP:0002098 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5825,6 +6061,7 @@ This clinical feature is respiratory distress (HP:0002098). HP:0002098 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5881,6 +6118,9 @@ This clinical feature is tachypnea (HP:0002789). HP:0002789 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5895,6 +6135,7 @@ This clinical feature is tachypnea (HP:0002789). HP:0002789 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5951,6 +6192,9 @@ This clinical feature is respiratory failure requiring assisted ventilation (HP:
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5965,6 +6209,7 @@ This clinical feature is respiratory failure requiring assisted ventilation (HP:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6021,6 +6266,9 @@ This clinical feature is hypoxemia (HP:0012418). HP:0012418 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6035,6 +6283,7 @@ This clinical feature is hypoxemia (HP:0012418). HP:0012418 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6091,6 +6340,9 @@ This clinical feature is cough (HP:0012735). HP:0012735 is a phenotype from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6105,6 +6357,7 @@ This clinical feature is cough (HP:0012735). HP:0012735 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6161,6 +6414,9 @@ This clinical feature is crazy paving pattern on pulmonary HRCT, annotated with 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6175,6 +6431,7 @@ This clinical feature is crazy paving pattern on pulmonary HRCT, annotated with 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6199,6 +6456,7 @@ This clinical feature is crazy paving pattern on pulmonary HRCT, annotated with 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6255,6 +6513,9 @@ This clinical feature is crackles (HP:0030830). HP:0030830 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6269,6 +6530,7 @@ This clinical feature is crackles (HP:0030830). HP:0030830 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6334,6 +6596,9 @@ This clinical feature is failure to thrive in infancy (HP:0001531). HP:0001531 i
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6348,6 +6613,7 @@ This clinical feature is failure to thrive in infancy (HP:0001531). HP:0001531 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6442,6 +6708,9 @@ This disease-associated gene is CSF2RA (hgnc:2435). hgnc:2435 is a gene from the
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive</span>
@@ -6464,6 +6733,7 @@ This disease-associated gene is CSF2RA (hgnc:2435). hgnc:2435 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6498,6 +6768,12 @@ This disease-associated gene is CSF2RA (hgnc:2435). hgnc:2435 is a gene from the
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Reported CSF2RA alleles include missense, duplication, frameshift, nonsense, exon or gene deletion, and splicing abnormalities that abolish or severely reduce GM-CSF receptor alpha-chain function.
 </div>
 
@@ -6526,6 +6802,7 @@ This disease-associated gene is CSF2RA (hgnc:2435). hgnc:2435 is a gene from the
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6547,6 +6824,7 @@ This disease-associated gene is CSF2RA (hgnc:2435). hgnc:2435 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6605,6 +6883,9 @@ This disease-associated gene is CSF2RB (hgnc:2436). hgnc:2436 is a gene from the
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive</span>
@@ -6627,6 +6908,7 @@ This disease-associated gene is CSF2RB (hgnc:2436). hgnc:2436 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6661,6 +6943,12 @@ This disease-associated gene is CSF2RB (hgnc:2436). hgnc:2436 is a gene from the
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Homozygous CSF2RB variants can impair GM-CSF receptor beta-chain expression and downstream signaling, producing hereditary PAP.
 </div>
 
@@ -6686,6 +6974,7 @@ This disease-associated gene is CSF2RB (hgnc:2436). hgnc:2436 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6775,6 +7064,7 @@ This disease-associated gene is CSF2RB (hgnc:2436). hgnc:2436 is a gene from the
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6857,6 +7147,12 @@ This treatment is therapeutic irrigation, annotated with Therapeutic Procedure (
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Whole-lung lavage mechanically removes excess surfactant and proteinaceous material from the alveoli and remains a main symptomatic treatment for PAP, including CSF2RA-associated hereditary PAP.
 </div>
 
@@ -6888,6 +7184,7 @@ This treatment is therapeutic irrigation, annotated with Therapeutic Procedure (
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6934,6 +7231,7 @@ This treatment is therapeutic irrigation, annotated with Therapeutic Procedure (
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6955,6 +7253,7 @@ This treatment is therapeutic irrigation, annotated with Therapeutic Procedure (
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7027,6 +7326,12 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Oxygen, assisted ventilation, infection treatment, and general supportive care are used for hypoxemia, respiratory distress, infection, or respiratory failure while disease-specific management is pursued.
 </div>
 
@@ -7052,6 +7357,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7073,6 +7379,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7145,6 +7452,12 @@ This treatment is cellular therapy (NCIT:C70601). NCIT:C70601 is a clinical inte
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Pulmonary macrophage transplantation or gene-corrected macrophage approaches are experimental strategies intended to replace defective alveolar macrophage function in hereditary PAP.
 </div>
 
@@ -7176,6 +7489,7 @@ This treatment is cellular therapy (NCIT:C70601). NCIT:C70601 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7219,6 +7533,7 @@ This treatment is cellular therapy (NCIT:C70601). NCIT:C70601 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7328,6 +7643,7 @@ This treatment is cellular therapy (NCIT:C70601). NCIT:C70601 is a clinical inte
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7349,6 +7665,7 @@ This treatment is cellular therapy (NCIT:C70601). NCIT:C70601 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7440,6 +7757,7 @@ This treatment is cellular therapy (NCIT:C70601). NCIT:C70601 is a clinical inte
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7461,6 +7779,7 @@ This treatment is cellular therapy (NCIT:C70601). NCIT:C70601 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7552,6 +7871,7 @@ This treatment is cellular therapy (NCIT:C70601). NCIT:C70601 is a clinical inte
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7619,6 +7939,7 @@ This treatment is cellular therapy (NCIT:C70601). NCIT:C70601 is a clinical inte
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7643,6 +7964,7 @@ This treatment is cellular therapy (NCIT:C70601). NCIT:C70601 is a clinical inte
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7664,6 +7986,7 @@ This treatment is cellular therapy (NCIT:C70601). NCIT:C70601 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7718,6 +8041,7 @@ This treatment is cellular therapy (NCIT:C70601). NCIT:C70601 is a clinical inte
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7739,6 +8063,7 @@ This treatment is cellular therapy (NCIT:C70601). NCIT:C70601 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7810,6 +8135,7 @@ This treatment is cellular therapy (NCIT:C70601). NCIT:C70601 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7988,6 +8314,69 @@ disease_term:
 parents:
 - Pulmonary alveolar proteinosis
 - Hereditary disease
+classifications:
+  harrisons_chapter:
+  - classification_value: RESPIRATORY
+    notes: &gt;-
+      An interstitial lung disease presenting with dyspnea, cough, hypoxemia
+      and a restrictive ventilatory defect.
+  - classification_value: GENETICS_ENVIRONMENT_DISEASE
+    notes: &gt;-
+      A Mendelian disorder caused by biallelic defects in the GM-CSF receptor
+      subunit genes CSF2RA and CSF2RB.
+  iuis_category:
+    classification_value: phagocyte defect
+    notes: &gt;-
+      IUIS 2022 phenotypic classification (Tangye et al., PMID:35748970),
+      Table 5 &#34;Congenital defects of phagocyte number or function&#34;, section 4
+      (Other Non-Lymphoid Defects). This entry covers BOTH pulmonary alveolar
+      proteinosis rows of that section, one per receptor subunit: CSF2RA
+      (XL, biallelic mutations in a pseudoautosomal gene, MIM 300770) and
+      CSF2RB (AR, MIM 614370). Affected cells are alveolar macrophages and the
+      affected function is GM-CSF signaling — the phagocyte here is the tissue
+      macrophage rather than the neutrophil, which is why a lung disease sits
+      in the phagocyte table.
+
+      The published table prints the second gene as &#34;CSFR2B&#34;. That is a typo
+      in the source: the gene is CSF2RB (hgnc:2436), which is what this entry
+      binds. The transposition is preserved inside the quoted snippet because
+      the quote belongs to the source, and must not be propagated into any
+      gene_term or prose.
+
+      Not to be confused with the autoimmune disease of the same name.
+      Autoimmune pulmonary alveolar proteinosis, caused by neutralizing
+      anti-GM-CSF autoantibody, is a Table 10 phenocopy of an inborn error of
+      immunity and is curated separately; splitting the two on mechanism
+      rather than on gene matters here because both entries bind CSF2RA and
+      CSF2RB.
+    evidence:
+    - reference: PMID:35748970
+      reference_title: &#34;Human Inborn Errors of Immunity: 2022 Update on the Classification from the International Union of Immunological Societies Expert Committee.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;CSF2RA XL (Biallelic mutations in pseudo-autosomal gene) 300770&#34;
+      explanation: &gt;-
+        The CSF2RA row of IUIS Table 5, quoted verbatim with its inheritance
+        qualifier and OMIM number.
+    - reference: PMID:35748970
+      reference_title: &#34;Human Inborn Errors of Immunity: 2022 Update on the Classification from the International Union of Immunological Societies Expert Committee.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;Pulmonary alveolar proteinosis CSFR2B AR 614370&#34;
+      explanation: &gt;-
+        The second pulmonary alveolar proteinosis row of IUIS Table 5, with
+        its inheritance and OMIM number. The gene is printed &#34;CSFR2B&#34; in the
+        source; the quote reproduces that typo verbatim rather than correcting
+        it.
+    - reference: PMID:35748970
+      reference_title: &#34;Human Inborn Errors of Immunity: 2022 Update on the Classification from the International Union of Immunological Societies Expert Committee.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;Alveolar macrophages GM-CSF signaling Alveolar proteinosis&#34;
+      explanation: &gt;-
+        The affected-cells, affected-function and associated-features cells
+        shared by both rows, identifying the alveolar macrophage as the
+        phagocyte compartment and GM-CSF signaling as the defective function.
 mappings:
   mondo_mappings:
   - term:
@@ -8939,6 +9328,8 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -9052,7 +9443,7 @@ supportive respiratory care, and experimental macrophage transplantation.</p>
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Hereditary Pulmonary Alveolar Proteinosis", "mondoId": "MONDO:0012580", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hereditary_Pulmonary_Alveolar_Proteinosis", "yamlRevision": "7e4fc3b3a2bb"};
+        const OS_CONFIG = {"diseaseName": "Hereditary Pulmonary Alveolar Proteinosis", "mondoId": "MONDO:0012580", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hereditary_Pulmonary_Alveolar_Proteinosis", "yamlRevision": "91004177b14a"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

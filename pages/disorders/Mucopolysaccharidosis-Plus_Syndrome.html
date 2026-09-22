@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4301,6 +4369,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4390,6 +4459,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4449,6 +4519,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4542,6 +4613,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4706,6 +4778,7 @@
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4727,6 +4800,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5043,6 +5117,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5077,6 +5152,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-vps33a-missense-variant-destabilisation-and-proteasomal-degradation" data-dismech-node="VPS33A Missense Variant Destabilisation and Proteasomal Degradation" data-dismech-type="pathophysiology">
                 <div class="item-name">VPS33A Missense Variant Destabilisation and Proteasomal Degradation</div>
+
 
                 <div class="item-desc">Biallelic missense variants in VPS33A destabilise the folded protein and target it for proteasomal degradation, so the steady-state intracellular abundance of intact full-length VPS33A falls. The 3D crystal structure of human VPS33A predicts that replacement of arginine 498 by tryptophan de-stabilises folding; the same instability-plus-degradation mechanism is documented for the juvenile p.Arg200Pro variant. The functional consequence is hypomorphic loss of function through protein instability, not gain of function or dominant-negative activity, and mutant protein can be rescued by proteasome inhibition.</div>
 
@@ -5173,6 +5249,7 @@ This pathophysiological event involves VPS33A (hgnc:18179). hgnc:18179 is a gene
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5194,6 +5271,7 @@ This pathophysiological event involves VPS33A (hgnc:18179). hgnc:18179 is a gene
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5221,6 +5299,7 @@ This pathophysiological event involves VPS33A (hgnc:18179). hgnc:18179 is a gene
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5243,6 +5322,7 @@ This pathophysiological event involves VPS33A (hgnc:18179). hgnc:18179 is a gene
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hops-and-corvet-tethering-complex-depletion" data-dismech-node="HOPS and CORVET Tethering Complex Depletion" data-dismech-type="pathophysiology">
                 <div class="item-name">HOPS and CORVET Tethering Complex Depletion</div>
+
 
                 <div class="item-desc">VPS33A is a core component of the class C core vacuole/endosome tethering (CORVET) and the homotypic fusion and protein sorting (HOPS) complexes, which have essential functions in the endocytic pathway. Because VPS33A is shared by both complexes, its depletion is not isolated: patient cells show reduced abundance of the other HOPS and CORVET components as well, so both the early-endosome (CORVET) and late-endosome/lysosome (HOPS) tethering arms are simultaneously compromised.</div>
 
@@ -5334,6 +5414,7 @@ This pathophysiological event involves decreased CORVET complex (GO:0033263). GO
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5355,6 +5436,7 @@ This pathophysiological event involves decreased CORVET complex (GO:0033263). GO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5382,6 +5464,7 @@ This pathophysiological event involves decreased CORVET complex (GO:0033263). GO
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5404,6 +5487,7 @@ This pathophysiological event involves decreased CORVET complex (GO:0033263). GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-endosome-lysosome-tethering-and-fusion" data-dismech-node="Impaired Endosome-Lysosome Tethering and Fusion" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Endosome-Lysosome Tethering and Fusion</div>
+
 
                 <div class="item-desc">With HOPS and CORVET depleted, the tethering and fusion events that carry endocytic cargo from early through late endosomes into the lysosome become inefficient. Patient fibroblasts show vacuolation with disordered endosomal/lysosomal compartments, elevated EEA1 (required at early/late endosome fusion and early-endosome sorting), altered Golgi morphology, and abnormal endocytic trafficking of lactosylceramide and other glycosphingolipids. This node is the mechanistic pivot of MPSPS: it is a delivery failure upstream of catabolism, not a catabolic block, and it is what distinguishes MPSPS from every classical mucopolysaccharidosis.</div>
 
@@ -5609,6 +5693,7 @@ This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a ce
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5630,6 +5715,7 @@ This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a ce
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5657,6 +5743,7 @@ This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a ce
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5679,6 +5766,7 @@ This pathophysiological event involves lysosome (GO:0005764). GO:0005764 is a ce
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-glycosaminoglycan-accumulation-with-normal-lysosomal-hydrolase-activity" data-dismech-node="Glycosaminoglycan Accumulation With Normal Lysosomal Hydrolase Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Glycosaminoglycan Accumulation With Normal Lysosomal Hydrolase Activity</div>
+
 
                 <div class="item-desc">Heparan, dermatan and (variably) chondroitin sulphate accumulate and are excreted in excess in the urine, and plasma heparan sulphate is extraordinarily elevated - around 60 times the normal reference range and six times the level seen in classical MPS patients. Sialylated conjugates, sialooligosaccharides, elevated beta-D-galactosylsphingosine and cholesterol and sphingolipid abnormalities are also reported. The defining biochemical signature of MPSPS is that all of this occurs with entirely normal activity of the cognate lysosomal hydrolases: it is substrate accumulation without an enzyme deficiency.</div>
 
@@ -5858,6 +5946,7 @@ This pathophysiological event involves decreased glycosaminoglycan catabolic pro
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5879,6 +5968,7 @@ This pathophysiological event involves decreased glycosaminoglycan catabolic pro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5906,6 +5996,7 @@ This pathophysiological event involves decreased glycosaminoglycan catabolic pro
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5930,6 +6021,7 @@ This pathophysiological event involves decreased glycosaminoglycan catabolic pro
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-endolysosomal-compartment-expansion-and-over-acidification" data-dismech-node="Endolysosomal Compartment Expansion and Over-Acidification" data-dismech-type="pathophysiology">
                 <div class="item-name">Endolysosomal Compartment Expansion and Over-Acidification</div>
+
 
                 <div class="item-desc">Failed tethering and fusion leave an expanded endocytic compartment that is abnormally acidified. Lysosomal over-acidification was detected in patient-derived and VPS33A-depleted cells in the original description, and increased endolysosomal acidification with an expanded endocytic compartment was independently confirmed in the juvenile p.Arg200Pro form. Autophagy markers LC3-II and p62 are elevated in p.Arg200Pro fibroblasts, indicating a block in autophagic flux, though the original p.Arg498Trp study did not detect an autophagic defect (see the autophagy-discrepancy discussion below).</div>
 
@@ -6055,6 +6147,7 @@ This pathophysiological event involves dysregulated autophagy (GO:0006914). GO:0
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6076,6 +6169,7 @@ This pathophysiological event involves dysregulated autophagy (GO:0006914). GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6103,6 +6197,7 @@ This pathophysiological event involves dysregulated autophagy (GO:0006914). GO:0
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6127,6 +6222,7 @@ This pathophysiological event involves dysregulated autophagy (GO:0006914). GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-renal-podocyte-storage-and-glomerular-destruction" data-dismech-node="Renal Podocyte Storage and Glomerular Destruction" data-dismech-type="pathophysiology">
                 <div class="item-name">Renal Podocyte Storage and Glomerular Destruction</div>
+
 
                 <div class="item-desc">The kidney is one of the two most discriminating &#34;plus&#34; targets. Storage in podocytes converts them to foam cells and destroys glomerular architecture, producing nephrotic-range proteinuria, hypoalbuminaemia, and rising creatinine, cholesterol and uric acid. Histology shows extensive destruction of glomerular structures by foamy podocytes, with periglomerular fibrosis and interstitial inflammation.</div>
 
@@ -6276,6 +6372,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6297,6 +6394,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6324,6 +6422,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6346,6 +6445,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bone-marrow-hypoplasia-and-peripheral-cytopenias" data-dismech-node="Bone Marrow Hypoplasia and Peripheral Cytopenias" data-dismech-type="pathophysiology">
                 <div class="item-name">Bone Marrow Hypoplasia and Peripheral Cytopenias</div>
+
 
                 <div class="item-desc">The haematopoietic system is the second discriminating &#34;plus&#34; target. Progressive anaemia and thrombocytopenia develop and correlate with histologically hypoplastic bone marrow; neutropenia/leukopenia, coagulation abnormalities and platelet dysfunction are also reported. Secondary haemophagocytic lymphohistiocytosis has occurred in at least one longer-surviving patient.</div>
 
@@ -6452,6 +6552,7 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6473,6 +6574,7 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6502,6 +6604,7 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6524,6 +6627,7 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-multisystem-disease-with-plus-features" data-dismech-node="Progressive Multisystem Disease With Plus Features" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Multisystem Disease With Plus Features</div>
+
 
                 <div class="item-desc">The clinical endpoint is a rapidly progressive multisystem disease that looks like a mucopolysaccharidosis - coarse facial features, skeletal abnormalities/dysostosis multiplex, hepatosplenomegaly, respiratory problems, developmental delay and excess urinary GAG - with, superimposed on it, congenital heart defects and renal and haematopoietic disease that are not typical of conventional MPS. For the p.Arg498Trp founder form the outcome is fatal cardiorespiratory failure at 10-20 months.</div>
 
@@ -6562,6 +6666,7 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6586,6 +6691,7 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6607,6 +6713,7 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6669,6 +6776,7 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6690,6 +6798,7 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6737,6 +6846,7 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6862,6 +6972,9 @@ This clinical feature is Leukocytopenia, annotated with Decreased total leukocyt
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6876,6 +6989,7 @@ This clinical feature is Leukocytopenia, annotated with Decreased total leukocyt
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6950,6 +7064,9 @@ This clinical feature is Anemia (HP:0001903), qualified as course progressive. H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6964,6 +7081,7 @@ This clinical feature is Anemia (HP:0001903), qualified as course progressive. H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6988,6 +7106,7 @@ This clinical feature is Anemia (HP:0001903), qualified as course progressive. H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7062,6 +7181,9 @@ This clinical feature is Thrombocytopenia (HP:0001873), qualified as course prog
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7076,6 +7198,7 @@ This clinical feature is Thrombocytopenia (HP:0001873), qualified as course prog
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7100,6 +7223,7 @@ This clinical feature is Thrombocytopenia (HP:0001873), qualified as course prog
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7154,6 +7278,9 @@ This clinical feature is Bone marrow hypocellularity (HP:0005528). HP:0005528 is
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7168,6 +7295,7 @@ This clinical feature is Bone marrow hypocellularity (HP:0005528). HP:0005528 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7222,6 +7350,9 @@ This clinical feature is Decreased circulating IgG concentration (HP:0004315). H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7236,6 +7367,7 @@ This clinical feature is Decreased circulating IgG concentration (HP:0004315). H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7290,6 +7422,9 @@ This clinical feature is Increased circulating IgM level (HP:0003496). HP:000349
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7304,6 +7439,7 @@ This clinical feature is Increased circulating IgM level (HP:0003496). HP:000349
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7358,6 +7494,9 @@ This clinical feature is Hemophagocytosis (HP:0012156). HP:0012156 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7372,6 +7511,7 @@ This clinical feature is Hemophagocytosis (HP:0012156). HP:0012156 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7435,6 +7575,9 @@ This clinical feature is Hepatosplenomegaly (HP:0001433). HP:0001433 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7449,6 +7592,7 @@ This clinical feature is Hepatosplenomegaly (HP:0001433). HP:0001433 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7504,6 +7648,9 @@ This clinical feature is Congenital heart defect, annotated with Abnormal heart 
                     </div>
 
 
+
+
+
                     <div class="item-desc">TERM BINDING - do not re-litigate. HP:0001627 is retained deliberately, and the preferred_term/label divergence is correct, not an error: &#34;Congenital heart defect&#34; and &#34;Congenital heart defects&#34; are both EXACT synonyms of HP:0001627 (verified with OAK), so the term does carry congenital semantics even though its primary label does not say so. A review pass suggested re-binding on the grounds that HP:0001627 is a bare morphology parent &#34;with no congenital semantics&#34;; that premise is factually wrong and was rejected. What the review got right was a separate SPECIFICITY point, which has been acted on: wherever the cited source names an individual lesion, a specific HPO term is now curated for it. This umbrella is kept only for the generic statements (&#34;Most patients developed congenital heart defects&#34;), because descending to a specific lesion there would assert something the paper does not report.</div>
 
 
@@ -7523,6 +7670,7 @@ This clinical feature is Congenital heart defect, annotated with Abnormal heart 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7550,6 +7698,7 @@ This clinical feature is Congenital heart defect, annotated with Abnormal heart 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7571,6 +7720,7 @@ This clinical feature is Congenital heart defect, annotated with Abnormal heart 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7625,6 +7775,9 @@ This clinical feature is Atrial septal defect (HP:0001631). HP:0001631 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7639,6 +7792,7 @@ This clinical feature is Atrial septal defect (HP:0001631). HP:0001631 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7693,6 +7847,9 @@ This clinical feature is Patent ductus arteriosus (HP:0001643). HP:0001643 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7707,6 +7864,7 @@ This clinical feature is Patent ductus arteriosus (HP:0001643). HP:0001643 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7761,6 +7919,9 @@ This clinical feature is Tricuspid valve insufficiency, annotated with Tricuspid
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7775,6 +7936,7 @@ This clinical feature is Tricuspid valve insufficiency, annotated with Tricuspid
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7799,6 +7961,7 @@ This clinical feature is Tricuspid valve insufficiency, annotated with Tricuspid
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7853,6 +8016,9 @@ This clinical feature is Mitral valve insufficiency, annotated with Mitral regur
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7867,6 +8033,7 @@ This clinical feature is Mitral valve insufficiency, annotated with Mitral regur
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7891,6 +8058,7 @@ This clinical feature is Mitral valve insufficiency, annotated with Mitral regur
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7945,6 +8113,9 @@ This clinical feature is Ventricular hypertrophy (HP:0001714). HP:0001714 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7959,6 +8130,7 @@ This clinical feature is Ventricular hypertrophy (HP:0001714). HP:0001714 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8030,6 +8202,9 @@ This clinical feature is Pulmonary hypertension, annotated with Elevated pulmona
                     </div>
 
 
+
+
+
                     <div class="item-desc">TERM BINDING. The sources report generic &#34;pulmonary hypertension&#34;, in infants whose PH accompanies mitral and tricuspid valve disease, without hemodynamic subtyping. HP:0002092 &#34;Pulmonary arterial hypertension&#34; sits under Pre-capillary pulmonary hypertension and asserts group-1 physiology the evidence does not establish (a post-capillary component from left-sided valve disease is at least as plausible), so the generic parent HP:0004890 is bound instead.</div>
 
 
@@ -8049,6 +8224,7 @@ This clinical feature is Pulmonary hypertension, annotated with Elevated pulmona
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8112,6 +8288,9 @@ This clinical feature is Fetal ascites (HP:0001791). HP:0001791 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8126,6 +8305,7 @@ This clinical feature is Fetal ascites (HP:0001791). HP:0001791 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8189,6 +8369,9 @@ This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8203,6 +8386,7 @@ This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8257,6 +8441,9 @@ This clinical feature is Retinal hypopigmentation, annotated with Fundus hypopig
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8271,6 +8458,7 @@ This clinical feature is Retinal hypopigmentation, annotated with Fundus hypopig
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8336,6 +8524,9 @@ This clinical feature is Nephrotic range proteinuria (HP:0012593). HP:0012593 is
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8350,6 +8541,7 @@ This clinical feature is Nephrotic range proteinuria (HP:0012593). HP:0012593 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8374,6 +8566,7 @@ This clinical feature is Nephrotic range proteinuria (HP:0012593). HP:0012593 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8430,6 +8623,9 @@ This clinical feature is Nephrotic syndrome (HP:0000100). HP:0000100 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8444,6 +8640,7 @@ This clinical feature is Nephrotic syndrome (HP:0000100). HP:0000100 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8498,6 +8695,9 @@ This clinical feature is Nephromegaly, annotated with Enlarged kidney (HP:000010
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8512,6 +8712,7 @@ This clinical feature is Nephromegaly, annotated with Enlarged kidney (HP:000010
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8566,6 +8767,9 @@ This clinical feature is Mucopolysacchariduria (HP:0008155). HP:0008155 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8580,6 +8784,7 @@ This clinical feature is Mucopolysacchariduria (HP:0008155). HP:0008155 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8643,6 +8848,9 @@ This clinical feature is Coarse facial features (HP:0000280). HP:0000280 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8657,6 +8865,7 @@ This clinical feature is Coarse facial features (HP:0000280). HP:0000280 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8711,6 +8920,9 @@ This clinical feature is Macroglossia (HP:0000158). HP:0000158 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8725,6 +8937,7 @@ This clinical feature is Macroglossia (HP:0000158). HP:0000158 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8790,6 +9003,9 @@ This clinical feature is Recurrent respiratory infections (HP:0002205). HP:00022
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8804,6 +9020,7 @@ This clinical feature is Recurrent respiratory infections (HP:0002205). HP:00022
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8831,6 +9048,7 @@ This clinical feature is Recurrent respiratory infections (HP:0002205). HP:00022
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8893,6 +9111,9 @@ This clinical feature is Hypoalbuminemia (HP:0003073). HP:0003073 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8907,6 +9128,7 @@ This clinical feature is Hypoalbuminemia (HP:0003073). HP:0003073 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8970,6 +9192,9 @@ This clinical feature is Dysostosis multiplex (HP:0000943). HP:0000943 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8987,6 +9212,7 @@ This clinical feature is Dysostosis multiplex (HP:0000943). HP:0000943 is a phen
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9010,6 +9236,7 @@ This clinical feature is Dysostosis multiplex (HP:0000943). HP:0000943 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9064,6 +9291,9 @@ This clinical feature is Multiple joint contractures (HP:0002828). HP:0002828 is
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9078,6 +9308,7 @@ This clinical feature is Multiple joint contractures (HP:0002828). HP:0002828 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9132,6 +9363,9 @@ This clinical feature is Joint stiffness (HP:0001387). HP:0001387 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9146,6 +9380,7 @@ This clinical feature is Joint stiffness (HP:0001387). HP:0001387 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9200,6 +9435,9 @@ This clinical feature is Kyphosis (HP:0002808). HP:0002808 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9214,6 +9452,7 @@ This clinical feature is Kyphosis (HP:0002808). HP:0002808 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9268,6 +9507,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9282,6 +9524,7 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9336,6 +9579,9 @@ This clinical feature is Basal ganglia calcification (HP:0002135). HP:0002135 is
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9350,6 +9596,7 @@ This clinical feature is Basal ganglia calcification (HP:0002135). HP:0002135 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9413,6 +9660,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9430,6 +9680,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9453,6 +9704,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9507,6 +9759,9 @@ This clinical feature is Delayed CNS myelination (HP:0002188). HP:0002188 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9521,6 +9776,7 @@ This clinical feature is Delayed CNS myelination (HP:0002188). HP:0002188 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9623,6 +9879,9 @@ This disease-associated gene is VPS33A (hgnc:18179). hgnc:18179 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (5 references)
@@ -9637,6 +9896,7 @@ This disease-associated gene is VPS33A (hgnc:18179). hgnc:18179 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9664,6 +9924,7 @@ This disease-associated gene is VPS33A (hgnc:18179). hgnc:18179 is a gene from t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9685,6 +9946,7 @@ This disease-associated gene is VPS33A (hgnc:18179). hgnc:18179 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9773,6 +10035,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9783,6 +10048,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -9810,6 +10078,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9877,6 +10146,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9887,6 +10159,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -9917,6 +10192,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9983,6 +10259,9 @@ This treatment is blood transfusion (NCIT:C15192). NCIT:C15192 is a clinical int
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9993,6 +10272,9 @@ This treatment is blood transfusion (NCIT:C15192). NCIT:C15192 is a clinical int
 
 
     </div>
+
+
+
 
 
 
@@ -10023,6 +10305,7 @@ This treatment is blood transfusion (NCIT:C15192). NCIT:C15192 is a clinical int
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10110,6 +10393,9 @@ This treatment uses corticosteroid (CHEBI:50858). CHEBI:50858 is a therapeutic a
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10120,6 +10406,9 @@ This treatment uses corticosteroid (CHEBI:50858). CHEBI:50858 is a therapeutic a
 
 
     </div>
+
+
+
 
 
 
@@ -10147,6 +10436,7 @@ This treatment uses corticosteroid (CHEBI:50858). CHEBI:50858 is a therapeutic a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10214,6 +10504,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10224,6 +10517,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -10254,6 +10550,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10275,6 +10572,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10341,6 +10639,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -10351,6 +10652,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -10381,6 +10685,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -10402,6 +10707,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10469,6 +10775,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10518,6 +10825,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10542,6 +10850,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10563,6 +10872,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10615,6 +10925,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10636,6 +10947,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10705,6 +11017,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10759,6 +11072,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10780,6 +11094,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10848,6 +11163,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10899,6 +11215,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10954,6 +11271,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11005,6 +11323,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11076,6 +11395,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11134,6 +11454,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11158,6 +11479,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11179,6 +11501,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11237,6 +11560,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13828,6 +14152,19 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Mucopolysaccharidosis-Plus Syndrome</strong> · 2026-08-01T18:57:14Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Mucopolysaccharidosis-Plus_Syndrome/2026-08-01T185714Z-claude-code-639755.yaml">View source</a></p>
+                        <p class="research-review-text">De-novo curation of MPSPS / MONDO:0015012 / OMIM 617303 / VPS33A. NEC preflight run via OAK against MONDO:0015012 confirming gene VPS33A HGNC:18179 and OMIM:617303 before any DR content was used; the Edison/falcon deep-research report was checked to be MPSPS-specific with no leakage from classical MPS types, from VPS33B ARC syndrome, or from VPS16/VPS41 HOPS disorders. Deep research provider: Edison Scientific via just research-disorder falcon; the report was read in full but returned a thin bibliography of only four sources and exposed no PMIDs, so an independent PubMed sweep supplied the citation base. Eleven PMIDs were fetched with just fetch-reference and every snippet verified as an exact substring of the cached abstract. The mechanism is modelled as storage disease without an enzyme deficiency: VPS33A destabilisation and proteasomal degradation, HOPS and CORVET tethering complex depletion, impaired endosome-lysosome tethering and fusion, then GAG accumulation with normal lysosomal hydrolase activity, endolysosomal expansion and over-acidification, renal podocyte storage, marrow hypoplasia, and progressive multisystem disease with plus features. Conformance to the lysosomal_substrate_accumulation module is deliberately partial and downstream-only: the two upstream trafficking nodes carry no conforms_to because MPSPS reaches substrate accumulation by a delivery failure rather than a catabolic block, and the rationale is written into the entry notes. Grouping membership was assessed but no grouping or module file was edited: MPSPS satisfies the Lysosomal_Storage_Disorders defining criterion and should surface as a candidate member, while under Mucopolysaccharidoses it is a boundary case that fails the stated enzyme-deficiency rationale. Three open discussions record the nosology debate, the autophagy discrepancy between the Arg498Trp and Arg200Pro studies, and a HUMAN_MODEL_MISMATCH for the absence of any organ-level model. No GeneReviews chapter exists for MPSPS or VPS33A. Orphanet prevalence was skipped because the local Orphadata manifest checksum fails, so a qualitative ULTRA_RARE band is used. Validation: just validate, just validate-terms, and just validate-references all pass with 64 of 64 snippets verified.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

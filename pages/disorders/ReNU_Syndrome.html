@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4220,6 +4288,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4244,6 +4313,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4265,6 +4335,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4359,6 +4430,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4380,6 +4452,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4442,6 +4515,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4538,6 +4612,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4619,6 +4694,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4690,6 +4766,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4795,6 +4872,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-rnu4-2-critical-region-variant-disrupts-u4-snrna-spliceosome-function" data-dismech-node="RNU4-2 Critical-Region Variant Disrupts U4 snRNA / Spliceosome Function" data-dismech-type="pathophysiology">
                 <div class="item-name">RNU4-2 Critical-Region Variant Disrupts U4 snRNA / Spliceosome Function</div>
+
 
                 <div class="item-desc">RNU4-2 encodes the U4 small nuclear RNA, which base-pairs extensively with U6 snRNA within the U4/U6.U5 tri-snRNP of the major spliceosome. The 18-bp critical region harboring the recurrent n.64_65insT insertion maps to the T-loop and stem III structural elements that stabilize U4/U6 pairing and help position the U6 ACAGAGA sequence to receive the 5&#39; splice site during initial spliceosome activation. Variants in this region perturb U4 structure and the U4/U6 duplex, compromising accurate spliceosome assembly/activation. RNU4-2 is highly expressed in the developing human brain (in contrast to the paralog RNU4-1), consistent with a developmental, brain-predominant impact. Saturation genome editing across the whole gene has since resolved this critical region to single-nucleotide resolution and shown that the severity of a variant&#39;s functional effect tracks with clinical severity. Note that this is not a loss-of-function mechanism: biallelic variants elsewhere in RNU4-2 reduce transcript levels and cause a separate recessive disorder, which is what distinguishes ReNU syndrome mechanistically from simple haploinsufficiency.</div>
 
@@ -4980,6 +5058,7 @@ This pathophysiological event involves abnormal mRNA splicing via the major spli
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5001,6 +5080,7 @@ This pathophysiological event involves abnormal mRNA splicing via the major spli
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5028,6 +5108,7 @@ This pathophysiological event involves abnormal mRNA splicing via the major spli
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5050,6 +5131,7 @@ This pathophysiological event involves abnormal mRNA splicing via the major spli
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-systematic-disruption-of-5-splice-site-usage" data-dismech-node="Systematic Disruption of 5&#39; Splice-Site Usage" data-dismech-type="pathophysiology">
                 <div class="item-name">Systematic Disruption of 5&#39; Splice-Site Usage</div>
+
 
                 <div class="item-desc">RNA sequencing of individuals with RNU4-2 variants shows systematically disrupted 5&#39; splice-site usage — notably increased use of unannotated 5&#39; splice sites — consistent with the known role of the affected region during spliceosome activation. This global splicing dysregulation during neurodevelopment is the proposed convergence point linking the RNA-level defect to the neurodevelopmental phenotype, placing ReNU syndrome among the spliceosomopathies. Because the spliceosome is used by essentially every transcript, the downstream consequences are not confined to brain: skeletal and, in at least one report, glomerular involvement are part of the phenotype. Which downstream transcripts actually mediate each organ phenotype is not known, so the edges below are curated as indirect with unknown intermediates.</div>
 
@@ -5191,6 +5273,7 @@ This pathophysiological event involves abnormal Nervous system development (GO:0
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5212,6 +5295,7 @@ This pathophysiological event involves abnormal Nervous system development (GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5237,6 +5321,7 @@ This pathophysiological event involves abnormal Nervous system development (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-brain-growth-and-white-matter-development" data-dismech-node="Impaired Brain Growth and White Matter Development" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Brain Growth and White Matter Development</div>
+
 
                 <div class="item-desc">The convergent tissue-level consequence in the CNS is reduced brain growth with a white-matter-predominant imaging signature: decreased cerebral white matter volume, corpus callosum hypoplasia, ventriculomegaly and delayed myelination, together with mostly congenital microcephaly. Neuroimaging abnormality is close to universal in reported cohorts. This node is the point at which the molecular splicing defect becomes the clinical neurodevelopmental phenotype, and it is the parent of the cognitive, language and motor phenotypes below.</div>
 
@@ -5489,6 +5574,7 @@ This pathophysiological event occurs in Cerebral white matter, annotated with wh
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5510,6 +5596,7 @@ This pathophysiological event occurs in Cerebral white matter, annotated with wh
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5535,6 +5622,7 @@ This pathophysiological event occurs in Cerebral white matter, annotated with wh
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cortical-network-hyperexcitability" data-dismech-node="Cortical Network Hyperexcitability" data-dismech-type="pathophysiology">
                 <div class="item-name">Cortical Network Hyperexcitability</div>
+
 
                 <div class="item-desc">Epilepsy affects roughly 60% of individuals with ReNU syndrome. The seizure disorder is notable for what is absent as much as what is present: dedicated epilepsy-cohort imaging found no structural epileptogenic lesion, so the seizures are attributed to a functional network abnormality rather than to the malformations visible on MRI. Focal impaired-consciousness seizures predominate across all ages, onset is in early childhood, and the course is comparatively favourable, with seizure freedom achievable in about half of patients. The cellular substrate linking the splicing defect to network hyperexcitability is not known, which is why this node deliberately carries no biological_process or cell_type binding: no source examined identifies the channel, synapse or cell population involved, and a generic nervous-system-development term would assert nothing about excitability.</div>
 
@@ -5588,6 +5676,7 @@ This pathophysiological event occurs in Cerebral white matter, annotated with wh
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5609,6 +5698,7 @@ This pathophysiological event occurs in Cerebral white matter, annotated with wh
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5634,6 +5724,7 @@ This pathophysiological event occurs in Cerebral white matter, annotated with wh
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-bone-turnover-and-reduced-bone-mineral-density" data-dismech-node="Increased Bone Turnover and Reduced Bone Mineral Density" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased Bone Turnover and Reduced Bone Mineral Density</div>
+
 
                 <div class="item-desc">Skeletal fragility is a common and clinically actionable part of the phenotype: bone abnormalities were present in 42% of individuals assessed. In the one published case with histomorphometry, an undecalcified tibia biopsy showed enlarged eroded surfaces with increased numbers of both osteoclasts and osteoblasts — an activated, high-turnover state rather than the low-turnover picture expected from immobility alone. That observation is the basis for suspecting a bone-cell-intrinsic splicing effect, but it rests on a single biopsy and disuse remains an unexcluded contributor in a population with hypotonia and limited ambulation. Vertebral fractures may be clinically silent until sought, which is why this node matters for management.</div>
 
@@ -5852,6 +5943,7 @@ This pathophysiological event occurs in Bone, annotated with bone element (UBERO
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5971,6 +6063,9 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5985,6 +6080,7 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6039,6 +6135,9 @@ This clinical feature is Constipation (HP:0002019). HP:0002019 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6053,6 +6152,7 @@ This clinical feature is Constipation (HP:0002019). HP:0002019 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6107,6 +6207,9 @@ This clinical feature is Gastroesophageal reflux (HP:0002020). HP:0002020 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6121,6 +6224,7 @@ This clinical feature is Gastroesophageal reflux (HP:0002020). HP:0002020 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6184,6 +6288,9 @@ This clinical feature is Optic nerve hypoplasia (HP:0000609). HP:0000609 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6198,6 +6305,7 @@ This clinical feature is Optic nerve hypoplasia (HP:0000609). HP:0000609 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6252,6 +6360,9 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6266,6 +6377,7 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6320,6 +6432,9 @@ This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6334,6 +6449,7 @@ This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6397,6 +6513,9 @@ This clinical feature is Proteinuria (HP:0000093). HP:0000093 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6411,6 +6530,7 @@ This clinical feature is Proteinuria (HP:0000093). HP:0000093 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6435,6 +6555,7 @@ This clinical feature is Proteinuria (HP:0000093). HP:0000093 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6491,6 +6612,9 @@ This clinical feature is Kidney and urinary tract anomaly, annotated with Abnorm
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6505,6 +6629,7 @@ This clinical feature is Kidney and urinary tract anomaly, annotated with Abnorm
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6529,6 +6654,7 @@ This clinical feature is Kidney and urinary tract anomaly, annotated with Abnorm
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6594,6 +6720,9 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6608,6 +6737,7 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6664,6 +6794,9 @@ This clinical feature is Distinctive lip and philtrum facial gestalt, annotated 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6678,6 +6811,7 @@ This clinical feature is Distinctive lip and philtrum facial gestalt, annotated 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6734,6 +6868,9 @@ This clinical feature is Everted lower lip vermilion (HP:0000232). HP:0000232 is
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6748,6 +6885,7 @@ This clinical feature is Everted lower lip vermilion (HP:0000232). HP:0000232 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6811,6 +6949,9 @@ This clinical feature is Club foot, annotated with Talipes equinovarus (HP:00017
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6825,6 +6966,7 @@ This clinical feature is Club foot, annotated with Talipes equinovarus (HP:00017
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6890,6 +7032,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6904,6 +7049,7 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6958,6 +7104,9 @@ This clinical feature is Osteopenia (HP:0000938). HP:0000938 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6972,6 +7121,7 @@ This clinical feature is Osteopenia (HP:0000938). HP:0000938 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7026,6 +7176,9 @@ This clinical feature is Recurrent fractures (HP:0002757). HP:0002757 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7040,6 +7193,7 @@ This clinical feature is Recurrent fractures (HP:0002757). HP:0002757 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7094,6 +7248,9 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7108,6 +7265,7 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7162,6 +7320,9 @@ This clinical feature is Hip dysplasia (HP:0001385). HP:0001385 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7176,6 +7337,7 @@ This clinical feature is Hip dysplasia (HP:0001385). HP:0001385 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7230,6 +7392,9 @@ This clinical feature is Abnormal rib morphology (HP:0000772). HP:0000772 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7244,6 +7409,7 @@ This clinical feature is Abnormal rib morphology (HP:0000772). HP:0000772 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7298,6 +7464,9 @@ This clinical feature is Joint hyperlaxity, annotated with Joint hypermobility (
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7312,6 +7481,7 @@ This clinical feature is Joint hyperlaxity, annotated with Joint hypermobility (
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7375,6 +7545,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7389,6 +7562,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7443,6 +7617,9 @@ This clinical feature is Severe intellectual disability (HP:0010864). HP:0010864
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7457,6 +7634,7 @@ This clinical feature is Severe intellectual disability (HP:0010864). HP:0010864
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7481,6 +7659,7 @@ This clinical feature is Severe intellectual disability (HP:0010864). HP:0010864
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7537,6 +7716,9 @@ This clinical feature is Absent speech (HP:0001344). HP:0001344 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7551,6 +7733,7 @@ This clinical feature is Absent speech (HP:0001344). HP:0001344 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7607,6 +7790,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7621,6 +7807,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7677,6 +7864,9 @@ This clinical feature is Hypoplasia of the corpus callosum (HP:0002079). HP:0002
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7691,6 +7881,7 @@ This clinical feature is Hypoplasia of the corpus callosum (HP:0002079). HP:0002
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7745,6 +7936,9 @@ This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7759,6 +7953,7 @@ This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7815,6 +8010,9 @@ This clinical feature is Reduced cerebral white matter volume, annotated with Ap
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7829,6 +8027,7 @@ This clinical feature is Reduced cerebral white matter volume, annotated with Ap
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7883,6 +8082,9 @@ This clinical feature is Delayed myelination (HP:0012448). HP:0012448 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7897,6 +8099,7 @@ This clinical feature is Delayed myelination (HP:0012448). HP:0012448 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7951,6 +8154,9 @@ This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7965,6 +8171,7 @@ This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8021,6 +8228,9 @@ This clinical feature is Autism spectrum disorder, annotated with Autism (HP:000
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8035,6 +8245,7 @@ This clinical feature is Autism spectrum disorder, annotated with Autism (HP:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8089,6 +8300,9 @@ This clinical feature is Persistent attention deficit, annotated with Short atte
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8103,6 +8317,7 @@ This clinical feature is Persistent attention deficit, annotated with Short atte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8159,6 +8374,9 @@ This clinical feature is Midline motor stereotypies, annotated with Motor stereo
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8173,6 +8391,7 @@ This clinical feature is Midline motor stereotypies, annotated with Motor stereo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8227,6 +8446,9 @@ This clinical feature is Sleep disturbance (HP:0002360). HP:0002360 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8241,6 +8463,7 @@ This clinical feature is Sleep disturbance (HP:0002360). HP:0002360 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8265,6 +8488,7 @@ This clinical feature is Sleep disturbance (HP:0002360). HP:0002360 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8319,6 +8543,9 @@ This clinical feature is Self-injurious behavior (HP:0100716). HP:0100716 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8333,6 +8560,7 @@ This clinical feature is Self-injurious behavior (HP:0100716). HP:0100716 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8357,6 +8585,7 @@ This clinical feature is Self-injurious behavior (HP:0100716). HP:0100716 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8422,6 +8651,9 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8436,6 +8668,7 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8534,6 +8767,9 @@ This disease-associated gene is RNU4-2 (hgnc:10193). hgnc:10193 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (6 references)
@@ -8548,6 +8784,7 @@ This disease-associated gene is RNU4-2 (hgnc:10193). hgnc:10193 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8575,6 +8812,7 @@ This disease-associated gene is RNU4-2 (hgnc:10193). hgnc:10193 is a gene from t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8596,6 +8834,7 @@ This disease-associated gene is RNU4-2 (hgnc:10193). hgnc:10193 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8684,6 +8923,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8694,6 +8936,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -8721,6 +8966,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8809,6 +9055,9 @@ This treatment uses valproate, annotated with valproic acid (CHEBI:39867). CHEBI
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8819,6 +9068,9 @@ This treatment uses valproate, annotated with valproic acid (CHEBI:39867). CHEBI
 
 
     </div>
+
+
+
 
 
 
@@ -8855,6 +9107,7 @@ This treatment uses valproate, annotated with valproic acid (CHEBI:39867). CHEBI
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8901,6 +9154,7 @@ This treatment uses valproate, annotated with valproic acid (CHEBI:39867). CHEBI
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8922,6 +9176,7 @@ This treatment uses valproate, annotated with valproic acid (CHEBI:39867). CHEBI
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9010,6 +9265,9 @@ This treatment uses neridronate, annotated with Neridronic Acid (NCIT:C66230). N
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9020,6 +9278,9 @@ This treatment uses neridronate, annotated with Neridronic Acid (NCIT:C66230). N
 
 
     </div>
+
+
+
 
 
 
@@ -9056,6 +9317,7 @@ This treatment uses neridronate, annotated with Neridronic Acid (NCIT:C66230). N
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9102,6 +9364,7 @@ This treatment uses neridronate, annotated with Neridronic Acid (NCIT:C66230). N
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9123,6 +9386,7 @@ This treatment uses neridronate, annotated with Neridronic Acid (NCIT:C66230). N
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9158,6 +9422,9 @@ This treatment uses neridronate, annotated with Neridronic Acid (NCIT:C66230). N
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9168,6 +9435,9 @@ This treatment uses neridronate, annotated with Neridronic Acid (NCIT:C66230). N
 
 
     </div>
+
+
+
 
 
 
@@ -9195,6 +9465,7 @@ This treatment uses neridronate, annotated with Neridronic Acid (NCIT:C66230). N
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9262,6 +9533,9 @@ This treatment is speech and language therapy, annotated with Speech Language Th
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9272,6 +9546,9 @@ This treatment is speech and language therapy, annotated with Speech Language Th
 
 
     </div>
+
+
+
 
 
 
@@ -9299,6 +9576,7 @@ This treatment is speech and language therapy, annotated with Speech Language Th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9366,6 +9644,9 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9376,6 +9657,9 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
     </div>
+
+
+
 
 
 
@@ -9403,6 +9687,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9511,6 +9796,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9535,6 +9821,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9556,6 +9843,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9646,6 +9934,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9670,6 +9959,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9691,6 +9981,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9761,6 +10052,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9813,6 +10105,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9834,6 +10127,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9889,6 +10183,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9910,6 +10205,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9965,6 +10261,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9986,6 +10283,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10057,6 +10355,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10078,6 +10377,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10147,6 +10447,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10168,6 +10469,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10257,6 +10559,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10278,6 +10581,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10357,6 +10661,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10378,6 +10683,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10446,6 +10752,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10613,6 +10920,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -10652,6 +10960,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10699,6 +11008,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 

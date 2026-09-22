@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4126,6 +4194,7 @@ Two features set this disease apart from most inherited immune disorders. It has
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4187,6 +4256,7 @@ Two features set this disease apart from most inherited immune disorders. It has
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4254,6 +4324,7 @@ Two features set this disease apart from most inherited immune disorders. It has
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4315,6 +4386,7 @@ Two features set this disease apart from most inherited immune disorders. It has
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4613,6 +4685,7 @@ The first has not been done. The second has been attempted, and the early answer
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4635,6 +4708,7 @@ The first has not been done. The second has been attempted, and the early answer
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4663,6 +4737,7 @@ The first has not been done. The second has been attempted, and the early answer
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4702,6 +4777,7 @@ The first has not been done. The second has been attempted, and the early answer
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-t-independent-type-2-b-cell-activation" data-dismech-node="Failure of T-Independent Type 2 B Cell Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of T-Independent Type 2 B Cell Activation</div>
+
 
                 <div class="item-desc">The core lesion, defined functionally because it cannot yet be defined molecularly. Unconjugated capsular polysaccharide is a repetitive carbohydrate with no peptide epitope, so it cannot be presented on MHC class II and cannot recruit T-cell help; it must instead crosslink the B cell receptor and activate B cells directly. In SAD that direct route fails while the T-dependent route - protein antigens, conjugate vaccines - works normally. The dissociation is the disease.
 </div>
@@ -4933,6 +5009,7 @@ This pathophysiological event involves decreased immunoglobulin production (GO:0
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4955,6 +5032,7 @@ This pathophysiological event involves decreased immunoglobulin production (GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4983,6 +5061,7 @@ This pathophysiological event involves decreased immunoglobulin production (GO:0
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5006,6 +5085,7 @@ This pathophysiological event involves decreased immunoglobulin production (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-switched-memory-b-cell-compartment" data-dismech-node="Reduced Switched Memory B Cell Compartment" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Switched Memory B Cell Compartment</div>
+
 
                 <div class="item-desc">Decreased numbers of switched memory B cells have been reported in SAD patients. This is the closest thing the disease has to a cellular marker, and the entry is careful about what it supports: the observation is an association reported in a subset, the direction of causation is untested, and the cell type implicated is the one that carries T-dependent memory, which is not obviously the compartment that should fail in a T-independent-response disorder. It is curated because it is the only cellular finding on record, not because it is established.
 </div>
@@ -5156,6 +5236,7 @@ This pathophysiological event involves decreased isotype switching (GO:0045190).
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5181,6 +5262,7 @@ This pathophysiological event involves decreased isotype switching (GO:0045190).
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5210,6 +5292,7 @@ This pathophysiological event involves decreased isotype switching (GO:0045190).
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5233,6 +5316,7 @@ This pathophysiological event involves decreased isotype switching (GO:0045190).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-absent-protective-anticapsular-antibody" data-dismech-node="Absent Protective Anticapsular Antibody" data-dismech-type="pathophysiology">
                 <div class="item-name">Absent Protective Anticapsular Antibody</div>
+
 
                 <div class="item-desc">The measurable endpoint and the diagnostic criterion at once: serotype -specific IgG against pneumococcal capsular polysaccharide fails to reach or to sustain protective titres after PPSV23. Note that this node is unusual in being simultaneously the mechanism&#39;s output and the assay that defines the disease, which is why the entity&#39;s boundary moves whenever the assay&#39;s cut-offs are renegotiated.
 </div>
@@ -5347,6 +5431,7 @@ This pathophysiological event involves decreased B cell mediated immunity (GO:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5369,6 +5454,7 @@ This pathophysiological event involves decreased B cell mediated immunity (GO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5395,6 +5481,7 @@ This pathophysiological event involves decreased B cell mediated immunity (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-recurrent-encapsulated-organism-sinopulmonary-infection" data-dismech-node="Recurrent Encapsulated-Organism Sinopulmonary Infection" data-dismech-type="pathophysiology">
                 <div class="item-name">Recurrent Encapsulated-Organism Sinopulmonary Infection</div>
+
 
                 <div class="item-desc">The clinical consequence: recurrent upper and lower respiratory tract infection, otitis media and sinusitis, with encapsulated bacteria. SAD is among the most commonly identified immune disorders in patients presenting with recurrent sinopulmonary infection, which is the practical reason to know about it - the presenting picture is common and the diagnosis is invisible on a standard immunoglobulin panel.
 </div>
@@ -5431,6 +5518,7 @@ This pathophysiological event involves decreased B cell mediated immunity (GO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5550,6 +5638,9 @@ This clinical feature is Impaired specific antibody response (HP:0012475). HP:00
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5564,6 +5655,7 @@ This clinical feature is Impaired specific antibody response (HP:0012475). HP:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5639,6 +5731,9 @@ This clinical feature is Complete or near-complete absence of specific antibody 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5653,6 +5748,7 @@ This clinical feature is Complete or near-complete absence of specific antibody 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5717,6 +5813,9 @@ This clinical feature is Recurrent otitis media (HP:0000403). HP:0000403 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5731,6 +5830,7 @@ This clinical feature is Recurrent otitis media (HP:0000403). HP:0000403 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5813,6 +5913,9 @@ This clinical feature is Sinusitis (HP:0000246), qualified as temporality chroni
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5827,6 +5930,7 @@ This clinical feature is Sinusitis (HP:0000246), qualified as temporality chroni
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5882,6 +5986,9 @@ This clinical feature is Allergic rhinitis (HP:0003193). HP:0003193 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5896,6 +6003,7 @@ This clinical feature is Allergic rhinitis (HP:0003193). HP:0003193 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5921,6 +6029,7 @@ This clinical feature is Allergic rhinitis (HP:0003193). HP:0003193 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6003,6 +6112,9 @@ This clinical feature is Recurrent sinopulmonary infections (HP:0005425), qualif
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6017,6 +6129,7 @@ This clinical feature is Recurrent sinopulmonary infections (HP:0005425), qualif
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6072,6 +6185,9 @@ This clinical feature is Recurrent pneumonia (HP:0006532). HP:0006532 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6086,6 +6202,7 @@ This clinical feature is Recurrent pneumonia (HP:0006532). HP:0006532 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6141,6 +6258,9 @@ This clinical feature is Asthma (HP:0002099). HP:0002099 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6155,6 +6275,7 @@ This clinical feature is Asthma (HP:0002099). HP:0002099 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6219,6 +6340,9 @@ This clinical feature is Bronchiectasis (HP:0002110). HP:0002110 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6233,6 +6357,7 @@ This clinical feature is Bronchiectasis (HP:0002110). HP:0002110 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6351,6 +6476,9 @@ This treatment is Vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6361,6 +6489,9 @@ This treatment is Vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
 
 
     </div>
+
+
+
 
 
 
@@ -6394,6 +6525,7 @@ This treatment is Vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6416,6 +6548,7 @@ This treatment is Vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6444,6 +6577,7 @@ This treatment is Vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6566,6 +6700,9 @@ This treatment uses sulfamethoxazole (CHEBI:9332). CHEBI:9332 is a therapeutic a
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6576,6 +6713,9 @@ This treatment uses sulfamethoxazole (CHEBI:9332). CHEBI:9332 is a therapeutic a
 
 
     </div>
+
+
+
 
 
 
@@ -6609,6 +6749,7 @@ This treatment uses sulfamethoxazole (CHEBI:9332). CHEBI:9332 is a therapeutic a
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6636,6 +6777,7 @@ This treatment uses sulfamethoxazole (CHEBI:9332). CHEBI:9332 is a therapeutic a
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6658,6 +6800,7 @@ This treatment uses sulfamethoxazole (CHEBI:9332). CHEBI:9332 is a therapeutic a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6725,6 +6868,9 @@ This treatment is Immunoglobulin Therapy (NCIT:C62710). NCIT:C62710 is a clinica
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6735,6 +6881,9 @@ This treatment is Immunoglobulin Therapy (NCIT:C62710). NCIT:C62710 is a clinica
 
 
     </div>
+
+
+
 
 
 
@@ -6768,6 +6917,7 @@ This treatment is Immunoglobulin Therapy (NCIT:C62710). NCIT:C62710 is a clinica
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6790,6 +6940,7 @@ This treatment is Immunoglobulin Therapy (NCIT:C62710). NCIT:C62710 is a clinica
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6818,6 +6969,7 @@ This treatment is Immunoglobulin Therapy (NCIT:C62710). NCIT:C62710 is a clinica
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6902,6 +7054,7 @@ This treatment is Immunoglobulin Therapy (NCIT:C62710). NCIT:C62710 is a clinica
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6927,6 +7080,7 @@ This treatment is Immunoglobulin Therapy (NCIT:C62710). NCIT:C62710 is a clinica
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6949,6 +7103,7 @@ This treatment is Immunoglobulin Therapy (NCIT:C62710). NCIT:C62710 is a clinica
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7047,6 +7202,7 @@ This treatment is Immunoglobulin Therapy (NCIT:C62710). NCIT:C62710 is a clinica
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7139,6 +7295,7 @@ This treatment is Immunoglobulin Therapy (NCIT:C62710). NCIT:C62710 is a clinica
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7237,6 +7394,7 @@ This treatment is Immunoglobulin Therapy (NCIT:C62710). NCIT:C62710 is a clinica
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7279,6 +7437,7 @@ This treatment is Immunoglobulin Therapy (NCIT:C62710). NCIT:C62710 is a clinica
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7301,6 +7460,7 @@ This treatment is Immunoglobulin Therapy (NCIT:C62710). NCIT:C62710 is a clinica
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7372,6 +7532,7 @@ This treatment is Immunoglobulin Therapy (NCIT:C62710). NCIT:C62710 is a clinica
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7397,6 +7558,7 @@ This treatment is Immunoglobulin Therapy (NCIT:C62710). NCIT:C62710 is a clinica
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7419,6 +7581,7 @@ This treatment is Immunoglobulin Therapy (NCIT:C62710). NCIT:C62710 is a clinica
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7492,6 +7655,7 @@ This treatment is Immunoglobulin Therapy (NCIT:C62710). NCIT:C62710 is a clinica
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7540,6 +7704,7 @@ This treatment is Immunoglobulin Therapy (NCIT:C62710). NCIT:C62710 is a clinica
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7618,6 +7783,7 @@ This treatment is Immunoglobulin Therapy (NCIT:C62710). NCIT:C62710 is a clinica
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7677,6 +7843,7 @@ This treatment is Immunoglobulin Therapy (NCIT:C62710). NCIT:C62710 is a clinica
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7730,6 +7897,7 @@ This treatment is Immunoglobulin Therapy (NCIT:C62710). NCIT:C62710 is a clinica
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7780,6 +7948,7 @@ This treatment is Immunoglobulin Therapy (NCIT:C62710). NCIT:C62710 is a clinica
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8324,6 +8493,7 @@ pathophysiology:
     - ti2_marginal_zone_maturation_failure
 
 - name: Recurrent Encapsulated-Organism Sinopulmonary Infection
+  conforms_to: &#34;germinal_center_reaction#Clinical Susceptibility to Infection&#34;
   biological_scale: ORGANISM
   description: &gt;
     The clinical consequence: recurrent upper and lower respiratory tract
@@ -9066,6 +9236,19 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Specific Antibody Deficiency</strong> · 2026-08-31T08:57:41Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Specific_Antibody_Deficiency/2026-08-31T085741Z-claude-code-733505.yaml">View source</a></p>
+                        <p class="research-review-text">De-novo curation of specific antibody deficiency, MONDO:0019093 - an IUIS-recognised predominantly-antibody inborn error of immunity with no causal gene. One OpenScientist deep-research run: 20/20 references verified, 11/11 quotes valid, confabulation_rate 0.0; term_validation needs_review true. This entry is the run&#39;s test of how the schema handles a disease defined by a functional assay rather than a locus. There is no genetic section and no inheritance block, because there is none to have: the defining review states the origin and molecular defect are unknown, and that statement is curated as a NO_EVIDENCE item on the mechanism node so the absence reads as a finding rather than an omission. Category is Complex rather than Mendelian for the same reason. The report contributed the adult outcome literature the entry now rests on: PMID:40097777, a 55-patient multicenter adult cohort giving the only quantified treatment effect in this disease - antibiotic courses falling from 7.9 to 0.7 per year on immunoglobulin replacement - and the diagnostic-delay-to-bronchiectasis association that is the strongest argument for testing early. PMID:34290713 is included but graded INDIRECT because its 29 patients were common variable immunodeficiency and IgG subclass deficiency rather than SPAD. Three snippets initially failed reference validation because the validator strips square-bracketed spans such as interquartile ranges before matching; they were rewritten to quote spans without brackets, and the constraint is recorded in an evidence explanation. Validated with just validate - schema, terms, 34/34 snippets verified - plus the ungated whole-KB gates.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -9707,7 +9890,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Specific Antibody Deficiency", "mondoId": "MONDO:0019093", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Specific_Antibody_Deficiency", "yamlRevision": "454a7365fb7c"};
+        const OS_CONFIG = {"diseaseName": "Specific Antibody Deficiency", "mondoId": "MONDO:0019093", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Specific_Antibody_Deficiency", "yamlRevision": "460a92984f2f"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

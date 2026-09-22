@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4252,6 +4320,7 @@
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Adenosquamous carcinoma of the lung is a characteristic tumor that has both adenocarcinoma and squamous cell carcinoma components."</div>
@@ -4271,6 +4340,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4334,6 +4404,7 @@
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"An early result of this search was the discovery of NSCLC driven by activating rearrangements of the anaplastic lymphoma kinase (ALK) gene. In an astoundingly brief period following the recognition of ALK-positive NSCLC, details of the biology, clinicopathologic features, development of targeted..."</div>
@@ -4356,6 +4427,7 @@
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"The significance of EGFR and ALK mutations in NSCLC and the impact of these genotypes on pathology and clinical practice are also reviewed."</div>
@@ -4375,6 +4447,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4440,6 +4513,7 @@
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Although the most common EGFR mutations-exon 19 deletions or L858R mutations-predict sensitivity to EGFR tyrosine kinase inhibitors (TKIs)..."</div>
@@ -4462,6 +4536,7 @@
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"A genetic mutation in EGFR has also been correlated with an increase in response."</div>
@@ -4481,6 +4556,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4671,6 +4747,7 @@ This experiment is of type prospective biomarker-stratified cohort study.</span>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4692,6 +4769,7 @@ This experiment is of type prospective biomarker-stratified cohort study.</span>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4718,6 +4796,7 @@ This experiment is of type prospective biomarker-stratified cohort study.</span>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4755,6 +4834,7 @@ This experiment is of type prospective biomarker-stratified cohort study.</span>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-oncogenic-driver-mutations" data-dismech-node="Oncogenic Driver Mutations" data-dismech-type="pathophysiology">
                 <div class="item-name">Oncogenic Driver Mutations</div>
+
 
                 <div class="item-desc">Mutations in genes like EGFR, ALK, ROS1, and BRAF lead to uncontrolled cell growth and survival.</div>
 
@@ -4837,6 +4917,8 @@ This pathophysiological event involves bronchial epithelial cell (CL:0002328). C
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: SOMATIC</span>
 
 
@@ -4845,6 +4927,9 @@ This pathophysiological event involves bronchial epithelial cell (CL:0002328). C
 
 
     </div>
+
+
+
 
 
 
@@ -4958,6 +5043,7 @@ This pathophysiological event involves MAPK cascade (GO:0000165). GO:0000165 is 
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Mutations in EGFR best illustrate the therapeutic relevance of molecular classification. This article reviews the scope of presently known driving molecular alterations, including ROS1, BRAF, KRAS, HER2 and PIK3CA, with a special emphasis on aLK rearrangements, and outlines their potential..."</div>
@@ -4977,6 +5063,7 @@ This pathophysiological event involves MAPK cascade (GO:0000165). GO:0000165 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5002,6 +5089,7 @@ This pathophysiological event involves MAPK cascade (GO:0000165). GO:0000165 is 
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"The aim of the current study is to extract meaningful information from the online somatic mutation data (retrieved from cBioPortal) of 16 most significantly mutated oncogenes in non-small-cell lung cancer (NSCLC), namely EGFR, NRAS, KRAS, HER2 (ERBB2), RET, MET, ROS1, FGFR1, BRAF ... for..."</div>
@@ -5024,6 +5112,7 @@ This pathophysiological event involves MAPK cascade (GO:0000165). GO:0000165 is 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-immune-evasion" data-dismech-node="Immune Evasion" data-dismech-type="pathophysiology">
                 <div class="item-name">Immune Evasion</div>
+
 
                 <div class="item-desc">Cancer cells develop mechanisms to evade detection and destruction by the immune system.</div>
 
@@ -5130,6 +5219,7 @@ This pathophysiological event involves increased negative regulation of immune r
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"We are also beginning to understand the methods of immune evasion employed by NSCLC which likely contribute to the 20% response rate to immunotherapy."</div>
@@ -5149,6 +5239,7 @@ This pathophysiological event involves increased negative regulation of immune r
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5174,6 +5265,7 @@ This pathophysiological event involves increased negative regulation of immune r
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Since MHC-I antigen presentation is not essential for cell growth or survival, many cancers inactivate this pathway, and thereby escape control by CD8 T cells. Such immune evasion allows cancers to progress and also become resistant to CD8 T-cell-based immunotherapies, such as checkpoint blockade."</div>
@@ -5196,6 +5288,7 @@ This pathophysiological event involves increased negative regulation of immune r
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-angiogenesis" data-dismech-node="Angiogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Angiogenesis</div>
+
 
                 <div class="item-desc">Tumors induce the formation of new blood vessels to support their growth and metastasis.</div>
 
@@ -5234,6 +5327,7 @@ This pathophysiological event involves increased negative regulation of immune r
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Angiogenesis, neovascularization from pre-existing vasculature, is necessary to supply oxygen and nutrition for tumor growth in both primary and distant organs."</div>
@@ -5253,6 +5347,7 @@ This pathophysiological event involves increased negative regulation of immune r
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5278,6 +5373,7 @@ This pathophysiological event involves increased negative regulation of immune r
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Many patients with lung cancer, breast cancer, and melanoma develop brain metastases that are resistant to conventional therapy. The median survival for untreated patients is 1 to 2 months, which may be extended to 6 months with surgery, radiotherapy, and chemotherapy."</div>
@@ -5300,6 +5396,7 @@ This pathophysiological event involves increased negative regulation of immune r
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tumor-microenvironment-remodeling" data-dismech-node="Tumor Microenvironment Remodeling" data-dismech-type="pathophysiology">
                 <div class="item-name">Tumor Microenvironment Remodeling</div>
+
 
                 <div class="item-desc">Macrophage-dominant immunosuppressive niches with reduced NK and T cell cytotoxicity; tumor-associated macrophages adopt cholesterol export and iron efflux programs that suppress anti-tumor immunity.</div>
 
@@ -5523,6 +5620,7 @@ This pathophysiological event occurs in parenchyma of lung, annotated with lung 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-metabolic-rewiring" data-dismech-node="Metabolic Rewiring" data-dismech-type="pathophysiology">
                 <div class="item-name">Metabolic Rewiring</div>
 
+
                 <div class="item-desc">KRAS/LKB1 co-mutant tumors depend on oxidative pentose phosphate pathway (PPP) via G6PD for NADPH production, redox balance, and lipogenesis; G6PD ablation selectively suppresses tumor growth and activates p53.</div>
 
 
@@ -5612,6 +5710,7 @@ This pathophysiological event involves cellular response to oxidative stress (GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mtap-deficiency-driven-collective-cell-migration" data-dismech-node="MTAP Deficiency-Driven Collective Cell Migration" data-dismech-type="pathophysiology">
                 <div class="item-name">MTAP Deficiency-Driven Collective Cell Migration</div>
+
 
                 <div class="item-desc">MTAP deletion leads to intracellular MTA accumulation, which suppresses PRMT5 activity and reduces global protein symmetric dimethylarginine (sDMA) modification. Decreased sDMA enhances USF2 phosphorylation and facilitates USF2 nuclear translocation and binding to the WNT3A promoter, while simultaneously reducing DNA CpG methylation of the WNT3A promoter, synergistically activating WNT3A transcription. Upregulated WNT3A strengthens intercellular crosstalk between leader and follower cells and drives cytoskeletal remodeling in leader cells, thereby accelerating collective cell migration and metastatic progression. This mechanism represents a subtype-specific vulnerability in MTAP-deficient NSCLC.</div>
 
@@ -5824,6 +5923,7 @@ This pathophysiological event involves increased cell-cell adhesion (GO:0098609)
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5845,6 +5945,7 @@ This pathophysiological event involves increased cell-cell adhesion (GO:0098609)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5872,6 +5973,7 @@ This pathophysiological event involves increased cell-cell adhesion (GO:0098609)
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5896,6 +5998,7 @@ This pathophysiological event involves increased cell-cell adhesion (GO:0098609)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-metastasis" data-dismech-node="Metastasis" data-dismech-type="pathophysiology">
                 <div class="item-name">Metastasis</div>
+
 
                 <div class="item-desc">Cancer cells spread from the primary tumor site to distant organs, commonly to the brain, bones, liver, and adrenal glands.</div>
 
@@ -5966,6 +6069,7 @@ This pathophysiological event involves increased cell-cell adhesion (GO:0098609)
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Our results are suggestive for particular site- and sequence-specific metastasis patterns in human SCLC. SCLC bone metastases tend to appear together with liver metastases, while brain metastases occur together with adrenal gland metastases."</div>
@@ -5985,6 +6089,7 @@ This pathophysiological event involves increased cell-cell adhesion (GO:0098609)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6010,6 +6115,7 @@ This pathophysiological event involves increased cell-cell adhesion (GO:0098609)
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"At least one third of the people with lung cancer develop brain metastases at some point during their disease, even often before the diagnosis of lung cancer is made. The high rate of brain metastasis makes lung cancer the most common type of tumor to spread to the brain."</div>
@@ -6032,6 +6138,7 @@ This pathophysiological event involves increased cell-cell adhesion (GO:0098609)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-emt-and-invasion" data-dismech-node="EMT and Invasion" data-dismech-type="pathophysiology">
                 <div class="item-name">EMT and Invasion</div>
+
 
                 <div class="item-desc">NSCLC cells adopt EMT programs to detach from primary lesions, invade surrounding stroma, and survive transit to distant sites. EMT also contributes to resistance to targeted therapy and immune-mediated clearance.</div>
 
@@ -6180,6 +6287,7 @@ This pathophysiological event involves increased positive regulation of cell mig
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-brain-metastasis-seed-and-soil-biology" data-dismech-node="Brain Metastasis Seed-and-Soil Biology" data-dismech-type="pathophysiology">
                 <div class="item-name">Brain Metastasis Seed-and-Soil Biology</div>
 
+
                 <div class="item-desc">Brain metastases arise when circulating NSCLC cells survive vascular arrest, cross the blood-brain barrier, and adapt to the neural microenvironment. Organ microenvironmental interactions are major determinants of treatment resistance in cerebral disease.</div>
 
 
@@ -6255,6 +6363,7 @@ This pathophysiological event involves increased cell migration (GO:0016477). GO
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6313,6 +6422,7 @@ This pathophysiological event involves increased cell migration (GO:0016477). GO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6425,6 +6535,9 @@ This clinical feature is Recurrent Pneumonia (HP:0006532). HP:0006532 is a pheno
                     </div>
 
 
+
+
+
                     <div class="item-desc">Due to airway obstruction by tumor</div>
 
 
@@ -6447,6 +6560,7 @@ This clinical feature is Recurrent Pneumonia (HP:0006532). HP:0006532 is a pheno
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Recurrent pneumonias often occur in the setting of an airway obstruction and can be the presenting symptom of an undiagnosed malignancy."</div>
@@ -6466,6 +6580,7 @@ This clinical feature is Recurrent Pneumonia (HP:0006532). HP:0006532 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6526,6 +6641,9 @@ This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from t
                     </div>
 
 
+
+
+
                     <div class="item-desc">May indicate brain metastases</div>
 
 
@@ -6545,6 +6663,7 @@ This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6570,6 +6689,7 @@ This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from t
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Paraneoplastic disorders may affect any part of the central or peripheral nervous systems."</div>
@@ -6589,6 +6709,7 @@ This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6652,6 +6773,9 @@ This clinical feature is Hemoptysis (HP:0002105). HP:0002105 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -6666,6 +6790,7 @@ This clinical feature is Hemoptysis (HP:0002105). HP:0002105 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6691,6 +6816,7 @@ This clinical feature is Hemoptysis (HP:0002105). HP:0002105 is a phenotype from
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"There was no associated hemoptysis, hoarseness, epistaxis, or fever on systemic review."</div>
@@ -6710,6 +6836,7 @@ This clinical feature is Hemoptysis (HP:0002105). HP:0002105 is a phenotype from
 
 
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+
 
 
 
@@ -6768,6 +6895,9 @@ This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from th
 
 
 
+
+
+
                 </div>
 
             </details>
@@ -6806,6 +6936,9 @@ This clinical feature is Bone Pain (HP:0002653). HP:0002653 is a phenotype from 
                     </div>
 
 
+
+
+
                     <div class="item-desc">May indicate bone metastases</div>
 
 
@@ -6828,6 +6961,7 @@ This clinical feature is Bone Pain (HP:0002653). HP:0002653 is a phenotype from 
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Bone cancer pain is common in patients with advanced breast, prostate, and lung cancer as these tumors have a remarkable affinity to metastasize to bone."</div>
@@ -6847,6 +6981,7 @@ This clinical feature is Bone Pain (HP:0002653). HP:0002653 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6901,6 +7036,9 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (5 references)
@@ -6915,6 +7053,7 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6940,6 +7079,7 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"The most common adverse effects of treatment are leukopenia, lymphopenia, thrombocytopenia, diarrhea, anemia, rash, musculoskeletal pain, nail toxicity, neutropenia, dry skin, stomatitis, fatigue, and cough."</div>
@@ -6959,6 +7099,7 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7012,6 +7153,9 @@ This clinical feature is Bone Pain (HP:0002653). HP:0002653 is a phenotype from 
                     </div>
 
 
+
+
+
                     <div class="item-desc">May indicate bone metastases</div>
 
 
@@ -7031,6 +7175,7 @@ This clinical feature is Bone Pain (HP:0002653). HP:0002653 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7056,6 +7201,7 @@ This clinical feature is Bone Pain (HP:0002653). HP:0002653 is a phenotype from 
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Bone cancer pain is common in patients with advanced breast, prostate, and lung cancer as these tumors have a remarkable affinity to metastasize to bone."</div>
@@ -7075,6 +7221,7 @@ This clinical feature is Bone Pain (HP:0002653). HP:0002653 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7129,6 +7276,9 @@ This clinical feature is Chest pain (HP:0100749). HP:0100749 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7143,6 +7293,7 @@ This clinical feature is Chest pain (HP:0100749). HP:0100749 is a phenotype from
 
 
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+
 
 
 
@@ -7165,6 +7316,7 @@ This clinical feature is Chest pain (HP:0100749). HP:0100749 is a phenotype from
 
 
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+
 
 
 
@@ -7228,6 +7380,9 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7242,6 +7397,7 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7264,6 +7420,7 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7310,6 +7467,9 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -7324,6 +7484,7 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7349,6 +7510,7 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Persistent cough is one of the most frequent complications following lung cancer surgery. ... Multivariable regression analysis revealed that a duration of anesthesia exceeding 156 min ... and gastroesophageal acid reflux (GER) ... were independent risk factors of persistent CAP."</div>
@@ -7368,6 +7530,7 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7464,6 +7627,9 @@ This disease-associated gene is EGFR (hgnc:3236). hgnc:3236 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (8 references)
@@ -7478,6 +7644,7 @@ This disease-associated gene is EGFR (hgnc:3236). hgnc:3236 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7503,6 +7670,7 @@ This disease-associated gene is EGFR (hgnc:3236). hgnc:3236 is a gene from the H
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"The results of this study demonstrate that EGFR-TKI therapy results in survival benefits for EGFR-mutant advanced NSCLC patients, regardless of gender, smoking history, pathologic type, type of EGFR mutations, brain metastasis and timing of targeted therapy."</div>
@@ -7522,6 +7690,7 @@ This disease-associated gene is EGFR (hgnc:3236). hgnc:3236 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7579,6 +7748,9 @@ This disease-associated gene is ALK (hgnc:427). hgnc:427 is a gene from the HUGO
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -7593,6 +7765,7 @@ This disease-associated gene is ALK (hgnc:427). hgnc:427 is a gene from the HUGO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7618,6 +7791,7 @@ This disease-associated gene is ALK (hgnc:427). hgnc:427 is a gene from the HUGO
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"the presence of ALK/ROS rearrangements in our study is associated with an approximately threefold to fourfold increase in thrombosis risk in NSCLC patients."</div>
@@ -7637,6 +7811,7 @@ This disease-associated gene is ALK (hgnc:427). hgnc:427 is a gene from the HUGO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7692,6 +7867,9 @@ This disease-associated gene is ROS1 (hgnc:10261). hgnc:10261 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -7706,6 +7884,7 @@ This disease-associated gene is ROS1 (hgnc:10261). hgnc:10261 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7731,6 +7910,7 @@ This disease-associated gene is ROS1 (hgnc:10261). hgnc:10261 is a gene from the
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"ROS and ALK rearrangement is highly associated with TE development, with HR of 4.04 ... p = 0.005"</div>
@@ -7750,6 +7930,7 @@ This disease-associated gene is ROS1 (hgnc:10261). hgnc:10261 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7807,6 +7988,9 @@ This disease-associated gene is KRAS (hgnc:6407). hgnc:6407 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -7821,6 +8005,7 @@ This disease-associated gene is KRAS (hgnc:6407). hgnc:6407 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7846,6 +8031,7 @@ This disease-associated gene is KRAS (hgnc:6407). hgnc:6407 is a gene from the H
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Although EGFR mutations were most frequent in patients with ADC and never/light smokers from Asia, and KRAS mutations were most frequent in patients with ADC and ever/heavy smokers from Western countries, both were detected outside these subgroups."</div>
@@ -7865,6 +8051,7 @@ This disease-associated gene is KRAS (hgnc:6407). hgnc:6407 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7922,6 +8109,9 @@ This disease-associated gene is STK11 (hgnc:11389). hgnc:11389 is a gene from th
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-keap1" data-dismech-node="KEAP1" data-dismech-type="genetic">
@@ -7953,6 +8143,9 @@ This disease-associated gene is KEAP1 (hgnc:23177). hgnc:23177 is a gene from th
 
 
                 </div>
+
+
+
 
 
 
@@ -7996,6 +8189,9 @@ This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-g6pd" data-dismech-node="G6PD" data-dismech-type="genetic">
@@ -8027,6 +8223,9 @@ This disease-associated gene is G6PD (hgnc:4057). hgnc:4057 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -8097,6 +8296,9 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8107,6 +8309,9 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -8137,6 +8342,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Surgical resection remains the treatment of choice for early stage non-small cell lung cancer (NSCLC). In stages IA, IB, IIA, IIB and selected stages IIIA surgical treatment offers the best long-term prognosis when a complete resection can be performed. Standard operations include lobectomy,..."</div>
@@ -8156,6 +8362,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8225,6 +8432,12 @@ This treatment is Chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical interven
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Platinum-based chemotherapy (cisplatin or carboplatin) in combination with other agents</div>
 
 
@@ -8246,6 +8459,7 @@ This treatment is Chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8271,6 +8485,7 @@ This treatment is Chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical interven
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"... carboplatin, either alone or in combination, in five separate phase II studies for patients with inoperable non-small cell lung cancer (NSCLC). ... Subsequently, combinations of carboplatin/cisplatin, carboplatin/etoposide, and carboplatin/vinblastine have been evaluated in similar patient groups."</div>
@@ -8290,6 +8505,7 @@ This treatment is Chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8362,6 +8578,12 @@ This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical inte
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Drugs targeting specific mutations, such as EGFR inhibitors (erlotinib, gefitinib), ALK inhibitors (crizotinib, ceritinib), and ROS1 inhibitors (crizotinib)</div>
 
 
@@ -8383,6 +8605,7 @@ This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8408,6 +8631,7 @@ This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical inte
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"The epidermal growth factor receptor (EGFR) is a promising target in the treatment of advanced stage non-small-cell lung cancer (NSCLC). Currently erlotinib and gefitinib are approved by the US Food and Drug Administration."</div>
@@ -8427,6 +8651,7 @@ This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8499,6 +8724,12 @@ This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical interve
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Checkpoint inhibitors (nivolumab, pembrolizumab) for tumors with high PD-L1 expression</div>
 
 
@@ -8520,6 +8751,7 @@ This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical interve
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8545,6 +8777,7 @@ This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical interve
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Data so far available show some conflicting results, but PD-L1 immunohistochemistry looks likely to be introduced into clinical use for selecting patients for treatment with anti-PD-1 or anti-PD-L1 therapies."</div>
@@ -8564,6 +8797,7 @@ This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical interve
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8630,6 +8864,9 @@ This treatment is Radiation Therapy (NCIT:C15313). NCIT:C15313 is a clinical int
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8640,6 +8877,9 @@ This treatment is Radiation Therapy (NCIT:C15313). NCIT:C15313 is a clinical int
 
 
     </div>
+
+
+
 
 
 
@@ -8670,6 +8910,7 @@ This treatment is Radiation Therapy (NCIT:C15313). NCIT:C15313 is a clinical int
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"recent notable developments have occurred involving radiation therapy (RT) for patients with non-small cell lung cancer (NSCLC)... For palliation of tumor-related symptoms... metastases to the adrenal gland, liver, and subcutaneous tissues can be palliated successfully by brief courses of RT...."</div>
@@ -8692,6 +8933,7 @@ This treatment is Radiation Therapy (NCIT:C15313). NCIT:C15313 is a clinical int
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"In the palliation of non-small cell lung cancer... in the management of chest disease, bone metastases, and brain metastases."</div>
@@ -8711,6 +8953,7 @@ This treatment is Radiation Therapy (NCIT:C15313). NCIT:C15313 is a clinical int
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8805,6 +9048,12 @@ This treatment uses pembrolizumab (NCIT:C106432). NCIT:C106432 is a therapeutic 
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Immune checkpoint inhibitor therapy is a major systemic treatment class in metastatic non-small cell lung cancer, with pembrolizumab-based regimens selected according to PD-L1 expression, tumor genotype, histology, and chemotherapy eligibility.</div>
 
 
@@ -8826,6 +9075,7 @@ This treatment uses pembrolizumab (NCIT:C106432). NCIT:C106432 is a therapeutic 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8914,6 +9164,7 @@ This environmental factor is Tobacco smoking exposure, annotated with exposure t
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Non-small-cell lung cancer (NSCLC), a heterogeneous class of tumours, represents approximately 85% of all new lung cancer diagnoses. Tobacco smoking remains the main risk factor for developing this disease."</div>
@@ -8936,6 +9187,7 @@ This environmental factor is Tobacco smoking exposure, annotated with exposure t
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"The never-smokers had a significantly better prognosis than ever-smokers among Ad patients, whereas the light-smokers had a significantly worse prognosis than heavy smokers among Sq patients."</div>
@@ -8955,6 +9207,7 @@ This environmental factor is Tobacco smoking exposure, annotated with exposure t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9032,6 +9285,7 @@ This environmental factor is Radon exposure, annotated with exposure to radon (E
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Based on the most recent findings, there is some evidence that radon may contribute to lung cancer risk in current smokers in high residential radon environments... The situation regarding the risk of lung cancer from radon in non-smokers (ex and never) is unclear."</div>
@@ -9054,6 +9308,7 @@ This environmental factor is Radon exposure, annotated with exposure to radon (E
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Miners increased risk of contracting lung cancer is included. It is concluded that the mine ventilation system satisfies the conditions required by the current radiological protection of the miners."</div>
@@ -9073,6 +9328,7 @@ This environmental factor is Radon exposure, annotated with exposure to radon (E
 
 
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+
 
 
 
@@ -9124,6 +9380,7 @@ This environmental factor is Radon exposure, annotated with exposure to radon (E
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9204,6 +9461,7 @@ This environmental factor is Household smoky (bituminous) coal combustion exposu
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9228,6 +9486,7 @@ This environmental factor is Household smoky (bituminous) coal combustion exposu
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9249,6 +9508,7 @@ This environmental factor is Household smoky (bituminous) coal combustion exposu
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9303,6 +9563,7 @@ This environmental factor is Household smoky (bituminous) coal combustion exposu
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9327,6 +9588,7 @@ This environmental factor is Household smoky (bituminous) coal combustion exposu
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9348,6 +9610,7 @@ This environmental factor is Household smoky (bituminous) coal combustion exposu
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9416,6 +9679,7 @@ This environmental factor is Household smoky (bituminous) coal combustion exposu
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Carcinoembryonic antigen (CEA) is the most frequently used tumor marker for non-small cell lung cancer (NSCLC)."</div>
@@ -9460,6 +9724,7 @@ This environmental factor is Household smoky (bituminous) coal combustion exposu
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9529,6 +9794,7 @@ This environmental factor is Household smoky (bituminous) coal combustion exposu
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"What is clear is that currently over 50% of all patients with non-small cell lung cancer (NSCLC) are 65 years of age or older."</div>
@@ -9551,6 +9817,7 @@ This environmental factor is Household smoky (bituminous) coal combustion exposu
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"To assess rate of disease progression from diagnosis to initiation of treatment for Stage I-IIIB non-small-cell lung cancer (NSCLC)."</div>
@@ -9570,6 +9837,7 @@ This environmental factor is Household smoky (bituminous) coal combustion exposu
 
 
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+
 
 
 
@@ -9646,6 +9914,7 @@ This environmental factor is Household smoky (bituminous) coal combustion exposu
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10244,6 +10513,7 @@ This readout reports on EGFR and MET receptor tyrosine kinase signaling underlyi
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -10283,6 +10553,7 @@ This readout reports on EGFR and MET receptor tyrosine kinase signaling underlyi
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10362,6 +10633,7 @@ This readout reports on EGFR and MET receptor tyrosine kinase signaling underlyi
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -10401,6 +10673,7 @@ This readout reports on EGFR and MET receptor tyrosine kinase signaling underlyi
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10480,6 +10753,7 @@ This readout reports on EGFR and MET receptor tyrosine kinase signaling underlyi
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -10519,6 +10793,7 @@ This readout reports on EGFR and MET receptor tyrosine kinase signaling underlyi
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12829,6 +13104,7 @@ references:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12900,6 +13176,7 @@ references:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12968,6 +13245,7 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13079,6 +13357,7 @@ references:
 
 
 
+
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
 
                 </div>
@@ -13187,6 +13466,7 @@ references:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -13255,6 +13535,7 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13329,6 +13610,7 @@ references:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -13397,6 +13679,7 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13471,6 +13754,7 @@ references:
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -13542,6 +13826,7 @@ references:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -13610,6 +13895,7 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13758,6 +14044,7 @@ references:
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -13826,6 +14113,7 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13900,6 +14188,7 @@ references:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -13968,6 +14257,7 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14042,6 +14332,7 @@ references:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -14110,6 +14401,7 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14184,6 +14476,7 @@ references:
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -14252,6 +14545,7 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -14326,6 +14620,7 @@ references:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -14397,6 +14692,7 @@ references:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -14431,6 +14727,8 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

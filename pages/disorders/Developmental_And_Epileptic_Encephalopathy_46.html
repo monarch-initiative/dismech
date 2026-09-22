@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4185,6 +4253,7 @@ That branch is therapeutically load-bearing rather than academic. Because the p.
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4209,6 +4278,7 @@ That branch is therapeutically load-bearing rather than academic. Because the p.
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4230,6 +4300,7 @@ That branch is therapeutically load-bearing rather than academic. Because the p.
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4435,6 +4506,7 @@ That branch is therapeutically load-bearing rather than academic. Because the p.
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4623,6 +4695,7 @@ That branch is therapeutically load-bearing rather than academic. Because the p.
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4744,6 +4817,7 @@ That branch is therapeutically load-bearing rather than academic. Because the p.
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4778,6 +4852,7 @@ That branch is therapeutically load-bearing rather than academic. Because the p.
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-grin2d-missense-variant-altering-the-glun2d-nmda-receptor-subunit" data-dismech-node="GRIN2D Missense Variant Altering the GluN2D NMDA Receptor Subunit" data-dismech-type="pathophysiology">
                 <div class="item-name">GRIN2D Missense Variant Altering the GluN2D NMDA Receptor Subunit</div>
+
 
                 <div class="item-desc">The initiating lesion is a heterozygous, usually de novo, missense variant in GRIN2D that substitutes a single residue in the GluN2D subunit of the NMDA receptor. Reported disease alleles cluster in the M3 gating helix and the adjacent pre-M1 and transmembrane regions, with a smaller set in the intracellular carboxyl-terminal domain. Null (protein-truncating) GRIN2D alleles have not been reported in affected individuals, so unlike GRIN2B this disorder is not a haploinsufficiency syndrome.</div>
 
@@ -4928,6 +5003,7 @@ This pathophysiological event involves abnormal NMDA glutamate receptor activity
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4949,6 +5025,7 @@ This pathophysiological event involves abnormal NMDA glutamate receptor activity
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4976,6 +5053,7 @@ This pathophysiological event involves abnormal NMDA glutamate receptor activity
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4998,6 +5076,7 @@ This pathophysiological event involves abnormal NMDA glutamate receptor activity
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nmda-receptor-gain-of-function" data-dismech-node="NMDA Receptor Gain-of-Function" data-dismech-type="pathophysiology">
                 <div class="item-name">NMDA Receptor Gain-of-Function</div>
+
 
                 <div class="item-desc">In the gain-of-function branch the mutant GluN2D-containing receptor opens more readily and stays open longer. For the recurrent p.Val667Ile allele this is a combination of roughly two-fold higher glutamate and glycine potency, a roughly six-fold increase in channel open probability, reduced inhibition by endogenous extracellular protons, and a prolonged deactivation time course after glutamate is removed — the last of which lengthens the synaptic response itself. Other alleles reach the same endpoint by different combinations: p.Leu670Phe and p.Ala678Asp raise open probability from a wild-type value near 0.007 to 0.36 and 0.20 respectively, and p.Leu670Phe slows deactivation and increases charge transfer.</div>
 
@@ -5085,6 +5164,8 @@ This genetic context concerns GRIN2D (hgnc:4588). hgnc:4588 is a gene from the H
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: DE_NOVO</span>
 
 
@@ -5101,6 +5182,9 @@ This genetic context concerns GRIN2D (hgnc:4588). hgnc:4588 is a gene from the H
         <span class="tag tag-classification">functional_impact_category: GAIN_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">The recurrent de novo heterozygous M3-domain allele c.1999G&gt;A (p.Val667Ile), which is the GRIN2D variant whose gain of channel function has actually been demonstrated by heterologous-expression electrophysiology (higher agonist potency, ~6-fold higher open probability, reduced proton inhibition, prolonged deactivation). p.Leu670Phe and p.Ala678Asp reach the same functional endpoint. This category applies to those alleles, not to GRIN2D missense variation as a class — the sibling node records the alleles that decrease channel function instead.</div>
 
@@ -5246,6 +5330,7 @@ This pathophysiological event involves NMDA glutamate receptor activity (GO:0004
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5267,6 +5352,7 @@ This pathophysiological event involves NMDA glutamate receptor activity (GO:0004
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5294,6 +5380,7 @@ This pathophysiological event involves NMDA glutamate receptor activity (GO:0004
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5318,6 +5405,7 @@ This pathophysiological event involves NMDA glutamate receptor activity (GO:0004
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-glun2d-receptor-surface-expression" data-dismech-node="Reduced GluN2D Receptor Surface Expression" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced GluN2D Receptor Surface Expression</div>
+
 
                 <div class="item-desc">A consequence shared across the tested GRIN2D disease alleles is reduced delivery of GluN2D-containing receptors to the plasma membrane. This is a distinct axis from channel gating: a variant may simultaneously reduce the number of surface receptors and increase the activity of each one, so &#34;reduced surface expression&#34; must not be read as net receptor loss of function. Where reduced surface expression is not offset by increased per-receptor activity it lowers current amplitude.</div>
 
@@ -5426,6 +5514,7 @@ This pathophysiological event involves decreased NMDA selective glutamate recept
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5447,6 +5536,7 @@ This pathophysiological event involves decreased NMDA selective glutamate recept
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5472,6 +5562,7 @@ This pathophysiological event involves decreased NMDA selective glutamate recept
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nmda-receptor-loss-of-function-and-mixed-channel-dysfunction" data-dismech-node="NMDA Receptor Loss-of-Function and Mixed Channel Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">NMDA Receptor Loss-of-Function and Mixed Channel Dysfunction</div>
+
 
                 <div class="item-desc">The counterpart branch. Some GRIN2D alleles reduce rather than increase channel open probability, and combine that with only a mild rise in agonist potency and reduced proton sensitivity, so their net effect on receptor signalling is a decrease or is genuinely mixed. This branch matters clinically because it inverts the therapeutic logic of the gain-of-function branch: NMDA open-channel blockade would be expected to deepen, not correct, hypofunction, and the mechanism-directed strategy for these alleles is instead being tested as co-agonist supplementation (L-serine, NCT07377032, still recruiting). That is a trial hypothesis, not established practice — no controlled result exists, and prescribing a co-agonist on a presumed loss-of-function classification is neither validated nor known to be safe. Functional classification is nonetheless a prerequisite for any mechanism-directed treatment here, not an optional refinement.</div>
 
@@ -5597,6 +5688,7 @@ This pathophysiological event involves decreased NMDA glutamate receptor activit
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5618,6 +5710,7 @@ This pathophysiological event involves decreased NMDA glutamate receptor activit
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5645,6 +5738,7 @@ This pathophysiological event involves decreased NMDA glutamate receptor activit
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5667,6 +5761,7 @@ This pathophysiological event involves decreased NMDA glutamate receptor activit
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-prolonged-excitatory-charge-transfer-and-calcium-influx" data-dismech-node="Prolonged Excitatory Charge Transfer and Calcium Influx" data-dismech-type="pathophysiology">
                 <div class="item-name">Prolonged Excitatory Charge Transfer and Calcium Influx</div>
+
 
                 <div class="item-desc">Because the mutant receptor opens more often and closes more slowly, each activation passes a larger and longer-lasting cation current. NMDA receptors are calcium permeable, so the excess charge transfer is also an excess calcium load, and GluN2D-containing receptors are additionally subject to substantially weaker voltage-dependent magnesium block than GluN2A- or GluN2B-containing receptors, which removes part of the normal brake on that influx.</div>
 
@@ -5834,6 +5929,7 @@ This pathophysiological event involves increased synaptic transmission, glutamat
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5855,6 +5951,7 @@ This pathophysiological event involves increased synaptic transmission, glutamat
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5880,6 +5977,7 @@ This pathophysiological event involves increased synaptic transmission, glutamat
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-excitotoxic-neuronal-injury-and-death" data-dismech-node="Excitotoxic Neuronal Injury and Death" data-dismech-type="pathophysiology">
                 <div class="item-name">Excitotoxic Neuronal Injury and Death</div>
+
 
                 <div class="item-desc">Neurons expressing the gain-of-function receptor undergo dendritic swelling and die. This has been demonstrated for two alleles in rat cortical-neuron culture — p.Val667Ile and p.Ala678Asp — and the death is preventable by NMDA-receptor channel blockade, which is the pharmacological proof that the receptor overactivity is the cause rather than a correlate. Extension of this step to progressive neuronal loss in patients is a plausible inference and is not directly demonstrated in human brain tissue.</div>
 
@@ -6005,6 +6103,7 @@ This pathophysiological event involves increased cell death (GO:0008219). GO:000
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6027,6 +6126,7 @@ This pathophysiological event involves increased cell death (GO:0008219). GO:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-cortical-excitation-inhibition-balance" data-dismech-node="Disrupted Cortical Excitation-Inhibition Balance" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Cortical Excitation-Inhibition Balance</div>
+
 
                 <div class="item-desc">Both branches converge here. The decisive experimental result is that the lesion is not simply &#34;too much excitation in excitatory neurons&#34;: in a knock-in mouse carrying the orthologue of the recurrent human variant, restricting expression of the variant to GABAergic interneurons was sufficient to reproduce the severe electroclinical phenotype, whereas restricting it to excitatory forebrain neurons was not. GluN2D is enriched in inhibitory interneurons, so altered NMDA-receptor function in the inhibitory population is a prominent route to the network imbalance.</div>
 
@@ -6202,6 +6302,7 @@ This pathophysiological event involves abnormal regulation of synaptic transmiss
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6223,6 +6324,7 @@ This pathophysiological event involves abnormal regulation of synaptic transmiss
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6248,6 +6350,7 @@ This pathophysiological event involves abnormal regulation of synaptic transmiss
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neuronal-hyperexcitability-and-hypersynchronous-network-firing" data-dismech-node="Neuronal Hyperexcitability and Hypersynchronous Network Firing" data-dismech-type="pathophysiology">
                 <div class="item-name">Neuronal Hyperexcitability and Hypersynchronous Network Firing</div>
+
 
                 <div class="item-desc">The imbalanced network generates sustained, spatially distributed epileptiform activity. In the knock-in mouse this appears as continuous abnormal electrocorticographic activity with a distinctive narrowband theta/alpha/beta spectral signature that parallels the EEG of a patient carrying the same variant, and in adults as prolonged runs of spike-wave discharge. In patients it appears as generalized or multifocal spike-wave and spike-and-slow-wave discharges, hypsarrhythmia, and polymorphic clinical seizures.</div>
 
@@ -6443,6 +6546,7 @@ This pathophysiological event involves increased excitatory postsynaptic potenti
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6464,6 +6568,7 @@ This pathophysiological event involves increased excitatory postsynaptic potenti
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6489,6 +6594,7 @@ This pathophysiological event involves increased excitatory postsynaptic potenti
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-activity-dependent-synaptic-maturation" data-dismech-node="Impaired Activity-Dependent Synaptic Maturation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Activity-Dependent Synaptic Maturation</div>
+
 
                 <div class="item-desc">NMDA-receptor signalling is the substrate of activity-dependent synapse maturation and plasticity, and GluN2D expression peaks early in development. Both the primary receptor defect and the superimposed epileptiform activity therefore act on circuit formation during the window in which it happens. Structural correlates are visible in the mouse model as enlarged presynaptic terminals and increased synaptic distance. This node is the reason seizure control alone does not reverse the developmental impairment.</div>
 
@@ -6696,6 +6802,7 @@ This pathophysiological event involves abnormal chemical synaptic transmission (
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6717,6 +6824,7 @@ This pathophysiological event involves abnormal chemical synaptic transmission (
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6833,6 +6941,9 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6847,6 +6958,7 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6871,6 +6983,7 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6931,6 +7044,9 @@ This clinical feature is Cortical visual impairment, annotated with Cerebral vis
                     </div>
 
 
+
+
+
                     <div class="item-desc">Bound to HP:0100704, whose canonical label is &#34;Cerebral visual impairment&#34;; &#34;cortical visual impairment&#34; is the wording the source uses and is recorded in `preferred_term`. This entry&#39;s `description` already asserted the finding while the phenotype list omitted it; the omission was repaired in the PR #10899 review.</div>
 
 
@@ -6950,6 +7066,7 @@ This clinical feature is Cortical visual impairment, annotated with Cerebral vis
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7046,6 +7163,9 @@ This clinical feature is Drug-resistant epilepsy, annotated with Refractory drug
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -7060,6 +7180,7 @@ This clinical feature is Drug-resistant epilepsy, annotated with Refractory drug
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7087,6 +7208,7 @@ This clinical feature is Drug-resistant epilepsy, annotated with Refractory drug
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7108,6 +7230,7 @@ This clinical feature is Drug-resistant epilepsy, annotated with Refractory drug
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7168,6 +7291,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
                     </div>
 
 
+
+
+
                     <div class="item-desc">A hypertonic neonatal presentation is also on record (PMID:33397303, &#34;stiffness of the lower and upper extremities since birth ... hypertonia of limbs&#34;). Tone abnormality in either direction, rather than hypotonia specifically, is the stable feature.</div>
 
 
@@ -7187,6 +7313,7 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7211,6 +7338,7 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7262,6 +7390,9 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
                     </div>
 
 
+
+
+
                     <div class="item-desc">Curated as a distinct phenotype from `Hypotonia` because the two are opposite tone states rather than degrees of one; GeneReviews reports both under &#34;abnormal muscle tone&#34; without saying how the reported individuals divide between them, so neither carries a `frequency:` value.</div>
 
 
@@ -7281,6 +7412,7 @@ This clinical feature is Spasticity (HP:0001257). HP:0001257 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7373,6 +7505,9 @@ This clinical feature is Focal motor seizures, annotated with Focal motor seizur
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7387,6 +7522,7 @@ This clinical feature is Focal motor seizures, annotated with Focal motor seizur
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7411,6 +7547,7 @@ This clinical feature is Focal motor seizures, annotated with Focal motor seizur
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7491,6 +7628,9 @@ This clinical feature is Generalized seizures, annotated with Generalized-onset 
                     </div>
 
 
+
+
+
                     <div class="item-desc">Bound to HP:0002197 (Generalized-onset seizure) rather than HP:0002069 (Bilateral tonic-clonic seizure): the source says only &#34;generalized seizures&#34;, so a tonic-clonic binding would assert a semiology the cited case does not report.</div>
 
 
@@ -7510,6 +7650,7 @@ This clinical feature is Generalized seizures, annotated with Generalized-onset 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7592,6 +7733,9 @@ This clinical feature is Epileptic spasms, annotated with Infantile spasms (HP:0
                     </div>
 
 
+
+
+
                     <div class="item-desc">Bound to HP:0012469, whose canonical label is &#34;Infantile spasms&#34;; the `preferred_term` records the current ILAE terminology used by the cited report.</div>
 
 
@@ -7611,6 +7755,7 @@ This clinical feature is Epileptic spasms, annotated with Infantile spasms (HP:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7665,6 +7810,9 @@ This clinical feature is Hypsarrhythmia (HP:0002521). HP:0002521 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7679,6 +7827,7 @@ This clinical feature is Hypsarrhythmia (HP:0002521). HP:0002521 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7735,6 +7884,9 @@ This clinical feature is Multifocal epileptiform discharges (HP:0010841). HP:001
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7749,6 +7901,7 @@ This clinical feature is Multifocal epileptiform discharges (HP:0010841). HP:001
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7803,6 +7956,9 @@ This clinical feature is Status epilepticus (HP:0002133). HP:0002133 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7817,6 +7973,7 @@ This clinical feature is Status epilepticus (HP:0002133). HP:0002133 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7902,6 +8059,9 @@ This clinical feature is Global developmental delay (HP:0001263), qualified as i
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7916,6 +8076,7 @@ This clinical feature is Global developmental delay (HP:0001263), qualified as i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7940,6 +8101,7 @@ This clinical feature is Global developmental delay (HP:0001263), qualified as i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7994,6 +8156,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8008,6 +8173,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8064,6 +8230,9 @@ This clinical feature is Movement disorder, annotated with Abnormality of moveme
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8078,6 +8247,7 @@ This clinical feature is Movement disorder, annotated with Abnormality of moveme
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8102,6 +8272,7 @@ This clinical feature is Movement disorder, annotated with Abnormality of moveme
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8156,6 +8327,9 @@ This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8170,6 +8344,7 @@ This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8224,6 +8399,9 @@ This clinical feature is Chorea (HP:0002072). HP:0002072 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8238,6 +8416,7 @@ This clinical feature is Chorea (HP:0002072). HP:0002072 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8289,6 +8468,9 @@ This clinical feature is Autism spectrum disorder, annotated with Autistic behav
                     </div>
 
 
+
+
+
                     <div class="item-desc">Bound to HP:0000729, whose canonical label is &#34;Autistic behavior&#34;; the `preferred_term` records the diagnostic term the source uses.</div>
 
 
@@ -8308,6 +8490,7 @@ This clinical feature is Autism spectrum disorder, annotated with Autistic behav
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8362,6 +8545,9 @@ This clinical feature is Sleep disorder, annotated with Sleep disturbance (HP:00
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8376,6 +8562,7 @@ This clinical feature is Sleep disorder, annotated with Sleep disturbance (HP:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8427,6 +8614,9 @@ This clinical feature is Cerebral cortical atrophy (HP:0002120). HP:0002120 is a
                     </div>
 
 
+
+
+
                     <div class="item-desc">No cached reference in this entry reports the MRI finding itself with a quotable sentence, so the phenotype is supported only by the mechanistic inference above. Treat the imaging frequency as unknown.</div>
 
 
@@ -8449,6 +8639,7 @@ This clinical feature is Cerebral cortical atrophy (HP:0002120). HP:0002120 is a
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -8550,6 +8741,9 @@ This disease-associated gene is GRIN2D (hgnc:4588). hgnc:4588 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -8564,6 +8758,7 @@ This disease-associated gene is GRIN2D (hgnc:4588). hgnc:4588 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8591,6 +8786,7 @@ This disease-associated gene is GRIN2D (hgnc:4588). hgnc:4588 is a gene from the
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8612,6 +8808,7 @@ This disease-associated gene is GRIN2D (hgnc:4588). hgnc:4588 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8737,6 +8934,9 @@ This treatment uses valproic acid (CHEBI:39867). CHEBI:39867 is a therapeutic ag
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8747,6 +8947,9 @@ This treatment uses valproic acid (CHEBI:39867). CHEBI:39867 is a therapeutic ag
 
 
     </div>
+
+
+
 
 
 
@@ -8792,6 +8995,7 @@ This treatment uses valproic acid (CHEBI:39867). CHEBI:39867 is a therapeutic ag
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8880,6 +9084,9 @@ This treatment uses memantine (CHEBI:64312). CHEBI:64312 is a therapeutic agent 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8890,6 +9097,9 @@ This treatment uses memantine (CHEBI:64312). CHEBI:64312 is a therapeutic agent 
 
 
     </div>
+
+
+
 
 
 
@@ -8927,6 +9137,7 @@ The evidence level must be read honestly. These are case reports and retrospecti
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8986,6 +9197,7 @@ The evidence level must be read honestly. These are case reports and retrospecti
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9010,6 +9222,7 @@ The evidence level must be read honestly. These are case reports and retrospecti
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9031,6 +9244,7 @@ The evidence level must be read honestly. These are case reports and retrospecti
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -9138,6 +9352,9 @@ This treatment uses magnesium sulfate (CHEBI:32599). CHEBI:32599 is a therapeuti
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9148,6 +9365,9 @@ This treatment uses magnesium sulfate (CHEBI:32599). CHEBI:32599 is a therapeuti
 
 
     </div>
+
+
+
 
 
 
@@ -9196,6 +9416,7 @@ This treatment uses magnesium sulfate (CHEBI:32599). CHEBI:32599 is a therapeuti
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9217,6 +9438,7 @@ This treatment uses magnesium sulfate (CHEBI:32599). CHEBI:32599 is a therapeuti
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -9305,6 +9527,9 @@ This treatment uses perampanel (CHEBI:71013). CHEBI:71013 is a therapeutic agent
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9315,6 +9540,9 @@ This treatment uses perampanel (CHEBI:71013). CHEBI:71013 is a therapeutic agent
 
 
     </div>
+
+
+
 
 
 
@@ -9360,6 +9588,7 @@ This treatment uses perampanel (CHEBI:71013). CHEBI:71013 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9427,6 +9656,9 @@ This treatment is intravenous immunoglobulin infusion, annotated with Immunoglob
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9437,6 +9669,9 @@ This treatment is intravenous immunoglobulin infusion, annotated with Immunoglob
 
 
     </div>
+
+
+
 
 
 
@@ -9467,6 +9702,7 @@ This treatment is intravenous immunoglobulin infusion, annotated with Immunoglob
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9491,6 +9727,7 @@ This treatment is intravenous immunoglobulin infusion, annotated with Immunoglob
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9557,6 +9794,9 @@ This treatment is multidisciplinary supportive care, annotated with Supportive C
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9567,6 +9807,9 @@ This treatment is multidisciplinary supportive care, annotated with Supportive C
 
 
     </div>
+
+
+
 
 
 
@@ -9597,6 +9840,7 @@ This treatment is multidisciplinary supportive care, annotated with Supportive C
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9618,6 +9862,7 @@ This treatment is multidisciplinary supportive care, annotated with Supportive C
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9645,6 +9890,7 @@ This treatment is multidisciplinary supportive care, annotated with Supportive C
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9710,6 +9956,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9720,6 +9969,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -9750,6 +10002,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9771,6 +10024,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9879,6 +10133,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9903,6 +10158,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9924,6 +10180,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10014,6 +10271,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10035,6 +10293,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10125,6 +10384,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10212,6 +10472,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10286,6 +10547,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10310,6 +10572,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10331,6 +10594,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10439,6 +10703,7 @@ This clinical trial targets Seizure (HP:0001250). HP:0001250 is a phenotype from
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10514,6 +10779,7 @@ This clinical trial targets Seizure (HP:0001250). HP:0001250 is a phenotype from
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10586,6 +10852,7 @@ This clinical trial targets Global developmental delay (HP:0001263). HP:0001263 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10673,6 +10940,7 @@ This clinical trial targets Global developmental delay (HP:0001263). HP:0001263 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10826,6 +11094,7 @@ This clinical trial targets Global developmental delay (HP:0001263). HP:0001263 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10865,6 +11134,7 @@ This clinical trial targets Global developmental delay (HP:0001263). HP:0001263 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10919,6 +11189,7 @@ This clinical trial targets Global developmental delay (HP:0001263). HP:0001263 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11056,6 +11327,7 @@ This clinical trial targets Global developmental delay (HP:0001263). HP:0001263 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -11095,6 +11367,7 @@ This clinical trial targets Global developmental delay (HP:0001263). HP:0001263 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11171,6 +11444,7 @@ This clinical trial targets Global developmental delay (HP:0001263). HP:0001263 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13464,6 +13738,140 @@ discussions:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (3)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Curation provenance and caveats.
+(1) GeneReviews. The GRIN2D GeneReviews chapter (PMID:35914066) is tagged in `references:` above and is mined for evidence throughout this entry. Its cached record carries `content_type: abstract_only`, but that field records how the record was fetched, not whether it has quotable content: the `## Content` section holds the chapter&#39;s complete four-section summary — Clinical Characteristics, Diagnosis/Testing, Management and Genetic Counseling — in full sentences. Evidence items quoting it support the tone, movement, autism, cerebral visual impairment, sleep and feeding phenotypes; the molecular genetic testing diagnosis; multidisciplinary supportive care; the reported-case count under `prevalence`; and the 1% sib recurrence risk under the autosomal dominant inheritance block. An earlier version of this note asserted that the chapter could not be quoted and gave that as the reason those features were omitted. That assertion was wrong — the same `abstract_only` label sits on PMID:31918992, which this entry already quotes five times — and the omission it justified has been repaired (PR #10899 review).
+(2) Deep-research report corrections. This entry was curated against `research/Developmental_And_Epileptic_Encephalopathy_46-deep-research-falcon.md`. Every ontology CURIE the report proposed was re-derived against OLS before use. Four report-proposed bindings were wrong and were corrected: `HP:0002063` was offered as &#34;drug-resistant epilepsy&#34; but is actually *Rigidity* (replaced with `HP:0020174` Refractory drug response, the binding already used elsewhere in this KB for the same concept); `HP:0002069` was labelled &#34;generalized tonic-clonic seizure&#34; but its canonical label is *Bilateral tonic-clonic seizure*; `HP:0002079` was labelled &#34;thin corpus callosum&#34; but is *Hypoplasia of the corpus callosum* (not curated here, as no cached source documents it); `HP:0000733` was labelled &#34;stereotypy&#34; but is *Motor stereotypy*. `HP:0100704` was labelled &#34;cortical visual impairment&#34; against the canonical *Cerebral visual impairment*. The report&#39;s frontmatter also carried `mondo_id: &#39;&#39;` (dismech#10335); `just preflight-dr` was run manually against MONDO:0014947 and passed with GRIN2D mentioned 44 times.
+(3) Clinical trials — the report is wrong here. The report states that &#34;No relevant GRIN2D-specific interventional trial was returned by the ClinicalTrials.gov search&#34; and that there is &#34;no NCT identifier&#34;. A direct ClinicalTrials.gov API search found three relevant interventional studies, two of which name GRIN2D explicitly in their eligibility criteria or condition list: NCT07224581 (Beeline, radiprodil, GoF variants in GRIN1/GRIN2A/GRIN2B/ GRIN2D), NCT07377032 (TAP-GRIN, L-serine, LoF variants in the same four genes) and NCT05818943 (Honeycomb, radiprodil, GRIN GoF). All three are curated in `clinical_trials` below.
+(4) Unverifiable percentages deliberately omitted. The report carries cohort frequencies (hypotonia 9/13, cerebral visual impairment 5/13, cortical atrophy 5/11, autism-spectrum features 4/13, multifocal discharges 5/12, hypsarrhythmia 4/12, median seizure onset 6.5 months, ~75% refractory) attributed to page ranges of Camp &amp; Yuan 2020 and XiangWei 2019. Those numbers are not present in the cached abstracts of either paper, so none of them is curated as an evidence-backed frequency. `frequency:` values on phenotypes below are the coarse enum bands supportable from the quoted text, not those percentages. The phenotypes those percentages describe are curated, sourced to the GeneReviews statement that the disorder is characterized by them, and carry no `frequency:` value. Two *treatments* are omitted for the same reason: the report attributes vagus-nerve stimulation (&#34;partial control in one patient&#34;) and ACTH for epileptic spasms to those same page ranges, and neither term occurs anywhere in the cached body of any of the seventeen references this entry cites — the fourteen PubMed records and the three ClinicalTrials.gov records were each grepped for &#34;vagus&#34;, &#34;VNS&#34;, &#34;ACTH&#34;, &#34;adrenocorticotrop&#34; and &#34;corticotropin&#34;, with zero hits. Both are plausible interventions in an infantile spasms phenotype, so this records a sourcing gap rather than a judgement that they are not used; either becomes curatable as soon as a citable full text states it.
+(5) Report sources not used. The report cites Kutluk &amp; Randa 2021 (doi:10.30565/medalanya.891938) for several memantine dosing claims; that DOI has no PubMed record and could not be resolved to a PMID, so it is not cited here. Song et al. 2024 (PMID:37649269) is cited by the report in a GRIN2D-adjacent context, but its cached full text contains zero occurrences of &#34;GRIN2D&#34; — it tested GRIN1/GRIN2A/GRIN2B M2-loop variants — so it is not used to support any GRIN2D claim. Kearney 2017 (PMID:28491004) cached as `content_type: unavailable` and is likewise not quoted.
+(6) Relationship to sibling entries. This entry is deliberately complementary to `GRIN2B-Related_Developmental_and_Epileptic_Encephalopathy` (DEE27) rather than a restatement of it: GluN2D has a distinct developmental expression window and roughly ten-fold weaker magnesium block than GluN2A/GluN2B, GRIN2D null variants have not been reported in humans (unlike GRIN2B, where truncating alleles and whole-gene deletions are an established loss-of-function route), and the GRIN2D disease-allele spectrum is dominated by one recurrent M3 gain-of-function substitution.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Address review on PR #10899</strong> · 2026-09-04T06:13:15Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Developmental_And_Epileptic_Encephalopathy_46/2026-09-04T061315Z-claude-code-3e9529.yaml">View source</a></p>
+                        <p class="research-review-text">Addressed the four IMPORTANT findings in the CHANGES_REQUESTED review of PR #10899.
+
+GeneReviews mined. PMID:35914066 was tagged in references: but never quoted, on the stated grounds that its cache is content_type: abstract_only and therefore unquotable. That rationale was factually wrong: content_type records how the record was fetched, not whether it carries text, and the cache&#39;s ## Content section holds the complete four-section GeneReviews summary in full sentences. The same label sits on PMID:31918992, which this entry already quotes five times. The notes paragraph asserting the opposite has been rewritten to say what is true, and the chapter is now cited across all four sections: Clinical Characteristics (tone, movement, autism, cerebral visual impairment, sleep, feeding phenotypes, plus the 22-published-case count under prevalence), Diagnosis/Testing (Molecular Genetic Testing), Management (Developmental and Supportive Care, including the no-cure statement), and Genetic Counseling (the 1 percent sib recurrence risk from possible parental mosaicism on the autosomal dominant inheritance block, and the prenatal/preimplantation testing option on the Genetic Counseling treatment).
+
+GeneReviews-documented phenotypes added. Seven new phenotypes, each bound to a CURIE re-derived against OLS with the canonical label in term.label: Spasticity (HP:0001257), Dystonia (HP:0001332), Chorea (HP:0002072), Autistic behavior (HP:0000729, preferred_term autism spectrum disorder), Cerebral visual impairment (HP:0100704, preferred_term cortical visual impairment - the canonical label is Cerebral, not cortical), Sleep disturbance (HP:0002360) and Feeding difficulties (HP:0011968). The cerebral visual impairment omission was an internal inconsistency: the entry&#39;s own description already asserted the finding. None carries a frequency: value - the decision not to import the deep-research report&#39;s untraceable cohort percentages is preserved and is now stated explicitly in notes item 4. All seven are wired into the pathograph as INDIRECT_UNKNOWN_INTERMEDIATES downstream of Impaired Activity-Dependent Synaptic Maturation, matching the existing Hypotonia edge; the pre-existing orphan Movement disorder phenotype was connected in the same pass.
+
+Claim-evidence mismatch repaired. On the Reduced GluN2D Receptor Surface Expression node, the PMID:34560056 snippet quoted &#39;Functional analysis of variants introduced into GRIN2D cDNA have shown gain of function characteristics&#39; - which asserts the opposite branch. Re-quoted to the continuation of the same cached sentence, &#39;possibly with a compensatory reduced expression&#39;, which bears on the node. The gain-of-function half of that sentence was moved to the NMDA Receptor Gain-of-Function node, graded IN_VITRO, so the review statement is not lost.
+
+Mouse-model evidence regraded. Six evidence items citing PMID:40200555 and PMID:40277233 - both knock-in mouse studies - were graded HUMAN_CLINICAL and are now MODEL_ORGANISM. The review named five; the sixth (Movement disorder, PMID:40277233) is the identical defect and was fixed with them. Two phenotypes were left with only model-organism support by the regrade: Hypotonia and Movement disorder now both carry the GeneReviews human sentence as their primary source, which is what makes the regrade safe.
+
+Validation: just validate, count-verified-snippets (92/92), validate-terms, check-entity-refs, check-causal-targets, check-duplicate-keys, check-enum-values, check-qualifier-terms and validate-disorders all pass. Whole-KB baseline gates check-folded-hyphens, check-snippet-length, check-title-snippets, check-snippet-grading, check-environmental-evidence and check-not4curation report no new defects; no baseline was edited. pytest tests/test_data.py filtered to entity-ref/causal/phenotype/subtype/unique/readout tests: 16061 passed. git status shows no references_cache/ or cache/ churn.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Developmental_And_Epileptic_Encephalopathy_46</strong> · 2026-09-04T05:11:18Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Developmental_And_Epileptic_Encephalopathy_46/2026-09-04T051118Z-claude-code-52273d.yaml">View source</a></p>
+                        <p class="research-review-text">New Mendelian entry for DEE46 / GRIN2D-related developmental and epileptic
+encephalopathy (MONDO:0014947, causal gene hgnc:4588 GRIN2D).
+
+RESEARCH PROVENANCE. Two deep-research runs were commissioned for this
+disease. The FIRST run returned a report about the wrong gene entirely: it
+researched GRIA2 (AMPA receptor GluA2) and never mentioned GRIN2D once. That
+report was discarded and NOT committed. The run was repeated with a
+disambiguated prompt naming GRIN2D and the GluN2D subunit explicitly, and it
+is that corrected report
+(research/Developmental_And_Epileptic_Encephalopathy_46-deep-research-falcon.md,
+GRIN2D mentioned 44 times) that this entry was curated against. Four
+references_cache/DOI_*.md files left behind by the discarded GRIA2 run
+(10.1038/s41467-019-10910-w, 10.1101/mcs.a006172, 10.1111/cge.14770,
+10.3390/ijms252211982) were deliberately left uncommitted, since they belong
+to no committed report. Because of that history, every substantive claim was
+checked to be about GRIN2D and not a neighbouring glutamate-receptor
+disorder before curation.
+
+STRUCTURE. The entry is organised around the gain-of-function versus
+loss-of-function branch point rather than a single &#34;altered NMDA receptor
+function&#34; step, because the therapeutic implication inverts between the two
+branches. Pathograph: 30 nodes, 28 edges, orphan_targets empty (verified
+directly via dismech.graph.build_causal_graph). Conformance declared against
+glutamate_excitotoxicity (Glutamate Receptor Overactivation and Calcium
+Overload; Excitotoxic Neuronal Death) and
+epilepsy_excitation_inhibition_imbalance (Ion Channel and Synaptic
+Dysfunction; Excitation-Inhibition Imbalance; Neuronal Hyperexcitability and
+Hypersynchrony). Treatments carry target_mechanisms back into the pathograph:
+memantine and ketamine+magnesium against NMDA Receptor Gain-of-Function,
+conventional antiseizure medication and perampanel against the downstream
+network node. Two mouse knock-in models and a patient-derived iPSC line carry
+modeled_mechanisms with readouts.
+
+EVIDENCE DISCIPLINE. 75 evidence snippets, all exact substrings of cached
+references. The memantine block deliberately carries a REFUTE item: three
+individuals with the identical p.Val667Ile variant had divergent outcomes in
+the 2026 multicentre GRIN series (PMID:41489401), one with seizure worsening.
+Cross-GRIN response rates from that series are graded directness: INDIRECT
+because only three of 34 individuals were GRIN2D. The mouse ketamine
+proconvulsant result (PMID:40277233) is a second REFUTE item and drives a
+HUMAN_MODEL_MISMATCH discussion.
+
+REPORT CORRECTIONS. (a) Four report-proposed HP CURIEs named a different
+concept while the report&#39;s own Term Validation section reported them clean:
+HP:0002063 offered as &#34;drug-resistant epilepsy&#34; is actually Rigidity
+(replaced with HP:0020174 Refractory drug response); HP:0002069 labelled
+&#34;generalized tonic-clonic seizure&#34; is Bilateral tonic-clonic seizure;
+HP:0002079 labelled &#34;thin corpus callosum&#34; is Hypoplasia of the corpus
+callosum; HP:0000733 labelled &#34;stereotypy&#34; is Motor stereotypy. HP:0100704
+was labelled &#34;cortical visual impairment&#34; against canonical Cerebral visual
+impairment. (b) The report states no relevant interventional trial exists; a
+direct ClinicalTrials.gov API search found NCT07224581 and NCT07377032, both
+naming GRIN2D explicitly, plus NCT05818943. All three curated. (c)
+Frontmatter mondo_id was empty (dismech#10335); just preflight-dr was run
+manually against MONDO:0014947 and passed. (d) The report carries zero PMIDs;
+all DOIs were resolved via the PMC ID converter and cited as PMIDs.
+10.30565/medalanya.891938 has no PubMed record, so the memantine dosing
+figures it sourced were dropped rather than carried over unsourced. (e) Song
+et al. 2024 (PMID:37649269) is cited by the report in GRIN2D context but its
+cached full text contains zero occurrences of &#34;GRIN2D&#34;; not used. (f) Cohort
+percentages attributed to page ranges of Camp &amp; Yuan 2020 and XiangWei 2019
+are absent from those papers&#39; cached abstracts and were not curated.
+
+CURATOR-INTRODUCED CURIE ERRORS, caught by just validate-terms: NCIT:C15282
+(Oriental Medicine, not Immunotherapy) replaced with NCIT:C62710
+Immunoglobulin Therapy; NCIT:C15607 (Clinical Diagnosis, not Differential
+Diagnosis) replaced with NCIT:C25294 Laboratory Procedure and the diagnosis
+entry renamed accordingly.
+
+GENEREVIEWS. PMID:35914066 (GRIN2D-Related Developmental and Epileptic
+Encephalopathy) is tagged in references: with the GeneReviews tag. Its cache
+record is content_type: abstract_only, so nothing is quoted from it; that is
+stated in the entry notes together with the phenotypes it summarises that are
+consequently not curated (spasticity, dystonia/chorea, sleep disorder, the
+&#34;22 individuals reported&#34; count).
+
+CACHE CHANGE. references_cache/PMID_41489401.md moved from abstract_only to
+full_text_xml on re-fetch. The GRIN2D-specific memantine outcomes are in the
+PMC full text, not the abstract. Added content is a superset, so the snippet
+cited by the existing GRIN2B entry still matches.
+
+NON-DUPLICATION. GRIN2B-Related_Developmental_and_Epileptic_Encephalopathy
+(DEE27) was read before writing. Complementarity is recorded in this entry&#39;s
+notes: GluN2D&#39;s distinct developmental expression window and ~10-fold weaker
+magnesium block, the absence of any reported truncating GRIN2D allele in
+affected individuals, and the dominance of one recurrent M3 substitution.
+
+VALIDATION. just validate, just validate-disorders, count-verified-snippets
+(75/75), validate-terms, check-entity-refs, check-causal-targets,
+check-duplicate-keys, check-qualifier-terms (offline and --online),
+check-enum-values, check-folded-hyphens, check-snippet-length,
+check-title-snippets, check-snippet-grading, check-environmental-evidence,
+check-not4curation, check-term-cache-integrity — all clean, no baseline
+updated. Two folded-hyphen splits introduced by this entry were fixed by
+rephrasing rather than baselining.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

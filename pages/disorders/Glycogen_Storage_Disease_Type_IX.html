@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4169,6 +4237,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4190,6 +4259,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4260,6 +4330,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4389,6 +4460,7 @@ This subtype is caused by variation in PHKA2 (hgnc:8926). hgnc:8926 is a gene fr
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4410,6 +4482,7 @@ This subtype is caused by variation in PHKA2 (hgnc:8926). hgnc:8926 is a gene fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4500,6 +4573,7 @@ This subtype is caused by variation in PHKA2 (hgnc:8926). hgnc:8926 is a gene fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4521,6 +4595,7 @@ This subtype is caused by variation in PHKA2 (hgnc:8926). hgnc:8926 is a gene fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4611,6 +4686,7 @@ This subtype is caused by variation in PHKB (hgnc:8927). hgnc:8927 is a gene fro
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4635,6 +4711,7 @@ This subtype is caused by variation in PHKB (hgnc:8927). hgnc:8927 is a gene fro
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4656,6 +4733,7 @@ This subtype is caused by variation in PHKB (hgnc:8927). hgnc:8927 is a gene fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4746,6 +4824,7 @@ This subtype is caused by variation in PHKG2 (hgnc:8931). hgnc:8931 is a gene fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4767,6 +4846,7 @@ This subtype is caused by variation in PHKG2 (hgnc:8931). hgnc:8931 is a gene fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4857,6 +4937,7 @@ This subtype is caused by variation in PHKA1 (hgnc:8925). hgnc:8925 is a gene fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4878,6 +4959,7 @@ This subtype is caused by variation in PHKA1 (hgnc:8925). hgnc:8925 is a gene fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5028,6 +5110,7 @@ This subtype is caused by variation in PHKA1 (hgnc:8925). hgnc:8925 is a gene fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5049,6 +5132,7 @@ This subtype is caused by variation in PHKA1 (hgnc:8925). hgnc:8925 is a gene fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5173,6 +5257,7 @@ This subtype is caused by variation in PHKA1 (hgnc:8925). hgnc:8925 is a gene fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5194,6 +5279,7 @@ This subtype is caused by variation in PHKA1 (hgnc:8925). hgnc:8925 is a gene fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5231,6 +5317,7 @@ This subtype is caused by variation in PHKA1 (hgnc:8925). hgnc:8925 is a gene fr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-phosphorylase-kinase-subunit-deficiency" data-dismech-node="Phosphorylase Kinase Subunit Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Phosphorylase Kinase Subunit Deficiency</div>
+
 
                 <div class="item-desc">Pathogenic variants in a gene encoding one of the phosphorylase kinase (PhK) subunits reduce or abolish holoenzyme activity. PhK is a heterotetramer of four copies each of an alpha, beta, gamma and delta subunit; the gamma subunit carries the catalytic site and the alpha, beta and delta (calmodulin) subunits regulate it. Tissue-specific isoforms mean the resulting deficiency is confined to liver, to muscle, or to both, depending on which subunit gene is affected.</div>
 
@@ -5490,6 +5577,7 @@ This pathophysiological event involves decreased phosphorylase kinase activity (
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5511,6 +5599,7 @@ This pathophysiological event involves decreased phosphorylase kinase activity (
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5538,6 +5627,7 @@ This pathophysiological event involves decreased phosphorylase kinase activity (
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5560,6 +5650,7 @@ This pathophysiological event involves decreased phosphorylase kinase activity (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-to-activate-hepatic-glycogen-phosphorylase" data-dismech-node="Failure to Activate Hepatic Glycogen Phosphorylase" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure to Activate Hepatic Glycogen Phosphorylase</div>
+
 
                 <div class="item-desc">Without PhK-mediated phosphorylation, hepatic glycogen phosphorylase remains in the inactive b form. The defect is therefore regulatory rather than catalytic: the phosphorylase enzyme itself is intact but cannot be switched on, which is what makes GSD IX clinically almost indistinguishable from GSD VI, where phosphorylase itself is deficient.</div>
 
@@ -5685,6 +5776,7 @@ This pathophysiological event involves decreased glycogen phosphorylase activity
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5706,6 +5798,7 @@ This pathophysiological event involves decreased glycogen phosphorylase activity
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5731,6 +5824,7 @@ This pathophysiological event involves decreased glycogen phosphorylase activity
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-hepatic-glycogenolysis" data-dismech-node="Impaired Hepatic Glycogenolysis" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Hepatic Glycogenolysis</div>
+
 
                 <div class="item-desc">The committed step of hepatic glycogen breakdown is blocked, so stored glycogen cannot be mobilised to glucose during fasting and accumulates within the hepatocyte.</div>
 
@@ -5864,6 +5958,7 @@ This pathophysiological event involves decreased glycogen catabolic process (GO:
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5885,6 +5980,7 @@ This pathophysiological event involves decreased glycogen catabolic process (GO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5910,6 +6006,7 @@ This pathophysiological event involves decreased glycogen catabolic process (GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hepatocellular-glycogen-accumulation" data-dismech-node="Hepatocellular Glycogen Accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Hepatocellular Glycogen Accumulation</div>
+
 
                 <div class="item-desc">Undegraded glycogen accumulates within hepatocytes, expanding the liver and providing the substrate load behind hepatomegaly and, over time, hepatocellular stress.</div>
 
@@ -6005,6 +6102,7 @@ This pathophysiological event involves Hepatocyte (CL:0000182). CL:0000182 is a 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6026,6 +6124,7 @@ This pathophysiological event involves Hepatocyte (CL:0000182). CL:0000182 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6051,6 +6150,7 @@ This pathophysiological event involves Hepatocyte (CL:0000182). CL:0000182 is a 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fasting-hepatic-glucose-output-deficit" data-dismech-node="Fasting Hepatic Glucose Output Deficit" data-dismech-type="pathophysiology">
                 <div class="item-name">Fasting Hepatic Glucose Output Deficit</div>
+
 
                 <div class="item-desc">With glycogenolysis blocked, fasting blood glucose depends on gluconeogenesis alone. Gluconeogenesis is intact in GSD IX, which is the decisive physiological difference from GSD I: hypoglycaemia is usually milder and lactate and urate are typically normal rather than raised.</div>
 
@@ -6188,6 +6288,7 @@ This pathophysiological event involves gluconeogenesis (GO:0006094). GO:0006094 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6209,6 +6310,7 @@ This pathophysiological event involves gluconeogenesis (GO:0006094). GO:0006094 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6236,6 +6338,7 @@ This pathophysiological event involves gluconeogenesis (GO:0006094). GO:0006094 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6258,6 +6361,7 @@ This pathophysiological event involves gluconeogenesis (GO:0006094). GO:0006094 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-compensatory-fatty-acid-oxidation-and-ketogenesis" data-dismech-node="Compensatory Fatty Acid Oxidation and Ketogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Compensatory Fatty Acid Oxidation and Ketogenesis</div>
+
 
                 <div class="item-desc">Reduced glucose availability shifts fuel use toward fat, raising ketone bodies and circulating lipids. Ketosis can be present even when blood glucose is near normal, so it is monitored as a treatment target in its own right.</div>
 
@@ -6327,6 +6431,7 @@ This pathophysiological event involves gluconeogenesis (GO:0006094). GO:0006094 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6348,6 +6453,7 @@ This pathophysiological event involves gluconeogenesis (GO:0006094). GO:0006094 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6373,6 +6479,7 @@ This pathophysiological event involves gluconeogenesis (GO:0006094). GO:0006094 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hepatocellular-injury-and-progressive-liver-fibrosis" data-dismech-node="Hepatocellular Injury and Progressive Liver Fibrosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Hepatocellular Injury and Progressive Liver Fibrosis</div>
+
 
                 <div class="item-desc">Chronic hepatocellular stress raises transaminases and, in a substantial minority, progresses through steatosis and fibrosis to cirrhosis. The risk is not uniform across the subtypes: it is concentrated in PHKG2-related disease, where cirrhosis may appear in the first years of life.</div>
 
@@ -6484,6 +6591,7 @@ This pathophysiological event involves Hepatocyte (CL:0000182). CL:0000182 is a 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6505,6 +6613,7 @@ This pathophysiological event involves Hepatocyte (CL:0000182). CL:0000182 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6530,6 +6639,7 @@ This pathophysiological event involves Hepatocyte (CL:0000182). CL:0000182 is a 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-skeletal-muscle-glycogenolysis" data-dismech-node="Impaired Skeletal Muscle Glycogenolysis" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Skeletal Muscle Glycogenolysis</div>
+
 
                 <div class="item-desc">In the muscle arm of the disease, PhK deficiency in skeletal muscle blocks activation of muscle glycogen phosphorylase, so muscle cannot mobilise its own glycogen during exertion. This arm is much rarer than the hepatic forms and is caused chiefly by PHKA1 variants. Note that PHKB variants also reduce muscle PhK activity, yet muscle symptoms in PHKB-related disease are typically mild or absent, so reduced muscle enzyme activity and clinical myopathy are not equivalent here.</div>
 
@@ -6671,6 +6781,7 @@ This pathophysiological event involves decreased glycogen catabolic process (GO:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6692,6 +6803,7 @@ This pathophysiological event involves decreased glycogen catabolic process (GO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6814,6 +6926,9 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6828,6 +6943,7 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6882,6 +6998,9 @@ This clinical feature is Hepatic steatosis (HP:0001397). HP:0001397 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6896,6 +7015,7 @@ This clinical feature is Hepatic steatosis (HP:0001397). HP:0001397 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6950,6 +7070,9 @@ This clinical feature is Hepatic fibrosis (HP:0001395). HP:0001395 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6964,6 +7087,7 @@ This clinical feature is Hepatic fibrosis (HP:0001395). HP:0001395 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7018,6 +7142,9 @@ This clinical feature is Cirrhosis (HP:0001394). HP:0001394 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7032,6 +7159,7 @@ This clinical feature is Cirrhosis (HP:0001394). HP:0001394 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7095,6 +7223,9 @@ This clinical feature is Myoglobinuria (HP:0002913). HP:0002913 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7109,6 +7240,7 @@ This clinical feature is Myoglobinuria (HP:0002913). HP:0002913 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7176,6 +7308,9 @@ This clinical feature is Elevated circulating hepatic transaminase concentration
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7190,6 +7325,7 @@ This clinical feature is Elevated circulating hepatic transaminase concentration
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7246,6 +7382,9 @@ This clinical feature is Hypertriglyceridemia (HP:0002155). HP:0002155 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7260,6 +7399,7 @@ This clinical feature is Hypertriglyceridemia (HP:0002155). HP:0002155 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7316,6 +7456,9 @@ This clinical feature is Hypercholesterolemia (HP:0003124). HP:0003124 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7330,6 +7473,7 @@ This clinical feature is Hypercholesterolemia (HP:0003124). HP:0003124 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7386,6 +7530,9 @@ This clinical feature is Ketotic hypoglycemia (HP:0012734). HP:0012734 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7400,6 +7547,7 @@ This clinical feature is Ketotic hypoglycemia (HP:0012734). HP:0012734 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7424,6 +7572,7 @@ This clinical feature is Ketotic hypoglycemia (HP:0012734). HP:0012734 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7478,6 +7627,9 @@ This clinical feature is Ketosis (HP:0001946). HP:0001946 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7492,6 +7644,7 @@ This clinical feature is Ketosis (HP:0001946). HP:0001946 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7550,6 +7703,9 @@ This clinical feature is Increased circulating lactate concentration (HP:0002151
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7564,6 +7720,7 @@ This clinical feature is Increased circulating lactate concentration (HP:0002151
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7588,6 +7745,7 @@ This clinical feature is Increased circulating lactate concentration (HP:0002151
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7651,6 +7809,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7665,6 +7826,7 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7721,6 +7883,9 @@ This clinical feature is Muscle cramps, annotated with Muscle spasm (HP:0003394)
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7735,6 +7900,7 @@ This clinical feature is Muscle cramps, annotated with Muscle spasm (HP:0003394)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7798,6 +7964,9 @@ This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7812,6 +7981,7 @@ This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7875,6 +8045,9 @@ This clinical feature is Exercise intolerance (HP:0003546). HP:0003546 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7889,6 +8062,7 @@ This clinical feature is Exercise intolerance (HP:0003546). HP:0003546 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7954,6 +8128,9 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7968,6 +8145,7 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8022,6 +8200,9 @@ This clinical feature is Growth delay (HP:0001510). HP:0001510 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8036,6 +8217,7 @@ This clinical feature is Growth delay (HP:0001510). HP:0001510 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8130,6 +8312,9 @@ This disease-associated gene is PHKA2 (hgnc:8926). hgnc:8926 is a gene from the 
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">X-linked recessive</span>
@@ -8155,6 +8340,7 @@ This disease-associated gene is PHKA2 (hgnc:8926). hgnc:8926 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8176,6 +8362,7 @@ This disease-associated gene is PHKA2 (hgnc:8926). hgnc:8926 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8229,6 +8416,9 @@ This disease-associated gene is PHKB (hgnc:8927). hgnc:8927 is a gene from the H
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive</span>
@@ -8251,6 +8441,7 @@ This disease-associated gene is PHKB (hgnc:8927). hgnc:8927 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8304,6 +8495,9 @@ This disease-associated gene is PHKG2 (hgnc:8931). hgnc:8931 is a gene from the 
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive</span>
@@ -8329,6 +8523,7 @@ This disease-associated gene is PHKG2 (hgnc:8931). hgnc:8931 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8350,6 +8545,7 @@ This disease-associated gene is PHKG2 (hgnc:8931). hgnc:8931 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8403,6 +8599,9 @@ This disease-associated gene is PHKA1 (hgnc:8925). hgnc:8925 is a gene from the 
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">X-linked recessive</span>
@@ -8425,6 +8624,7 @@ This disease-associated gene is PHKA1 (hgnc:8925). hgnc:8925 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8533,6 +8733,9 @@ This treatment uses cornstarch, annotated with starch (CHEBI:28017). CHEBI:28017
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8543,6 +8746,9 @@ This treatment uses cornstarch, annotated with starch (CHEBI:28017). CHEBI:28017
 
 
     </div>
+
+
+
 
 
 
@@ -8579,6 +8785,7 @@ This treatment uses cornstarch, annotated with starch (CHEBI:28017). CHEBI:28017
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8647,6 +8854,7 @@ This treatment targets Ketotic hypoglycemia (HP:0012734). HP:0012734 is a phenot
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8668,6 +8876,7 @@ This treatment targets Ketotic hypoglycemia (HP:0012734). HP:0012734 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8735,6 +8944,9 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8745,6 +8957,9 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
     </div>
+
+
+
 
 
 
@@ -8781,6 +8996,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8866,6 +9082,7 @@ This treatment targets Growth delay (HP:0001510). HP:0001510 is a phenotype from
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8930,6 +9147,9 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8940,6 +9160,9 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
     </div>
+
+
+
 
 
 
@@ -8976,6 +9199,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9019,6 +9243,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9086,6 +9311,9 @@ This treatment is organ transplantation (NCIT:C15289). NCIT:C15289 is a clinical
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9096,6 +9324,9 @@ This treatment is organ transplantation (NCIT:C15289). NCIT:C15289 is a clinical
 
 
     </div>
+
+
+
 
 
 
@@ -9145,6 +9376,7 @@ This treatment targets Cirrhosis (HP:0001394). HP:0001394 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9212,6 +9444,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9222,6 +9457,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -9252,6 +9490,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9273,6 +9512,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9342,6 +9582,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9363,6 +9604,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9467,6 +9709,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9488,6 +9731,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9547,6 +9791,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9568,6 +9813,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9660,6 +9906,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9727,6 +9974,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9748,6 +9996,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9803,6 +10052,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9824,6 +10074,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9879,6 +10130,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9900,6 +10152,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9976,6 +10229,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9997,6 +10251,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10050,6 +10305,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4241,6 +4309,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4265,6 +4334,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4286,6 +4356,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4399,6 +4470,7 @@ This subtype is caused by variation in EYA1 (hgnc:3519). hgnc:3519 is a gene fro
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4479,6 +4551,7 @@ This subtype is caused by variation in EYA1 (hgnc:3519). hgnc:3519 is a gene fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4753,6 +4826,7 @@ This subtype is caused by variation in EYA1 (hgnc:3519). hgnc:3519 is a gene fro
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-eya1-loss-of-function-variant" data-dismech-node="EYA1 Loss-of-Function Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">EYA1 Loss-of-Function Variant</div>
 
+
                 <div class="item-desc">A heterozygous pathogenic EYA1 variant — nonsense, frameshift, splice-site, missense, or a whole- or partial-gene deletion arising from complex genomic rearrangement. Missense variants cluster in the highly conserved C-terminal 271-amino-acid Eya homologous region (eyaHR), the domain that mediates SIX1 binding and carries the phosphatase activity, which is why coding-sequence analysis alone misses a substantial minority of cases.</div>
 
 
@@ -4805,6 +4879,8 @@ This genetic context concerns EYA1 (hgnc:3519). hgnc:3519 is a gene from the HUG
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4817,6 +4893,9 @@ This genetic context concerns EYA1 (hgnc:3519). hgnc:3519 is a gene from the HUG
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Heterozygous germline loss-of-function alleles. Point mutations and copy-number losses both occur, and both act by reducing functional EYA1 dosage rather than by producing a toxic product.</div>
 
@@ -4866,6 +4945,7 @@ This genetic context concerns EYA1 (hgnc:3519). hgnc:3519 is a gene from the HUG
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4887,6 +4967,7 @@ This genetic context concerns EYA1 (hgnc:3519). hgnc:3519 is a gene from the HUG
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4914,6 +4995,7 @@ This genetic context concerns EYA1 (hgnc:3519). hgnc:3519 is a gene from the HUG
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4936,6 +5018,7 @@ This genetic context concerns EYA1 (hgnc:3519). hgnc:3519 is a gene from the HUG
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-eya1-haploinsufficiency" data-dismech-node="EYA1 Haploinsufficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">EYA1 Haploinsufficiency</div>
+
 
                 <div class="item-desc">Reduction of functional EYA1 protein below the dosage threshold required for normal development. Dosage sensitivity is the operative mechanism: an allelic series in mouse showed that roughly 20% of normal Eya1 protein suffices to establish the metanephric blastema and induce ureteric bud formation, but not to support its normal branching — so different EYA1-dependent developmental steps have different dosage thresholds. This graded-threshold behaviour is a mechanistically plausible substrate for the variable expressivity seen clinically, though it has not been shown to be its cause in humans.</div>
 
@@ -5052,6 +5135,7 @@ This pathophysiological event involves EYA1 (hgnc:3519). hgnc:3519 is a gene fro
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5073,6 +5157,7 @@ This pathophysiological event involves EYA1 (hgnc:3519). hgnc:3519 is a gene fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5100,6 +5185,7 @@ This pathophysiological event involves EYA1 (hgnc:3519). hgnc:3519 is a gene fro
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5122,6 +5208,7 @@ This pathophysiological event involves EYA1 (hgnc:3519). hgnc:3519 is a gene fro
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-eya1-six1-transcriptional-coactivation" data-dismech-node="Failure of EYA1-SIX1 Transcriptional Coactivation" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of EYA1-SIX1 Transcriptional Coactivation</div>
+
 
                 <div class="item-desc">EYA1 is a transcriptional coactivator that cannot bind DNA itself; it is recruited to target promoters by the SIX1 homeodomain transcription factor. EYA proteins additionally carry an intrinsic protein tyrosine phosphatase activity, and it is that enzymatic activity which switches the SIX1-DACH complex from repression to activation. Reduced EYA1 dosage therefore withdraws activation from the SIX1-dependent gene programme that controls precursor cell proliferation and survival across several organ primordia, which is why one gene defect produces a multi-organ malformation bundle.</div>
 
@@ -5283,6 +5370,7 @@ This pathophysiological event involves decreased EYA1 protein tyrosine phosphata
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5304,6 +5392,7 @@ This pathophysiological event involves decreased EYA1 protein tyrosine phosphata
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5331,6 +5420,7 @@ This pathophysiological event involves decreased EYA1 protein tyrosine phosphata
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5355,6 +5445,7 @@ This pathophysiological event involves decreased EYA1 protein tyrosine phosphata
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-second-pharyngeal-arch-dysmorphogenesis" data-dismech-node="Second Pharyngeal Arch Dysmorphogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Second Pharyngeal Arch Dysmorphogenesis</div>
+
 
                 <div class="item-desc">Failure of normal development and obliteration of the second pharyngeal (branchial) cleft and pouch, leaving epithelium-lined remnants that present as lateral cervical fistulae, sinuses or cysts, and disturbed development of the arch-derived external ear, producing preauricular pits and tags. The second-arch defect dominates and gives the disorder its name, but the EYA1-dependent programme is not confined to that arch: the auricle forms from first- and second-arch hillocks and the external auditory canal from the first pharyngeal cleft, so external-ear canal anomalies belong to this node even though they are not strictly second-arch derivatives. The node is named for the predominant lesion rather than the full anatomical extent.</div>
 
@@ -5491,6 +5582,7 @@ This pathophysiological event occurs in second pharyngeal arch, annotated with p
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5513,6 +5605,7 @@ This pathophysiological event occurs in second pharyngeal arch, annotated with p
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-otic-placode-and-inner-ear-developmental-arrest" data-dismech-node="Otic Placode and Inner Ear Developmental Arrest" data-dismech-type="pathophysiology">
                 <div class="item-name">Otic Placode and Inner Ear Developmental Arrest</div>
+
 
                 <div class="item-desc">EYA1 is expressed from the emergence of the otic placode and is required for development of all components of the inner ear. In the mouse null, inner ear development arrests at the otic vesicle stage and all inner ear components and specific cranial sensory ganglia fail to form; heterozygotes show conductive hearing loss resembling the human disorder. In humans the corresponding lesion is a graded malformation — cochlear hypoplasia, dysplastic semicircular canals, dilated internal auditory canal, enlarged vestibular aqueduct, and a deformed ossicular chain — rather than a complete developmental arrest.</div>
 
@@ -5716,6 +5809,7 @@ This pathophysiological event occurs in otic placode (UBERON:0003069). UBERON:00
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5737,6 +5831,7 @@ This pathophysiological event occurs in otic placode (UBERON:0003069). UBERON:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5764,6 +5859,7 @@ This pathophysiological event occurs in otic placode (UBERON:0003069). UBERON:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5786,6 +5882,7 @@ This pathophysiological event occurs in otic placode (UBERON:0003069). UBERON:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-metanephric-mesenchyme-specification-failure" data-dismech-node="Metanephric Mesenchyme Specification Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Metanephric Mesenchyme Specification Failure</div>
+
 
                 <div class="item-desc">EYA1 specifies the metanephric blastema within the intermediate mesoderm and functions at the top of the genetic hierarchy controlling kidney organogenesis, acting with SIX1 and PAX2 to drive Gdnf expression. Gdnf directs ureteric bud outgrowth via c-Ret; in the Eya1 null it is not detected in metanephric mesenchyme and the ureteric bud never forms. In humans the partial (heterozygous) equivalent produces the CAKUT spectrum rather than bilateral agenesis. This branch is variably penetrant, and its presence or absence is what the BOR1/BOS1 clinical labels record.</div>
 
@@ -5986,6 +6083,7 @@ This pathophysiological event occurs in metanephric mesenchyme (UBERON:0003220).
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6010,6 +6108,7 @@ This pathophysiological event occurs in metanephric mesenchyme (UBERON:0003220).
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6031,6 +6130,7 @@ This pathophysiological event occurs in metanephric mesenchyme (UBERON:0003220).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6145,6 +6245,9 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6159,6 +6262,7 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6215,6 +6319,9 @@ This clinical feature is Mixed hearing impairment (HP:0000410). HP:0000410 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6229,6 +6336,7 @@ This clinical feature is Mixed hearing impairment (HP:0000410). HP:0000410 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6283,6 +6391,9 @@ This clinical feature is Conductive hearing impairment (HP:0000405). HP:0000405 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6297,6 +6408,7 @@ This clinical feature is Conductive hearing impairment (HP:0000405). HP:0000405 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6351,6 +6463,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6365,6 +6480,7 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6421,6 +6537,9 @@ This clinical feature is Stenosis of the external auditory canal (HP:0000402). H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6435,6 +6554,7 @@ This clinical feature is Stenosis of the external auditory canal (HP:0000402). H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6489,6 +6609,9 @@ This clinical feature is Cochlear malformation (HP:0008554). HP:0008554 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6503,6 +6626,7 @@ This clinical feature is Cochlear malformation (HP:0008554). HP:0008554 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6557,6 +6681,9 @@ This clinical feature is Abnormal semicircular canal morphology (HP:0011380). HP
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6571,6 +6698,7 @@ This clinical feature is Abnormal semicircular canal morphology (HP:0011380). HP
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6625,6 +6753,9 @@ This clinical feature is Abnormality of the middle ear ossicles (HP:0004452). HP
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6639,6 +6770,7 @@ This clinical feature is Abnormality of the middle ear ossicles (HP:0004452). HP
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6703,6 +6835,9 @@ This clinical feature is Renal hypoplasia (HP:0000089). HP:0000089 is a phenotyp
                     </div>
 
 
+
+
+
                     <div class="item-desc">FREQUENCY CAVEAT. The 38.2% figure derives from clinically ascertained BOR/BOS cohorts that mix EYA1, SIX1 and molecularly unsolved cases, so it is a spectrum-level frequency and not an EYA1-specific penetrance estimate. Published renal-anomaly frequencies vary widely across series, and detection depends on whether renal imaging was performed at all — an ascertainment problem recorded as an open question in the `gap_eya1_renal_branch_penetrance` discussion. Treat the FREQUENT band as a coarse indication rather than a measured EYA1 penetrance.</div>
 
 
@@ -6722,6 +6857,7 @@ This clinical feature is Renal hypoplasia (HP:0000089). HP:0000089 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6746,6 +6882,7 @@ This clinical feature is Renal hypoplasia (HP:0000089). HP:0000089 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6800,6 +6937,9 @@ This clinical feature is Renal agenesis (HP:0000104). HP:0000104 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6814,6 +6954,7 @@ This clinical feature is Renal agenesis (HP:0000104). HP:0000104 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6868,6 +7009,9 @@ This clinical feature is Vesicoureteral reflux (HP:0000076). HP:0000076 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6882,6 +7026,7 @@ This clinical feature is Vesicoureteral reflux (HP:0000076). HP:0000076 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6936,6 +7081,9 @@ This clinical feature is Ureteropelvic junction obstruction (HP:0000074). HP:000
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6950,6 +7098,7 @@ This clinical feature is Ureteropelvic junction obstruction (HP:0000074). HP:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7004,6 +7153,9 @@ This clinical feature is Stage 5 chronic kidney disease (HP:0003774). HP:0003774
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7018,6 +7170,7 @@ This clinical feature is Stage 5 chronic kidney disease (HP:0003774). HP:0003774
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7083,6 +7236,9 @@ This clinical feature is Preauricular pit (HP:0004467). HP:0004467 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7097,6 +7253,7 @@ This clinical feature is Preauricular pit (HP:0004467). HP:0004467 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7151,6 +7308,9 @@ This clinical feature is Preauricular skin tag (HP:0000384). HP:0000384 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7165,6 +7325,7 @@ This clinical feature is Preauricular skin tag (HP:0000384). HP:0000384 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7221,6 +7382,9 @@ This clinical feature is Branchial fistula (HP:0009795). HP:0009795 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7235,6 +7399,7 @@ This clinical feature is Branchial fistula (HP:0009795). HP:0009795 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7335,6 +7500,9 @@ This disease-associated gene is EYA1 (hgnc:3519). hgnc:3519 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7349,6 +7517,7 @@ This disease-associated gene is EYA1 (hgnc:3519). hgnc:3519 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7408,6 +7577,9 @@ This disease-associated gene is SIX1 (hgnc:10887). hgnc:10887 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7422,6 +7594,7 @@ This disease-associated gene is SIX1 (hgnc:10887). hgnc:10887 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7446,6 +7619,7 @@ This disease-associated gene is SIX1 (hgnc:10887). hgnc:10887 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7505,6 +7679,9 @@ This disease-associated gene is SIX5 (hgnc:10891). hgnc:10891 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7519,6 +7696,7 @@ This disease-associated gene is SIX5 (hgnc:10891). hgnc:10891 is a gene from the
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -7543,6 +7721,7 @@ This disease-associated gene is SIX5 (hgnc:10891). hgnc:10891 is a gene from the
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -7629,6 +7808,9 @@ This treatment is excision of branchial cleft cyst or fistula, annotated with Su
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7639,6 +7821,9 @@ This treatment is excision of branchial cleft cyst or fistula, annotated with Su
 
 
     </div>
+
+
+
 
 
 
@@ -7688,6 +7873,7 @@ This treatment targets Branchial fistula (HP:0009795). HP:0009795 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7755,6 +7941,9 @@ This treatment is cochlear implantation, annotated with Surgical Procedure (NCIT
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7765,6 +7954,9 @@ This treatment is cochlear implantation, annotated with Surgical Procedure (NCIT
 
 
     </div>
+
+
+
 
 
 
@@ -7801,6 +7993,7 @@ This treatment is cochlear implantation, annotated with Surgical Procedure (NCIT
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7869,6 +8062,7 @@ This treatment targets Mixed hearing impairment (HP:0000410). HP:0000410 is a ph
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7890,6 +8084,7 @@ This treatment targets Mixed hearing impairment (HP:0000410). HP:0000410 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7925,6 +8120,9 @@ This treatment targets Mixed hearing impairment (HP:0000410). HP:0000410 is a ph
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7935,6 +8133,9 @@ This treatment targets Mixed hearing impairment (HP:0000410). HP:0000410 is a ph
 
 
     </div>
+
+
+
 
 
 
@@ -7984,6 +8185,7 @@ This treatment targets Mixed hearing impairment (HP:0000410). HP:0000410 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8051,6 +8253,9 @@ This treatment is nephrology and urology surveillance, annotated with Supportive
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8061,6 +8266,9 @@ This treatment is nephrology and urology surveillance, annotated with Supportive
 
 
     </div>
+
+
+
 
 
 
@@ -8097,6 +8305,7 @@ This treatment is nephrology and urology surveillance, annotated with Supportive
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8165,6 +8374,7 @@ This treatment targets Renal hypoplasia (HP:0000089). HP:0000089 is a phenotype 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8229,6 +8439,9 @@ This treatment is avoidance of ototoxic and nephrotoxic exposures, annotated wit
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8239,6 +8452,9 @@ This treatment is avoidance of ototoxic and nephrotoxic exposures, annotated wit
 
 
     </div>
+
+
+
 
 
 
@@ -8266,6 +8482,7 @@ This treatment is avoidance of ototoxic and nephrotoxic exposures, annotated wit
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8333,6 +8550,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8343,6 +8563,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -8370,6 +8593,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8437,6 +8661,9 @@ This treatment is kidney transplantation, annotated with Organ Transplantation (
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8447,6 +8674,9 @@ This treatment is kidney transplantation, annotated with Organ Transplantation (
 
 
     </div>
+
+
+
 
 
 
@@ -8496,6 +8726,7 @@ This treatment targets Stage 5 chronic kidney disease (HP:0003774). HP:0003774 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8570,6 +8801,7 @@ This treatment targets Stage 5 chronic kidney disease (HP:0003774). HP:0003774 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8652,6 +8884,7 @@ This treatment targets Stage 5 chronic kidney disease (HP:0003774). HP:0003774 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8702,6 +8935,7 @@ This treatment targets Stage 5 chronic kidney disease (HP:0003774). HP:0003774 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8760,6 +8994,7 @@ This treatment targets Stage 5 chronic kidney disease (HP:0003774). HP:0003774 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9135,6 +9370,7 @@ This treatment targets Stage 5 chronic kidney disease (HP:0003774). HP:0003774 i
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9174,6 +9410,7 @@ This treatment targets Stage 5 chronic kidney disease (HP:0003774). HP:0003774 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9253,6 +9490,7 @@ This treatment targets Stage 5 chronic kidney disease (HP:0003774). HP:0003774 i
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9292,6 +9530,7 @@ This treatment targets Stage 5 chronic kidney disease (HP:0003774). HP:0003774 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9371,6 +9610,7 @@ This treatment targets Stage 5 chronic kidney disease (HP:0003774). HP:0003774 i
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9410,6 +9650,7 @@ This treatment targets Stage 5 chronic kidney disease (HP:0003774). HP:0003774 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9602,6 +9843,7 @@ This experimental model concerns SIX1 (hgnc:10887). hgnc:10887 is a gene from th
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9641,6 +9883,7 @@ This experimental model concerns SIX1 (hgnc:10887). hgnc:10887 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9720,6 +9963,7 @@ This experimental model concerns SIX1 (hgnc:10887). hgnc:10887 is a gene from th
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9779,6 +10023,7 @@ This experimental model concerns SIX1 (hgnc:10887). hgnc:10887 is a gene from th
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9818,6 +10063,7 @@ This experimental model concerns SIX1 (hgnc:10887). hgnc:10887 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11835,6 +12081,19 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: EYA1-Related Branchiootorenal Spectrum Disorder, lumping BOS1 and BOR1</strong> · 2026-08-21T21:13:32Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/EYA1-Related_Branchiootorenal_Spectrum/2026-08-21T211332Z-claude-code-26a24b.yaml">View source</a></p>
+                        <p class="research-review-text">Curated MONDO:0011258 branchiootic syndrome 1 as one EYA1 gene-axis spectrum entry that also covers MONDO:0007236 branchiootorenal syndrome 1, with BOS1 and BOR1 as has_subtypes and both MONDO terms recorded as skos:narrowMatch. Lump rationale, also recorded in entry notes and the PR body: PMID:15141091 states EYA1 haploinsufficiency causes both BOR and BO syndromes; PMID:21280147 found no genotype-phenotype correlation and high phenotypic variability between and within families; GeneReviews PMID:20301554 is titled Branchiootorenal Spectrum Disorder and applies a single criteria set that does not require renal involvement; and MONDO&#39;s own branchiootic syndrome definition is subtractive, defined by absence of renal abnormalities. The split line is drawn by causal gene instead: SIX1 BOS3 is left as its own queue item, and SIX5 is recorded as DISPUTED per PMID:21280147 rather than treated as a causal gene. Deep research provider: falcon, report at research/EYA1-Related_Branchiootorenal_Spectrum-deep-research-falcon.md with 9 of 9 references resolved and confabulation_rate 0.0. NEC preflight returned WARN, reviewed and cleared: the flagged rival gene SIX1 is EYA1&#39;s obligate binding partner and the report OMIM 602588 matches the MONDO xref. The entry was built from independently fetched and snippet-verified primary literature rather than from the DR report; the report served as a cross-check and prompted three corrections, namely the SIX5 dispute, the mixed-cohort frequency caveat, and a softened middle-ear surgery claim. No module conformance is asserted; pharyngeal_arch_patterning_serial_homology, sensorineural_hair_cell_loss and renal_cystogenesis were each considered and rejected with reasons recorded in notes. Validation: just validate passed with 59 of 59 snippets verified against cached references; just validate-terms passed; check-folded-hyphens, check-duplicate-keys, check-snippet-length, check-title-snippets and check-environmental-evidence were all clean; just validate-disorders was run before opening the PR. Stubs for BOS1 and BOR1 were both deleted as now curated.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

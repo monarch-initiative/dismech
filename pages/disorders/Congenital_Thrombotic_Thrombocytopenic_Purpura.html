@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4144,6 +4212,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4227,6 +4296,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4248,6 +4318,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4345,6 +4416,7 @@ The mouse work says the same thing from the other direction, and narrows it usef
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4369,6 +4441,7 @@ The mouse work says the same thing from the other direction, and narrows it usef
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4390,6 +4463,7 @@ The mouse work says the same thing from the other direction, and narrows it usef
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4427,6 +4501,7 @@ The mouse work says the same thing from the other direction, and narrows it usef
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-adamts13-loss-of-function" data-dismech-node="Biallelic ADAMTS13 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic ADAMTS13 Loss of Function</div>
+
 
                 <div class="item-desc">Variants on both ADAMTS13 alleles abolish or severely reduce production of functional ADAMTS13 protein. ADAMTS13 is synthesised mainly in hepatic stellate cells and also in vascular endothelial cells, so the deficiency is a plasma-protein deficiency rather than a lesion in the target vessel wall. That distinction is what makes the disease correctable from outside: the microvasculature itself is normal.</div>
 
@@ -4544,6 +4619,8 @@ This genetic context concerns ADAMTS13 (hgnc:1366). hgnc:1366 is a gene from the
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4554,6 +4631,9 @@ This genetic context concerns ADAMTS13 (hgnc:1366). hgnc:1366 is a gene from the
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Variants on both alleles abolish or severely reduce VWF-cleaving protease activity. Patients are homozygous or, more often, compound heterozygous.</div>
 
@@ -4603,6 +4683,7 @@ This genetic context concerns ADAMTS13 (hgnc:1366). hgnc:1366 is a gene from the
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4625,6 +4706,7 @@ This genetic context concerns ADAMTS13 (hgnc:1366). hgnc:1366 is a gene from the
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-severe-plasma-adamts13-activity-deficiency" data-dismech-node="Severe Plasma ADAMTS13 Activity Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Severe Plasma ADAMTS13 Activity Deficiency</div>
+
 
                 <div class="item-desc">Circulating VWF-cleaving metalloprotease activity is at or below 10% of normal, with no functional inhibitor present. Residual activity varies between genotypes and, importantly, is not by itself sufficient to predict when disease will first manifest.</div>
 
@@ -4736,6 +4818,7 @@ This pathophysiological event involves decreased VWF-cleaving metalloendopeptida
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4758,6 +4841,7 @@ This pathophysiological event involves decreased VWF-cleaving metalloendopeptida
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-persistence-of-ultralarge-vwf-multimers" data-dismech-node="Persistence of Ultralarge VWF Multimers" data-dismech-type="pathophysiology">
                 <div class="item-name">Persistence of Ultralarge VWF Multimers</div>
+
 
                 <div class="item-desc">Uncleaved ultralarge VWF multimers remain in plasma and anchored to endothelium. Their adhesive function is shear-dependent, and ADAMTS13 proteolysis of VWF is itself modulated by shear force and by binding to platelet glycoprotein Ib-alpha, so the substrate is most dangerous exactly where the enzyme is most needed.</div>
 
@@ -4811,6 +4895,7 @@ This pathophysiological event involves decreased VWF-cleaving metalloendopeptida
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4833,6 +4918,7 @@ This pathophysiological event involves decreased VWF-cleaving metalloendopeptida
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-shear-driven-platelet-adhesion-and-microthrombus-formation" data-dismech-node="Shear-Driven Platelet Adhesion and Microthrombus Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Shear-Driven Platelet Adhesion and Microthrombus Formation</div>
+
 
                 <div class="item-desc">Platelets bind the exposed A1 domains of unfurled ultralarge VWF and aggregate, building platelet-VWF thrombi in arterioles and capillaries. The thrombi are platelet- and VWF-rich rather than fibrin-rich, which is why coagulation screens are typically normal in TTP.</div>
 
@@ -4994,6 +5080,7 @@ This pathophysiological event involves increased platelet aggregation (GO:007052
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5016,6 +5103,7 @@ This pathophysiological event involves increased platelet aggregation (GO:007052
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-consumptive-thrombocytopenia" data-dismech-node="Consumptive Thrombocytopenia" data-dismech-type="pathophysiology">
                 <div class="item-name">Consumptive Thrombocytopenia</div>
+
 
                 <div class="item-desc">Peripheral platelet count falls as platelets are incorporated into microthrombi. This is the most frequently recorded manifestation of cTTP and the one that responds most directly to ADAMTS13 replacement.</div>
 
@@ -5088,6 +5176,7 @@ This pathophysiological event involves platelet (CL:0000233). CL:0000233 is a ce
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5110,6 +5199,7 @@ This pathophysiological event involves platelet (CL:0000233). CL:0000233 is a ce
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mechanical-erythrocyte-fragmentation" data-dismech-node="Mechanical Erythrocyte Fragmentation" data-dismech-type="pathophysiology">
                 <div class="item-name">Mechanical Erythrocyte Fragmentation</div>
+
 
                 <div class="item-desc">Red cells are physically fragmented in the obstructed microcirculation, producing schistocytes, intravascular haemolysis, raised lactate dehydrogenase and a reticulocyte response.</div>
 
@@ -5182,6 +5272,7 @@ This pathophysiological event involves erythrocyte (CL:0000232). CL:0000232 is a
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5208,6 +5299,7 @@ This pathophysiological event involves erythrocyte (CL:0000232). CL:0000232 is a
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5230,6 +5322,7 @@ This pathophysiological event involves erythrocyte (CL:0000232). CL:0000232 is a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-microvascular-occlusion-and-ischemic-end-organ-injury" data-dismech-node="Microvascular Occlusion and Ischemic End-Organ Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Microvascular Occlusion and Ischemic End-Organ Injury</div>
+
 
                 <div class="item-desc">Cumulative microvascular occlusion produces ischaemic injury, most consequentially cerebral infarction. In cTTP this damage accrues over years and is substantially preventable: 75% of late-diagnosed patients had end-organ damage, and prophylactic ADAMTS13 replacement cut stroke incidence from 17% to 2%.</div>
 
@@ -5268,6 +5361,7 @@ This pathophysiological event involves erythrocyte (CL:0000232). CL:0000232 is a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5289,6 +5383,7 @@ This pathophysiological event involves erythrocyte (CL:0000232). CL:0000232 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5407,6 +5502,9 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5421,6 +5519,7 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5475,6 +5574,9 @@ This clinical feature is Microangiopathic hemolytic anemia (HP:0001937). HP:0001
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5489,6 +5591,7 @@ This clinical feature is Microangiopathic hemolytic anemia (HP:0001937). HP:0001
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5552,6 +5655,9 @@ This clinical feature is Stroke (HP:0001297). HP:0001297 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5566,6 +5672,7 @@ This clinical feature is Stroke (HP:0001297). HP:0001297 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5631,6 +5738,9 @@ This clinical feature is Jaundice (HP:0000952). HP:0000952 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5645,6 +5755,7 @@ This clinical feature is Jaundice (HP:0000952). HP:0000952 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5710,6 +5821,9 @@ This clinical feature is Renal insufficiency (HP:0000083). HP:0000083 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5724,6 +5838,7 @@ This clinical feature is Renal insufficiency (HP:0000083). HP:0000083 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5787,6 +5902,9 @@ This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5801,6 +5919,7 @@ This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5864,6 +5983,9 @@ This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5878,6 +6000,7 @@ This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5976,6 +6099,9 @@ This disease-associated gene is ADAMTS13 (hgnc:1366). hgnc:1366 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (5 references)
@@ -5990,6 +6116,7 @@ This disease-associated gene is ADAMTS13 (hgnc:1366). hgnc:1366 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6017,6 +6144,7 @@ This disease-associated gene is ADAMTS13 (hgnc:1366). hgnc:1366 is a gene from t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6038,6 +6166,7 @@ This disease-associated gene is ADAMTS13 (hgnc:1366). hgnc:1366 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6074,6 +6203,12 @@ This disease-associated gene is ADAMTS13 (hgnc:1366). hgnc:1366 is a gene from t
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">The one recurrent allele in an otherwise largely private mutational spectrum: present on 60 of 246 alleles in the international registry. Its frequency is a founder effect rather than a mutational hotspot - haplotype analysis across 17 intragenic markers found identical haplotypes in every informative family, and carriers cluster in Northern and Central Europe.</div>
 
 
@@ -6096,6 +6231,12 @@ This disease-associated gene is ADAMTS13 (hgnc:1366). hgnc:1366 is a gene from t
         ADAMTS13 p.R1060W
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">A recurrent missense allele associated with low but measurable residual ADAMTS13 activity, reported alongside the founder-mutation haplotype study.</div>
@@ -6200,6 +6341,9 @@ This treatment uses apadamtase alfa (NCIT:C169784). NCIT:C169784 is a therapeuti
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6210,6 +6354,9 @@ This treatment uses apadamtase alfa (NCIT:C169784). NCIT:C169784 is a therapeuti
 
 
     </div>
+
+
+
 
 
 
@@ -6246,6 +6393,7 @@ This treatment uses apadamtase alfa (NCIT:C169784). NCIT:C169784 is a therapeuti
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6292,6 +6440,7 @@ This treatment uses apadamtase alfa (NCIT:C169784). NCIT:C169784 is a therapeuti
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6316,6 +6465,7 @@ This treatment uses apadamtase alfa (NCIT:C169784). NCIT:C169784 is a therapeuti
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6337,6 +6487,7 @@ This treatment uses apadamtase alfa (NCIT:C169784). NCIT:C169784 is a therapeuti
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6403,6 +6554,9 @@ This treatment is Fresh Frozen Plasma Transfusion (NCIT:C116475). NCIT:C116475 i
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6413,6 +6567,9 @@ This treatment is Fresh Frozen Plasma Transfusion (NCIT:C116475). NCIT:C116475 i
 
 
     </div>
+
+
+
 
 
 
@@ -6449,6 +6606,7 @@ This treatment is Fresh Frozen Plasma Transfusion (NCIT:C116475). NCIT:C116475 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6495,6 +6653,7 @@ This treatment is Fresh Frozen Plasma Transfusion (NCIT:C116475). NCIT:C116475 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6516,6 +6675,7 @@ This treatment is Fresh Frozen Plasma Transfusion (NCIT:C116475). NCIT:C116475 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6582,6 +6742,9 @@ This treatment is Protein Replacement Therapy (NCIT:C16221). NCIT:C16221 is a cl
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6592,6 +6755,9 @@ This treatment is Protein Replacement Therapy (NCIT:C16221). NCIT:C16221 is a cl
 
 
     </div>
+
+
+
 
 
 
@@ -6628,6 +6794,7 @@ This treatment is Protein Replacement Therapy (NCIT:C16221). NCIT:C16221 is a cl
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6671,6 +6838,7 @@ This treatment is Protein Replacement Therapy (NCIT:C16221). NCIT:C16221 is a cl
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6737,6 +6905,9 @@ This treatment is Fresh Frozen Plasma Transfusion (NCIT:C116475). NCIT:C116475 i
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6747,6 +6918,9 @@ This treatment is Fresh Frozen Plasma Transfusion (NCIT:C116475). NCIT:C116475 i
 
 
     </div>
+
+
+
 
 
 
@@ -6783,6 +6957,7 @@ This treatment is Fresh Frozen Plasma Transfusion (NCIT:C116475). NCIT:C116475 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6829,6 +7004,7 @@ This treatment is Fresh Frozen Plasma Transfusion (NCIT:C116475). NCIT:C116475 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6850,6 +7026,7 @@ This treatment is Fresh Frozen Plasma Transfusion (NCIT:C116475). NCIT:C116475 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6930,6 +7107,7 @@ This environmental factor is pregnancy or systemic infection as a physiological 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6978,6 +7156,7 @@ This environmental factor is pregnancy or systemic infection as a physiological 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7050,6 +7229,7 @@ This environmental factor is turbulent ductal blood flow in the neonatal transit
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7098,6 +7278,7 @@ This environmental factor is turbulent ductal blood flow in the neonatal transit
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7164,6 +7345,7 @@ This environmental factor is turbulent ductal blood flow in the neonatal transit
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7185,6 +7367,7 @@ This environmental factor is turbulent ductal blood flow in the neonatal transit
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7254,6 +7437,7 @@ This environmental factor is turbulent ductal blood flow in the neonatal transit
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7305,6 +7489,7 @@ This environmental factor is turbulent ductal blood flow in the neonatal transit
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7362,6 +7547,7 @@ This environmental factor is turbulent ductal blood flow in the neonatal transit
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7413,6 +7599,7 @@ This environmental factor is turbulent ductal blood flow in the neonatal transit
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7483,6 +7670,7 @@ This environmental factor is turbulent ductal blood flow in the neonatal transit
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7507,6 +7695,7 @@ This environmental factor is turbulent ductal blood flow in the neonatal transit
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7528,6 +7717,7 @@ This environmental factor is turbulent ductal blood flow in the neonatal transit
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7583,6 +7773,7 @@ This environmental factor is turbulent ductal blood flow in the neonatal transit
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7604,6 +7795,7 @@ This environmental factor is turbulent ductal blood flow in the neonatal transit
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7659,6 +7851,7 @@ This environmental factor is turbulent ductal blood flow in the neonatal transit
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7680,6 +7873,7 @@ This environmental factor is turbulent ductal blood flow in the neonatal transit
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7730,6 +7924,7 @@ This environmental factor is turbulent ductal blood flow in the neonatal transit
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7800,6 +7995,7 @@ This environmental factor is turbulent ductal blood flow in the neonatal transit
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7824,6 +8020,7 @@ This environmental factor is turbulent ductal blood flow in the neonatal transit
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7845,6 +8042,7 @@ This environmental factor is turbulent ductal blood flow in the neonatal transit
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7899,6 +8097,7 @@ This environmental factor is turbulent ductal blood flow in the neonatal transit
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7923,6 +8122,7 @@ This environmental factor is turbulent ductal blood flow in the neonatal transit
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7944,6 +8144,7 @@ This environmental factor is turbulent ductal blood flow in the neonatal transit
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8026,6 +8227,7 @@ This environmental factor is turbulent ductal blood flow in the neonatal transit
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8047,6 +8249,7 @@ This environmental factor is turbulent ductal blood flow in the neonatal transit
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8105,6 +8308,7 @@ This environmental factor is turbulent ductal blood flow in the neonatal transit
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8157,6 +8361,7 @@ This environmental factor is turbulent ductal blood flow in the neonatal transit
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8247,6 +8452,7 @@ This clinical trial targets Thrombocytopenia (HP:0001873). HP:0001873 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8390,6 +8596,7 @@ This clinical trial targets Thrombocytopenia (HP:0001873). HP:0001873 is a pheno
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8429,6 +8636,7 @@ This clinical trial targets Thrombocytopenia (HP:0001873). HP:0001873 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8483,6 +8691,7 @@ This clinical trial targets Thrombocytopenia (HP:0001873). HP:0001873 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10243,6 +10452,43 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Scope and lump/split. cTTP is curated as its own Disease entry rather than as a subtype of the existing Acquired_Thrombotic_Thrombocytopenic_Purpura entry. The two share a final common pathway — severe ADAMTS13 deficiency, ultralarge VWF, microvascular platelet thrombi — but differ at the top of the pathograph (biallelic germline loss of function versus an acquired autoantibody), in age and trigger profile, and in definitive therapy (enzyme replacement versus immunosuppression plus caplacizumab). The acquired entry already names congenital TTP only as a differential diagnosis, so this entry fills a real gap rather than duplicating one.
+Deep research. One OpenScientist report was generated for this entry (research/Congenital_Thrombotic_Thrombocytopenic_Purpura-deep-research-openscientist.md) and materially expanded it: the neonatal ductus-arteriosus shear mechanism, the founder origin of c.4143dupA, the multinational natural-history cohort, the Adamts13-knockout two-hit model, and the pregnancy prophylaxis data all came from leads in that report and were then verified against the cached abstracts.
+Its reference validation was clean (27/27 verified, confabulation rate 0.0), but its term validation set needs_review: true, and four of the flagged bindings were substantively wrong. None was used:
+- MONDO:0010134 is offered as the MONDO ID for congenital TTP. That CURIE
+  resolves to Pendred syndrome. This entry uses MONDO:0010122, which is what
+  the curation stub carries.
+- CL:0002679 is offered for hepatic stellate cell; it resolves to natural
+  helper lymphocyte. CL:0000632 is used here.
+- CHEBI:18420 is offered for the catalytic zinc; it resolves to
+  magnesium(2+). No CHEBI metal term is bound in this entry.
+- NCIT:C171453 is offered for plasma; it resolves to Hospital Stay. The
+  treatment terms used here are NCIT:C116475 and NCIT:C16221.
+
+This is the second report in this batch whose disease-level MONDO term was wrong while its confabulation_rate read 0.0 — the CURIEs exist, they just name other diseases. needs_review is the field that catches it.
+No GeneReviews chapter exists for cTTP. PubMed searches for &#34;thrombotic thrombocytopenic purpura GeneReviews[All Fields]&#34;, &#34;ADAMTS13 GeneReviews[All Fields]&#34; and &#34;Upshaw-Schulman GeneReviews[All Fields]&#34; all returned zero results, so the Step 3b baseline is genuinely unavailable rather than skipped. The phenotype baseline used instead is the union of the UK national cohort (PMID:30770395), the international registry (PMID:30792199) and the phase 3 trial (PMID:38692292).
+Review round 1 (PR #10144) corrected a claim in this very paragraph. It previously said renal detail was left out for want of a quotable source; the registry cache added by this PR carries &#34;Renal insufficiency occurred in 25% of the cohort&#34;, so renal insufficiency and jaundice are now curated phenotypes with denominator-backed frequency bands. The lesson generalises: the earlier draft cited only the registry&#39;s abstract and never searched the full text that the same cache file contains.
+Also added in that round: a diagnosis: section, an environmental: section bringing the two-hit trigger into the graph, apadamtase alfa as the therapeutic_agent on recombinant ADAMTS13, a directly-attached source on the erythrocyte fragmentation node, and removal of a capillary endothelial cell binding on the end-organ-injury node that sat awkwardly against this entry&#39;s own argument that the microvasculature is structurally normal.
+Deliberately not curated for want of a quotable, cTTP-specific source: a numeric population prevalence (the systematic review gives an acute-episode incidence for cTTP and a population incidence only for iTTP, and conflating the two would be the measure-type error the prevalence guidance warns about; ORPHA:93583 would supply one but is not in references_cache and the Orphadata refresh is currently broken - see issue #10150); cardiac phenotype detail; and schistocytosis as a separate phenotype, since the cached sources describe microangiopathic haemolysis without naming schistocytes.
+Also left out on purpose: the closed-to-open allosteric conformational switch of ADAMTS13 (Spacer-CUB autoinhibition released by VWF D4 binding). It is well evidenced and mechanistically interesting, but it describes how the *normal* enzyme is regulated, and in a disease where the enzyme is absent it adds no causal step. Curating it as a pathophysiology node would assert a mechanism the disease does not have. The diagnostic-assay literature (FRETS-VWF73 versus the AcuStar chemiluminescent immunoassay) is omitted for the related reason that it concerns measurement of the analyte rather than the disease process; the analyte itself is curated under biochemical.
+Evidence grading note: several items cite review or consensus articles and are graded evidence_source: OTHER rather than HUMAN_CLINICAL, because the cited publication is a synthesis or a terminology consensus rather than a primary patient study. The cohort, registry and trial papers are graded HUMAN_CLINICAL.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Congenital Thrombotic Thrombocytopenic Purpura</strong> · 2026-08-30T06:52:00Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Congenital_Thrombotic_Thrombocytopenic_Purpura/2026-08-30T065200Z-claude-code-a84f62.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of congenital TTP (MONDO:0010122, ADAMTS13) as a Disease entry distinct from the existing Acquired_Thrombotic_Thrombocytopenic_Purpura entry, which names cTTP only as a differential diagnosis. Built from the UK national cohort, the international hereditary TTP registry and the phase 3 recombinant ADAMTS13 trial, then substantially expanded from an OpenScientist deep-research report. The report contributed the neonatal ductus-arteriosus shear mechanism, the founder origin of c.4143dupA, the multinational natural-history cohort, the Adamts13-knockout two-hit model and the pregnancy prophylaxis data; every claim was re-verified against the cached abstract. The report&#39;s reference validation was clean (27/27) but its term validation set needs_review and four of its bindings were substantively wrong and were not used: MONDO:0010134 for the disease (resolves to Pendred syndrome), CL:0002679 for hepatic stellate cell (natural helper lymphocyte), CHEBI:18420 for zinc (magnesium 2+) and NCIT:C171453 for plasma (Hospital Stay). No GeneReviews chapter exists for cTTP; three PubMed searches returned zero results. Two reference titles were corrected after the validator flagged mismatches against the cached records. Validated with just validate (68/68 snippets verified), check-entity-refs, check-duplicate-keys, check-snippet-length, check-title-snippets, check-snippet-grading and check-folded-hyphens.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

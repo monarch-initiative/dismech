@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4108,6 +4176,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4177,6 +4246,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4279,6 +4349,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4304,6 +4375,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4326,6 +4398,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4393,6 +4466,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4415,6 +4489,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4482,6 +4557,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4546,6 +4622,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4592,6 +4669,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-crx-variant-pathogenic-classification" data-dismech-node="CRX Variant Pathogenic Classification" data-dismech-type="pathophysiology">
                 <div class="item-name">CRX Variant Pathogenic Classification</div>
 
+
                 <div class="item-desc">CRX disease variants are categorized into at least four biochemically distinct pathogenic classes based on their location in CRX functional domains and their impact on CRX biochemical properties: C-terminal truncating variants, C-terminal elongating frameshift variants, homeodomain variants that reduce DNA-binding affinity, and homeodomain variants that alter DNA-binding specificity.
 </div>
 
@@ -4630,6 +4708,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4653,6 +4732,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-c-terminal-truncation-and-dominant-negative-overexpression" data-dismech-node="C-Terminal Truncation and Dominant-Negative Overexpression" data-dismech-type="pathophysiology">
                 <div class="item-name">C-Terminal Truncation and Dominant-Negative Overexpression</div>
+
 
                 <div class="item-desc">Frameshift and nonsense variants concentrated in the CRX C-terminal transcription-effector domain produce truncated proteins that retain intact DNA-binding activity but are defective in gene activation. Because the entire effector domain is encoded in the last exon of CRX, the truncating transcripts are proposed to escape nonsense-mediated decay, although competing models suggest that the long 3&#39;-UTRs created by premature termination codons can instead trigger NMD, and the mRNA-level mechanism remains an open question. What is demonstrated, in the E168d2/+ knock-in mouse, is an allele-specific overexpression of the mutant transcripts with accumulation of the non-functional truncated protein to a significantly elevated mutant-to-wild-type ratio, so that truncated CRX outcompetes wild-type CRX for binding at cognate regulatory sequences, producing a dominant-negative block of photoreceptor gene activation.
 </div>
@@ -4745,6 +4825,7 @@ This pathophysiological event involves decreased Regulation of transcription by 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4767,6 +4848,7 @@ This pathophysiological event involves decreased Regulation of transcription by 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4795,6 +4877,7 @@ This pathophysiological event involves decreased Regulation of transcription by 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4820,6 +4903,7 @@ This pathophysiological event involves decreased Regulation of transcription by 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-c-terminal-elongating-frameshift-and-cofactor-recruitment-disruption" data-dismech-node="C-Terminal Elongating Frameshift and Cofactor Recruitment Disruption" data-dismech-type="pathophysiology">
                 <div class="item-name">C-Terminal Elongating Frameshift and Cofactor Recruitment Disruption</div>
+
 
                 <div class="item-desc">A second, distinct class of C-terminal frameshift variants produces an elongated mutant CRX protein retaining a partial transcription effector domain with a non-homologous C-terminal extension, rather than a truncated one. Unlike truncating variants, these elongating variants are not overexpressed and do not act through simple dominant-negative competition; instead, loss of the OTX tail domain and altered amino-acid composition and residue patterning of the extended effector domain disrupt the selective recruitment of transcriptional co-factors, mediators, and histone-binding complexes -- including self-recruitment of wild-type CRX and OTX2 -- perturbing photoreceptor gene regulation during development.
 </div>
@@ -4912,6 +4996,7 @@ This pathophysiological event involves decreased Regulation of transcription by 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4934,6 +5019,7 @@ This pathophysiological event involves decreased Regulation of transcription by 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4962,6 +5048,7 @@ This pathophysiological event involves decreased Regulation of transcription by 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4985,6 +5072,7 @@ This pathophysiological event involves decreased Regulation of transcription by 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-homeodomain-dna-binding-affinity-reduction" data-dismech-node="Homeodomain DNA-Binding Affinity Reduction" data-dismech-type="pathophysiology">
                 <div class="item-name">Homeodomain DNA-Binding Affinity Reduction</div>
+
 
                 <div class="item-desc">Homeodomain missense variants such as p.Arg90Trp reduce CRX&#39;s binding affinity to its cognate DNA sequences without altering binding specificity, producing a hypomorphic allele. Severity scales with the degree of affinity loss: heterozygous carriers show mild, late-onset dominant cone-rod dystrophy, while biallelic carriers show a loss-of-function phenotype resembling complete CRX deficiency (recessive LCA).
 </div>
@@ -5039,6 +5127,7 @@ This pathophysiological event involves decreased Regulation of transcription by 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5061,6 +5150,7 @@ This pathophysiological event involves decreased Regulation of transcription by 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5089,6 +5179,7 @@ This pathophysiological event involves decreased Regulation of transcription by 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5112,6 +5203,7 @@ This pathophysiological event involves decreased Regulation of transcription by 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-homeodomain-dna-binding-specificity-alteration" data-dismech-node="Homeodomain DNA-Binding Specificity Alteration" data-dismech-type="pathophysiology">
                 <div class="item-name">Homeodomain DNA-Binding Specificity Alteration</div>
+
 
                 <div class="item-desc">A distinct class of homeodomain missense variants (e.g., p.Glu80Ala, p.Lys88Asn) alters CRX&#39;s DNA-binding sequence specificity rather than simply reducing affinity, causing the mutant protein to bind non-cognate sites and either drive ectopic/precocious gene activation or antagonize wild-type CRX function at its normal target genes. These antimorphic/gain-of-function variants produce more severe dominant phenotypes than simple affinity-reducing hypomorphic variants.
 </div>
@@ -5230,6 +5322,7 @@ This pathophysiological event involves Retinal cone cell (CL:0000573). CL:000057
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5252,6 +5345,7 @@ This pathophysiological event involves Retinal cone cell (CL:0000573). CL:000057
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5280,6 +5374,7 @@ This pathophysiological event involves Retinal cone cell (CL:0000573). CL:000057
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5303,6 +5398,7 @@ This pathophysiological event involves Retinal cone cell (CL:0000573). CL:000057
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-crx-dependent-photoreceptor-gene-activation" data-dismech-node="Impaired CRX-Dependent Photoreceptor Gene Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired CRX-Dependent Photoreceptor Gene Activation</div>
+
 
                 <div class="item-desc">All four CRX pathogenic variant classes converge on impaired activation of CRX-dependent photoreceptor genes -- whether through dominant-negative competition, disrupted cofactor recruitment, reduced DNA-binding affinity, or altered DNA-binding specificity. CRX transactivates phototransduction and photoreceptor outer-segment genes required for photoreceptor terminal differentiation, maturation, and maintenance in both rods and cones.
 </div>
@@ -5395,6 +5491,7 @@ This pathophysiological event involves decreased Regulation of transcription by 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5418,6 +5515,7 @@ This pathophysiological event involves decreased Regulation of transcription by 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-rod-photoreceptor-apoptosis" data-dismech-node="Rod Photoreceptor Apoptosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Rod Photoreceptor Apoptosis</div>
+
 
                 <div class="item-desc">Photoreceptors lacking functional CRX-dependent gene expression undergo progressive rod and cone degeneration and apoptosis, producing the phenotypic spectrum of visual loss (nystagmus, non-recordable ERG, photophobia, color vision defects, macular atrophy, nyctalopia, central scotoma, and progressive visual field loss) that characterizes LCA7, CORD2, CRX-associated maculopathy, and adRP.
 </div>
@@ -5559,6 +5657,7 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5655,6 +5754,9 @@ This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from 
 
 
 
+
+
+
             </div>
 
             <div class="item-box phenotype-box anchor-target" id="phenotype-undetectable-electroretinogram" data-dismech-node="Undetectable electroretinogram" data-dismech-type="phenotype">
@@ -5685,6 +5787,9 @@ This clinical feature is Undetectable light- and dark-adapted electroretinogram 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5702,6 +5807,7 @@ This clinical feature is Undetectable light- and dark-adapted electroretinogram 
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5726,6 +5832,7 @@ This clinical feature is Undetectable light- and dark-adapted electroretinogram 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5785,6 +5892,9 @@ This clinical feature is Photophobia (HP:0000613). HP:0000613 is a phenotype fro
 
 
 
+
+
+
             </div>
 
             <div class="item-box phenotype-box anchor-target" id="phenotype-color-vision-defect" data-dismech-node="Color vision defect" data-dismech-type="phenotype">
@@ -5810,6 +5920,9 @@ This clinical feature is Color vision defect (HP:0000551). HP:0000551 is a pheno
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -5849,6 +5962,9 @@ This clinical feature is Macular atrophy (HP:0007401). HP:0007401 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -5863,6 +5979,7 @@ This clinical feature is Macular atrophy (HP:0007401). HP:0007401 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5891,6 +6008,7 @@ This clinical feature is Macular atrophy (HP:0007401). HP:0007401 is a phenotype
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5913,6 +6031,7 @@ This clinical feature is Macular atrophy (HP:0007401). HP:0007401 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5972,6 +6091,9 @@ This clinical feature is Nyctalopia (HP:0000662). HP:0000662 is a phenotype from
 
 
 
+
+
+
             </div>
 
             <div class="item-box phenotype-box anchor-target" id="phenotype-central-scotoma" data-dismech-node="Central scotoma" data-dismech-type="phenotype">
@@ -6006,6 +6128,9 @@ This clinical feature is Central scotoma (HP:0000603). HP:0000603 is a phenotype
 
 
 
+
+
+
             </div>
 
             <div class="item-box phenotype-box anchor-target" id="phenotype-progressive-visual-loss" data-dismech-node="Progressive visual loss" data-dismech-type="phenotype">
@@ -6031,6 +6156,9 @@ This clinical feature is Progressive visual loss (HP:0000529). HP:0000529 is a p
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -6086,6 +6214,9 @@ This disease-associated gene is CRX (hgnc:2383). hgnc:2383 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6100,6 +6231,7 @@ This disease-associated gene is CRX (hgnc:2383). hgnc:2383 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6125,6 +6257,7 @@ This disease-associated gene is CRX (hgnc:2383). hgnc:2383 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6217,6 +6350,12 @@ This treatment is low vision rehabilitation, annotated with Supportive Care (NCI
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Supportive low-vision aids and rehabilitation; no approved disease-modifying or gene therapy currently exists specifically for CRX-related retinopathy.</div>
 
 
@@ -6263,6 +6402,12 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     </div>
+
+
+
+
+
+
 
 
 
@@ -7074,6 +7219,19 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: CRX-Related Retinopathy</strong> · 2026-07-07T14:56:43Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/CRX_Related_Retinopathy/2026-07-07T145643Z-claude-code-c3bc5b.yaml">View source</a></p>
+                        <p class="research-review-text">New entry for CRX-Related Retinopathy (MONDO:1040064), part of the issue #4008 retinopathy curation follow-up, medium-priority gene target per the maintainer-approved lumping guidance. Deep research performed via &#39;just research-disorder falcon CRX_Related_Retinopathy&#39; (Edison/falcon provider, ~24 min run, 32 citations); also independently sourced and verified primary literature directly via PubMed (PMID:38414750, a comprehensive 25-year CRX review categorizing disease variants into 4 biochemically distinct pathogenic classes, used as the primary mechanism source; PMID:39632990 and PMID:41595470, clinical phenotype cohort papers). Falcon&#39;s report was cross-checked against my independently-fetched primary sources per the anti-hallucination SOP -- it corroborated the same 4-class variant mechanism using the same primary source, but several additional falcon-cited facts (specific de novo mutation rate, two additional nonsense variants, OMIM identifiers) could not be verified as exact substrings of my cached full-text copy of the cited paper and were deliberately NOT included, to avoid citing unverified/potentially mismatched claims. Modeled has_subtypes as LCA7, CORD2, CRX-Associated Maculopathy, and adRP per the literature&#39;s own phenotype categorization (a 2026 case series explicitly separates maculopathy as a 4th branch, beyond the 3-way LCA/CORD/RP split in the issue&#39;s original guidance). Modeled both autosomal dominant (majority) and autosomal recessive (rare, biallelic hypomorphic p.Arg90Trp) inheritance, including the unusual zygosity-dependent phenotype divergence (heterozygous R90W -&gt; mild dominant CORD; homozygous R90W -&gt; recessive LCA) for the same allele. Pathophysiology models the 4 distinct pathogenic variant classes (C-terminal truncating/dominant-negative, C-terminal elongating, homeodomain DNA-binding-affinity-reducing/hypomorphic, homeodomain DNA-binding-specificity-altering/antimorphic) plus verified CRX-NRL synergistic transactivation of the rhodopsin promoter. No GeneReviews chapter specific to CRX exists (only a general nonsyndromic-LCA-overview chapter, PMID:30285347, not gene-specific, so not used as a mandatory baseline). Validated: schema, ontology terms, and reference snippets all pass cleanly. Compliance report: 87.1% global / 88.1% weighted on first pass.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

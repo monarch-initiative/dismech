@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4134,6 +4202,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4155,6 +4224,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4243,6 +4313,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4267,6 +4338,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4288,6 +4360,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4393,6 +4466,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4417,6 +4491,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4438,6 +4513,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4531,6 +4607,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4552,6 +4629,7 @@
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -4643,6 +4721,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4664,6 +4743,7 @@
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -4836,6 +4916,7 @@
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4917,6 +4998,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4951,6 +5033,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dhx37-reca-domain-missense-variant" data-dismech-node="DHX37 RecA-Domain Missense Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">DHX37 RecA-Domain Missense Variant</div>
+
 
                 <div class="item-desc">Heterozygous missense substitutions cluster in or immediately adjacent to the conserved motifs of the two RecA-like helicase domains (RecA1 and RecA2) of DHX37. Only missense alleles have been reported in the DSD phenotype — no truncating or whole-gene-deletion alleles — which argues that the mechanism is not simple haploinsufficiency but a gain-of-function or dominant-negative effect on the helicase. Two substitutions recur: p.Arg308Gln and p.Arg674Trp.</div>
 
@@ -5003,6 +5086,8 @@ This genetic context concerns DHX37 (hgnc:17210). hgnc:17210 is a gene from the 
 
 
 
+
+
         <span class="tag tag-classification">allele_type: MISSENSE</span>
 
 
@@ -5016,6 +5101,9 @@ This genetic context concerns DHX37 (hgnc:17210). hgnc:17210 is a gene from the 
 
 
     </div>
+
+
+
 
 
 
@@ -5101,6 +5189,7 @@ This pathophysiological event involves decreased DEAH-box RNA helicase activity,
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5122,6 +5211,7 @@ This pathophysiological event involves decreased DEAH-box RNA helicase activity,
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5147,6 +5237,13 @@ This pathophysiological event involves decreased DEAH-box RNA helicase activity,
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-small-ribosomal-subunit-biogenesis" data-dismech-node="Impaired Small Ribosomal Subunit Biogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Small Ribosomal Subunit Biogenesis</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
 
                 <div class="item-desc">DHX37 is a nucleolar factor required for pre-rRNA processing and assembly of the 40S small ribosomal subunit. Variant helicase function is predicted to degrade this step, placing the disorder among the candidate human ribosomopathies. This node is inferential rather than directly measured in patient gonad: no study has yet quantified pre-rRNA processing or 40S output in tissue from an affected individual.</div>
 
@@ -5272,6 +5369,7 @@ This pathophysiological event involves decreased pre-18S rRNA maturation, annota
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5298,6 +5396,7 @@ This pathophysiological event involves decreased pre-18S rRNA maturation, annota
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5320,6 +5419,13 @@ This pathophysiological event involves decreased pre-18S rRNA maturation, annota
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nucleolar-stress-response" data-dismech-node="Nucleolar Stress Response" data-dismech-type="pathophysiology">
                 <div class="item-name">Nucleolar Stress Response</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Disrupted ribosome assembly perturbs nucleolar architecture and releases the nucleolar surveillance program. The supporting data come from mouse: RNAi knockdown in the TM4 Sertoli cell line shows that Dhx37 maintains nucleolar integrity and PI3K-AKT signaling and restrains p53, and conditional knockout testis shows the corresponding tissue-level consequence. No equivalent measurement exists in human gonad, which is why this node is PROVISIONAL.</div>
 
@@ -5473,6 +5579,7 @@ This pathophysiological event involves decreased PI3K-AKT signaling in gonadal s
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5495,6 +5602,13 @@ This pathophysiological event involves decreased PI3K-AKT signaling in gonadal s
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysregulated-wnt-beta-catenin-signaling" data-dismech-node="Dysregulated WNT Beta-Catenin Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Dysregulated WNT Beta-Catenin Signaling</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
 
                 <div class="item-desc">Testis determination requires the SOX9/FGF9 program to outcompete the WNT4/RSPO1/beta-catenin ovarian program. Stabilized beta-catenin in XY supporting-cell precursors tips this balance away from testis fate. This is the proposed route from a housekeeping ribosome defect to an organ-specific, sex-limited outcome, and it remains a model rather than a demonstrated finding in patient or mouse gonad.</div>
 
@@ -5586,6 +5700,7 @@ This pathophysiological event involves increased canonical WNT/beta-catenin sign
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5608,6 +5723,13 @@ This pathophysiological event involves increased canonical WNT/beta-catenin sign
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-p53-dependent-gonadal-somatic-cell-apoptosis" data-dismech-node="p53-Dependent Gonadal Somatic Cell Apoptosis" data-dismech-type="pathophysiology">
                 <div class="item-name">p53-Dependent Gonadal Somatic Cell Apoptosis</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Nucleolar stress releases p53 from MDM2-mediated restraint, and apoptosis of the gonadal somatic compartment follows. This is the proposed route to the regression pole of the spectrum: a gonad that has already formed is subsequently lost, rather than never being built. It rests on mouse and cell-line data plus a proposed model; no human gonadal measurement supports it, hence PROVISIONAL.</div>
 
@@ -5761,6 +5883,7 @@ This pathophysiological event involves increased p53-mediated intrinsic apoptosi
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5783,6 +5906,7 @@ This pathophysiological event involves increased p53-mediated intrinsic apoptosi
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-testis-determination" data-dismech-node="Failure of Testis Determination" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Testis Determination</div>
+
 
                 <div class="item-desc">The bipotential gonad does not commit to, or does not complete, the testis pathway. Histology in this pole shows dysgenetic or undifferentiated gonadal tissue rather than an organized testis, and Müllerian derivatives persist because fetal Sertoli-cell anti-Müllerian hormone output was never adequate.</div>
 
@@ -5940,6 +6064,7 @@ This pathophysiological event involves decreased male gonad development (GO:0008
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5961,6 +6086,7 @@ This pathophysiological event involves decreased male gonad development (GO:0008
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5986,6 +6112,7 @@ This pathophysiological event involves decreased male gonad development (GO:0008
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fetal-testicular-regression" data-dismech-node="Fetal Testicular Regression" data-dismech-type="pathophysiology">
                 <div class="item-name">Fetal Testicular Regression</div>
+
 
                 <div class="item-desc">A testis forms and functions normally through the window of Müllerian regression (weeks 8-10) and external masculinization (weeks 10-16), then involutes. The timing is what makes this pole clinically distinct: because fetal hormone output was adequate during masculinization, external genitalia are male and Müllerian derivatives are absent, yet no testis is present afterward. Surgical exploration finds a blind-ending spermatic cord with at most a fibrotic nodule.</div>
 
@@ -6037,6 +6164,7 @@ This pathophysiological event involves decreased male gonad development (GO:0008
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6058,6 +6186,7 @@ This pathophysiological event involves decreased male gonad development (GO:0008
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6083,6 +6212,7 @@ This pathophysiological event involves decreased male gonad development (GO:0008
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-deficient-fetal-testicular-hormone-output" data-dismech-node="Deficient Fetal Testicular Hormone Output" data-dismech-type="pathophysiology">
                 <div class="item-name">Deficient Fetal Testicular Hormone Output</div>
+
 
                 <div class="item-desc">Inadequate fetal Sertoli-cell anti-Müllerian hormone and Leydig-cell testosterone during the critical windows. The degree and timing of the deficit set the external genital phenotype, which in DHX37 carriers ranges from female-type through ambiguous to male-type.</div>
 
@@ -6234,6 +6364,7 @@ This pathophysiological event involves Sertoli cell (CL:0000216). CL:0000216 is 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6256,6 +6387,7 @@ This pathophysiological event involves Sertoli cell (CL:0000216). CL:0000216 is 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-absent-functional-testicular-tissue" data-dismech-node="Absent Functional Testicular Tissue" data-dismech-type="pathophysiology">
                 <div class="item-name">Absent Functional Testicular Tissue</div>
+
 
                 <div class="item-desc">Postnatally there is no gonad capable of steroid or peptide hormone output. Gonadotropin feedback is unopposed, producing hypergonadotropic hypogonadism with undetectable anti-Müllerian hormone and inhibin B, low baseline testosterone, and no testosterone rise after hCG stimulation. Puberty does not occur spontaneously.</div>
 
@@ -6343,6 +6475,7 @@ This pathophysiological event involves Sertoli cell (CL:0000216). CL:0000216 is 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6367,6 +6500,7 @@ This pathophysiological event involves Sertoli cell (CL:0000216). CL:0000216 is 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6388,6 +6522,7 @@ This pathophysiological event involves Sertoli cell (CL:0000216). CL:0000216 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6436,7 +6571,7 @@ This pathophysiological event involves Sertoli cell (CL:0000216). CL:0000216 is 
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Absent Functional Testicular Tissue\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Postnatally there is no gonad capable of steroid or peptide hormone output. Gonadotropin feedback is unopposed, producing hypergonadotropic hypogonadism with undetectable anti-M\\u00fcllerian hormone and inhibin B, low baseline testosterone, and no testosterone rise after hCG stimulation. Puberty does not occur spontaneously.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Absent testis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"At the regression pole, no testis is present at exploration; a blind-ending spermatic cord with at most a fibrotic nodule is found. Histology of such a remnant in a DHX37 carrier showed hypoplastic spermatic cord with dystrophic calcification and only sparse immature seminiferous tubules.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0010469\"}}, {\"id\": \"Cryptorchidism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Undescended or non-palpable gonads are the usual presenting sign in infancy. Where a testis is present but undescended, the mechanism is deficient fetal androgen exposure, which is how it is modeled here. Where no testis exists at all, the impalpable gonad is clinically read as cryptorchidism but is really the Absent testis phenotype \\u2014 and telling those apart is precisely what makes the diagnosis difficult.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000028\"}}, {\"id\": \"DHX37\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 7, \"genes\": [\"DHX37\"], \"gene_terms\": [{\"label\": \"DHX37\", \"id\": \"hgnc:17210\"}], \"frequency\": \"Roughly 10-15% of nonsyndromic 46,XY complete gonadal dysgenesis and about 20% of TRS. Detection rates across DSD cohorts span 0.77-45.45% depending on ascertainment, and DHX37 is the commonest single gene only in series enriched for testicular regression \\u2014 in one Japanese TRS/PGD cohort selected for absent M\\u00fcllerian derivatives it accounted for 40%. In unselected 46,XY gonadal dysgenesis, NR5A1 and SRY remain competing diagnostic yields.\", \"presence\": \"Missense variant, heterozygous in the great majority of cases\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"DHX37 RecA-Domain Missense Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous missense substitutions cluster in or immediately adjacent to the conserved motifs of the two RecA-like helicase domains (RecA1 and RecA2) of DHX37. Only missense alleles have been reported in the DSD phenotype \\u2014 no truncating or whole-gene-deletion alleles \\u2014 which argues that the mechanism is not simple haploinsufficiency but a gain-of-function or dominant-negative effect on the helicase. Two substitutions recur: p.Arg308Gln and p.Arg674Trp.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"DEAH-box RNA helicase activity\"], \"genetic_context\": {\"allele_type\": \"MISSENSE\", \"variant_origin\": \"GERMLINE\", \"zygosity\": \"HETEROZYGOUS\", \"gene_terms\": [{\"label\": \"DHX37\", \"id\": \"hgnc:17210\"}]}}}, {\"id\": \"DHX37 p.Arg308Gln\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The commonest recurrent DHX37 allele in 46,XY DSD, accounting for roughly a third of reported cases. Recurs across unrelated families and populations and is found at both the gonadal-dysgenesis and testicular-regression poles, which is the central argument that the two phenotypes are one continuum rather than distinct genotype-defined entities.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"DHX37\"], \"gene_terms\": [{\"label\": \"DHX37\", \"id\": \"hgnc:17210\"}], \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"DHX37 p.Arg334Trp\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A recurrent RecA1-domain allele and, with p.Arg308Gln, one of the two variants found in the population-based Belgian cohort of bilateral testicular regression. Classified as an established pathogenic variant under ACMG/AMP criteria.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"DHX37\"], \"gene_terms\": [{\"label\": \"DHX37\", \"id\": \"hgnc:17210\"}], \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"DHX37 p.Arg390His\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A RecA1-domain allele reported once, in a girl with 46,XY complete gonadal dysgenesis. A single observation, so it is recorded as uncertain rather than pathogenic.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"DHX37\"], \"gene_terms\": [{\"label\": \"DHX37\", \"id\": \"hgnc:17210\"}], \"clinical_significance\": \"UNCERTAIN_SIGNIFICANCE\"}}, {\"id\": \"DHX37 p.Arg674Trp\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The second recurrent hotspot allele, reported in roughly one in nine DHX37-related 46,XY DSD cases and, like p.Arg308Gln, seen in both familial and sporadic presentations.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"DHX37\"], \"gene_terms\": [{\"label\": \"DHX37\", \"id\": \"hgnc:17210\"}], \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"DHX37 p.Gly478Arg\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A RecA2-domain allele in motif IV, reported in a boy with testicular regression syndrome who inherited it from an unaffected mother \\u2014 one of the clearest illustrations of the sex-limited, incompletely penetrant transmission pattern. Both reports that carry it classify it as a variant of uncertain significance; they differ only in how strongly they argue for pathogenicity in prose, one calling its structural and conservation evidence strongly supportive and the other calling the genotype-phenotype correlation speculative. That shared VUS classification, not a disagreement between reports, is why this record carries UNCERTAIN_SIGNIFICANCE rather than the PATHOGENIC of the hotspot alleles.\", \"meta\": {\"evidence_count\": 6, \"genes\": [\"DHX37\"], \"gene_terms\": [{\"label\": \"DHX37\", \"id\": \"hgnc:17210\"}], \"clinical_significance\": \"UNCERTAIN_SIGNIFICANCE\"}}, {\"id\": \"DHX37 p.Thr477His\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The only homozygous allele reported in this disease, in a boy with testicular regression syndrome. It is the entry\u0027s clearest evidence against treating heterozygosity as definitional, and against a simple dose-dependent model: the boy\u0027s father, heterozygous for the same variant, was fertile and had only unilateral regression with typical male genitalia.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"DHX37\"], \"gene_terms\": [{\"label\": \"DHX37\", \"id\": \"hgnc:17210\"}], \"clinical_significance\": \"UNCERTAIN_SIGNIFICANCE\"}}, {\"id\": \"Decreased circulating antimullerian hormone\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"AMH and inhibin B, both Sertoli-cell products, are undetectable or below reference range. Together they are the most informative first-line markers for the presence of any functional testicular tissue.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0031103\"}}, {\"id\": \"Decreased serum testosterone concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Baseline testosterone is low and fails to rise, or rises only trivially, after hCG stimulation \\u2014 the functional test that demonstrates there is no responsive Leydig-cell tissue.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0040171\"}}, {\"id\": \"Deficient Fetal Testicular Hormone Output\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Inadequate fetal Sertoli-cell anti-M\\u00fcllerian hormone and Leydig-cell testosterone during the critical windows. The degree and timing of the deficit set the external genital phenotype, which in DHX37 carriers ranges from female-type through ambiguous to male-type.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Leydig cell\", \"Sertoli cell\"]}}, {\"id\": \"Delayed puberty\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Without gonadal steroid output, puberty does not occur spontaneously and must be induced with incremental sex-steroid replacement. Individuals presenting in adolescence typically do so because of absent secondary sexual characteristics.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000823\"}}, {\"id\": \"Dysregulated WNT Beta-Catenin Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Testis determination requires the SOX9/FGF9 program to outcompete the WNT4/RSPO1/beta-catenin ovarian program. Stabilized beta-catenin in XY supporting-cell precursors tips this balance away from testis fate. This is the proposed route from a housekeeping ribosome defect to an organ-specific, sex-limited outcome, and it remains a model rather than a demonstrated finding in patient or mouse gonad.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"canonical WNT/beta-catenin signaling in the XY gonad\"]}}, {\"id\": \"Estrogen Replacement Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"For individuals raised female \\u2014 the presentation at the complete-dysgenesis pole, who typically come to attention in adolescence with absent secondary sexual characteristics and primary amenorrhea \\u2014 puberty is induced and maintained with estrogen, with progestin added once a uterus is present. Replacement is lifelong and is what prevents the skeletal and cardiovascular consequences of untreated hypogonadism. Sex of rearing varies in this disorder, so the hormone-replacement pathway is not decided by the diagnosis; this record and the testosterone record are the two arms of the same decision, and neither is the default.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"estradiol\"]}}, {\"id\": \"Failure of Testis Determination\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The bipotential gonad does not commit to, or does not complete, the testis pathway. Histology in this pole shows dysgenetic or undifferentiated gonadal tissue rather than an organized testis, and M\\u00fcllerian derivatives persist because fetal Sertoli-cell anti-M\\u00fcllerian hormone output was never adequate.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"male sex determination\", \"male gonad development\"], \"animal_models\": [{\"name\": \"Sertoli-cell conditional Dhx37 knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Cell-specific Dhx37 knockout (Dhx37-/-)\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"The knockout does not reproduce the human fetal phenotype of failed testis determination or fetal testicular regression.\"}]}}, {\"id\": \"Female external genitalia in individual with 46,XY karyotype\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The complete-gonadal-dysgenesis presentation: a 46,XY individual raised female who typically comes to attention in adolescence with absent secondary sexual characteristics.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0008730\"}}, {\"id\": \"Fetal Testicular Regression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A testis forms and functions normally through the window of M\\u00fcllerian regression (weeks 8-10) and external masculinization (weeks 10-16), then involutes. The timing is what makes this pole clinically distinct: because fetal hormone output was adequate during masculinization, external genitalia are male and M\\u00fcllerian derivatives are absent, yet no testis is present afterward. Surgical exploration finds a blind-ending spermatic cord with at most a fibrotic nodule.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Germ cell neoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Retained dysgenetic gonadal tissue carrying Y-chromosome material is at risk of gonadoblastoma and its invasive successors, dysgerminoma and seminoma, typically arising in adolescence. Critically, the risk is not uniform across this entry\u0027s two poles: in a 292-patient DSD series the highest risk fell on 46,XY pure gonadal dysgenesis, whereas no tumour was found among the testicular-regression patients \\u2014 consistent with there being no retained gonadal tissue to transform. Risk therefore tracks the presence of dysgenetic gonad, not the DHX37 genotype as such.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0100728\"}}, {\"id\": \"Gonadal Surgery\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgical management covers two distinct situations. Where dysgenetic gonadal tissue carrying Y-chromosome material is present, gonadectomy addresses germ-cell tumour risk. Where the finding is a regression remnant or nubbin, excision is offered on a contested rationale \\u2014 the malignant potential of such remnants is extrapolated from cryptorchidism and viable germ cells are found in only a minority \\u2014 and practice varies. Testicular prostheses are commonly requested and are part of the same operative discussion.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Gonadal dysgenesis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"At the determination pole of the spectrum the gonad is dysgenetic or undifferentiated rather than an organized testis. Centralized histological review of DHX37 carriers within a bilateral-testicular-regression cohort found undifferentiated gonadal tissue and retained M\\u00fcllerian remnants, evidence that DHX37 disease involves early developmental failure rather than pure late regression.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000133\"}}, {\"id\": \"Hypergonadotropic hypogonadism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Absent gonadal feedback produces markedly elevated FSH and LH with low testosterone. This is the biochemical hallmark and the finding that separates true anorchia from undescended but present testes.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000815\"}}, {\"id\": \"Hypospadias\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypospadias reflects incomplete urethral closure under deficient fetal androgen exposure and therefore marks the dysgenesis pole. Its presence is used clinically to argue against pure testicular regression: the Belgian bilateral-regression cohort excluded coronal or more proximal hypospadias on exactly that reasoning, so a DHX37 carrier with hypospadias is being classified as gonadal dysgenesis rather than regression.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000047\"}}, {\"id\": \"Impaired Small Ribosomal Subunit Biogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"DHX37 is a nucleolar factor required for pre-rRNA processing and assembly of the 40S small ribosomal subunit. Variant helicase function is predicted to degrade this step, placing the disorder among the candidate human ribosomopathies. This node is inferential rather than directly measured in patient gonad: no study has yet quantified pre-rRNA processing or 40S output in tissue from an affected individual.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"40S small ribosomal subunit assembly\", \"pre-18S rRNA maturation\"]}}, {\"id\": \"Infertility\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Absence of functional gonadal tissue precludes gamete production. Affected 46,XY individuals are infertile; 46,XX heterozygous carriers are not.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000789\"}}, {\"id\": \"Micropenis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Microphallus at birth is markedly more common in DHX37 carriers than in other individuals with bilateral testicular regression, and penile growth remains severely restricted into adulthood despite testosterone therapy \\u2014 the clearest phenotypic discriminator identified between genetic and non-genetic testicular regression.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000054\"}}, {\"id\": \"Nucleolar Stress Response\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Disrupted ribosome assembly perturbs nucleolar architecture and releases the nucleolar surveillance program. The supporting data come from mouse: RNAi knockdown in the TM4 Sertoli cell line shows that Dhx37 maintains nucleolar integrity and PI3K-AKT signaling and restrains p53, and conditional knockout testis shows the corresponding tissue-level consequence. No equivalent measurement exists in human gonad, which is why this node is PROVISIONAL.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Sertoli cell\"], \"biological_processes\": [\"PI3K-AKT signaling in gonadal supporting cells\"], \"animal_models\": [{\"name\": \"Sertoli-cell conditional Dhx37 knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Cell-specific Dhx37 knockout (Dhx37-/-)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Loss of Dhx37 disrupts nucleolar architecture in Sertoli cells and de-represses p53, the step this node asserts.\"}]}}, {\"id\": \"Presence of uterus in 46,XY individual\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"M\\u00fcllerian structures persist only where fetal Sertoli-cell AMH output failed early \\u2014 that is, at the gonadal-dysgenesis pole. Their presence is the clinical feature that separates dysgenesis from true regression, and their documentation in DHX37 carriers is a central argument that DHX37 acts on gonadal development rather than on regression as such.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0034546\"}}, {\"id\": \"Primary amenorrhea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The presenting complaint at the complete-dysgenesis pole in individuals raised female: no menarche, together with absent secondary sexual characteristics, in an adolescent whose karyotype then proves to be 46,XY. It applies only to this pole; individuals raised male present far earlier, with impalpable gonads in infancy.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000786\"}}, {\"id\": \"Sertoli-cell conditional Dhx37 knockout mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Conditional knockout mice combined with RIP-seq, RNAi-RNA-seq and snRNA-seq, used to establish what Dhx37 does in testicular supporting cells. The model supplies the only direct in vivo evidence for the nucleolar-stress-to-p53 arm of the proposed mechanism.\"}, {\"id\": \"Testosterone Replacement Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Incremental testosterone induces and sustains puberty in individuals raised male and must be continued lifelong to prevent the skeletal and cardiovascular consequences of hypogonadism. Statural growth and pubertal development are adequate even when replacement starts in late adolescence, which usefully leaves time to explore gender identity before committing. Penile growth is the exception: it remains suboptimal in many, and especially so in DHX37 carriers, where restriction persists into adulthood. Earlier infantile testosterone to mimic mini-puberty has been proposed to improve this, but was less effective in DHX37 carriers than in others.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"testosterone\"]}}, {\"id\": \"Undervirilized external genitalia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Frankly ambiguous external genitalia occur at the intermediate part of the spectrum, where fetal androgen exposure during the 10-16 week masculinization window was partial rather than absent or adequate. It is one point on a range that also includes female-type and typical male genitalia; that full range is described on the Deficient Fetal Testicular Hormone Output node rather than being asserted here.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000062\"}}, {\"id\": \"p53-Dependent Gonadal Somatic Cell Apoptosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Nucleolar stress releases p53 from MDM2-mediated restraint, and apoptosis of the gonadal somatic compartment follows. This is the proposed route to the regression pole of the spectrum: a gonad that has already formed is subsequently lost, rather than never being built. It rests on mouse and cell-line data plus a proposed model; no human gonadal measurement supports it, hence PROVISIONAL.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Sertoli cell\", \"Leydig cell\"], \"biological_processes\": [\"p53-mediated intrinsic apoptosis of gonadal somatic cells\"]}}], \"edges\": [{\"source\": \"DHX37 RecA-Domain Missense Variant\", \"target\": \"Impaired Small Ribosomal Subunit Biogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The affected residues lie in the catalytic core of a helicase whose essential cellular job is small-subunit ribosome assembly.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Small Ribosomal Subunit Biogenesis\", \"target\": \"Nucleolar Stress Response\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Defective ribosome assembly is the canonical trigger of the nucleolar stress response.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Nucleolar Stress Response\", \"target\": \"Dysregulated WNT Beta-Catenin Signaling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Proposed nucleolar-stress-to-WNT arm of the model; asserted as a hypothesis rather than a measured result in gonadal tissue.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Nucleolar Stress Response\", \"target\": \"p53-Dependent Gonadal Somatic Cell Apoptosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of Dhx37 de-represses p53 and drives apoptosis in testicular supporting cells.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dysregulated WNT Beta-Catenin Signaling\", \"target\": \"Failure of Testis Determination\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"p53-Dependent Gonadal Somatic Cell Apoptosis\", \"target\": \"Fetal Testicular Regression\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of Testis Determination\", \"target\": \"Deficient Fetal Testicular Hormone Output\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of Testis Determination\", \"target\": \"Gonadal dysgenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of Testis Determination\", \"target\": \"Germ cell neoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Retained dysgenetic gonadal tissue carrying Y-chromosome material is the substrate for gonadoblastoma and its invasive successors. This edge exists only at the determination-failure pole: where the gonad regressed there is no tissue left to transform.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Fetal Testicular Regression\", \"target\": \"Absent Functional Testicular Tissue\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Deficient Fetal Testicular Hormone Output\", \"target\": \"Undervirilized external genitalia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Deficient Fetal Testicular Hormone Output\", \"target\": \"Female external genitalia in individual with 46,XY karyotype\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Deficient Fetal Testicular Hormone Output\", \"target\": \"Micropenis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Deficient Fetal Testicular Hormone Output\", \"target\": \"Cryptorchidism\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Deficient Fetal Testicular Hormone Output\", \"target\": \"Hypospadias\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Deficient Fetal Testicular Hormone Output\", \"target\": \"Presence of uterus in 46,XY individual\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Deficient Fetal Testicular Hormone Output\", \"target\": \"Absent Functional Testicular Tissue\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Absent Functional Testicular Tissue\", \"target\": \"Hypergonadotropic hypogonadism\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Absent Functional Testicular Tissue\", \"target\": \"Delayed puberty\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Absent Functional Testicular Tissue\", \"target\": \"Primary amenorrhea\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Absent Functional Testicular Tissue\", \"target\": \"Absent testis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Absent Functional Testicular Tissue\", \"target\": \"Decreased circulating antimullerian hormone\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Absent Functional Testicular Tissue\", \"target\": \"Decreased serum testosterone concentration\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Absent Functional Testicular Tissue\", \"target\": \"Infertility\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Testosterone Replacement Therapy\", \"target\": \"Absent Functional Testicular Tissue\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Testosterone Replacement Therapy\", \"target\": \"Hypergonadotropic hypogonadism\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Testosterone Replacement Therapy\", \"target\": \"Delayed puberty\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Estrogen Replacement Therapy\", \"target\": \"Absent Functional Testicular Tissue\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Estrogen Replacement Therapy\", \"target\": \"Hypergonadotropic hypogonadism\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Estrogen Replacement Therapy\", \"target\": \"Delayed puberty\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Gonadal Surgery\", \"target\": \"Germ cell neoplasia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Sertoli-cell conditional Dhx37 knockout mouse\", \"target\": \"Nucleolar Stress Response\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Loss of Dhx37 disrupts nucleolar architecture in Sertoli cells and de-represses p53, the step this node asserts.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The model is a loss-of-function knockout, whereas every human disease-associated DHX37 allele is missense and is suspected to act by gain of function or dominant negative effect. A knockout therefore tests what the protein does, not what the patient alleles do.\"}, {\"source\": \"Sertoli-cell conditional Dhx37 knockout mouse\", \"target\": \"Failure of Testis Determination\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"The knockout does not reproduce the human fetal phenotype of failed testis determination or fetal testicular regression.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"Reported defects are a smaller testis with vacuolated seminiferous tubules and impaired spermatogenesis \\u2014 a postnatal spermatogenic failure in an animal that still forms a testis. The human disease is a failure of fetal testis determination or its loss before birth, with undervirilized or female external genitalia. No sex reversal, no anorchia, and no undervirilization are reported in the model, so the defining human phenotype is absent.\"}, {\"source\": \"DHX37 p.Arg308Gln\", \"target\": \"DHX37\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"DHX37 p.Arg674Trp\", \"target\": \"DHX37\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"DHX37 p.Arg334Trp\", \"target\": \"DHX37\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"DHX37 p.Gly478Arg\", \"target\": \"DHX37\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"DHX37 p.Arg390His\", \"target\": \"DHX37\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"DHX37 p.Thr477His\", \"target\": \"DHX37\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Absent Functional Testicular Tissue\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Postnatally there is no gonad capable of steroid or peptide hormone output. Gonadotropin feedback is unopposed, producing hypergonadotropic hypogonadism with undetectable anti-M\\u00fcllerian hormone and inhibin B, low baseline testosterone, and no testosterone rise after hCG stimulation. Puberty does not occur spontaneously.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Absent testis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"At the regression pole, no testis is present at exploration; a blind-ending spermatic cord with at most a fibrotic nodule is found. Histology of such a remnant in a DHX37 carrier showed hypoplastic spermatic cord with dystrophic calcification and only sparse immature seminiferous tubules.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0010469\"}}, {\"id\": \"Cryptorchidism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Undescended or non-palpable gonads are the usual presenting sign in infancy. Where a testis is present but undescended, the mechanism is deficient fetal androgen exposure, which is how it is modeled here. Where no testis exists at all, the impalpable gonad is clinically read as cryptorchidism but is really the Absent testis phenotype \\u2014 and telling those apart is precisely what makes the diagnosis difficult.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000028\"}}, {\"id\": \"DHX37\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 7, \"genes\": [\"DHX37\"], \"gene_terms\": [{\"label\": \"DHX37\", \"id\": \"hgnc:17210\"}], \"frequency\": \"Roughly 10-15% of nonsyndromic 46,XY complete gonadal dysgenesis and about 20% of TRS. Detection rates across DSD cohorts span 0.77-45.45% depending on ascertainment, and DHX37 is the commonest single gene only in series enriched for testicular regression \\u2014 in one Japanese TRS/PGD cohort selected for absent M\\u00fcllerian derivatives it accounted for 40%. In unselected 46,XY gonadal dysgenesis, NR5A1 and SRY remain competing diagnostic yields.\", \"presence\": \"Missense variant, heterozygous in the great majority of cases\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"DHX37 RecA-Domain Missense Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous missense substitutions cluster in or immediately adjacent to the conserved motifs of the two RecA-like helicase domains (RecA1 and RecA2) of DHX37. Only missense alleles have been reported in the DSD phenotype \\u2014 no truncating or whole-gene-deletion alleles \\u2014 which argues that the mechanism is not simple haploinsufficiency but a gain-of-function or dominant-negative effect on the helicase. Two substitutions recur: p.Arg308Gln and p.Arg674Trp.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"DEAH-box RNA helicase activity\"], \"genetic_context\": {\"allele_type\": \"MISSENSE\", \"variant_origin\": \"GERMLINE\", \"zygosity\": \"HETEROZYGOUS\", \"gene_terms\": [{\"label\": \"DHX37\", \"id\": \"hgnc:17210\"}]}}}, {\"id\": \"DHX37 p.Arg308Gln\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The commonest recurrent DHX37 allele in 46,XY DSD, accounting for roughly a third of reported cases. Recurs across unrelated families and populations and is found at both the gonadal-dysgenesis and testicular-regression poles, which is the central argument that the two phenotypes are one continuum rather than distinct genotype-defined entities.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"DHX37\"], \"gene_terms\": [{\"label\": \"DHX37\", \"id\": \"hgnc:17210\"}], \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"DHX37 p.Arg334Trp\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A recurrent RecA1-domain allele and, with p.Arg308Gln, one of the two variants found in the population-based Belgian cohort of bilateral testicular regression. Classified as an established pathogenic variant under ACMG/AMP criteria.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"DHX37\"], \"gene_terms\": [{\"label\": \"DHX37\", \"id\": \"hgnc:17210\"}], \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"DHX37 p.Arg390His\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A RecA1-domain allele reported once, in a girl with 46,XY complete gonadal dysgenesis. A single observation, so it is recorded as uncertain rather than pathogenic.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"DHX37\"], \"gene_terms\": [{\"label\": \"DHX37\", \"id\": \"hgnc:17210\"}], \"clinical_significance\": \"UNCERTAIN_SIGNIFICANCE\"}}, {\"id\": \"DHX37 p.Arg674Trp\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The second recurrent hotspot allele, reported in roughly one in nine DHX37-related 46,XY DSD cases and, like p.Arg308Gln, seen in both familial and sporadic presentations.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"DHX37\"], \"gene_terms\": [{\"label\": \"DHX37\", \"id\": \"hgnc:17210\"}], \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"DHX37 p.Gly478Arg\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A RecA2-domain allele in motif IV, reported in a boy with testicular regression syndrome who inherited it from an unaffected mother \\u2014 one of the clearest illustrations of the sex-limited, incompletely penetrant transmission pattern. Both reports that carry it classify it as a variant of uncertain significance; they differ only in how strongly they argue for pathogenicity in prose, one calling its structural and conservation evidence strongly supportive and the other calling the genotype-phenotype correlation speculative. That shared VUS classification, not a disagreement between reports, is why this record carries UNCERTAIN_SIGNIFICANCE rather than the PATHOGENIC of the hotspot alleles.\", \"meta\": {\"evidence_count\": 6, \"genes\": [\"DHX37\"], \"gene_terms\": [{\"label\": \"DHX37\", \"id\": \"hgnc:17210\"}], \"clinical_significance\": \"UNCERTAIN_SIGNIFICANCE\"}}, {\"id\": \"DHX37 p.Thr477His\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The only homozygous allele reported in this disease, in a boy with testicular regression syndrome. It is the entry\u0027s clearest evidence against treating heterozygosity as definitional, and against a simple dose-dependent model: the boy\u0027s father, heterozygous for the same variant, was fertile and had only unilateral regression with typical male genitalia.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"DHX37\"], \"gene_terms\": [{\"label\": \"DHX37\", \"id\": \"hgnc:17210\"}], \"clinical_significance\": \"UNCERTAIN_SIGNIFICANCE\"}}, {\"id\": \"Decreased circulating antimullerian hormone\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"AMH and inhibin B, both Sertoli-cell products, are undetectable or below reference range. Together they are the most informative first-line markers for the presence of any functional testicular tissue.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0031103\"}}, {\"id\": \"Decreased serum testosterone concentration\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Baseline testosterone is low and fails to rise, or rises only trivially, after hCG stimulation \\u2014 the functional test that demonstrates there is no responsive Leydig-cell tissue.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0040171\"}}, {\"id\": \"Deficient Fetal Testicular Hormone Output\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Inadequate fetal Sertoli-cell anti-M\\u00fcllerian hormone and Leydig-cell testosterone during the critical windows. The degree and timing of the deficit set the external genital phenotype, which in DHX37 carriers ranges from female-type through ambiguous to male-type.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Leydig cell\", \"Sertoli cell\"]}}, {\"id\": \"Delayed puberty\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Without gonadal steroid output, puberty does not occur spontaneously and must be induced with incremental sex-steroid replacement. Individuals presenting in adolescence typically do so because of absent secondary sexual characteristics.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000823\"}}, {\"id\": \"Dysregulated WNT Beta-Catenin Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Testis determination requires the SOX9/FGF9 program to outcompete the WNT4/RSPO1/beta-catenin ovarian program. Stabilized beta-catenin in XY supporting-cell precursors tips this balance away from testis fate. This is the proposed route from a housekeeping ribosome defect to an organ-specific, sex-limited outcome, and it remains a model rather than a demonstrated finding in patient or mouse gonad.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"canonical WNT/beta-catenin signaling in the XY gonad\"], \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Estrogen Replacement Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"For individuals raised female \\u2014 the presentation at the complete-dysgenesis pole, who typically come to attention in adolescence with absent secondary sexual characteristics and primary amenorrhea \\u2014 puberty is induced and maintained with estrogen, with progestin added once a uterus is present. Replacement is lifelong and is what prevents the skeletal and cardiovascular consequences of untreated hypogonadism. Sex of rearing varies in this disorder, so the hormone-replacement pathway is not decided by the diagnosis; this record and the testosterone record are the two arms of the same decision, and neither is the default.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"estradiol\"]}}, {\"id\": \"Failure of Testis Determination\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The bipotential gonad does not commit to, or does not complete, the testis pathway. Histology in this pole shows dysgenetic or undifferentiated gonadal tissue rather than an organized testis, and M\\u00fcllerian derivatives persist because fetal Sertoli-cell anti-M\\u00fcllerian hormone output was never adequate.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"male sex determination\", \"male gonad development\"], \"animal_models\": [{\"name\": \"Sertoli-cell conditional Dhx37 knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Cell-specific Dhx37 knockout (Dhx37-/-)\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"The knockout does not reproduce the human fetal phenotype of failed testis determination or fetal testicular regression.\"}]}}, {\"id\": \"Female external genitalia in individual with 46,XY karyotype\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The complete-gonadal-dysgenesis presentation: a 46,XY individual raised female who typically comes to attention in adolescence with absent secondary sexual characteristics.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0008730\"}}, {\"id\": \"Fetal Testicular Regression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A testis forms and functions normally through the window of M\\u00fcllerian regression (weeks 8-10) and external masculinization (weeks 10-16), then involutes. The timing is what makes this pole clinically distinct: because fetal hormone output was adequate during masculinization, external genitalia are male and M\\u00fcllerian derivatives are absent, yet no testis is present afterward. Surgical exploration finds a blind-ending spermatic cord with at most a fibrotic nodule.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Germ cell neoplasia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Retained dysgenetic gonadal tissue carrying Y-chromosome material is at risk of gonadoblastoma and its invasive successors, dysgerminoma and seminoma, typically arising in adolescence. Critically, the risk is not uniform across this entry\u0027s two poles: in a 292-patient DSD series the highest risk fell on 46,XY pure gonadal dysgenesis, whereas no tumour was found among the testicular-regression patients \\u2014 consistent with there being no retained gonadal tissue to transform. Risk therefore tracks the presence of dysgenetic gonad, not the DHX37 genotype as such.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0100728\"}}, {\"id\": \"Gonadal Surgery\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgical management covers two distinct situations. Where dysgenetic gonadal tissue carrying Y-chromosome material is present, gonadectomy addresses germ-cell tumour risk. Where the finding is a regression remnant or nubbin, excision is offered on a contested rationale \\u2014 the malignant potential of such remnants is extrapolated from cryptorchidism and viable germ cells are found in only a minority \\u2014 and practice varies. Testicular prostheses are commonly requested and are part of the same operative discussion.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Gonadal dysgenesis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"At the determination pole of the spectrum the gonad is dysgenetic or undifferentiated rather than an organized testis. Centralized histological review of DHX37 carriers within a bilateral-testicular-regression cohort found undifferentiated gonadal tissue and retained M\\u00fcllerian remnants, evidence that DHX37 disease involves early developmental failure rather than pure late regression.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000133\"}}, {\"id\": \"Hypergonadotropic hypogonadism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Absent gonadal feedback produces markedly elevated FSH and LH with low testosterone. This is the biochemical hallmark and the finding that separates true anorchia from undescended but present testes.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000815\"}}, {\"id\": \"Hypospadias\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hypospadias reflects incomplete urethral closure under deficient fetal androgen exposure and therefore marks the dysgenesis pole. Its presence is used clinically to argue against pure testicular regression: the Belgian bilateral-regression cohort excluded coronal or more proximal hypospadias on exactly that reasoning, so a DHX37 carrier with hypospadias is being classified as gonadal dysgenesis rather than regression.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000047\"}}, {\"id\": \"Impaired Small Ribosomal Subunit Biogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"DHX37 is a nucleolar factor required for pre-rRNA processing and assembly of the 40S small ribosomal subunit. Variant helicase function is predicted to degrade this step, placing the disorder among the candidate human ribosomopathies. This node is inferential rather than directly measured in patient gonad: no study has yet quantified pre-rRNA processing or 40S output in tissue from an affected individual.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"40S small ribosomal subunit assembly\", \"pre-18S rRNA maturation\"], \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Infertility\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Absence of functional gonadal tissue precludes gamete production. Affected 46,XY individuals are infertile; 46,XX heterozygous carriers are not.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000789\"}}, {\"id\": \"Micropenis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Microphallus at birth is markedly more common in DHX37 carriers than in other individuals with bilateral testicular regression, and penile growth remains severely restricted into adulthood despite testosterone therapy \\u2014 the clearest phenotypic discriminator identified between genetic and non-genetic testicular regression.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000054\"}}, {\"id\": \"Nucleolar Stress Response\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Disrupted ribosome assembly perturbs nucleolar architecture and releases the nucleolar surveillance program. The supporting data come from mouse: RNAi knockdown in the TM4 Sertoli cell line shows that Dhx37 maintains nucleolar integrity and PI3K-AKT signaling and restrains p53, and conditional knockout testis shows the corresponding tissue-level consequence. No equivalent measurement exists in human gonad, which is why this node is PROVISIONAL.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Sertoli cell\"], \"biological_processes\": [\"PI3K-AKT signaling in gonadal supporting cells\"], \"mechanism_confidence\": \"PROVISIONAL\", \"animal_models\": [{\"name\": \"Sertoli-cell conditional Dhx37 knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Cell-specific Dhx37 knockout (Dhx37-/-)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Loss of Dhx37 disrupts nucleolar architecture in Sertoli cells and de-represses p53, the step this node asserts.\"}]}}, {\"id\": \"Presence of uterus in 46,XY individual\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"M\\u00fcllerian structures persist only where fetal Sertoli-cell AMH output failed early \\u2014 that is, at the gonadal-dysgenesis pole. Their presence is the clinical feature that separates dysgenesis from true regression, and their documentation in DHX37 carriers is a central argument that DHX37 acts on gonadal development rather than on regression as such.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0034546\"}}, {\"id\": \"Primary amenorrhea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The presenting complaint at the complete-dysgenesis pole in individuals raised female: no menarche, together with absent secondary sexual characteristics, in an adolescent whose karyotype then proves to be 46,XY. It applies only to this pole; individuals raised male present far earlier, with impalpable gonads in infancy.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000786\"}}, {\"id\": \"Sertoli-cell conditional Dhx37 knockout mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Conditional knockout mice combined with RIP-seq, RNAi-RNA-seq and snRNA-seq, used to establish what Dhx37 does in testicular supporting cells. The model supplies the only direct in vivo evidence for the nucleolar-stress-to-p53 arm of the proposed mechanism.\"}, {\"id\": \"Testosterone Replacement Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Incremental testosterone induces and sustains puberty in individuals raised male and must be continued lifelong to prevent the skeletal and cardiovascular consequences of hypogonadism. Statural growth and pubertal development are adequate even when replacement starts in late adolescence, which usefully leaves time to explore gender identity before committing. Penile growth is the exception: it remains suboptimal in many, and especially so in DHX37 carriers, where restriction persists into adulthood. Earlier infantile testosterone to mimic mini-puberty has been proposed to improve this, but was less effective in DHX37 carriers than in others.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"testosterone\"]}}, {\"id\": \"Undervirilized external genitalia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Frankly ambiguous external genitalia occur at the intermediate part of the spectrum, where fetal androgen exposure during the 10-16 week masculinization window was partial rather than absent or adequate. It is one point on a range that also includes female-type and typical male genitalia; that full range is described on the Deficient Fetal Testicular Hormone Output node rather than being asserted here.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0000062\"}}, {\"id\": \"p53-Dependent Gonadal Somatic Cell Apoptosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Nucleolar stress releases p53 from MDM2-mediated restraint, and apoptosis of the gonadal somatic compartment follows. This is the proposed route to the regression pole of the spectrum: a gonad that has already formed is subsequently lost, rather than never being built. It rests on mouse and cell-line data plus a proposed model; no human gonadal measurement supports it, hence PROVISIONAL.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Sertoli cell\", \"Leydig cell\"], \"biological_processes\": [\"p53-mediated intrinsic apoptosis of gonadal somatic cells\"], \"mechanism_confidence\": \"PROVISIONAL\"}}], \"edges\": [{\"source\": \"DHX37 RecA-Domain Missense Variant\", \"target\": \"Impaired Small Ribosomal Subunit Biogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The affected residues lie in the catalytic core of a helicase whose essential cellular job is small-subunit ribosome assembly.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Small Ribosomal Subunit Biogenesis\", \"target\": \"Nucleolar Stress Response\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Defective ribosome assembly is the canonical trigger of the nucleolar stress response.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Nucleolar Stress Response\", \"target\": \"Dysregulated WNT Beta-Catenin Signaling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Proposed nucleolar-stress-to-WNT arm of the model; asserted as a hypothesis rather than a measured result in gonadal tissue.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Nucleolar Stress Response\", \"target\": \"p53-Dependent Gonadal Somatic Cell Apoptosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of Dhx37 de-represses p53 and drives apoptosis in testicular supporting cells.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Dysregulated WNT Beta-Catenin Signaling\", \"target\": \"Failure of Testis Determination\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"p53-Dependent Gonadal Somatic Cell Apoptosis\", \"target\": \"Fetal Testicular Regression\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of Testis Determination\", \"target\": \"Deficient Fetal Testicular Hormone Output\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of Testis Determination\", \"target\": \"Gonadal dysgenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of Testis Determination\", \"target\": \"Germ cell neoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Retained dysgenetic gonadal tissue carrying Y-chromosome material is the substrate for gonadoblastoma and its invasive successors. This edge exists only at the determination-failure pole: where the gonad regressed there is no tissue left to transform.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Fetal Testicular Regression\", \"target\": \"Absent Functional Testicular Tissue\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Deficient Fetal Testicular Hormone Output\", \"target\": \"Undervirilized external genitalia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Deficient Fetal Testicular Hormone Output\", \"target\": \"Female external genitalia in individual with 46,XY karyotype\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Deficient Fetal Testicular Hormone Output\", \"target\": \"Micropenis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Deficient Fetal Testicular Hormone Output\", \"target\": \"Cryptorchidism\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Deficient Fetal Testicular Hormone Output\", \"target\": \"Hypospadias\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Deficient Fetal Testicular Hormone Output\", \"target\": \"Presence of uterus in 46,XY individual\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Deficient Fetal Testicular Hormone Output\", \"target\": \"Absent Functional Testicular Tissue\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Absent Functional Testicular Tissue\", \"target\": \"Hypergonadotropic hypogonadism\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Absent Functional Testicular Tissue\", \"target\": \"Delayed puberty\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Absent Functional Testicular Tissue\", \"target\": \"Primary amenorrhea\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Absent Functional Testicular Tissue\", \"target\": \"Absent testis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Absent Functional Testicular Tissue\", \"target\": \"Decreased circulating antimullerian hormone\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Absent Functional Testicular Tissue\", \"target\": \"Decreased serum testosterone concentration\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Absent Functional Testicular Tissue\", \"target\": \"Infertility\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Testosterone Replacement Therapy\", \"target\": \"Absent Functional Testicular Tissue\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Testosterone Replacement Therapy\", \"target\": \"Hypergonadotropic hypogonadism\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Testosterone Replacement Therapy\", \"target\": \"Delayed puberty\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Estrogen Replacement Therapy\", \"target\": \"Absent Functional Testicular Tissue\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Estrogen Replacement Therapy\", \"target\": \"Hypergonadotropic hypogonadism\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Estrogen Replacement Therapy\", \"target\": \"Delayed puberty\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Gonadal Surgery\", \"target\": \"Germ cell neoplasia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Sertoli-cell conditional Dhx37 knockout mouse\", \"target\": \"Nucleolar Stress Response\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Loss of Dhx37 disrupts nucleolar architecture in Sertoli cells and de-represses p53, the step this node asserts.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The model is a loss-of-function knockout, whereas every human disease-associated DHX37 allele is missense and is suspected to act by gain of function or dominant negative effect. A knockout therefore tests what the protein does, not what the patient alleles do.\"}, {\"source\": \"Sertoli-cell conditional Dhx37 knockout mouse\", \"target\": \"Failure of Testis Determination\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"The knockout does not reproduce the human fetal phenotype of failed testis determination or fetal testicular regression.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"Reported defects are a smaller testis with vacuolated seminiferous tubules and impaired spermatogenesis \\u2014 a postnatal spermatogenic failure in an animal that still forms a testis. The human disease is a failure of fetal testis determination or its loss before birth, with undervirilized or female external genitalia. No sex reversal, no anorchia, and no undervirilization are reported in the model, so the defining human phenotype is absent.\"}, {\"source\": \"DHX37 p.Arg308Gln\", \"target\": \"DHX37\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"DHX37 p.Arg674Trp\", \"target\": \"DHX37\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"DHX37 p.Arg334Trp\", \"target\": \"DHX37\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"DHX37 p.Gly478Arg\", \"target\": \"DHX37\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"DHX37 p.Arg390His\", \"target\": \"DHX37\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"DHX37 p.Thr477His\", \"target\": \"DHX37\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6459,9 +6594,7 @@ This pathophysiological event involves Sertoli cell (CL:0000216). CL:0000216 is 
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Endocrine<span class="pill-count">(4)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Genitourinary<span class="pill-count">(10)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Genitourinary<span class="pill-count">(11)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6504,6 +6637,9 @@ This clinical feature is Gynecomastia with mild testicular underdevelopment, ann
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6518,6 +6654,7 @@ This clinical feature is Gynecomastia with mild testicular underdevelopment, ann
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6583,6 +6720,9 @@ This clinical feature is Hypergonadotropic hypogonadism (HP:0000815). HP:0000815
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6597,6 +6737,7 @@ This clinical feature is Hypergonadotropic hypogonadism (HP:0000815). HP:0000815
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6655,6 +6796,9 @@ This clinical feature is Undetectable or low anti-Müllerian hormone, annotated 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6669,6 +6813,7 @@ This clinical feature is Undetectable or low anti-Müllerian hormone, annotated 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6725,6 +6870,9 @@ This clinical feature is Low testosterone unresponsive to hCG stimulation, annot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6739,6 +6887,7 @@ This clinical feature is Low testosterone unresponsive to hCG stimulation, annot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6795,6 +6944,9 @@ This clinical feature is Absent spontaneous puberty, annotated with Delayed pube
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6812,6 +6964,7 @@ This clinical feature is Absent spontaneous puberty, annotated with Delayed pube
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6843,7 +6996,7 @@ This clinical feature is Absent spontaneous puberty, annotated with Delayed pube
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Genitourinary
-                    <span class="cat-count">10</span>
+                    <span class="cat-count">11</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-gonadal-dysgenesis" data-dismech-node="Gonadal dysgenesis" data-dismech-type="phenotype">
@@ -6876,6 +7029,9 @@ This clinical feature is Dysgenetic or undifferentiated gonadal tissue, annotate
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6893,6 +7049,7 @@ This clinical feature is Dysgenetic or undifferentiated gonadal tissue, annotate
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6901,6 +7058,105 @@ This clinical feature is Dysgenetic or undifferentiated gonadal tissue, annotate
 
 
                 <div class="evidence-explanation">The authors&#39; histology-based conclusion that DHX37 carriers have a gonadal developmental defect.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-absent-testis" data-dismech-node="Absent testis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Absent testis
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010469" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0010469</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Bilateral anorchia (vanishing testis), annotated with Absent testis (HP:0010469). HP:0010469 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37717579" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37717579" target="_blank">PMID:37717579</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The histologic examination revealed hypoplastic spermatic cord, focal dystrophic calcification, with sparse immature seminiferous tubules and Leydig cell groups in the stoma, confirming the diagnosis of TRS."</div>
+
+
+                <div class="evidence-explanation">Gonadal histology in a DHX37 carrier confirming the testicular-regression phenotype.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35835064" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35835064" target="_blank">PMID:35835064</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Recently, a series of recurrent missense variants in the RNA-helicase DHX37 have been reported associated with either 46,XY gonadal dysgenesis, 46,XY testicular regression syndrome (TRS), or anorchia."</div>
+
+
+                <div class="evidence-explanation">Names anorchia as one of the reported DHX37 phenotypes.</div>
 
 
 
@@ -6934,15 +7190,18 @@ This clinical feature is Dysgenetic or undifferentiated gonadal tissue, annotate
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000062" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000062</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000062" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000062</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Ambiguous genitalia (HP:0000062). HP:0000062 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6962,6 +7221,7 @@ This clinical feature is Ambiguous genitalia (HP:0000062). HP:0000062 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7004,15 +7264,18 @@ This clinical feature is Ambiguous genitalia (HP:0000062). HP:0000062 is a pheno
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008730" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0008730</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008730" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0008730</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Female external genitalia in a 46,XY individual, annotated with Female external genitalia in individual with 46,XY karyotype (HP:0008730). HP:0008730 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7032,6 +7295,7 @@ This clinical feature is Female external genitalia in a 46,XY individual, annota
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7056,6 +7320,7 @@ This clinical feature is Female external genitalia in a 46,XY individual, annota
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7098,15 +7363,18 @@ This clinical feature is Female external genitalia in a 46,XY individual, annota
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000054" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000054</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000054" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000054</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Micropenis / microphallus, annotated with Micropenis (HP:0000054). HP:0000054 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7126,6 +7394,7 @@ This clinical feature is Micropenis / microphallus, annotated with Micropenis (H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7150,6 +7419,7 @@ This clinical feature is Micropenis / microphallus, annotated with Micropenis (H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7192,15 +7462,18 @@ This clinical feature is Micropenis / microphallus, annotated with Micropenis (H
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000028" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000028</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000028" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0000028</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Impalpable or undescended gonads, annotated with Cryptorchidism (HP:0000028). HP:0000028 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7220,6 +7493,7 @@ This clinical feature is Impalpable or undescended gonads, annotated with Crypto
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7262,15 +7536,18 @@ This clinical feature is Impalpable or undescended gonads, annotated with Crypto
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0034546" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0034546</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0034546" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0034546</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Retained Müllerian derivatives, annotated with Presence of uterus in 46,XY individual (HP:0034546). HP:0034546 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7290,6 +7567,7 @@ This clinical feature is Retained Müllerian derivatives, annotated with Presenc
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7314,6 +7592,7 @@ This clinical feature is Retained Müllerian derivatives, annotated with Presenc
 
 
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+
 
 
 
@@ -7356,15 +7635,18 @@ This clinical feature is Retained Müllerian derivatives, annotated with Presenc
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100728" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0100728</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100728" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0100728</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Gonadoblastoma and dysgerminoma/seminoma in dysgenetic Y-bearing gonads, annotated with Germ cell neoplasia (HP:0100728). HP:0100728 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">This cohort was not genotyped for DHX37 and predates its description as a DSD gene, so the figures describe 46,XY gonadal dysgenesis generally. No DHX37-specific germ-cell tumour risk has been published; do not quote one.</div>
@@ -7386,6 +7668,7 @@ This clinical feature is Gonadoblastoma and dysgerminoma/seminoma in dysgenetic 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7413,6 +7696,7 @@ This clinical feature is Gonadoblastoma and dysgerminoma/seminoma in dysgenetic 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7434,6 +7718,7 @@ This clinical feature is Gonadoblastoma and dysgerminoma/seminoma in dysgenetic 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7476,15 +7761,18 @@ This clinical feature is Gonadoblastoma and dysgerminoma/seminoma in dysgenetic 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000047" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000047</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000047" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000047</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypospadias (HP:0000047). HP:0000047 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7504,6 +7792,7 @@ This clinical feature is Hypospadias (HP:0000047). HP:0000047 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7531,6 +7820,7 @@ This clinical feature is Hypospadias (HP:0000047). HP:0000047 is a phenotype fro
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7572,15 +7862,18 @@ This clinical feature is Hypospadias (HP:0000047). HP:0000047 is a phenotype fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000786" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000786</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000786" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000786</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Primary amenorrhea (HP:0000786). HP:0000786 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7603,6 +7896,7 @@ This clinical feature is Primary amenorrhea (HP:0000786). HP:0000786 is a phenot
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7644,15 +7938,18 @@ This clinical feature is Primary amenorrhea (HP:0000786). HP:0000786 is a phenot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000789" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000789</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000789" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000789</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Infertility (HP:0000789). HP:0000789 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7675,6 +7972,7 @@ This clinical feature is Infertility (HP:0000789). HP:0000789 is a phenotype fro
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7683,109 +7981,6 @@ This clinical feature is Infertility (HP:0000789). HP:0000789 is a phenotype fro
 
 
                 <div class="evidence-explanation">Establishes the sex-restricted fertility consequence: 46,XX carriers unaffected, 46,XY carriers affected.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-absent-testis" data-dismech-node="Absent testis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Absent testis
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0010469" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0010469</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Bilateral anorchia (vanishing testis), annotated with Absent testis (HP:0010469). HP:0010469 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:37717579" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37717579" target="_blank">PMID:37717579</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The histologic examination revealed hypoplastic spermatic cord, focal dystrophic calcification, with sparse immature seminiferous tubules and Leydig cell groups in the stoma, confirming the diagnosis of TRS."</div>
-
-
-                <div class="evidence-explanation">Gonadal histology in a DHX37 carrier confirming the testicular-regression phenotype.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:35835064" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35835064" target="_blank">PMID:35835064</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Recently, a series of recurrent missense variants in the RNA-helicase DHX37 have been reported associated with either 46,XY gonadal dysgenesis, 46,XY testicular regression syndrome (TRS), or anorchia."</div>
-
-
-                <div class="evidence-explanation">Names anorchia as one of the reported DHX37 phenotypes.</div>
 
 
 
@@ -7873,6 +8068,9 @@ This disease-associated gene is DHX37 (hgnc:17210). hgnc:17210 is a gene from th
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Sex-limited autosomal dominant, incomplete penetrance in 46,XY</span>
@@ -7895,6 +8093,7 @@ This disease-associated gene is DHX37 (hgnc:17210). hgnc:17210 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7922,6 +8121,7 @@ This disease-associated gene is DHX37 (hgnc:17210). hgnc:17210 is a gene from th
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7943,6 +8143,7 @@ This disease-associated gene is DHX37 (hgnc:17210). hgnc:17210 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7991,6 +8192,7 @@ This disease-associated gene is DHX37 (hgnc:17210). hgnc:17210 is a gene from th
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8012,7 +8214,13 @@ This variant is in DHX37 (hgnc:17210). hgnc:17210 is a gene from the HUGO Gene N
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">The commonest recurrent DHX37 allele in 46,XY DSD, accounting for roughly a third of reported cases. Recurs across unrelated families and populations and is found at both the gonadal-dysgenesis and testicular-regression poles, which is the central argument that the two phenotypes are one continuum rather than distinct genotype-defined entities.</div>
@@ -8054,6 +8262,7 @@ This variant is in DHX37 (hgnc:17210). hgnc:17210 is a gene from the HUGO Gene N
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8078,6 +8287,7 @@ This variant is in DHX37 (hgnc:17210). hgnc:17210 is a gene from the HUGO Gene N
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8099,6 +8309,7 @@ This variant is in DHX37 (hgnc:17210). hgnc:17210 is a gene from the HUGO Gene N
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8134,6 +8345,7 @@ This variant is in DHX37 (hgnc:17210). hgnc:17210 is a gene from the HUGO Gene N
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8155,7 +8367,13 @@ This variant is in DHX37 (hgnc:17210). hgnc:17210 is a gene from the HUGO Gene N
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">The second recurrent hotspot allele, reported in roughly one in nine DHX37-related 46,XY DSD cases and, like p.Arg308Gln, seen in both familial and sporadic presentations.</div>
@@ -8197,6 +8415,7 @@ This variant is in DHX37 (hgnc:17210). hgnc:17210 is a gene from the HUGO Gene N
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8221,6 +8440,7 @@ This variant is in DHX37 (hgnc:17210). hgnc:17210 is a gene from the HUGO Gene N
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8242,6 +8462,7 @@ This variant is in DHX37 (hgnc:17210). hgnc:17210 is a gene from the HUGO Gene N
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8277,6 +8498,7 @@ This variant is in DHX37 (hgnc:17210). hgnc:17210 is a gene from the HUGO Gene N
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8298,7 +8520,13 @@ This variant is in DHX37 (hgnc:17210). hgnc:17210 is a gene from the HUGO Gene N
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A recurrent RecA1-domain allele and, with p.Arg308Gln, one of the two variants found in the population-based Belgian cohort of bilateral testicular regression. Classified as an established pathogenic variant under ACMG/AMP criteria.</div>
@@ -8340,6 +8568,7 @@ This variant is in DHX37 (hgnc:17210). hgnc:17210 is a gene from the HUGO Gene N
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8361,6 +8590,7 @@ This variant is in DHX37 (hgnc:17210). hgnc:17210 is a gene from the HUGO Gene N
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8396,6 +8626,7 @@ This variant is in DHX37 (hgnc:17210). hgnc:17210 is a gene from the HUGO Gene N
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8417,7 +8648,13 @@ This variant is in DHX37 (hgnc:17210). hgnc:17210 is a gene from the HUGO Gene N
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A RecA2-domain allele in motif IV, reported in a boy with testicular regression syndrome who inherited it from an unaffected mother — one of the clearest illustrations of the sex-limited, incompletely penetrant transmission pattern. Both reports that carry it classify it as a variant of uncertain significance; they differ only in how strongly they argue for pathogenicity in prose, one calling its structural and conservation evidence strongly supportive and the other calling the genotype-phenotype correlation speculative. That shared VUS classification, not a disagreement between reports, is why this record carries UNCERTAIN_SIGNIFICANCE rather than the PATHOGENIC of the hotspot alleles.</div>
@@ -8459,6 +8696,7 @@ This variant is in DHX37 (hgnc:17210). hgnc:17210 is a gene from the HUGO Gene N
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8480,6 +8718,7 @@ This variant is in DHX37 (hgnc:17210). hgnc:17210 is a gene from the HUGO Gene N
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8507,6 +8746,7 @@ This variant is in DHX37 (hgnc:17210). hgnc:17210 is a gene from the HUGO Gene N
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
@@ -8543,6 +8783,7 @@ This variant is in DHX37 (hgnc:17210). hgnc:17210 is a gene from the HUGO Gene N
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8564,7 +8805,13 @@ This variant is in DHX37 (hgnc:17210). hgnc:17210 is a gene from the HUGO Gene N
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A RecA1-domain allele reported once, in a girl with 46,XY complete gonadal dysgenesis. A single observation, so it is recorded as uncertain rather than pathogenic.</div>
@@ -8591,6 +8838,7 @@ This variant is in DHX37 (hgnc:17210). hgnc:17210 is a gene from the HUGO Gene N
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8626,6 +8874,7 @@ This variant is in DHX37 (hgnc:17210). hgnc:17210 is a gene from the HUGO Gene N
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8647,7 +8896,13 @@ This variant is in DHX37 (hgnc:17210). hgnc:17210 is a gene from the HUGO Gene N
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">The only homozygous allele reported in this disease, in a boy with testicular regression syndrome. It is the entry&#39;s clearest evidence against treating heterozygosity as definitional, and against a simple dose-dependent model: the boy&#39;s father, heterozygous for the same variant, was fertile and had only unilateral regression with typical male genitalia.</div>
@@ -8674,6 +8929,7 @@ This variant is in DHX37 (hgnc:17210). hgnc:17210 is a gene from the HUGO Gene N
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8781,6 +9037,9 @@ This treatment uses testosterone (CHEBI:17347). CHEBI:17347 is a therapeutic age
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8791,6 +9050,9 @@ This treatment uses testosterone (CHEBI:17347). CHEBI:17347 is a therapeutic age
 
 
     </div>
+
+
+
 
 
 
@@ -8878,6 +9140,7 @@ This treatment targets Absent spontaneous puberty, annotated with Delayed pubert
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8899,6 +9162,7 @@ This treatment targets Absent spontaneous puberty, annotated with Delayed pubert
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8989,6 +9253,9 @@ This treatment uses estradiol (CHEBI:23965). CHEBI:23965 is a therapeutic agent 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8999,6 +9266,9 @@ This treatment uses estradiol (CHEBI:23965). CHEBI:23965 is a therapeutic agent 
 
 
     </div>
+
+
+
 
 
 
@@ -9088,6 +9358,7 @@ This treatment targets Absent spontaneous puberty, annotated with Delayed pubert
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9154,6 +9425,9 @@ This treatment is gonadectomy (bilateral orchiectomy), annotated with Orchiectom
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9164,6 +9438,9 @@ This treatment is gonadectomy (bilateral orchiectomy), annotated with Orchiectom
 
 
     </div>
+
+
+
 
 
 
@@ -9216,6 +9493,7 @@ This treatment targets Germ cell neoplasia (HP:0100728). HP:0100728 is a phenoty
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9237,6 +9515,7 @@ This treatment targets Germ cell neoplasia (HP:0100728). HP:0100728 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9310,6 +9589,12 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Counseling must convey a transmission pattern that is easy to misread. 46,XX heterozygous carriers have normal gonadal development and fertility, so the variant travels silently through female relatives and the family history usually looks negative; penetrance in 46,XY carriers is itself incomplete, with unaffected and minimally affected male carriers documented. Recurrence counseling must also distinguish this from the allelic biallelic DHX37 neurodevelopmental syndrome NEDBAVC, which carries entirely different risks.</div>
 
 
@@ -9331,6 +9616,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9399,6 +9685,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -9409,6 +9698,9 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -9439,6 +9731,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9460,6 +9753,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9621,6 +9915,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9705,6 +10000,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9795,6 +10091,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9819,6 +10116,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9905,6 +10203,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10002,6 +10301,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10054,6 +10354,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10135,6 +10436,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10156,6 +10458,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10214,6 +10517,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10269,6 +10573,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10290,6 +10595,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10439,6 +10745,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10478,6 +10785,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10535,6 +10843,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -13104,6 +13413,51 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Scope and lump/split rationale. This entry is anchored on DHX37 (MONDO:8000015, OMIM 273250) and deliberately spans both the gonadal-dysgenesis and testicular-regression poles, because the recurrent alleles — p.Arg308Gln above all — produce both within and across families, so splitting by clinical pole would split a single genotype. It sits alongside, and overlaps in clinical presentation with, three existing entries: 46,XY partial gonadal dysgenesis (MONDO:0016674), which carries a DHX37-related subtype covering the partial presentations specifically; 46,XY complete gonadal dysgenesis (MONDO:0010765), which is this term&#39;s MONDO parent and which already carries a DHX37-related complete gonadal dysgenesis subtype and a DHX37 pathophysiology node, and which now binds MONDO:8000015 as that subtype&#39;s subtype_term; and 45,X/46,XY mixed gonadal dysgenesis, which is a sex-chromosome DSD and unrelated. DHX37 content therefore now exists in three files. That is intended rather than accidental, but it is the gene-specific-forms pattern that warrants a human curator&#39;s sign-off: the two sibling entries are organized by clinical severity across many genes and carry DHX37 only as the slice that falls in their severity band, whereas this entry is organized by gene across the full severity range.
+The strongest argument against keeping this entry separate is that MONDO:8000015 is now claimed twice: once as this entry&#39;s disease_term, and once as the subtype_term of the DHX37-related subtype of 46,XY complete gonadal dysgenesis. Under the MONDO coverage rule a disease_term and a has_subtypes term both count as curated coverage, so that is a genuine collision rather than a cross-reference. That binding was added on main after this entry was drafted; this entry retains the term because it curates DHX37 across the full severity range rather than only the complete-dysgenesis slice, but which of the two should hold it is exactly the question a curator is being asked to settle. A reviewer who disagrees should say so before merge.
+MONDO scope mismatch. MONDO places MONDO:8000015 as a subClassOf MONDO:0010765 (46,XY complete gonadal dysgenesis), so the bound disease_term is narrower than this entry&#39;s actual scope, which spans partial dysgenesis and testicular regression as well. No mappings.mondo_mappings block is asserted for the partial pole; a skos:narrowMatch to MONDO:0016674 would make that claim auditable and is a reasonable follow-up. The overlap with the partial-dysgenesis entry is real and intended: that entry is organized by clinical severity across many genes, this one by gene across the full severity range, and the DHX37 subtype there is the intersection.
+What this entry does not claim. The middle of the causal chain — nucleolar stress to WNT/beta-catenin to failed testis determination, and the parallel p53 apoptosis arm — is the field&#39;s leading model, not a demonstrated result, and the corresponding nodes carry mechanism_confidence HYPOTHETICAL and INDIRECT edge evidence. No study has measured ribosome biogenesis in gonadal tissue from an affected individual. No DHX37-specific germ-cell tumour risk figure has been published and none is quoted here.
+Deep research. Curation drew on an openscientist deep-research report (research/46_XY_Sex_Reversal_11-deep-research-openscientist.md), produced via the recorded-fallback path after the requested falcon provider returned a 403 authentication failure; the report&#39;s frontmatter carries fell_back, requested_provider and provider_attempts. Its reference validation was clean (18/18 resolved, 18/18 quotes valid) with one reference flagged off topic, PMID:32057790, a Turner-syndrome 45,X/46,XY mosaicism seminoma case report, which is genuinely about a different entity and is not cited here. Its term validation flagged HP:0000783 as unresolved; that CURIE is not bound anywhere in this entry. The four terms it reported as mislabelled were artefacts of the report putting frequency descriptors in the label column, not wrong bindings — every term used here was independently verified against the ontology.
+Reference caches committed but not cited. The deep-research run&#39;s own validator resolves every citation the report makes, so this PR carries reference caches beyond the ones the entry cites. Three were reviewed and deliberately not used: PMID:37497464 is a Swyer syndrome case report with no DHX37 genotype, so it describes the clinical picture but not this disease entity; PMID:42151440 measures DHX37 expression in breast and ovarian cancer, a different biological question; and PMID:39829003, an Iranian DSD cohort, and PMID:42365275, a 46,XY DSD exome series, cover the general DSD diagnostic landscape rather than adding a DHX37-specific claim this entry does not already make from a better source. They are left cached rather than deleted because the report cites them and reference caches are committed for deterministic validation.
+GeneReviews. PubMed was searched for a GeneReviews chapter on testicular regression syndrome, DHX37, and 46,XY sex reversal; none exists. The overview chapter for this disease family, PMID:20301714, is tagged in references but not quoted: its PubMed abstract is the five-point &#34;the purpose of this overview is to&#34; boilerplate with no Clinical Characteristics, Management, or Genetic Counseling content to mine.
+Prevalence is not curated. SRXY11 has no published population prevalence estimate; what the literature reports is diagnostic yield within ascertained 46,XY DSD, TRS and gonadal-dysgenesis cohorts, which is a different measure and is recorded as genetic.case_fractions rather than being misrepresented as disease occurrence. Those fractions vary widely by ascertainment — 40-50% in referral series enriched for regression phenotypes against 8.6% in the population-based Belgian cohort — and that spread is itself informative rather than contradictory.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: 46,XY Sex Reversal 11 (SRXY11, DHX37)</strong> · 2026-09-01T05:54:21Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/46_XY_Sex_Reversal_11/2026-09-01T055421Z-claude-code-ea34e1.yaml">View source</a></p>
+                        <p class="research-review-text">Created kb/disorders/46_XY_Sex_Reversal_11.yaml for MONDO:8000015 (SRXY11, DHX37-related 46,XY DSD) and deleted the corresponding stub.
+
+Deep research: the requested provider was falcon, which returned HTTP 403 (Edison authentication failed). Rather than substituting a provider by hand, the run was repeated through the recorded-fallback path (just dr_fallback=&#39;--fallback&#39; research-disorder falcon ...), which produced research/46_XY_Sex_Reversal_11-deep-research-openscientist.md and renamed the report to its actual producer; the frontmatter carries fell_back: true, requested_provider: falcon, and provider_attempts. That report is the one used.
+
+Report validation as read before use: reference_validation 18/18 resolved, 18/18 quotes valid, confabulation_rate 0.0, needs_review true because of one off-topic reference, PMID:32057790 (a Turner-syndrome 45,X/46,XY mosaicism seminoma case report). That paper is genuinely about a different entity and was not cited. term_validation flagged HP:0000783 as unresolved; it is not bound anywhere in the entry. The four terms reported as mislabelled were artefacts of the report placing frequency descriptors in the label column (HP:0000133, HP:0000815, HP:0000771, HP:0100728 all carry correct CURIEs); each term actually used was independently verified against the ontology via the OLS API or an existing verified binding in a sibling KB entry.
+
+Scope decision: recorded as a DISEASE entry rather than a SUBTYPE. The stub was UNDECIDED. MONDO places SRXY11 under 46,XY complete gonadal dysgenesis, but the existing complete-dysgenesis entry explicitly excludes DHX37 as a phenotype-series cross-reference, and the existing 46,XY partial gonadal dysgenesis entry carries only a DHX37 subtype scoped to partial presentations. Neither covers the testicular-regression pole, which is where DHX37 variants are most enriched. The entry is gene-anchored and spans both poles, because the recurrent alleles produce both within and across families; the notes block records the overlap with both sibling entries explicitly.
+
+Content: 9 pathophysiology nodes forming a connected causal chain from the RecA-domain missense variant through impaired 40S biogenesis, nucleolar stress, and a branch into WNT/beta-catenin-mediated failure of testis determination versus p53-dependent somatic-cell apoptosis and fetal testicular regression; 14 phenotypes; genetic and variants records for the p.Arg308Gln and p.Arg674Trp hotspots with three population-specific case_fractions; a Sertoli-cell conditional Dhx37 knockout animal model including a FAILS_TO_RECAPITULATE link; four diagnosis records; four treatments; four differential diagnoses; and five discussions.
+
+Epistemic care taken: the middle of the chain (nucleolar stress to WNT to failed determination, and the p53 arm) is the field&#39;s leading model and not a demonstrated result, so those nodes carry mechanism_confidence HYPOTHETICAL and their edges carry directness INDIRECT. No prevalence record was created — no population prevalence for SRXY11 exists, and the published figures are ascertainment-dependent diagnostic yields, recorded as genetic.case_fractions instead. No DHX37-specific germ-cell tumour risk is quoted; the tumour phenotype cites a 292-patient 46,XY DSD series that was not DHX37-genotyped, and carries both the dysgenesis risk figure and the negative result at the regression pole. Discussions record the DHX37 expression-compartment disagreement between the two foundational studies, the regression-versus-dysgenesis controversy, the housekeeping-gene tissue-specificity paradox, and a HUMAN_MODEL_MISMATCH for the loss-of-function mouse against exclusively missense human alleles.
+
+GeneReviews: no chapter exists for SRXY11 or testicular regression syndrome. The overview chapter Nonsyndromic Disorders of Testicular Development (PMID:20301714) covers this disease family and is cached and tagged GeneReviews in the top-level references block; its PubMed abstract is a purpose statement with no Clinical Characteristics content, so it supplied no phenotype baseline and is cited only as the reference tag.
+
+Self-review round. Before committing, an adversarial review was run against the dismech-pr-review skill with fresh context, and its findings were verified against the reference cache rather than taken at face value; seventeen were raised and fifteen acted on. Substantive corrections: (1) the RIP-seq/RNAi-RNA-seq result from PMID:41535247 was regraded from MODEL_ORGANISM to IN_VITRO after confirming in the cached full text that those experiments were RNAi knockdown in the TM4 mouse Sertoli cell line, and the animal-model link evidence was repointed to the paper&#39;s in-vivo sentence. (2) The Nucleolar Stress Response node had described a cell-line result as directly observable in knockout testis; the description was corrected and that node plus the p53 apoptosis node were tagged mechanism_confidence PROVISIONAL, which the notes block had already claimed of them but the file did not honour. (3) genetic.frequency claimed DHX37 was the most commonly identified gene in gonadal-dysgenesis cohorts generally, which the sources do not support; it was narrowed to TRS-enriched series with the 0.77-45.45 percent cohort range recorded. (4) The Ambiguous genitalia phenotype was supported only by a quote describing a range of genital outcomes, and was rebound to a PMID:42510869 sentence reporting ambiguous genitalia directly, with frequency dropped from FREQUENT to OCCASIONAL. (5) A REFUTE on the Muellerian phenotype was quoting a cohort&#39;s enrolment criterion rather than a finding, and was regraded NO_EVIDENCE. (6) The case definition required a heterozygous variant, excluding the published homozygous p.T477H testicular-regression case that this entry cites elsewhere; it was softened, and that case with its heterozygous fertile father was added as evidence. (7) The treatments section was testosterone-only despite the entry curating the female-phenotype pole as first-class, so an estrogen-replacement record was added with its lack of DHX37-specific evidence stated plainly.
+
+Also corrected: the p53-to-regression edge snippet now quotes the clause that actually reaches the regression step; the Cryptorchidism edge moved from Absent Functional Testicular Tissue to Deficient Fetal Testicular Hormone Output, since absent tissue does not cause an undescended testis; the Brazilian ETRS case_fraction_percent of 50.0 was withdrawn because the 7/14 denominator reconciles with neither count in the abstract and the ratio may be inverted, with the ambiguity recorded in notes; a NO_EVIDENCE item doing a notes&#39; job moved to node notes; the gonadal-surgery binding tightened from NCIT:C15329 Surgical Procedure to NCIT:C15288 Orchiectomy; Delayed puberty evidence marked directness INDIRECT; and hypospadias, primary amenorrhea, pelvic imaging, and a digenic DHX37 plus NR5A1 note were added. One point of fact in the notes block was wrong and is fixed: the 46,XY complete gonadal dysgenesis entry does carry a DHX37-related subtype and a DHX37 pathophysiology node, so the earlier wording implying it excludes DHX37 content entirely was incorrect.
+
+Two findings were recorded rather than resolved, both flagged in the entry&#39;s notes for a human curator. The lump/split call warrants sign-off: DHX37 content now exists in three files, which is the gene-specific-forms pattern. And MONDO makes MONDO:8000015 a subclass of complete gonadal dysgenesis while this entry deliberately spans the partial and regression poles too, so the bound disease_term is narrower than the entry&#39;s scope; a skos:narrowMatch mapping to MONDO:0016674 would make the partial-pole claim auditable and is noted as follow-up rather than asserted here.
+
+Validation: just validate-disorders (the batched pre-PR gate CI runs) passed after the review fixes — schema, terms, and 87/87 snippets verified against cached references. 13,238 KB-integrity pytest cases pass. Also passed: check-entity-refs, check-causal-targets, check-duplicate-keys, check-qualifier-terms, check-enum-values, check-snippet-length, check-title-snippets, check-folded-hyphens, check-snippet-grading, check-environmental-evidence, and check-stubs after stub deletion. All 15 references are PMIDs; no DOI-only or preprint citations were used.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
