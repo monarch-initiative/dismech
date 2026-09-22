@@ -132,3 +132,32 @@ def test_oversized_tables_do_not_displace_the_article(monkeypatch):
         "3060324", ReferenceValidationConfig(rate_limit_delay=0)
     )
     assert result == body.strip()
+
+
+@pytest.mark.parametrize("initial", ["challenge", "http_error", "timeout"])
+def test_pdf_render_view_recovers_public_article(monkeypatch, initial):
+    body = "The channel currents were measured in transfected cells. " * 30
+    provider, calls = _provider(monkeypatch, "unused")
+
+    def get(url, **kwargs):
+        calls.append(url)
+        if len(calls) == 1:
+            if initial == "timeout":
+                raise requests.Timeout("temporary timeout")
+            return SimpleNamespace(
+                status_code=403 if initial == "http_error" else 200,
+                content=b"<html><main>Checking your browser</main></html>",
+            )
+        return SimpleNamespace(
+            status_code=200,
+            content=f"<article><h2>Results</h2><p>{body}</p></article>".encode(),
+        )
+
+    monkeypatch.setattr(requests, "get", get)
+    result = provider.locate(
+        ReferenceIdentifiers(pmcid="1571643"),
+        ReferenceValidationConfig(rate_limit_delay=0),
+    )
+    assert result.format_hint == "html"
+    assert body.strip() in result.text
+    assert calls == [result.url, result.url + "?pdf=render"]
