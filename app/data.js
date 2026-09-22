@@ -38146,7 +38146,7 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 5,
-    "causal_graph_edges": "37",
+    "causal_graph_edges": "46",
     "causal_graph_longest_path": "4"
   },
   {
@@ -42975,7 +42975,7 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "34",
+    "causal_graph_edges": "35",
     "causal_graph_longest_path": "5"
   },
   {
@@ -54561,7 +54561,7 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 1,
     "num_treatments": 0,
-    "causal_graph_edges": "10",
+    "causal_graph_edges": "12",
     "causal_graph_longest_path": "5"
   },
   {
@@ -68753,6 +68753,103 @@ window.searchData = [
     "causal_graph_longest_path": "3"
   },
   {
+    "name": "Charcot-Marie-Tooth Disease Type 1E",
+    "disease_id": "MONDO:0007311",
+    "category": "Mendelian",
+    "parents": [
+      "Charcot-Marie-Tooth Disease"
+    ],
+    "creation_date": "2026-09-22T13:35:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "CMT1E is demyelinating Charcot-Marie-Tooth neuropathy caused by coding point mutations and small indels in PMP22, frequently accompanied by sensorineural hearing loss. It is the third of three PMP22 diseases, and the one that is not about gene dosage.\n**The lesion is a misfolded protein, not a dose.** CMT1A arises from duplication of the 1.4 Mb region containing PMP22 and HNPP from its deletion; both are dosage diseases of a wild-type protein. CMT1E instead produces an abnormal protein. Disease-related missense mutations in the PMP22 transmembrane domains disturb intracellular trafficking, so the mutant accumulates in the endoplasmic reticulum and Golgi rather than reaching the Schwann cell surface. In Trembler-J nerve the retained protein has an extended half-life and forms aggresome-like structures ringed by chaperones and lysosomes, cleared by autophagy and accumulating when autophagy is blocked.\n**There is a second arm through lipid handling.** Cholesterol is an essential structural lipid of compact myelin. In Trembler-J Schwann cells, cholesterol is retained with the mutant protein in the Golgi and its plasma-membrane level falls correspondingly. So the same mis-trafficking event that creates the proteostatic burden also diverts a myelin building block, and the two arms converge on the failure to make and maintain myelin.\n**This distinction is not academic - it predicts therapy failure.** Expression profiling across Pmp22-null, Pmp22-overexpressing and Trembler mice found three distinct profiles, which is the direct evidence that dosage and point-mutation disease are different mechanisms rather than points on one severity scale. And the clinical history bears it out: ascorbic acid, which worked in the CMT1A transgenic dosage model, had no benefit across three one-year human trials. Extrapolating a CMT1A-directed therapy to CMT1E is therefore not conservative, it is unsupported.\n**The phenotype sits at the severe end, and deafness is the distinguishing feature.** In a Korean cohort of 850 duplication-negative CMT families, more than 40 percent of CMT1E patients had hearing loss, and both physical and electrophysiological severity exceeded CMT1A. But expressivity is wide: one Portuguese family carrying p.Trp28Cys ranged from asymptomatic to mild numbness with onset from the mid-twenties to the late sixties and no hearing loss at all, while the classic Trembler p.Gly150Asp substitution produces Dejerine-Sottas syndrome with deafness and cognitive impairment. Which variant, and where it sits in the protein, is a major determinant of severity.",
+    "pathophysiology": [
+      "PMP22 Transmembrane-Domain Missense Mutation",
+      "ER and Golgi Retention of Misfolded PMP22",
+      "Aggresome Formation and Proteostatic Burden",
+      "Cholesterol Sequestration in the Golgi",
+      "Schwann Cell Apoptosis and Failure of Myelination",
+      "Altered Store-Operated Calcium Handling",
+      "Extracellular Matrix Remodelling With Macrophage-Derived Metalloproteinases",
+      "Demyelination of Peripheral Nerve"
+    ],
+    "cell_types": [
+      "myelinating Schwann cell",
+      "Schwann cell",
+      "infiltrating macrophage"
+    ],
+    "cell_type_ids": [
+      "CL:0000218",
+      "CL:0002573",
+      "CL:0000235"
+    ],
+    "biological_processes": [
+      "protein folding",
+      "autophagy",
+      "cholesterol transport",
+      "apoptotic process",
+      "myelination in peripheral nervous system",
+      "extracellular matrix disassembly",
+      "myelination"
+    ],
+    "phenotypes": [
+      "Distal muscle weakness",
+      "Distal sensory impairment",
+      "Sensorineural hearing impairment",
+      "Areflexia",
+      "Pes cavus",
+      "Hammertoe",
+      "Distal amyotrophy",
+      "Respiratory insufficiency",
+      "Decreased motor nerve conduction velocity"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Auditory",
+      "Musculoskeletal",
+      "Respiratory",
+      "Electrophysiologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Ear",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0002460",
+      "HP:0002936",
+      "HP:0000407",
+      "HP:0001284",
+      "HP:0001761",
+      "HP:0001765",
+      "HP:0003693",
+      "HP:0002093",
+      "HP:0003431"
+    ],
+    "frequencies": [],
+    "genes": [
+      "PMP22"
+    ],
+    "treatments": [
+      "Rehabilitation, orthoses and surgical correction",
+      "Ascorbic acid",
+      "Curcumin",
+      "Genetic counselling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Charcot-Marie-Tooth_Disease_Type_1E.yaml",
+    "page_url": "../pages/disorders/Charcot-Marie-Tooth_Disease_Type_1E.html",
+    "num_phenotypes": 9,
+    "num_pathophysiology": 8,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "20",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Charcot-Marie-Tooth Disease Type 2",
     "disease_id": "MONDO:0018993",
     "category": "Genetic",
@@ -73981,8 +74078,8 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 6,
     "num_treatments": 8,
-    "causal_graph_edges": "16",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "27",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Chronic Inflammatory Demyelinating Polyneuropathy",
@@ -78801,8 +78898,8 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 4,
-    "causal_graph_edges": "5",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Colchicine Poisoning",
@@ -79827,8 +79924,8 @@ window.searchData = [
     "num_pathophysiology": 8,
     "num_genes": 1,
     "num_treatments": 4,
-    "causal_graph_edges": "15",
-    "causal_graph_longest_path": "8"
+    "causal_graph_edges": "24",
+    "causal_graph_longest_path": "9"
   },
   {
     "name": "Combined Immunodeficiency Due To Moesin Deficiency",
@@ -127227,7 +127324,7 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 1,
     "num_treatments": 4,
-    "causal_graph_edges": "29",
+    "causal_graph_edges": "32",
     "causal_graph_longest_path": "6"
   },
   {
@@ -142274,7 +142371,7 @@ window.searchData = [
     "num_pathophysiology": 12,
     "num_genes": 1,
     "num_treatments": 6,
-    "causal_graph_edges": "51",
+    "causal_graph_edges": "64",
     "causal_graph_longest_path": "7"
   },
   {
@@ -146862,7 +146959,7 @@ window.searchData = [
     "num_pathophysiology": 3,
     "num_genes": 2,
     "num_treatments": 3,
-    "causal_graph_edges": "10",
+    "causal_graph_edges": "20",
     "causal_graph_longest_path": "3"
   },
   {
@@ -161600,7 +161697,7 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "18",
+    "causal_graph_edges": "23",
     "causal_graph_longest_path": "8"
   },
   {
@@ -163735,8 +163832,8 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 4,
-    "causal_graph_edges": "6",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "26",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Immunodeficiency 70",
@@ -164754,7 +164851,7 @@ window.searchData = [
     "num_pathophysiology": 10,
     "num_genes": 1,
     "num_treatments": 7,
-    "causal_graph_edges": "36",
+    "causal_graph_edges": "38",
     "causal_graph_longest_path": "5"
   },
   {
@@ -183056,7 +183153,10 @@ window.searchData = [
     ],
     "creation_date": "2026-08-27T00:00:00Z",
     "updated_date": null,
-    "subtypes": [],
+    "subtypes": [
+      "Optic",
+      "Leigh"
+    ],
     "description": "Leber-like hereditary optic neuropathy, autosomal recessive 1 (LHONAR1, arLHON) is caused by biallelic variants in the nuclear gene DNAJC30. It matters because of what it overturned. Leber hereditary optic neuropathy had been the textbook example of maternal transmission, defined since 1988 by point mutations in mitochondrial DNA, and a patient with a convincing LHON phenotype and no mtDNA mutation had no diagnosis to be given. In 2021 a single-exon nuclear gene accounted for 33 such patients from 29 families, and the resulting entity recapitulated every hallmark of the mitochondrial form: subacute painless bilateral central visual loss in young adults, incomplete penetrance, marked male predominance, and responsiveness to idebenone. LHON is therefore a clinical description independent of the mode of transmission, and the entity divides into mtLHON and arLHON.\nThe mechanism is not a defect of complex I structure or assembly, which is what mtDNA LHON and the nuclear complex I subunit deficiencies produce. DNAJC30 is a chaperone that services complex I after it has been built. Subunits of the complex I N module sit closest to the site of electron entry and take the highest oxidative damage, and the cell exchanges them individually rather than rebuilding the whole enzyme, which is far cheaper in energy. DNAJC30 is what makes that exchange happen. Tracking protein turnover in patient fibroblasts and in a DNAJC30 knockout cell line showed the turnover of exactly those N module subunits to be selectively slowed, so damaged subunits are retained and the cell accumulates assembled complex I of reduced catalytic quality. This is a disease of impaired repair rather than of impaired construction, and it was the first such disease described for a respiratory chain complex.\nThe genetics are dominated by one allele. The missense variant c.152A>G p.(Tyr51Cys) is an Eastern European founder allele carried by the great majority of patients, common enough in Russia, Poland, Ukraine and Romania that DNAJC30 accounts for a fifth of molecularly solved LHON in a Moscow centre and outnumbers the mitochondrial form in a Polish series. Rarer alleles include p.(Pro78Ser), p.(Leu101Gln), p.(His77del), the nonsense p.(Glu204*) and p.(Trp8*), and the frameshift p.(Ser44ValfsTer8). Because the gene has a single exon, Sanger sequencing of DNAJC30 is cheap, and the practical recommendation is to sequence it in parallel with the full mtDNA in any unsolved LHON.\nTwo features complicate the picture and are curated here as open questions rather than settled mechanism. The first is that a recessive disease should not show incomplete penetrance or a sex bias, and this one shows both, more strongly than the mitochondrial form does; DNAJC30 expression does not differ between sexes, so the modifier lies downstream and is unidentified. The second is a Leigh syndrome branch. A minority of patients, including some homozygous for the same founder allele, present instead with dystonia, ataxia and bilateral basal ganglia necrosis, with or without optic involvement, and in the one reported case treated with idebenone the drug did not arrest that course. Whether a second hit in another complex I gene explains the branch is proposed but not established.",
     "pathophysiology": [
       "DNAJC30 Loss of Function",
@@ -185526,8 +185626,8 @@ window.searchData = [
     "num_pathophysiology": 9,
     "num_genes": 1,
     "num_treatments": 5,
-    "causal_graph_edges": "12",
-    "causal_graph_longest_path": "7"
+    "causal_graph_edges": "21",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Leukocyte Adhesion Deficiency Type II",
@@ -185616,8 +185716,8 @@ window.searchData = [
     "num_pathophysiology": 8,
     "num_genes": 1,
     "num_treatments": 4,
-    "causal_graph_edges": "13",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "18",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Leukoencephalopathy Progressive Infantile-onset With Or Without Deafness",
@@ -200275,7 +200375,7 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "15",
+    "causal_graph_edges": "16",
     "causal_graph_longest_path": "5"
   },
   {
@@ -200363,7 +200463,7 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 1,
     "num_treatments": 4,
-    "causal_graph_edges": "17",
+    "causal_graph_edges": "18",
     "causal_graph_longest_path": "6"
   },
   {
@@ -223676,8 +223776,8 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "11",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Nevus of Ota",
@@ -239670,8 +239770,8 @@ window.searchData = [
     "num_pathophysiology": 11,
     "num_genes": 1,
     "num_treatments": 5,
-    "causal_graph_edges": "18",
-    "causal_graph_longest_path": "6"
+    "causal_graph_edges": "28",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Papular xanthoma",
@@ -272916,6 +273016,122 @@ window.searchData = [
     "causal_graph_longest_path": "7"
   },
   {
+    "name": "SQSTM1-Related Childhood-Onset Neurodegeneration",
+    "disease_id": "MONDO:0014940",
+    "category": "Mendelian",
+    "parents": [
+      "Autosomal recessive cerebellar ataxia",
+      "Congenital disorder of autophagy"
+    ],
+    "creation_date": "2026-09-02T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Childhood-onset neurodegeneration with ataxia, dystonia and gaze palsy (NADGP) is an ultra-rare autosomal recessive neurodegenerative disorder caused by biallelic loss-of-function variants in SQSTM1, the gene encoding the selective-autophagy cargo receptor p62/sequestosome-1. Early development is normal; affected children present in later childhood or adolescence with progressive gait ataxia and evolve a combined cerebellar, extrapyramidal and oculomotor syndrome \u2014 appendicular ataxia, dysarthria, dystonia, choreoathetosis, vertical supranuclear gaze palsy and mild cognitive decline.\nThe zygosity split matters and is the reason this is a separate entry. SQSTM1 is far better known for two *dominant* diseases caused by heterozygous, usually missense, alleles: Paget disease of bone (recurrent UBA-domain p.Pro392Leu) and ALS/frontotemporal dementia. Those are allelic disorders of altered p62 function in adults. NADGP is instead a state of complete p62 absence, confirmed by immunoblot in patient fibroblasts, and every reported NADGP allele to date is predicted-null (nonsense, frameshift, splice, start-loss, or a synonymous change shown to disrupt splicing). No missense NADGP allele has been reported. The two disease groups therefore differ in zygosity, allele class, age of onset and affected organ system, and their evidence must not be merged.\nMechanistically the disorder sits with the congenital disorders of autophagy. p62 polymerises through its PB1 domain, binds ubiquitinated cargo through its UBA domain and delivers that cargo to the forming autophagosome through its LC3-interacting region. Its absence leaves selective autophagy without a cargo adaptor: patient and knockout cells fail to build ubiquitin-positive aggregates in response to misfolded-protein stress, autophagic flux decelerates, and the early PINK1-dependent steps of mitochondrial quality control are disrupted even though bulk mitochondrial clearance is preserved.\nA caveat that constrains everything downstream: no human neuropathology has been published. The step from cellular proteostatic and mitochondrial failure to region-selective degeneration of cerebellum, brainstem gaze centres and basal ganglia is inferred from imaging, from zebrafish sqstm1 knockdown and from p62-null mice, not demonstrated in patient tissue. It is curated here as an explicit knowledge gap rather than asserted.\n",
+    "pathophysiology": [
+      "Biallelic SQSTM1 Loss-of-Function",
+      "Absence of p62/Sequestosome-1 Protein",
+      "Failure of Selective Autophagy Cargo Recognition",
+      "Impaired Mitochondrial Quality Control",
+      "Blunted KEAP1-NRF2 Antioxidant Response",
+      "Cerebellar and Brainstem Neuron Proteostatic Stress",
+      "Regional Neurodegeneration of Cerebellum, Brainstem and Basal Ganglia"
+    ],
+    "cell_types": [
+      "cerebellar Purkinje cell",
+      "cerebellar granule cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000121",
+      "CL:0001031"
+    ],
+    "biological_processes": [
+      "macroautophagy",
+      "aggrephagy",
+      "autophagy of mitochondrion",
+      "cellular response to oxidative stress"
+    ],
+    "phenotypes": [
+      "Progressive Gait Ataxia",
+      "Progressive Appendicular Ataxia",
+      "Dysarthria",
+      "Vertical Supranuclear Gaze Palsy",
+      "Dystonia",
+      "Choreoathetosis",
+      "Cognitive Decline",
+      "Myoclonus",
+      "Oculomotor Apraxia",
+      "Nystagmus",
+      "Tremor",
+      "Bradykinesia with Limb Rigidity",
+      "Hearing Loss",
+      "Orthostatic Hypotension",
+      "Sudomotor Dysfunction",
+      "Iridoplegia",
+      "Cerebellar Atrophy",
+      "Brainstem MRI Signal Abnormality"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Ophthalmologic",
+      "Auditory",
+      "Autonomic",
+      "Neuroimaging"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Ear",
+      "Eye",
+      "Metabolism",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002066",
+      "HP:0002070",
+      "HP:0001260",
+      "HP:0000511",
+      "HP:0001332",
+      "HP:0001266",
+      "HP:0001268",
+      "HP:0001336",
+      "HP:0000657",
+      "HP:0000639",
+      "HP:0001337",
+      "HP:0002067",
+      "HP:0000365",
+      "HP:0001278",
+      "HP:0040127",
+      "HP:0007686",
+      "HP:0001272",
+      "HP:0012747"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL",
+      "VARIABLE",
+      "VERY_RARE"
+    ],
+    "genes": [
+      "SQSTM1"
+    ],
+    "treatments": [
+      "Physical Therapy and Rehabilitation",
+      "Speech and Language Therapy",
+      "Genetic Counseling",
+      "Supportive and Multidisciplinary Care"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "SQSTM1-Related_Childhood-Onset_Neurodegeneration.yaml",
+    "page_url": "../pages/disorders/SQSTM1-Related_Childhood-Onset_Neurodegeneration.html",
+    "num_phenotypes": 18,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "28",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "SRD5A3-Congenital Disorder of Glycosylation",
     "disease_id": "MONDO:0012885",
     "category": "Mendelian",
@@ -273243,8 +273459,8 @@ window.searchData = [
     "num_pathophysiology": 2,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "1",
-    "causal_graph_longest_path": "1"
+    "causal_graph_edges": "5",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "STAT6 Gain-of-Function Disease",
@@ -280642,7 +280858,7 @@ window.searchData = [
     "num_pathophysiology": 8,
     "num_genes": 3,
     "num_treatments": 4,
-    "causal_graph_edges": "27",
+    "causal_graph_edges": "28",
     "causal_graph_longest_path": "8"
   },
   {
@@ -282493,8 +282709,8 @@ window.searchData = [
     "num_pathophysiology": 18,
     "num_genes": 6,
     "num_treatments": 6,
-    "causal_graph_edges": "37",
-    "causal_graph_longest_path": "7"
+    "causal_graph_edges": "54",
+    "causal_graph_longest_path": "9"
   },
   {
     "name": "Sialidosis type 1",
@@ -322277,17 +322493,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3075,
-  "total_subtypes": 3836,
-  "total_disorders_and_subtypes": 6911,
-  "total_unique_evidence_sources": 44351,
-  "total_unique_publications": 41725,
+  "total_disorder_pages": 3077,
+  "total_subtypes": 3838,
+  "total_disorders_and_subtypes": 6915,
+  "total_unique_evidence_sources": 44385,
+  "total_unique_publications": 41759,
   "total_unique_disease_categories": 62,
   "total_unique_phenotype_categories": 283,
-  "total_pathographs": 3070,
-  "total_unique_pathological_events": 19140,
+  "total_pathographs": 3072,
+  "total_unique_pathological_events": 19154,
   "total_modules": 178,
-  "total_research_reports": 3179,
+  "total_research_reports": 3181,
   "total_classifications": 20,
   "total_comorbidities": 46,
   "total_groupings": 103
