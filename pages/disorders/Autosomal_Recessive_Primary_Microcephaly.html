@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -7171,6 +7210,7 @@ This subtype is caused by variation in CETN3 (hgnc:1868). hgnc:1868 is a gene fr
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-heterogeneous-biallelic-mcph-gene-dysfunction" data-dismech-node="Heterogeneous Biallelic MCPH Gene Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Heterogeneous Biallelic MCPH Gene Dysfunction</div>
 
+
                 <div class="item-desc">Biallelic pathogenic variants in the current MONDO MCPH subtype genes perturb several cellular systems that are essential for fetal neural-progenitor expansion. The locus set is mechanistically heterogeneous, so centrosome dysfunction is an important convergence point rather than a complete explanation for every subtype.</div>
 
 
@@ -8511,6 +8551,7 @@ This pathophysiological event involves abnormal cell cycle (GO:0007049). GO:0007
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-g1-s-cell-cycle-entry-failure" data-dismech-node="G1/S Cell-Cycle Entry Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">G1/S Cell-Cycle Entry Failure</div>
 
+
                 <div class="item-desc">Biallelic CDK4 loss of function removes the G1 cyclin-D-dependent kinase that phosphorylates retinoblastoma protein and licenses S-phase entry. Patient fibroblasts have no detectable full-length CDK4, accumulate in G0/G1, and divide roughly three times more slowly, with S phase itself unaffected. Endogenous CDK6 does not compensate: its level is unchanged in patient cells, and the two kinases&#39; microcephaly mechanisms are explicitly distinct. This node is therefore a parallel route from the shared upstream gene-dysfunction node to progenitor failure, bypassing the centrosome and mitotic branches.</div>
 
 
@@ -8768,6 +8809,7 @@ This pathophysiological event involves decreased CDK4 cyclin D-dependent kinase 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-centrosome-spindle-and-kinetochore-dysfunction" data-dismech-node="Centrosome, Spindle, and Kinetochore Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Centrosome, Spindle, and Kinetochore Dysfunction</div>
+
 
                 <div class="item-desc">Defective centriole assembly, centrosome maturation, spindle-pole organization, kinetochore function, or spindle orientation delays mitosis and increases chromosome-segregation errors in dividing neural progenitors. Individual genes affect different structures, so this node is a mechanistic family rather than a claim of identical molecular lesions.</div>
 
@@ -9586,6 +9628,7 @@ This pathophysiological event involves abnormal centrosome cycle (GO:0007098). G
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chromatin-dna-repair-and-condensin-dysfunction" data-dismech-node="Chromatin, DNA Repair, and Condensin Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Chromatin, DNA Repair, and Condensin Dysfunction</div>
 
+
                 <div class="item-desc">MCPH1-associated premature chromosome condensation and DNA-repair failure, PHC1/ZNF335-associated chromatin regulation, and condensin-subunit defects compromise chromosome architecture and segregation. The resulting genome stress is particularly costly during rapid fetal neural-progenitor expansion.</div>
 
 
@@ -10079,6 +10122,7 @@ This pathophysiological event involves abnormal chromosome segregation (GO:00070
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cytokinesis-and-membrane-trafficking-dysfunction" data-dismech-node="Cytokinesis and Membrane-Trafficking Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Cytokinesis and Membrane-Trafficking Dysfunction</div>
 
+
                 <div class="item-desc">CIT and KIF14 participate in cytokinesis, PDCD6IP supports ESCRT-mediated abscission, and COPB2/TRAPPC14 support trafficking and spindle-associated processes. Failure of daughter-cell separation produces binucleation, genomic instability, arrest, or apoptosis.</div>
 
 
@@ -10468,6 +10512,7 @@ This pathophysiological event involves abnormal cytokinesis (GO:0000910). GO:000
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ribosome-cilium-and-lipid-transport-dysfunction" data-dismech-node="Ribosome, Cilium, and Lipid-Transport Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Ribosome, Cilium, and Lipid-Transport Dysfunction</div>
 
+
                 <div class="item-desc">Not every MCPH subtype begins with a spindle lesion. RRP7A deficiency impairs ribosomal RNA processing, cilium resorption, and cell-cycle progression; MFSD2A deficiency limits transport of essential lysophospholipid-bound fatty acids across the blood-brain barrier. These routes still reduce neural proliferation or survival.</div>
 
 
@@ -10757,6 +10802,7 @@ This pathophysiological event involves abnormal cilium assembly (GO:0060271). GO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mitotic-stress-dna-damage-and-tp53-linked-apoptosis" data-dismech-node="Mitotic Stress, DNA Damage, and TP53-Linked Apoptosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Mitotic Stress, DNA Damage, and TP53-Linked Apoptosis</div>
 
+
                 <div class="item-desc">Prolonged or failed mitosis, chromosome bridges, cytokinesis failure, and repair defects generate genome stress. Across many MCPH models this activates TP53-linked apoptosis, eliminating progenitors and sometimes postmitotic neurons. TP53 activation is a convergence mechanism, not yet a proven safe therapeutic target.</div>
 
 
@@ -10938,6 +10984,7 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neural-progenitor-proliferation-and-survival-failure" data-dismech-node="Neural-Progenitor Proliferation and Survival Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Neural-Progenitor Proliferation and Survival Failure</div>
+
 
                 <div class="item-desc">Mitotic delay, apoptosis, and a premature shift from self-renewing to neurogenic divisions deplete apical and basal radial-glial progenitors during the period when the fetal cortex normally amplifies its founder pool.</div>
 
@@ -11203,6 +11250,7 @@ This pathophysiological event involves dysregulated neuron differentiation (GO:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-cortical-neuron-output-and-simplified-gyration" data-dismech-node="Reduced Cortical-Neuron Output and Simplified Gyration" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Cortical-Neuron Output and Simplified Gyration</div>
 
+
                 <div class="item-desc">Reduced neuron production limits fetal cerebral-cortex growth. The typical result is primary microcephaly with a reduced brain volume and simplified gyral pattern; cognitive and developmental consequences vary with the affected gene and with additional malformations.</div>
 
 
@@ -11356,6 +11404,7 @@ This pathophysiological event involves decreased neurogenesis (GO:0022008). GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-wdr62-associated-cortical-malformation-branch" data-dismech-node="WDR62-Associated Cortical Malformation Branch" data-dismech-type="pathophysiology">
                 <div class="item-name">WDR62-Associated Cortical Malformation Branch</div>
+
 
                 <div class="item-desc">WDR62-related MCPH2 often extends beyond proportional cortical undergrowth. Altered neural-progenitor mitosis and neurogenic trajectories can coexist with pachygyria, heterotopia, schizencephaly, or microlissencephaly, increasing motor, epilepsy, and functional burden.</div>
 
@@ -12427,6 +12476,9 @@ This disease-associated gene is MCPH1 (hgnc:6954). hgnc:6954 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -12495,6 +12547,9 @@ This disease-associated gene is WDR62 (hgnc:24502). hgnc:24502 is a gene from th
 
 
                 </div>
+
+
+
 
 
 
@@ -12571,6 +12626,9 @@ This disease-associated gene is CDK5RAP2 (hgnc:18672). hgnc:18672 is a gene from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -12639,6 +12697,9 @@ This disease-associated gene is KNL1 (hgnc:24054). hgnc:24054 is a gene from the
 
 
                 </div>
+
+
+
 
 
 
@@ -12715,6 +12776,9 @@ This disease-associated gene is ASPM (hgnc:19048). hgnc:19048 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -12783,6 +12847,9 @@ This disease-associated gene is CENPJ (hgnc:17272). hgnc:17272 is a gene from th
 
 
                 </div>
+
+
+
 
 
 
@@ -12859,6 +12926,9 @@ This disease-associated gene is STIL (hgnc:10879). hgnc:10879 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -12927,6 +12997,9 @@ This disease-associated gene is CEP135 (hgnc:29086). hgnc:29086 is a gene from t
 
 
                 </div>
+
+
+
 
 
 
@@ -13003,6 +13076,9 @@ This disease-associated gene is CEP152 (hgnc:29298). hgnc:29298 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -13071,6 +13147,9 @@ This disease-associated gene is ZNF335 (hgnc:15807). hgnc:15807 is a gene from t
 
 
                 </div>
+
+
+
 
 
 
@@ -13147,6 +13226,9 @@ This disease-associated gene is PHC1 (hgnc:3182). hgnc:3182 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -13215,6 +13297,9 @@ This disease-associated gene is CDK6 (hgnc:1777). hgnc:1777 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -13291,6 +13376,9 @@ This disease-associated gene is CENPE (hgnc:1856). hgnc:1856 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -13359,6 +13447,9 @@ This disease-associated gene is SASS6 (hgnc:25403). hgnc:25403 is a gene from th
 
 
                 </div>
+
+
+
 
 
 
@@ -13435,6 +13526,9 @@ This disease-associated gene is MFSD2A (hgnc:25897). hgnc:25897 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -13503,6 +13597,9 @@ This disease-associated gene is ANKLE2 (hgnc:29101). hgnc:29101 is a gene from t
 
 
                 </div>
+
+
+
 
 
 
@@ -13579,6 +13676,9 @@ This disease-associated gene is CIT (hgnc:1985). hgnc:1985 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -13647,6 +13747,9 @@ This disease-associated gene is COPB2 (hgnc:2232). hgnc:2232 is a gene from the 
 
 
                 </div>
+
+
+
 
 
 
@@ -13723,6 +13826,9 @@ This disease-associated gene is KIF14 (hgnc:19181). hgnc:19181 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -13791,6 +13897,9 @@ This disease-associated gene is NCAPD2 (hgnc:24305). hgnc:24305 is a gene from t
 
 
                 </div>
+
+
+
 
 
 
@@ -13867,6 +13976,9 @@ This disease-associated gene is NCAPD3 (hgnc:28952). hgnc:28952 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -13935,6 +14047,9 @@ This disease-associated gene is NCAPH (hgnc:1112). hgnc:1112 is a gene from the 
 
 
                 </div>
+
+
+
 
 
 
@@ -14011,6 +14126,9 @@ This disease-associated gene is NUP37 (hgnc:29929). hgnc:29929 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -14079,6 +14197,9 @@ This disease-associated gene is TRAPPC14 (hgnc:25604). hgnc:25604 is a gene from
 
 
                 </div>
+
+
+
 
 
 
@@ -14155,6 +14276,9 @@ This disease-associated gene is RRP7A (hgnc:24286). hgnc:24286 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -14223,6 +14347,9 @@ This disease-associated gene is PDCD6IP (hgnc:8766). hgnc:8766 is a gene from th
 
 
                 </div>
+
+
+
 
 
 
@@ -14299,6 +14426,9 @@ This disease-associated gene is BUB1 (hgnc:1148). hgnc:1148 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -14369,6 +14499,9 @@ This disease-associated gene is CDK4 (hgnc:1773). hgnc:1773 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -14493,6 +14626,9 @@ This disease-associated gene is CETN3 (hgnc:1868). hgnc:1868 is a gene from the 
 
 
                 </div>
+
+
+
 
 
 

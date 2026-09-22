@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1056,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1071,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1125,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1138,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1296,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1306,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1347,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -1592,7 +1629,7 @@
                 
                 <span class="badge badge-category">Module</span>
                 <span class="badge badge-module">neuromuscular_transmission_failure</span>
-                <span class="badge badge-count">7 disorders</span>
+                <span class="badge badge-count">6 disorders</span>
                 
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 8</a>
                 
@@ -1950,25 +1987,10 @@ Module evidence is drawn from the primary safety-factor literature (PMID:1127535
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">↗</div>
                 <h2 class="card-title">Used By Disorder Entries</h2>
-                <span class="card-count">7</span>
+                <span class="card-count">6</span>
             </div>
             
             <div class="crosslink-list">
-                
-                <div class="crosslink-item">
-                    <a href="../disorders/Adult-Onset_Myasthenia_Gravis.html">Adult-Onset Myasthenia Gravis</a>
-                    
-                    <span class="crosslink-desc">
-                        via
-                        
-                        
-                        
-                        Autoantibody-Mediated Neuromuscular Junction Failure → Loss of the Safety Factor of Neuromuscular Transmission
-                        
-                        
-                    </span>
-                    
-                </div>
                 
                 <div class="crosslink-item">
                     <a href="../disorders/Botulism.html">Botulism</a>
@@ -2139,11 +2161,13 @@ Module evidence is drawn from the primary safety-factor literature (PMID:1127535
             
             <div class="item-box anchor-target" id="module-pathophysiology-endplate-component-lesion" data-dismech-node="Endplate Component Lesion" data-dismech-type="pathophysiology">
                 <div class="item-name">Endplate Component Lesion</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The proximal lesion: loss, blockade, or kinetic alteration of a protein that the motor endplate depends on for reliable transmission. The lesion may sit at any of three locations. Presynaptic — acetylcholine synthesis (CHAT), vesicular loading, or the release apparatus, including the P/Q-type voltage-gated calcium channels that couple the nerve terminal action potential to release and the SNARE proteins cleaved by botulinum neurotoxin. Synaptic basal lamina — endplate acetylcholinesterase and its collagenic tail (COLQ), laminin beta-2 (LAMB2). Postsynaptic — the muscle nicotinic acetylcholine receptor subunits (CHRNA1, CHRNB1, CHRND, CHRNE), the clustering pathway that builds and maintains the endplate (AGRN, MUSK, LRP4, RAPSN, DOK7), the glycosylation enzymes those proteins depend on (GFPT1, DPAGT1, ALG2, ALG14), and the endplate Nav1.4 channels (SCN4A). Conforming entries substitute their specific lesion and its etiologic class: germline variant, autoantibody, or toxin.</div>
                 
@@ -2291,11 +2315,13 @@ This pathophysiological event involves abnormal neuromuscular synaptic transmiss
             
             <div class="item-box anchor-target" id="module-pathophysiology-reduced-quantal-acetylcholine-release" data-dismech-node="Reduced Quantal Acetylcholine Release" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Quantal Acetylcholine Release</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">amplifier</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The presynaptic arm. The endplate potential amplitude is the product of the number of quanta released per nerve impulse and the depolarization each quantum produces; this node covers reduction of the first term. Quantal content falls when acetylcholine cannot be resynthesised or repackaged fast enough to keep up with activity (choline acetyltransferase deficiency, vesicular loading defects), when the presynaptic calcium signal that triggers release is reduced (loss of active-zone P/Q-type calcium channels), or when the release machinery itself is disabled (SNARE proteolysis by botulinum neurotoxin). Because the presynaptic terminal can be modulated on a moment-to-moment basis, this arm is the one that facilitates: brief maximal exercise or high-frequency stimulation transiently raises quantal content, which is why the Lambert-Eaton compound muscle action potential increments and the myasthenia gravis one does not.</div>
                 
@@ -2431,11 +2457,13 @@ This pathophysiological event involves decreased acetylcholine secretion, neurot
             
             <div class="item-box anchor-target" id="module-pathophysiology-reduced-postsynaptic-endplate-response-to-acetylcholine" data-dismech-node="Reduced Postsynaptic Endplate Response to Acetylcholine" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Postsynaptic Endplate Response to Acetylcholine</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">amplifier</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The postsynaptic arm, covering the second term of the endplate potential: the depolarization produced per released quantum. It falls when acetylcholine receptors are lost from the junctional folds (complement-mediated lysis and antigenic modulation in acetylcholine-receptor myasthenia gravis; low-expressor receptor-subunit variants in congenital myasthenic syndromes), when receptor channel kinetics are abnormally fast so the synaptic current decays before threshold is reached (fast-channel syndromes), when clustering and maintenance of the endplate fail so the postsynaptic region is simplified and small (RAPSN, DOK7, MUSK, and the glycosylation syndromes), or when the endplate Nav1.4 channels that convert the endplate potential into an action potential are lost or inexcitable. In myasthenia gravis the last two act together: the same complement-mediated destruction of junctional folds removes both receptors and sodium channels, so the endplate potential shrinks while the threshold it must reach rises.</div>
                 
@@ -2578,11 +2606,13 @@ This pathophysiological event involves decreased excitatory postsynaptic potenti
             
             <div class="item-box anchor-target" id="module-pathophysiology-loss-of-the-safety-factor-of-neuromuscular-transmission" data-dismech-node="Loss of the Safety Factor of Neuromuscular Transmission" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of the Safety Factor of Neuromuscular Transmission</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">central effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The central integrating step and the key conformance target. In health the endplate potential overshoots the depolarization needed to open the postsynaptic Nav1.4 channels by a factor of roughly three to five in adult mammals, so transmission is reliable under physiological stress. The safety factor is that excess, and it is a single scalar into which every upstream lesion feeds: quantal content, vesicular acetylcholine content, endplate acetylcholinesterase activity, receptor density and kinetics, endplate geometry, and sodium-channel density all enter it. This is what makes the module a module — a genetic receptor-subunit variant, a complement-fixing autoantibody, an anti-calcium-channel antibody and a clostridial protease are mechanistically unrelated up to this point and indistinguishable after it. Conforming entries substitute their own route into this node and inherit everything downstream of it.</div>
                 
@@ -2687,13 +2717,6 @@ This pathophysiological event involves decreased neuromuscular synaptic transmis
                     <div class="crosslink-list">
                         
                         <div class="crosslink-item">
-                            <a href="../disorders/Adult-Onset_Myasthenia_Gravis.html">Adult-Onset Myasthenia Gravis</a>
-                            
-                            <span class="crosslink-desc">as Autoantibody-Mediated Neuromuscular Junction Failure</span>
-                            
-                        </div>
-                        
-                        <div class="crosslink-item">
                             <a href="../disorders/Botulism.html">Botulism</a>
                             
                             <span class="crosslink-desc">as Somatic neuromuscular transmission failure</span>
@@ -2742,11 +2765,13 @@ This pathophysiological event involves decreased neuromuscular synaptic transmis
             
             <div class="item-box anchor-target" id="module-pathophysiology-intermittent-endplate-transmission-block" data-dismech-node="Intermittent Endplate Transmission Block" data-dismech-type="pathophysiology">
                 <div class="item-name">Intermittent Endplate Transmission Block</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The functional consequence. Transmission does not fail all-or-none across the muscle; it fails stochastically at individual endplates, and the blocked fraction grows as activity continues, because normal short-term synaptic depression reduces quantal content over the first few impulses of a train and there is no longer any margin to absorb it. This is what the standard diagnostic tests measure: a decremental compound muscle action potential on low-frequency repetitive nerve stimulation, and increased jitter and frank blocking on single-fibre electromyography. The node is deliberately separate from the safety factor node above it because it is where the disorder-specific distribution enters — which muscles block first, and under what activity pattern, differs between the conformers and is not a property of the safety factor itself.</div>
                 
@@ -2840,11 +2865,13 @@ This pathophysiological event involves decreased synaptic transmission, choliner
             
             <div class="item-box anchor-target" id="module-pathophysiology-fatigable-muscle-weakness" data-dismech-node="Fatigable Muscle Weakness" data-dismech-type="pathophysiology">
                 <div class="item-name">Fatigable Muscle Weakness</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The convergent clinical endpoint: weakness that fluctuates and worsens with sustained or repeated activity, and recovers with rest, because the fraction of endplates in block rises and falls with the activity history. Distribution, tempo, and severity are disorder-specific and stay on the conforming entries — ocular and bulbar onset with fatigable ptosis and diplopia in myasthenia gravis, proximal lower-limb weakness with hyporeflexia and autonomic involvement in Lambert-Eaton myasthenic syndrome, descending flaccid paralysis after cranial nerve palsies in botulism, and neonatal hypotonia, feeding difficulty or episodic apnoea in the congenital myasthenic syndromes. When enough endplates block simultaneously in the diaphragm and accessory muscles the endpoint is neuromuscular respiratory failure, which is the shared cause of death across all three etiologic arms.</div>
                 

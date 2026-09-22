@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -5256,6 +5295,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-glcat-i-loss-of-function" data-dismech-node="GlcAT-I Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">GlcAT-I Loss of Function</div>
 
+
                 <div class="item-desc">Biallelic B3GAT3 missense, start-loss, or in-frame deletion variants reduce or abolish the galactosylgalactosylxylosylprotein 3-beta-glucuronosyltransferase activity of GlcAT-I. Disease-associated substitutions cluster in the two functional halves of the catalytic domain: the donor (UDP-GlcA) substrate-binding subdomain (p.Pro140Leu, p.Thr139Met, p.Arg161Trp) and the acceptor substrate-binding subdomain (p.Arg277Gln, p.Gly223Ser, p.Leu224Gln, p.Arg297Trp). Reduced activity is demonstrable both in patient-derived cells and for recombinant mutant protein.
 </div>
 
@@ -5484,6 +5524,7 @@ This pathophysiological event involves Golgi apparatus (GO:0005794). GO:0005794 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-incomplete-gag-protein-tetrasaccharide-linker-assembly" data-dismech-node="Incomplete GAG-Protein Tetrasaccharide Linker Assembly" data-dismech-type="pathophysiology">
                 <div class="item-name">Incomplete GAG-Protein Tetrasaccharide Linker Assembly</div>
 
+
                 <div class="item-desc">All glycosaminoglycan chains — heparan sulfate and chondroitin/dermatan sulfate alike — are built on a single shared GlcA-Gal-Gal-Xyl tetrasaccharide linker attached to a serine of the proteoglycan core protein. GlcAT-I catalyzes the final, committing step of linker assembly, so its deficiency is a bottleneck upstream of every downstream GAG polymerase and sulfotransferase. This shared-bottleneck position is what defines the &#34;linkeropathy&#34; disease class and explains why one enzyme defect produces a pleiotropic connective tissue phenotype.
 </div>
 
@@ -5624,6 +5665,7 @@ This pathophysiological event involves decreased proteoglycan biosynthesis, anno
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-combined-heparan-and-chondroitin-dermatan-sulfate-proteoglycan-deficiency" data-dismech-node="Combined Heparan and Chondroitin/Dermatan Sulfate Proteoglycan Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Combined Heparan and Chondroitin/Dermatan Sulfate Proteoglycan Deficiency</div>
+
 
                 <div class="item-desc">Patient fibroblasts and lymphoblastoid cells carry reduced numbers of GAG side chains and reduced levels of heparan sulfate, chondroitin sulfate, and dermatan sulfate proteoglycans. Proteoglycans are not only structural space-filling ECM components but also co-receptors and morphogen reservoirs (FGF, BMP, Wnt, Hedgehog), so their simultaneous depletion degrades both the mechanical and the signalling functions of the matrix. The b3gat3 zebrafish mutant qualifies this picture: there, CS synthesis is virtually abolished while roughly half of normal HS output is retained, implying the two arms may not be equally sensitive to loss of the shared linker step.
 </div>
@@ -5858,6 +5900,7 @@ This pathophysiological event involves decreased chondroitin sulfate proteoglyca
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-proteoglycan-deficient-extracellular-matrix" data-dismech-node="Proteoglycan-Deficient Extracellular Matrix" data-dismech-type="pathophysiology">
                 <div class="item-name">Proteoglycan-Deficient Extracellular Matrix</div>
+
 
                 <div class="item-desc">The proteoglycan-poor matrix is mechanically weaker and signals abnormally in the tissues where B3GAT3 is most highly expressed — cartilage, bone, tendon, skeletal muscle, heart and aorta. This is the convergence point from which the three principal clinical arms of the disease diverge: skeletal, articular, and cardiovascular.
 </div>
@@ -6104,6 +6147,7 @@ This pathophysiological event occurs in musculoskeletal system (UBERON:0002204).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-skeletal-growth-and-bone-mineralization" data-dismech-node="Impaired Skeletal Growth and Bone Mineralization" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Skeletal Growth and Bone Mineralization</div>
+
 
                 <div class="item-desc">Chondrocyte and osteoblast function in a proteoglycan-poor matrix yields disproportionate short stature, metaphyseal flaring and epiphyseal dysplasia, radioulnar synostosis, kyphoscoliosis, and reduced bone mineral density that in severely affected individuals progresses to generalized osteoporosis with multiple fractures. In the most severe (acceptor-subdomain) genotypes the cranial sutures fuse prematurely, producing craniosynostosis and an Antley-Bixler-like prenatal presentation.
 </div>
@@ -6437,6 +6481,7 @@ This pathophysiological event occurs in bone element (UBERON:0001474). UBERON:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-joint-capsule-and-ligament-laxity" data-dismech-node="Joint Capsule and Ligament Laxity" data-dismech-type="pathophysiology">
                 <div class="item-name">Joint Capsule and Ligament Laxity</div>
 
+
                 <div class="item-desc">Ligaments, joint capsules and tendons depend on proteoglycan-rich matrix for tensile integrity. Their weakening produces the cardinal congenital large-joint dislocations (hips, elbows, knees) and generalized joint hypermobility, while the same abnormal periarticular tissue also gives rise to fixed joint contractures — an unusual coexistence of laxity and contracture that is characteristic of B3GAT3 (and B3GALT6) disease among the linkeropathies.
 </div>
 
@@ -6596,6 +6641,7 @@ This pathophysiological event occurs in skeletal joint (UBERON:0000982). UBERON:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-cardiac-valve-and-great-vessel-development" data-dismech-node="Impaired Cardiac Valve and Great Vessel Development" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Cardiac Valve and Great Vessel Development</div>
+
 
                 <div class="item-desc">Proteoglycan-rich cardiac jelly and valve interstitial matrix are required for endocardial cushion remodelling and semilunar/atrioventricular valve morphogenesis, and proteoglycans are structural constituents of the aortic media. GlcAT-I deficiency therefore yields bicuspid aortic valve, mitral valve prolapse, atrial and ventricular septal defects, and progressive aortic root dilatation. Cardiovascular involvement is the feature that most sharply distinguishes B3GAT3-related disease from the B4GALT7/B3GALT6 spondylodysplastic Ehlers-Danlos linkeropathies, and it is genotype-dependent: the Nias p.Pro140Leu donor-subdomain family had no detectable cardiac phenotype.
 </div>
@@ -9775,6 +9821,9 @@ This disease-associated gene is B3GAT3 (hgnc:923). hgnc:923 is a gene from the H
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 

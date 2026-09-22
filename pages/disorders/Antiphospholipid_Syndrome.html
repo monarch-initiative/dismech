@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -5380,6 +5419,7 @@ This readout is measured by antiphospholipid antibody titre assay.</span>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cd4-t-cell-dysregulation-and-autoreactive-b-cell-licensing" data-dismech-node="CD4+ T cell dysregulation and autoreactive B cell licensing" data-dismech-type="pathophysiology">
                 <div class="item-name">CD4+ T cell dysregulation and autoreactive B cell licensing</div>
 
+
                 <div class="item-desc">Altered helper, regulatory, and follicular CD4+ T-cell profiles are reported in primary APS, but whether they initiate persistent aPL production or arise after established autoimmunity remains unresolved.</div>
 
 
@@ -5574,6 +5614,7 @@ This pathophysiological event involves T follicular helper cell (CL:0002038). CL
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-autoantibody-generation-against-beta2gpi-and-phospholipid-complexes" data-dismech-node="Autoantibody generation against beta2GPI and phospholipid complexes" data-dismech-type="pathophysiology">
                 <div class="item-name">Autoantibody generation against beta2GPI and phospholipid complexes</div>
+
 
                 <div class="item-desc">Persistent aPL responses are heterogeneous but clinically important reactivity is commonly directed against phospholipid-binding proteins, especially beta2GPI. The immune events that initiate and sustain these responses are incompletely established.</div>
 
@@ -5830,6 +5871,7 @@ This pathophysiological event involves immunoglobulin production (GO:0002377). G
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cell-surface-beta2gpi-binding" data-dismech-node="Cell-surface beta2GPI binding" data-dismech-type="pathophysiology">
                 <div class="item-name">Cell-surface beta2GPI binding</div>
 
+
                 <div class="item-desc">Anti-beta2GPI/beta2GPI complexes can assemble along phospholipid-rich cell surfaces. Receptor usage and the importance of particular antibody specificities vary across experimental systems.</div>
 
 
@@ -5913,6 +5955,7 @@ This pathophysiological event involves immunoglobulin production (GO:0002377). G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-innate-receptor-signaling" data-dismech-node="Innate receptor signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Innate receptor signaling</div>
+
 
                 <div class="item-desc">Experimental systems implicate TLR4, p38 MAPK, NF-kappaB, and related pathways after aPL-beta2GPI binding; no single receptor-signaling route has been established as universal across APS patients.</div>
 
@@ -6038,6 +6081,7 @@ This pathophysiological event involves immunoglobulin production (GO:0002377). G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neutrophil-extracellular-trap-amplification" data-dismech-node="Neutrophil extracellular-trap amplification" data-dismech-type="pathophysiology">
                 <div class="item-name">Neutrophil extracellular-trap amplification</div>
+
 
                 <div class="item-desc">APS neutrophils can release excess neutrophil extracellular traps (NETs), whose chromatin and granule proteins provide a candidate immunothrombotic scaffold. Human, in-vitro, and animal observations support this amplifier, but do not establish NETs as necessary in every thrombotic event.</div>
 
@@ -6183,6 +6227,7 @@ This pathophysiological event involves neutrophil extracellular trap formation (
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-endothelial-activation" data-dismech-node="Endothelial activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Endothelial activation</div>
 
+
                 <div class="item-desc">aPL signaling converts endothelial cells into a proadhesive, inflammatory, and procoagulant vascular surface.</div>
 
 
@@ -6325,6 +6370,7 @@ This pathophysiological event involves endothelial cell (CL:0000115). CL:0000115
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-monocyte-tissue-factor-induction" data-dismech-node="Monocyte tissue factor induction" data-dismech-type="pathophysiology">
                 <div class="item-name">Monocyte tissue factor induction</div>
 
+
                 <div class="item-desc">Activated monocytes upregulate tissue factor and intensify thrombin generation.</div>
 
 
@@ -6434,6 +6480,7 @@ This pathophysiological event involves monocyte (CL:0000576). CL:0000576 is a ce
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-platelet-activation" data-dismech-node="Platelet activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Platelet activation</div>
+
 
                 <div class="item-desc">In thrombotic APS, platelets exposed to aPL-dependent cell signaling become activated and aggregate, generating thromboxane-dependent prothrombotic amplification. This node represents the platelet arm of the conserved thrombogenesis chain, not a necessary lesion in obstetric-only APS.</div>
 
@@ -6675,6 +6722,7 @@ This pathophysiological event involves increased platelet aggregation (GO:007052
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-complement-activation" data-dismech-node="Complement activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Complement activation</div>
 
+
                 <div class="item-desc">Complement activation is a thromboinflammatory and placental-injury amplifier supported most strongly by experimental models and selected human biomarker or tissue studies; its contribution varies across APS phenotypes.</div>
 
 
@@ -6792,6 +6840,7 @@ This pathophysiological event involves complement activation (GO:0006956). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-coagulation-cascade-activation-and-thrombin-driven-fibrin-formation" data-dismech-node="Coagulation cascade activation and thrombin-driven fibrin formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Coagulation cascade activation and thrombin-driven fibrin formation</div>
+
 
                 <div class="item-desc">In thrombotic APS, aPL-associated cellular and tissue-factor activation increases cell-surface coagulation, thrombin generation, and fibrin-network formation. This atomic node represents only the conserved central coagulation/fibrin effector; impaired fibrinolysis is modeled separately, and this mapping does not imply that coagulation explains every obstetric manifestation.</div>
 
@@ -7027,6 +7076,7 @@ This pathophysiological event involves increased fibrin clot formation, annotate
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-fibrinolysis" data-dismech-node="Impaired fibrinolysis" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired fibrinolysis</div>
 
+
                 <div class="item-desc">In APS, reduced fibrinolytic activity and fibrin morphology less amenable to lysis can favor persistence of an existing clot. This is a parallel, nonconforming persistence amplifier rather than part of the atomic conserved coagulation/thrombin/fibrin-formation node; it is also reported in obstetric APS and therefore is not specific to the mapped thrombotic branch.</div>
 
 
@@ -7166,6 +7216,7 @@ This pathophysiological event involves decreased fibrinolysis (GO:0042730). GO:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-trigger-dependent-thromboinflammatory-amplification" data-dismech-node="Trigger-dependent thromboinflammatory amplification" data-dismech-type="pathophysiology">
                 <div class="item-name">Trigger-dependent thromboinflammatory amplification</div>
 
+
                 <div class="item-desc">Persistent aPL create susceptibility, but overt thrombosis is often intermittent. Infection, inflammation, vascular injury, surgery, pregnancy, or interruption of anticoagulation can supply an additional trigger; this two-hit model is useful but is not universal, especially for obstetric APS.</div>
 
 
@@ -7249,6 +7300,7 @@ This pathophysiological event involves decreased fibrinolysis (GO:0042730). GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-arterial-and-venous-thrombosis" data-dismech-node="Arterial and venous thrombosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Arterial and venous thrombosis</div>
+
 
                 <div class="item-desc">In the conventional macrovascular thrombotic branch of APS, activated and aggregated platelets together with crosslinked fibrin form pathological arterial or venous thrombi that may propagate and may narrow or occlude a blood vessel. This conformance does not include APS microvascular disease, thrombotic microangiopathy, or catastrophic APS because the cached APS-specific evidence does not directly establish the same conventional fibrin-platelet thrombus composition in those settings. Objectively documented thrombosis is a core thrombotic manifestation, but competing risks affect attribution and classification weight. It is neither present in every obstetric-only APS case nor sufficient for APS diagnosis without persistent clinically relevant aPL.</div>
 
@@ -7519,6 +7571,7 @@ This pathophysiological event occurs in blood vessel (UBERON:0001981). UBERON:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-placental-immune-injury" data-dismech-node="Placental immune injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Placental immune injury</div>
 
+
                 <div class="item-desc">At the maternal-fetal interface, aPL can perturb trophoblast function, complement regulation, inflammatory signaling, and placental perfusion. Placental thrombosis can occur but is not a universal explanation for pregnancy loss.</div>
 
 
@@ -7675,6 +7728,7 @@ This pathophysiological event occurs in placenta (UBERON:0001987). UBERON:000198
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pregnancy-morbidity" data-dismech-node="Pregnancy morbidity" data-dismech-type="pathophysiology">
                 <div class="item-name">Pregnancy morbidity</div>
 
+
                 <div class="item-desc">The obstetric APS spectrum includes recurrent early pregnancy loss, fetal death, and delivery before 34 weeks because of severe preeclampsia or placental insufficiency. Other pregnancy complications may be associated but are not automatically APS-defining.</div>
 
 
@@ -7808,6 +7862,7 @@ This pathophysiological event occurs in placenta (UBERON:0001987). UBERON:000198
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-acute-thrombotic-vascular-occlusion-and-ischemic-tissue-injury" data-dismech-node="Acute thrombotic vascular occlusion and ischemic tissue injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Acute thrombotic vascular occlusion and ischemic tissue injury</div>
 
+
                 <div class="item-desc">In the locally occlusive arterial branch of thrombotic APS, arterial thrombosis can reduce perfusion and cause acute ischemia or infarction. This conforming node does not claim a distant embolic mechanism, does not apply to every nonocclusive or venous thrombus, and excludes cumulative damage accrual and nonthrombotic placental immune injury.</div>
 
 
@@ -7904,6 +7959,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cumulative-organ-damage-accrual" data-dismech-node="Cumulative organ damage accrual" data-dismech-type="pathophysiology">
                 <div class="item-name">Cumulative organ damage accrual</div>
+
 
                 <div class="item-desc">APS can produce persistent organ or tissue impairment over longitudinal follow-up. Recurrent vascular events may contribute, but microangiopathy, non-criteria manifestations, coexistent systemic lupus erythematosus, and other pathways also shape cumulative damage; this node therefore does not conform to the module&#39;s atomic acute ischemic consequence.</div>
 
@@ -8070,6 +8126,7 @@ This pathophysiological event occurs in lungs, annotated with lung (UBERON:00020
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-catastrophic-microvascular-thrombosis" data-dismech-node="Catastrophic microvascular thrombosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Catastrophic microvascular thrombosis</div>
+
 
                 <div class="item-desc">Catastrophic APS is the acute multiorgan extreme of APS, with rapidly developing large- and small-vessel thrombosis and frequent thrombotic microangiopathy; it is not simply a higher count of prior macrovascular events.</div>
 
@@ -10320,6 +10377,9 @@ This clinical feature is Preeclampsia (MONDO:0005081). MONDO:0005081 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10376,6 +10436,9 @@ This clinical feature is Preeclampsia (MONDO:0005081). MONDO:0005081 is a phenot
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 

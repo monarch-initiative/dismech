@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4856,6 +4895,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aetiologic-fork-infectious-versus-non-infectious-choroidal-inflammation" data-dismech-node="Aetiologic Fork - Infectious versus Non-Infectious Choroidal Inflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">Aetiologic Fork - Infectious versus Non-Infectious Choroidal Inflammation</div>
 
+
                 <div class="item-desc">The root branch point of the entry. Choroidal inflammation may be driven by a replicating pathogen within ocular tissue or by an antigen-driven autoimmune/autoinflammatory process against ocular self-antigen. Both arms produce clinically overlapping choroiditis, and both converge on the same downstream tissue-injury cascade, but they diverge completely at the level of management: the infectious arm requires antimicrobial eradication and is made worse by unopposed immunosuppression, whereas the non-infectious arm requires exactly that immunosuppression. Distinguishing the arms is therefore the single most consequential diagnostic act in choroiditis.</div>
 
 
@@ -4985,6 +5025,7 @@ This pathophysiological event occurs in choroid, annotated with optic choroid (U
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pathogen-invasion-and-persistence-in-the-choroid-and-outer-retina" data-dismech-node="Pathogen Invasion and Persistence in the Choroid and Outer Retina" data-dismech-type="pathophysiology">
                 <div class="item-name">Pathogen Invasion and Persistence in the Choroid and Outer Retina</div>
+
 
                 <div class="item-desc">In the infectious arm, an organism reaches and persists in the choroid, RPE or outer retina: Toxoplasma gondii as encysted bradyzoites in retinal scars, Mycobacterium tuberculosis within choroidal macrophages, Treponema pallidum disseminated haematogenously to the highly vascular choroid, or Histoplasma capsulatum presumed to have seeded the choroid during earlier fungaemia. The choroid&#39;s exceptionally high blood flow makes it a preferential site of haematogenous seeding. Organism persistence, not merely acute invasion, is what makes the infectious arm relapsing and what makes unopposed immunosuppression dangerous.</div>
 
@@ -5213,6 +5254,7 @@ This pathophysiological event occurs in choroid, annotated with optic choroid (U
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-toxoplasma-cyst-reactivation-and-recurrent-retinochoroiditis" data-dismech-node="Toxoplasma Cyst Reactivation and Recurrent Retinochoroiditis" data-dismech-type="pathophysiology">
                 <div class="item-name">Toxoplasma Cyst Reactivation and Recurrent Retinochoroiditis</div>
 
+
                 <div class="item-desc">The signature relapsing behaviour of ocular toxoplasmosis. Bradyzoites encysted in the retina at the edge of an old pigmented chorioretinal scar convert back to proliferating tachyzoites, producing a new satellite focus of necrotising retinochoroiditis at the scar border. Each reactivation enlarges the area of destroyed outer retina, so cumulative visual loss is driven by recurrence count and lesion location rather than by any single episode. Immunocompromise markedly worsens lesion size and visual outcome.</div>
 
 
@@ -5402,6 +5444,7 @@ This pathophysiological event occurs in choroid, annotated with optic choroid (U
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-unopposed-immunosuppression-of-unrecognised-infectious-choroiditis" data-dismech-node="Unopposed Immunosuppression of Unrecognised Infectious Choroiditis" data-dismech-type="pathophysiology">
                 <div class="item-name">Unopposed Immunosuppression of Unrecognised Infectious Choroiditis</div>
 
+
                 <div class="item-desc">The harm arm of the aetiologic fork, and the reason the fork must be modelled mechanistically rather than as a list. When infectious choroiditis is misclassified as an idiopathic non-infectious entity, it receives the correct treatment for the wrong diagnosis — corticosteroid and/or steroid-sparing immunosuppression without antimicrobial cover. The expected consequence is loss of host immune restraint on a replicating organism; note that the documented evidence here is for the misclassification hazard and for the superiority of adding antimicrobial therapy, rather than a trial measuring harm from unopposed immunosuppression directly. Tubercular serpiginous-like choroiditis is the canonical case, because its idiopathic phenocopy is conventionally immunosuppressed; syphilis is the second, because it can imitate essentially any uveitic phenotype. This is why serologic and mycobacterial exclusion precede immunosuppression in all choroiditis.</div>
 
 
@@ -5548,6 +5591,7 @@ This pathophysiological event occurs in choroid, annotated with optic choroid (U
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-autoimmune-recognition-of-ocular-self-antigen" data-dismech-node="Autoimmune Recognition of Ocular Self-Antigen" data-dismech-type="pathophysiology">
                 <div class="item-name">Autoimmune Recognition of Ocular Self-Antigen</div>
+
 
                 <div class="item-desc">In the non-infectious arm, T cells recognise peptide derived from ocular self-antigen presented on MHC molecules, breaking the eye&#39;s immune privilege. Loss of sequestration is explicit in sympathetic ophthalmia, where penetrating trauma exposes previously sequestered uveal antigen and provokes bilateral granulomatous disease. In birdshot chorioretinopathy the presenting molecule itself is the dominant genetic risk factor.</div>
 
@@ -5763,6 +5807,7 @@ This pathophysiological event involves increased T cell mediated immunity (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hla-a29-restricted-antigen-presentation-in-birdshot-chorioretinopathy" data-dismech-node="HLA-A29-Restricted Antigen Presentation in Birdshot Chorioretinopathy" data-dismech-type="pathophysiology">
                 <div class="item-name">HLA-A29-Restricted Antigen Presentation in Birdshot Chorioretinopathy</div>
+
 
                 <div class="item-desc">Birdshot chorioretinopathy carries one of the strongest HLA-disease associations documented in human medicine: essentially all patients are HLA-A29 positive. In a classic series 47 of 49 birdshot patients (95.9%) carried HLA-A29, and the linked HLA-B12(B44) association is explained by linkage disequilibrium with HLA-A29 rather than by independent effect. Mechanistically the association is not merely a marker - genetic modifiers act on the peptide-loading pathway that supplies HLA-A29. ERAP1 and ERAP2 haplotypes that increase ERAP2 expression and decrease ERAP1 expression raise risk in HLA-A29 carriers, while a haplotype disrupting ERAP2 expression is protective, and homozygosity for HLA-A29 further increases susceptibility. Together these implicate a peptide-presentation threshold model in which excess presentation of ERAP2-shaped peptides on HLA-A29 activates the immune response in the choroid.</div>
 
@@ -6105,6 +6150,7 @@ This pathophysiological event occurs in choroid, annotated with optic choroid (U
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-choroidal-inflammatory-cell-infiltration" data-dismech-node="Choroidal Inflammatory Cell Infiltration" data-dismech-type="pathophysiology">
                 <div class="item-name">Choroidal Inflammatory Cell Infiltration</div>
+
 
                 <div class="item-desc">The convergence node of both aetiologic arms. Leukocytes - lymphocytes, macrophages and, in granulomatous forms, epithelioid and giant cells - are recruited across the choroidal vasculature into the choroidal stroma, with spillover into the vitreous (vitritis) and retinal vessels (retinal vasculitis). Histologically, serpiginous lesions show moderate diffuse lymphocytic infiltrates throughout the choroid. Because both an infectious and an autoimmune trigger produce a broadly similar infiltrate, the pattern of inflammation narrows but does not settle aetiology - some morphologies are informative (caseation favours tuberculosis; a serpiginous-like or tuberculoma pattern is a SUN criterion for tubercular uveitis) but microbiologic and serologic confirmation is what actually decides treatment.</div>
 
@@ -6466,6 +6512,7 @@ This pathophysiological event occurs in choroid, annotated with optic choroid (U
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-granulomatous-choroidal-inflammation" data-dismech-node="Granulomatous Choroidal Inflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">Granulomatous Choroidal Inflammation</div>
 
+
                 <div class="item-desc">In sarcoidosis, tuberculosis and sympathetic ophthalmia the choroidal infiltrate organises into granulomas. Sarcoid granulomas are non-caseating epithelioid granulomas; tubercular disease produces choroidal tubercles and tuberculoma; sympathetic ophthalmia produces Dalen-Fuchs nodules, focal aggregates of epithelioid cells between Bruch&#39;s membrane and the RPE. That both an infectious (TB) and a sterile (sarcoid) trigger yield broadly overlapping granulomatous choroiditis is a second, tissue-level restatement of why the aetiologic fork is not reliably settled on morphology alone - tuberculosis is the standing differential for ocular sarcoidosis, and caseation, while suggestive of tuberculosis, is often unavailable because ocular biopsy is rarely performed.</div>
 
 
@@ -6702,6 +6749,7 @@ This pathophysiological event occurs in Bruch&#39;s membrane (UBERON:0003957). U
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-choriocapillaris-hypoperfusion-and-non-perfusion" data-dismech-node="Choriocapillaris Hypoperfusion and Non-Perfusion" data-dismech-type="pathophysiology">
                 <div class="item-name">Choriocapillaris Hypoperfusion and Non-Perfusion</div>
 
+
                 <div class="item-desc">The shared final common pathway of several white-dot entities. Inflammation of the choriocapillaris and its precapillary supply produces hypo- or non-perfusion of choroidal lobules, which is the defining clinicopathological mechanism of the primary inflammatory choriocapillaropathies. The calibre of vessel affected grades disease severity: involvement of only terminal choriocapillaries gives the benign end of the spectrum (MEWDS), whereas involvement of larger choriocapillaris or precapillary vessels gives the severe forms - APMPPE, idiopathic multifocal choroiditis and serpiginous choroiditis. Because the choriocapillaris is the sole blood supply of the outer retina and RPE, its non-perfusion is directly ischaemic to the photoreceptor/RPE complex, and it is imaged as patchy lobular hypofluorescence on indocyanine green angiography.</div>
 
 
@@ -6928,6 +6976,7 @@ This pathophysiological event occurs in choriocapillaris, annotated with capilla
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-outer-retinal-and-retinal-pigment-epithelial-damage" data-dismech-node="Outer Retinal and Retinal Pigment Epithelial Damage" data-dismech-type="pathophysiology">
                 <div class="item-name">Outer Retinal and Retinal Pigment Epithelial Damage</div>
+
 
                 <div class="item-desc">The route from choroidal inflammation to actual vision loss. Because the choroid supplies the avascular outer retina, choroidal inflammation and choriocapillaris non-perfusion injure the photoreceptor/RPE complex rather than the choroid alone. Histology of serpiginous lesions shows atrophy of the choriocapillaris, RPE and photoreceptor cells together, and on OCT active lesions show disruption of the ellipsoid zone and RPE. Photoreceptor loss is irreversible, which is why choroiditis causes permanent scotomata and why the therapeutic goal is preventing new lesions rather than recovering old ones.</div>
 
@@ -7210,6 +7259,7 @@ This pathophysiological event occurs in outer nuclear layer of retina (UBERON:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chorioretinal-scarring-and-bruch-membrane-disruption" data-dismech-node="Chorioretinal Scarring and Bruch Membrane Disruption" data-dismech-type="pathophysiology">
                 <div class="item-name">Chorioretinal Scarring and Bruch Membrane Disruption</div>
 
+
                 <div class="item-desc">Healed choroiditis lesions become punched-out atrophic, often pigmented, chorioretinal scars with disruption of the RPE-Bruch&#39;s membrane complex. The scar is not inert: a breached RPE-Bruch&#39;s membrane barrier is the anatomical precondition for ingrowth of new choroidal vessels into the subretinal space, and in ocular toxoplasmosis the scar border is the reservoir from which recurrent disease arises. Scars are therefore simultaneously the record of past disease and the substrate of future sight-threatening complications.</div>
 
 
@@ -7364,6 +7414,7 @@ This pathophysiological event occurs in retinal pigment epithelium, annotated wi
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-inflammatory-choroidal-neovascularization" data-dismech-node="Inflammatory Choroidal Neovascularization" data-dismech-type="pathophysiology">
                 <div class="item-name">Inflammatory Choroidal Neovascularization</div>
+
 
                 <div class="item-desc">A major sight-threatening complication of inflammatory chorioretinal scars, and in some entities the dominant cause of vision loss rather than the inflammation itself. Inflammation compromises choroidal perfusion, generating a retinal-choroidal hypoxia gradient; VEGF, SDF-1-alpha and other mediators are released; and with the RPE-Bruch&#39;s membrane barrier already breached, new choroidal vessels grow into the subretinal space, the majority appearing as a classic type 2 lesion. It is especially common in punctate inner choroidopathy, multifocal choroiditis, serpiginous choroiditis and presumed ocular histoplasmosis syndrome. Clinically it is hard to distinguish from an active inflammatory lesion, which matters because the treatments differ: anti-VEGF for the neovascular membrane versus anti-inflammatory therapy for active choroiditis.</div>
 
@@ -9277,6 +9328,9 @@ This disease-associated gene is HLA-A29, annotated with HLA-A (hgnc:4931). hgnc:
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9374,6 +9428,9 @@ This disease-associated gene is ERAP1 (hgnc:18173). hgnc:18173 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9442,6 +9499,9 @@ This disease-associated gene is ERAP2 (hgnc:29499). hgnc:29499 is a gene from th
 
 
                 </div>
+
+
+
 
 
 

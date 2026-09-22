@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4354,6 +4393,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-recurrent-cog4-p-gly516arg-substitution" data-dismech-node="Recurrent COG4 p.Gly516Arg Substitution" data-dismech-type="pathophysiology">
                 <div class="item-name">Recurrent COG4 p.Gly516Arg Substitution</div>
 
+
                 <div class="item-desc">A heterozygous de novo missense change in a lobe-A subunit of the conserved oligomeric Golgi complex. Critically, this is not haploinsufficiency: patient fibroblasts have undiminished COG4 mRNA and protein, so the variant protein is present and acting, not absent.</div>
 
 
@@ -4413,6 +4453,8 @@ This pathophysiological event involves COG4 (hgnc:18620). hgnc:18620 is a gene f
 
 
 
+
+
         <span class="tag tag-classification">allele_type: missense</span>
 
 
@@ -4428,6 +4470,9 @@ This pathophysiological event involves COG4 (hgnc:18620). hgnc:18620 is a gene f
         <span class="tag tag-classification">functional_impact_category: UNKNOWN</span>
 
     </div>
+
+
+
 
     <div class="context-detail">A single recurrent heterozygous missense substitution. Its impact is not loss of function - COG4 mRNA and protein levels are preserved - and no published work assigns it to a named functional class, so functional_impact_category is recorded as UNKNOWN rather than guessed at.</div>
 
@@ -4543,6 +4588,7 @@ This pathophysiological event involves COG4 (hgnc:18620). hgnc:18620 is a gene f
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-imbalanced-bidirectional-golgi-vesicular-traffic" data-dismech-node="Imbalanced Bidirectional Golgi Vesicular Traffic" data-dismech-type="pathophysiology">
                 <div class="item-name">Imbalanced Bidirectional Golgi Vesicular Traffic</div>
+
 
                 <div class="item-desc">Patient fibroblasts show delayed anterograde vesicular trafficking from the ER to the Golgi together with accelerated retrograde recycling from the Golgi back to the ER. The disorder is therefore one of steady-state imbalance in both directions, not a simple block - a distinction that matters because it predicts a shrinking rather than a distended Golgi.</div>
 
@@ -4740,6 +4786,7 @@ This pathophysiological event involves increased retrograde vesicle-mediated tra
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-golgi-volume-loss-and-stack-collapse" data-dismech-node="Golgi Volume Loss and Stack Collapse" data-dismech-type="pathophysiology">
                 <div class="item-name">Golgi Volume Loss and Stack Collapse</div>
 
+
                 <div class="item-desc">The altered steady-state equilibrium decreases Golgi volume and collapses the Golgi stacks - the structural consequence of removing more membrane retrogradely than arrives anterogradely.</div>
 
 
@@ -4878,6 +4925,7 @@ This pathophysiological event involves Golgi apparatus (GO:0005794). GO:0005794 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-selective-decorin-glycosylation-defect" data-dismech-node="Selective Decorin Glycosylation Defect" data-dismech-type="pathophysiology">
                 <div class="item-name">Selective Decorin Glycosylation Defect</div>
+
 
                 <div class="item-desc">Despite a visibly abnormal Golgi, protein glycosylation in patient serum and fibroblasts is not notably altered. The one demonstrated exception is decorin, a proteoglycan secreted into the extracellular matrix, whose Golgi-dependent glycosylation is altered. This selectivity is the reason the disease presents as a skeletal dysplasia rather than as a congenital disorder of glycosylation, and it is also the weakest link in the causal chain: no study has yet shown that altered decorin glycosylation is sufficient to produce the skeletal phenotype.</div>
 
@@ -5022,6 +5070,7 @@ This pathophysiological event involves abnormal proteoglycan biosynthetic proces
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-glypican-accumulation-and-elevated-wnt4-signalling" data-dismech-node="Glypican Accumulation and Elevated wnt4 Signalling" data-dismech-type="pathophysiology">
                 <div class="item-name">Glypican Accumulation and Elevated wnt4 Signalling</div>
+
 
                 <div class="item-desc">The proteoglycan defect is not confined to decorin. Patient fibroblasts accumulate glypicans - heparan sulfate proteoglycans that gate several growth and bone-development pathways - and the same accumulation occurs in zebrafish embryos expressing COG4 p.G516R. Downstream, wnt4 transcripts rise selectively, and overexpressing wnt4 alone phenocopies the developmental defects, so the elevated wnt4 is doing causal work rather than marking the lesion. The Wnt inhibitor LGK974 partially corrects body length, which is the strongest evidence in this disorder that a downstream node is pharmacologically addressable.</div>
 
@@ -5246,6 +5295,7 @@ This pathophysiological event involves increased non-canonical Wnt signaling pat
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-chondrocyte-differentiation-and-secretome" data-dismech-node="Impaired Chondrocyte Differentiation and Secretome" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Chondrocyte Differentiation and Secretome</div>
+
 
                 <div class="item-desc">In a chondrocyte-relevant cell type carrying a CRISPR knock-in of the variant, 3D spheroids are smaller and apoptosis is increased - impaired in vitro chondrogenesis. The defect is largely non-cell-autonomous: adding wild-type cells or merely their conditioned medium rescues both cell death and spheroid size, pointing at missing secreted matrix components rather than an intrinsic block. Secretome analysis identifies MMP13 and IGFBP7, both chondro-osteogenic, as selectively under-secreted, and the cells show reduced MMP13 and COL10A1 differentiation markers with a delayed BMP2 response. Notably, bulk N-glycans change only modestly, which reinforces that this is a trafficking and secretion disease rather than a glycosylation disease.</div>
 
@@ -5528,6 +5578,7 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-profound-short-stature-and-skeletal-dysplasia" data-dismech-node="Profound Short Stature and Skeletal Dysplasia" data-dismech-type="pathophysiology">
                 <div class="item-name">Profound Short Stature and Skeletal Dysplasia</div>
+
 
                 <div class="item-desc">The clinical endpoint: profound short stature with distinctive craniofacial features, short distal phalanges of fingers and toes and often clubfoot, with cognition normal.</div>
 
@@ -6994,6 +7045,9 @@ This disease-associated gene is COG4 (hgnc:18620). hgnc:18620 is a gene from the
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: DE_NOVO</span>
 
                 </div>
+
+
+
 
 
 

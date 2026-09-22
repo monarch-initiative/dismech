@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4382,6 +4421,7 @@ This subtype is caused by variation in KIF1A (hgnc:888). hgnc:888 is a gene from
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-function-variant-in-a-sensory-neuron-maintenance-gene" data-dismech-node="Loss-of-Function Variant in a Sensory Neuron Maintenance Gene" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss-of-Function Variant in a Sensory Neuron Maintenance Gene</div>
 
+
                 <div class="item-desc">A biallelic truncating or loss-of-function variant in one of three genes required for the long-term maintenance of dorsal root ganglion sensory neurons: the nervous-system-specific HSN2 exon of WNK1, RETREG1/FAM134B, or KIF1A. Two of the three are restricted to alternatively spliced, nervous-system-specific exons, which is what makes the resulting disease a pure sensory neuronopathy rather than part of the multisystem phenotype those genes&#39; other isoforms produce.</div>
 
 
@@ -4638,6 +4678,7 @@ This pathophysiological event involves KIF1A (hgnc:888). hgnc:888 is a gene from
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-axonal-transport-and-golgi-homeostasis-in-sensory-neurons" data-dismech-node="Impaired Axonal Transport and Golgi Homeostasis in Sensory Neurons" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Axonal Transport and Golgi Homeostasis in Sensory Neurons</div>
 
+
                 <div class="item-desc">The three HSAN2 gene products converge on the intracellular logistics of the sensory neuron. KIF1A transports synaptic vesicle precursors down the axon and physically interacts with the domain encoded by the HSN2 exon of WNK1; RETREG1/FAM134B maintains cis-Golgi structure. The convergence, rather than any one gene&#39;s individual function, is the argument that HSAN2 is one mechanistic entity: the sensory neuron has an exceptionally long axon and is correspondingly intolerant of defects in cargo transport and secretory-pathway organization.</div>
 
 
@@ -4832,6 +4873,7 @@ This pathophysiological event involves abnormal cis-Golgi network (GO:0005801). 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-peripheral-sensory-neurons" data-dismech-node="Loss of Peripheral Sensory Neurons" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Peripheral Sensory Neurons</div>
 
+
                 <div class="item-desc">The rate-limiting lesion of the disorder: reduction or absence of peripheral sensory neurons. The primary lesion is at the cell body: dorsal root ganglion neurons are reduced or absent, rather than surviving while their distal axons die back. That is what makes the deficit multimodal, affecting large and small fibres alike rather than being pain-selective.
 It does NOT make the deficit anatomically uniform. GeneReviews reports the sensory deficit as predominantly distal with the lower limbs more severely affected, so cell-body loss and a distal clinical gradient coexist here. An earlier revision of this entry claimed the deficit was &#34;universal rather than distally graded&#34; and used that to justify declining module conformance; the distribution claim was wrong, and the conformance decision is re-argued in `notes` on the correct basis.</div>
 
@@ -5023,6 +5065,7 @@ This pathophysiological event occurs in dorsal root ganglion (UBERON:0000044). U
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-multimodal-sensory-loss" data-dismech-node="Multimodal Sensory Loss" data-dismech-type="pathophysiology">
                 <div class="item-name">Multimodal Sensory Loss</div>
 
+
                 <div class="item-desc">Severe impairment of pain, temperature, touch and vibration perception involving both large and small fibres, present from infancy and distally predominant with the lower limbs affected before the upper. Sensory nerve conduction is highly abnormal while motor conduction studies are almost normal — the electrophysiological dissociation that identifies the disorder as a pure sensory neuronopathy.</div>
 
 
@@ -5178,6 +5221,7 @@ This pathophysiological event involves decreased sensory perception of pain (GO:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-autonomic-dysfunction" data-dismech-node="Autonomic Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Autonomic Dysfunction</div>
 
+
                 <div class="item-desc">Autonomic involvement that is real but milder and more variable than in familial dysautonomia: acral anhidrosis, tonic pupils, eating and swallowing difficulty, constipation, episodic fever, hypotonia and episodes of apnoea. The autonomic ganglion neurons are lost by the same mechanism as the sensory ones, which is why the autonomic features track the sensory ones rather than forming a separate disease axis.</div>
 
 
@@ -5297,6 +5341,7 @@ This pathophysiological event involves autonomic neuron (CL:0000107). CL:0000107
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-painless-injury-and-acral-mutilation" data-dismech-node="Painless Injury and Acral Mutilation" data-dismech-type="pathophysiology">
                 <div class="item-name">Painless Injury and Acral Mutilation</div>
+
 
                 <div class="item-desc">The destructive clinical terminus. Because injury is not felt, repeated unrecognized trauma to fingers and toes produces trophic ulcers, osteomyelitis, painless fractures, neuropathic joints and progressive acro-osteolysis, ending in autoamputation of digits. The mutilation is mechanically driven and preventable in principle by protection and surveillance, which is what makes the absence of disease-modifying therapy less absolute than it appears.</div>
 
@@ -6313,6 +6358,9 @@ This disease-associated gene is WNK1 (hgnc:14540). hgnc:14540 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6412,6 +6460,9 @@ This disease-associated gene is RETREG1 (hgnc:25964). hgnc:25964 is a gene from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6486,6 +6537,9 @@ This disease-associated gene is KIF1A (hgnc:888). hgnc:888 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6508,7 +6562,7 @@ This disease-associated gene is KIF1A (hgnc:888). hgnc:888 is a gene from the HU
 
                 </div>
 
-                <div class="evidence-snippet">"Subsequent sequencing of KIF1A in a series of 112 unrelated patients with features belonging to the clinical spectrum of ulcero-mutilating sensory neuropathies revealed truncating mutations in three additional families, thus indicating that mutations in KIF1A are a rare cause of HSANII."</div>
+                <div class="evidence-snippet">"Sequencing of KIF1A in this family revealed a truncating mutation segregating with the disease phenotype. Subsequent sequencing of KIF1A in a series of 112 unrelated patients with features belonging to the clinical spectrum of ulcero-mutilating sensory neuropathies revealed truncating mutations..."</div>
 
 
                 <div class="evidence-explanation">Quantifies the rarity of the KIF1A contribution in a screened cohort.</div>
@@ -6556,6 +6610,9 @@ This disease-associated gene is SCN9A (hgnc:10597). hgnc:10597 is a gene from th
 
 
                 </div>
+
+
+
 
 
 
@@ -7835,10 +7892,13 @@ genetic:
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
-      Subsequent sequencing of KIF1A in a series of 112 unrelated patients with
-      features belonging to the clinical spectrum of ulcero-mutilating sensory
-      neuropathies revealed truncating mutations in three additional families,
-      thus indicating that mutations in KIF1A are a rare cause of HSANII.
+      Sequencing of KIF1A in this family revealed a truncating mutation segregating with the
+      disease phenotype. Subsequent sequencing of KIF1A in a series of 112 unrelated patients
+      with features belonging to the clinical spectrum of ulcero-mutilating sensory
+      neuropathies revealed truncating mutations in three additional families, thus indicating
+      that mutations in KIF1A are a rare cause of HSANII. Similarly to WNK1 mutations,
+      pathogenic mutations in KIF1A were almost exclusively restricted to an alternatively
+      spliced exon.
     explanation: &gt;-
       Quantifies the rarity of the KIF1A contribution in a screened cohort.
 - name: SCN9A
@@ -8147,7 +8207,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Hereditary Sensory and Autonomic Neuropathy Type 2", "mondoId": "MONDO:0019941", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hereditary_Sensory_and_Autonomic_Neuropathy_Type_2", "yamlRevision": "35a900c2a24a"};
+        const OS_CONFIG = {"diseaseName": "Hereditary Sensory and Autonomic Neuropathy Type 2", "mondoId": "MONDO:0019941", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hereditary_Sensory_and_Autonomic_Neuropathy_Type_2", "yamlRevision": "cbf2171f84fb"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

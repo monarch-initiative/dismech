@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4536,6 +4575,7 @@ The single most useful thing anyone could add to this entry is a second reported
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-thap11-p-phe80leu" data-dismech-node="Biallelic THAP11 p.Phe80Leu" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic THAP11 p.Phe80Leu</div>
 
+
                 <div class="item-desc">A homozygous missense change in the THAP domain, the zinc-finger DNA-binding module shared across the twelve human THAP proteins. The variant was found after MMACHC and HCFC1 had been sequenced and excluded in a patient whose clinical and biochemical picture overlapped cblX, so the gene was reached by elimination plus a mechanistic hypothesis rather than by an unbiased screen.
 p.Phe80Leu is the only reported MAHCL allele. No second family, no null allele, and no allelic series exist, so nothing is known about whether other THAP11 variants would give the same disease.</div>
 
@@ -4692,6 +4732,7 @@ This pathophysiological event involves decreased DNA-binding transcription facto
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-thap11-occupancy-of-the-mmachc-promoter" data-dismech-node="Reduced THAP11 Occupancy of the MMACHC Promoter" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced THAP11 Occupancy of the MMACHC Promoter</div>
 
+
                 <div class="item-desc">The step that turns a transcription factor variant into a metabolic disease, and the one place in this entry where the causal claim is directly measured rather than inferred. In HEK-293 cells the F80L protein bound a subset of THAP11 target promoters less well than wild type, and the MMACHC promoter was among the strongly affected ones. Binding was selectively rather than globally impaired, which matters: a transcription factor that had simply stopped working everywhere would not explain a disease whose dominant biochemical signature is a single pathway.</div>
 
 
@@ -4824,6 +4865,7 @@ This pathophysiological event involves nucleus (GO:0005634). GO:0005634 is a cel
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-mmachc-expression" data-dismech-node="Reduced MMACHC Expression" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced MMACHC Expression</div>
+
 
                 <div class="item-desc">MMACHC transcription falls even though the MMACHC gene is intact. This is the same lesion cblX produces through HCFC1, and the two were shown to converge here: HCFC1 and THAP11 act as a complex on the MMACHC promoter, and knocking down either one reduces MMACHC message.</div>
 
@@ -5012,6 +5054,13 @@ This pathophysiological event involves MMACHC (hgnc:24525). hgnc:24525 is a gene
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-cytosolic-cobalamin-processing" data-dismech-node="Loss of Cytosolic Cobalamin Processing" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Cytosolic Cobalamin Processing</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">MMACHC is the cytosolic chaperone that processes incoming cobalamin, removing the upper axial ligand from cyanocobalamin, methylcobalamin and adenosylcobalamin so the cofactor can be routed onward. Without enough of it, dietary and therapeutic cobalamin cannot be converted into the two active forms the cell needs.
 This node and everything below it are inherited from cblC biology rather than measured in a MAHCL patient. That is a legitimate inference, because the complementation behaviour and biochemistry of the transcriptional disorders match cblC, but it is an inference and the entry does not present it otherwise.</div>
 
@@ -5196,6 +5245,13 @@ This pathophysiological event involves cytosol (GO:0005829). GO:0005829 is a cel
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-combined-methylmalonyl-coa-mutase-and-methionine-synthase-cofactor-deficiency" data-dismech-node="Combined Methylmalonyl-CoA Mutase and Methionine Synthase Cofactor Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Combined Methylmalonyl-CoA Mutase and Methionine Synthase Cofactor Deficiency</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Because MMACHC sits upstream of the branch point, losing it starves both downstream enzymes at once: methylmalonyl-CoA mutase loses adenosylcobalamin and methionine synthase loses methylcobalamin. That dual failure is what makes the cblC-type disorders &#34;combined&#34;, and it is why the biochemical signature is methylmalonic acid plus homocysteine rather than either alone.</div>
 
 
@@ -5275,6 +5331,13 @@ This pathophysiological event involves cytosol (GO:0005829). GO:0005829 is a cel
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-neural-precursor-proliferation-and-differentiation" data-dismech-node="Impaired Neural Precursor Proliferation and Differentiation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Neural Precursor Proliferation and Differentiation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
 
                 <div class="item-desc">A parallel branch, and the reason MAHCL may not be simply a metabolic disease with a neurological complication. THAP11 loss in zebrafish impairs proliferation and differentiation of neural precursors, and separately abolishes Meckel&#39;s cartilage and the pharyngeal cartilages. Mouse work on Hcfc1 and Ronin found the same complex regulating ribosome protein genes, with phenotypes attributed to deregulated ribosome biogenesis rather than to the metabolic block.
 How independent this branch really is from the metabolic one is not settled, and the honest answer is less independent than it first looks. In the companion zebrafish work on hcfc1b, the craniofacial abnormalities were rescued by expressing human MMACHC, and the authors concluded that the craniofacial role is mediated in part through MMACHC regulation. So at least some of what looks like a separate developmental program runs back through the same downstream gene as the metabolic lesion. The ribosome biogenesis arm has no such rescue reported and remains the clearest candidate for a genuinely MMACHC-independent contribution.
@@ -5459,7 +5522,7 @@ Whether this branch contributes to the human phenotype is unknown, because there
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Betaine\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Betaine provides an alternative route for remethylating homocysteine to methionine through betaine-homocysteine methyltransferase, bypassing the methylcobalamin-dependent methionine synthase reaction that the cobalamin block disables. GeneReviews names it alongside hydroxocobalamin in the management of thromboembolic complications.\\nAs with everything in this section, no treatment response has been reported for a MAHCL patient. Note also that its rationale is aimed at the homocysteine arm, which the single reported patient\u0027s OMIM synopsis says was not raised, so it is the part of the group regimen whose applicability to this disorder is least clear.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"betaine\"]}}, {\"id\": \"Biallelic THAP11 p.Phe80Leu\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A homozygous missense change in the THAP domain, the zinc-finger DNA-binding module shared across the twelve human THAP proteins. The variant was found after MMACHC and HCFC1 had been sequenced and excluded in a patient whose clinical and biochemical picture overlapped cblX, so the gene was reached by elimination plus a mechanistic hypothesis rather than by an unbiased screen.\\np.Phe80Leu is the only reported MAHCL allele. No second family, no null allele, and no allelic series exist, so nothing is known about whether other THAP11 variants would give the same disease.\", \"meta\": {\"evidence_count\": 1, \"molecular_functions\": [\"DNA-binding transcription factor activity\"], \"genes\": [\"THAP11\"], \"gene_terms\": [{\"label\": \"THAP11\", \"id\": \"hgnc:23194\"}]}}, {\"id\": \"Combined Methylmalonyl-CoA Mutase and Methionine Synthase Cofactor Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Because MMACHC sits upstream of the branch point, losing it starves both downstream enzymes at once: methylmalonyl-CoA mutase loses adenosylcobalamin and methionine synthase loses methylcobalamin. That dual failure is what makes the cblC-type disorders \\\"combined\\\", and it is why the biochemical signature is methylmalonic acid plus homocysteine rather than either alone.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Dietary Management and Avoidance of Catabolic Stress\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Dietary protein restriction is part of the group regimen, but the more clinically load-bearing half of this entry is what to avoid, because two of the items are things a clinician unaware of the diagnosis would do routinely.\\nGeneReviews lists prolonged fasting beyond overnight without dextrose-containing intravenous fluids, protein intake below the age-appropriate allowance or above what a metabolic specialist has prescribed, methionine restriction including medical foods that contain no methionine, and the anaesthetic nitrous oxide. Nitrous oxide is the sharpest of these: it irreversibly oxidises the cobalt of cobalamin and inactivates methionine synthase, so in a patient whose cobalamin processing is already limited it can precipitate acute decompensation. Methionine restriction is the counterintuitive one, since restricting the amino acid a patient is already short of is exactly the wrong move here.\\nNote the direction of inference. This is management for disorders of intracellular cobalamin metabolism as a class, which MAHCL belongs to by biochemistry; nothing has been reported for a MAHCL patient specifically.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Hcfc1 and Ronin mouse models\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Mouse models of both members of the complex, made to ask what else the transcriptional lesion deregulates. They reproduce loss of Mmachc, the metabolic perturbation and the developmental defects known from cblC, and additionally show reduced expression of ribosome protein genes with phenotypes attributed to disturbed ribosome biogenesis.\"}, {\"id\": \"Impaired Neural Precursor Proliferation and Differentiation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A parallel branch, and the reason MAHCL may not be simply a metabolic disease with a neurological complication. THAP11 loss in zebrafish impairs proliferation and differentiation of neural precursors, and separately abolishes Meckel\u0027s cartilage and the pharyngeal cartilages. Mouse work on Hcfc1 and Ronin found the same complex regulating ribosome protein genes, with phenotypes attributed to deregulated ribosome biogenesis rather than to the metabolic block.\\nHow independent this branch really is from the metabolic one is not settled, and the honest answer is less independent than it first looks. In the companion zebrafish work on hcfc1b, the craniofacial abnormalities were rescued by expressing human MMACHC, and the authors concluded that the craniofacial role is mediated in part through MMACHC regulation. So at least some of what looks like a separate developmental program runs back through the same downstream gene as the metabolic lesion. The ribosome biogenesis arm has no such rescue reported and remains the clearest candidate for a genuinely MMACHC-independent contribution.\\nWhether this branch contributes to the human phenotype is unknown, because there is one patient and no craniofacial or ribosomal assessment was reported for them.\", \"meta\": {\"evidence_count\": 3, \"animal_models\": [{\"name\": \"thap11-depleted zebrafish embryo\", \"species\": \"Zebrafish\", \"genotype\": \"thap11 loss of function\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"The only in vivo evidence that THAP11 has a developmental role beyond the metabolic one.\"}, {\"name\": \"Hcfc1 and Ronin mouse models\", \"species\": \"Mouse\", \"genotype\": \"Hcfc1 and Ronin (Thap11) mutant alleles\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Extends the developmental branch from cartilage in fish to ribosome biogenesis in mouse, and reframes the syndrome as part cobalamin disorder and part ribosomopathy.\"}]}}, {\"id\": \"Loss of Cytosolic Cobalamin Processing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"MMACHC is the cytosolic chaperone that processes incoming cobalamin, removing the upper axial ligand from cyanocobalamin, methylcobalamin and adenosylcobalamin so the cofactor can be routed onward. Without enough of it, dietary and therapeutic cobalamin cannot be converted into the two active forms the cell needs.\\nThis node and everything below it are inherited from cblC biology rather than measured in a MAHCL patient. That is a legitimate inference, because the complementation behaviour and biochemistry of the transcriptional disorders match cblC, but it is an inference and the entry does not present it otherwise.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"cobalamin metabolic process\"]}}, {\"id\": \"Methylmalonic aciduria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mild methylmalonic aciduria was recorded in the single reported patient. It is milder than in classical cblC, and the OMIM clinical synopsis for this disorder notes it occurred without homocystinuria, which is unusual for a disorder in this group.\\nThe source is the OMIM clinical synopsis recorded in external_assertions, not a quotable sentence: the primary report\u0027s cached record is abstract-only and its abstract does not give the patient\u0027s biochemistry. This phenotype therefore carries no evidence item rather than one that would attest to something else. The GeneReviews sentence naming methylmalonic acid and total homocysteine as the mainstays of biochemical testing is a testing strategy rather than an observation about this patient, and lives in the diagnosis block.\", \"meta\": {\"term_id\": \"HP:0012120\"}}, {\"id\": \"NM_020457.3:c.240C\u003eG (p.Phe80Leu)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The only reported MAHCL allele, homozygous in the index patient of Moroccan parentage. It falls in the THAP domain, the zinc-finger DNA-binding module that mediates sequence-specific promoter contact, which is what makes a binding defect the expected consequence rather than a guess.\\nRecorded as LIKELY_PATHOGENIC rather than PATHOGENIC. The functional support is unusually direct for a single-patient disorder, since promoter binding and MMACHC transcription were measured for this exact allele in HEK-293 cells, but the reporting authors themselves described it as potentially pathogenic and there is no second family and no segregation beyond one homozygote.\", \"meta\": {\"variant_type\": \"missense\", \"clinical_significance\": \"LIKELY_PATHOGENIC\"}}, {\"id\": \"Parenteral Hydroxocobalamin\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The mainstay of treatment across the disorders of intracellular cobalamin metabolism, given parenterally. No treatment response has been reported for a MAHCL patient, so this is the management of the group the disease belongs to rather than an established therapy for it. Whether raising cobalamin availability helps when the lesion is a shortage of the chaperone that processes it is a real mechanistic question, not a formality.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"hydroxocobalamin\"]}}, {\"id\": \"Reduced MMACHC Expression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"MMACHC transcription falls even though the MMACHC gene is intact. This is the same lesion cblX produces through HCFC1, and the two were shown to converge here: HCFC1 and THAP11 act as a complex on the MMACHC promoter, and knocking down either one reduces MMACHC message.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"MMACHC\"], \"gene_terms\": [{\"label\": \"MMACHC\", \"id\": \"hgnc:24525\"}], \"animal_models\": [{\"name\": \"Hcfc1 and Ronin mouse models\", \"species\": \"Mouse\", \"genotype\": \"Hcfc1 and Ronin (Thap11) mutant alleles\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Confirms in a whole animal that disrupting either member of the complex lowers Mmachc expression, which is the central claim of this entry\u0027s mechanism.\"}]}}, {\"id\": \"Reduced THAP11 Occupancy of the MMACHC Promoter\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The step that turns a transcription factor variant into a metabolic disease, and the one place in this entry where the causal claim is directly measured rather than inferred. In HEK-293 cells the F80L protein bound a subset of THAP11 target promoters less well than wild type, and the MMACHC promoter was among the strongly affected ones. Binding was selectively rather than globally impaired, which matters: a transcription factor that had simply stopped working everywhere would not explain a disease whose dominant biochemical signature is a single pathway.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"regulation of transcription by RNA polymerase II\"]}}, {\"id\": \"Severe global developmental impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Profoundly impaired neurodevelopment with seizures. The phenotype was described as overlapping cblX, and cblX itself is characterised by intractable epilepsy and profound neurocognitive impairment that is more severe than in early-onset cblC. Whether MAHCL tracks cblX or cblC in severity is not established from one patient.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001263\"}}, {\"id\": \"THAP11\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"THAP11\"], \"gene_terms\": [{\"label\": \"THAP11\", \"id\": \"hgnc:23194\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_count\": 1}}, {\"id\": \"thap11-depleted zebrafish embryo\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The functional model in the founding report. Loss of THAP11 impairs neural precursor proliferation and differentiation and abolishes Meckel\u0027s cartilage, the ceratohyal and all ceratobranchial cartilages, mirroring the craniofacial phenotype the same group had previously shown for HCFC1.\"}], \"edges\": [{\"source\": \"Biallelic THAP11 p.Phe80Leu\", \"target\": \"Reduced THAP11 Occupancy of the MMACHC Promoter\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced THAP11 Occupancy of the MMACHC Promoter\", \"target\": \"Reduced MMACHC Expression\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced MMACHC Expression\", \"target\": \"Loss of Cytosolic Cobalamin Processing\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Cytosolic Cobalamin Processing\", \"target\": \"Combined Methylmalonyl-CoA Mutase and Methionine Synthase Cofactor Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Combined Methylmalonyl-CoA Mutase and Methionine Synthase Cofactor Deficiency\", \"target\": \"Methylmalonic aciduria\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Combined Methylmalonyl-CoA Mutase and Methionine Synthase Cofactor Deficiency\", \"target\": \"Severe global developmental impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Neural Precursor Proliferation and Differentiation\", \"target\": \"Severe global developmental impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Plausible on the model data and unmeasured in the single patient. The alternative, that the developmental impairment is entirely secondary to the cobalamin block, is equally unmeasured.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Parenteral Hydroxocobalamin\", \"target\": \"Loss of Cytosolic Cobalamin Processing\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Betaine\", \"target\": \"Combined Methylmalonyl-CoA Mutase and Methionine Synthase Cofactor Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Dietary Management and Avoidance of Catabolic Stress\", \"target\": \"Combined Methylmalonyl-CoA Mutase and Methionine Synthase Cofactor Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"thap11-depleted zebrafish embryo\", \"target\": \"Impaired Neural Precursor Proliferation and Differentiation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The only in vivo evidence that THAP11 has a developmental role beyond the metabolic one.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"Depletion rather than the patient\u0027s missense allele, so it tests gene requirement and not variant effect, and the patient\u0027s F80L protein is known from cell work to retain partial and selective function. The craniofacial phenotype has no reported human counterpart: the single MAHCL patient was not described with cartilage or craniofacial anomalies, which may mean the fish overstates the lesion or simply that nobody looked.\"}, {\"source\": \"Hcfc1 and Ronin mouse models\", \"target\": \"Reduced MMACHC Expression\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Confirms in a whole animal that disrupting either member of the complex lowers Mmachc expression, which is the central claim of this entry\u0027s mechanism.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The alleles are mouse mutants of both genes rather than a knock-in of the human p.Phe80Leu, so the model establishes the regulatory relationship rather than this patient\u0027s lesion.\"}, {\"source\": \"Hcfc1 and Ronin mouse models\", \"target\": \"Impaired Neural Precursor Proliferation and Differentiation\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Extends the developmental branch from cartilage in fish to ribosome biogenesis in mouse, and reframes the syndrome as part cobalamin disorder and part ribosomopathy.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"No ribosomal or bone marrow phenotype has been sought in the single human MAHCL patient, so the ribosomopathy component is a mouse finding awaiting a human test. It is also derived largely from Hcfc1 rather than Ronin alleles in places, so the split between the two genes\u0027 contributions is not resolved.\"}, {\"source\": \"THAP11\", \"target\": \"Biallelic THAP11 p.Phe80Leu\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NM_020457.3:c.240C\u003eG (p.Phe80Leu)\", \"target\": \"THAP11\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Betaine\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Betaine provides an alternative route for remethylating homocysteine to methionine through betaine-homocysteine methyltransferase, bypassing the methylcobalamin-dependent methionine synthase reaction that the cobalamin block disables. GeneReviews names it alongside hydroxocobalamin in the management of thromboembolic complications.\\nAs with everything in this section, no treatment response has been reported for a MAHCL patient. Note also that its rationale is aimed at the homocysteine arm, which the single reported patient\u0027s OMIM synopsis says was not raised, so it is the part of the group regimen whose applicability to this disorder is least clear.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"betaine\"]}}, {\"id\": \"Biallelic THAP11 p.Phe80Leu\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A homozygous missense change in the THAP domain, the zinc-finger DNA-binding module shared across the twelve human THAP proteins. The variant was found after MMACHC and HCFC1 had been sequenced and excluded in a patient whose clinical and biochemical picture overlapped cblX, so the gene was reached by elimination plus a mechanistic hypothesis rather than by an unbiased screen.\\np.Phe80Leu is the only reported MAHCL allele. No second family, no null allele, and no allelic series exist, so nothing is known about whether other THAP11 variants would give the same disease.\", \"meta\": {\"evidence_count\": 1, \"molecular_functions\": [\"DNA-binding transcription factor activity\"], \"genes\": [\"THAP11\"], \"gene_terms\": [{\"label\": \"THAP11\", \"id\": \"hgnc:23194\"}]}}, {\"id\": \"Combined Methylmalonyl-CoA Mutase and Methionine Synthase Cofactor Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Because MMACHC sits upstream of the branch point, losing it starves both downstream enzymes at once: methylmalonyl-CoA mutase loses adenosylcobalamin and methionine synthase loses methylcobalamin. That dual failure is what makes the cblC-type disorders \\\"combined\\\", and it is why the biochemical signature is methylmalonic acid plus homocysteine rather than either alone.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Dietary Management and Avoidance of Catabolic Stress\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Dietary protein restriction is part of the group regimen, but the more clinically load-bearing half of this entry is what to avoid, because two of the items are things a clinician unaware of the diagnosis would do routinely.\\nGeneReviews lists prolonged fasting beyond overnight without dextrose-containing intravenous fluids, protein intake below the age-appropriate allowance or above what a metabolic specialist has prescribed, methionine restriction including medical foods that contain no methionine, and the anaesthetic nitrous oxide. Nitrous oxide is the sharpest of these: it irreversibly oxidises the cobalt of cobalamin and inactivates methionine synthase, so in a patient whose cobalamin processing is already limited it can precipitate acute decompensation. Methionine restriction is the counterintuitive one, since restricting the amino acid a patient is already short of is exactly the wrong move here.\\nNote the direction of inference. This is management for disorders of intracellular cobalamin metabolism as a class, which MAHCL belongs to by biochemistry; nothing has been reported for a MAHCL patient specifically.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Hcfc1 and Ronin mouse models\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Mouse models of both members of the complex, made to ask what else the transcriptional lesion deregulates. They reproduce loss of Mmachc, the metabolic perturbation and the developmental defects known from cblC, and additionally show reduced expression of ribosome protein genes with phenotypes attributed to disturbed ribosome biogenesis.\"}, {\"id\": \"Impaired Neural Precursor Proliferation and Differentiation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A parallel branch, and the reason MAHCL may not be simply a metabolic disease with a neurological complication. THAP11 loss in zebrafish impairs proliferation and differentiation of neural precursors, and separately abolishes Meckel\u0027s cartilage and the pharyngeal cartilages. Mouse work on Hcfc1 and Ronin found the same complex regulating ribosome protein genes, with phenotypes attributed to deregulated ribosome biogenesis rather than to the metabolic block.\\nHow independent this branch really is from the metabolic one is not settled, and the honest answer is less independent than it first looks. In the companion zebrafish work on hcfc1b, the craniofacial abnormalities were rescued by expressing human MMACHC, and the authors concluded that the craniofacial role is mediated in part through MMACHC regulation. So at least some of what looks like a separate developmental program runs back through the same downstream gene as the metabolic lesion. The ribosome biogenesis arm has no such rescue reported and remains the clearest candidate for a genuinely MMACHC-independent contribution.\\nWhether this branch contributes to the human phenotype is unknown, because there is one patient and no craniofacial or ribosomal assessment was reported for them.\", \"meta\": {\"evidence_count\": 3, \"mechanism_confidence\": \"HYPOTHETICAL\", \"animal_models\": [{\"name\": \"thap11-depleted zebrafish embryo\", \"species\": \"Zebrafish\", \"genotype\": \"thap11 loss of function\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"The only in vivo evidence that THAP11 has a developmental role beyond the metabolic one.\"}, {\"name\": \"Hcfc1 and Ronin mouse models\", \"species\": \"Mouse\", \"genotype\": \"Hcfc1 and Ronin (Thap11) mutant alleles\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Extends the developmental branch from cartilage in fish to ribosome biogenesis in mouse, and reframes the syndrome as part cobalamin disorder and part ribosomopathy.\"}]}}, {\"id\": \"Loss of Cytosolic Cobalamin Processing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"MMACHC is the cytosolic chaperone that processes incoming cobalamin, removing the upper axial ligand from cyanocobalamin, methylcobalamin and adenosylcobalamin so the cofactor can be routed onward. Without enough of it, dietary and therapeutic cobalamin cannot be converted into the two active forms the cell needs.\\nThis node and everything below it are inherited from cblC biology rather than measured in a MAHCL patient. That is a legitimate inference, because the complementation behaviour and biochemistry of the transcriptional disorders match cblC, but it is an inference and the entry does not present it otherwise.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"cobalamin metabolic process\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Methylmalonic aciduria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Mild methylmalonic aciduria was recorded in the single reported patient. It is milder than in classical cblC, and the OMIM clinical synopsis for this disorder notes it occurred without homocystinuria, which is unusual for a disorder in this group.\\nThe source is the OMIM clinical synopsis recorded in external_assertions, not a quotable sentence: the primary report\u0027s cached record is abstract-only and its abstract does not give the patient\u0027s biochemistry. This phenotype therefore carries no evidence item rather than one that would attest to something else. The GeneReviews sentence naming methylmalonic acid and total homocysteine as the mainstays of biochemical testing is a testing strategy rather than an observation about this patient, and lives in the diagnosis block.\", \"meta\": {\"term_id\": \"HP:0012120\"}}, {\"id\": \"NM_020457.3:c.240C\u003eG (p.Phe80Leu)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The only reported MAHCL allele, homozygous in the index patient of Moroccan parentage. It falls in the THAP domain, the zinc-finger DNA-binding module that mediates sequence-specific promoter contact, which is what makes a binding defect the expected consequence rather than a guess.\\nRecorded as LIKELY_PATHOGENIC rather than PATHOGENIC. The functional support is unusually direct for a single-patient disorder, since promoter binding and MMACHC transcription were measured for this exact allele in HEK-293 cells, but the reporting authors themselves described it as potentially pathogenic and there is no second family and no segregation beyond one homozygote.\", \"meta\": {\"variant_type\": \"missense\", \"clinical_significance\": \"LIKELY_PATHOGENIC\"}}, {\"id\": \"Parenteral Hydroxocobalamin\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The mainstay of treatment across the disorders of intracellular cobalamin metabolism, given parenterally. No treatment response has been reported for a MAHCL patient, so this is the management of the group the disease belongs to rather than an established therapy for it. Whether raising cobalamin availability helps when the lesion is a shortage of the chaperone that processes it is a real mechanistic question, not a formality.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"hydroxocobalamin\"]}}, {\"id\": \"Reduced MMACHC Expression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"MMACHC transcription falls even though the MMACHC gene is intact. This is the same lesion cblX produces through HCFC1, and the two were shown to converge here: HCFC1 and THAP11 act as a complex on the MMACHC promoter, and knocking down either one reduces MMACHC message.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"MMACHC\"], \"gene_terms\": [{\"label\": \"MMACHC\", \"id\": \"hgnc:24525\"}], \"animal_models\": [{\"name\": \"Hcfc1 and Ronin mouse models\", \"species\": \"Mouse\", \"genotype\": \"Hcfc1 and Ronin (Thap11) mutant alleles\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Confirms in a whole animal that disrupting either member of the complex lowers Mmachc expression, which is the central claim of this entry\u0027s mechanism.\"}]}}, {\"id\": \"Reduced THAP11 Occupancy of the MMACHC Promoter\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The step that turns a transcription factor variant into a metabolic disease, and the one place in this entry where the causal claim is directly measured rather than inferred. In HEK-293 cells the F80L protein bound a subset of THAP11 target promoters less well than wild type, and the MMACHC promoter was among the strongly affected ones. Binding was selectively rather than globally impaired, which matters: a transcription factor that had simply stopped working everywhere would not explain a disease whose dominant biochemical signature is a single pathway.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"regulation of transcription by RNA polymerase II\"]}}, {\"id\": \"Severe global developmental impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Profoundly impaired neurodevelopment with seizures. The phenotype was described as overlapping cblX, and cblX itself is characterised by intractable epilepsy and profound neurocognitive impairment that is more severe than in early-onset cblC. Whether MAHCL tracks cblX or cblC in severity is not established from one patient.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001263\"}}, {\"id\": \"THAP11\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"THAP11\"], \"gene_terms\": [{\"label\": \"THAP11\", \"id\": \"hgnc:23194\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_count\": 1}}, {\"id\": \"thap11-depleted zebrafish embryo\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The functional model in the founding report. Loss of THAP11 impairs neural precursor proliferation and differentiation and abolishes Meckel\u0027s cartilage, the ceratohyal and all ceratobranchial cartilages, mirroring the craniofacial phenotype the same group had previously shown for HCFC1.\"}], \"edges\": [{\"source\": \"Biallelic THAP11 p.Phe80Leu\", \"target\": \"Reduced THAP11 Occupancy of the MMACHC Promoter\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced THAP11 Occupancy of the MMACHC Promoter\", \"target\": \"Reduced MMACHC Expression\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced MMACHC Expression\", \"target\": \"Loss of Cytosolic Cobalamin Processing\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Cytosolic Cobalamin Processing\", \"target\": \"Combined Methylmalonyl-CoA Mutase and Methionine Synthase Cofactor Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Combined Methylmalonyl-CoA Mutase and Methionine Synthase Cofactor Deficiency\", \"target\": \"Methylmalonic aciduria\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Combined Methylmalonyl-CoA Mutase and Methionine Synthase Cofactor Deficiency\", \"target\": \"Severe global developmental impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Neural Precursor Proliferation and Differentiation\", \"target\": \"Severe global developmental impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Plausible on the model data and unmeasured in the single patient. The alternative, that the developmental impairment is entirely secondary to the cobalamin block, is equally unmeasured.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Parenteral Hydroxocobalamin\", \"target\": \"Loss of Cytosolic Cobalamin Processing\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Betaine\", \"target\": \"Combined Methylmalonyl-CoA Mutase and Methionine Synthase Cofactor Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Dietary Management and Avoidance of Catabolic Stress\", \"target\": \"Combined Methylmalonyl-CoA Mutase and Methionine Synthase Cofactor Deficiency\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"thap11-depleted zebrafish embryo\", \"target\": \"Impaired Neural Precursor Proliferation and Differentiation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The only in vivo evidence that THAP11 has a developmental role beyond the metabolic one.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"Depletion rather than the patient\u0027s missense allele, so it tests gene requirement and not variant effect, and the patient\u0027s F80L protein is known from cell work to retain partial and selective function. The craniofacial phenotype has no reported human counterpart: the single MAHCL patient was not described with cartilage or craniofacial anomalies, which may mean the fish overstates the lesion or simply that nobody looked.\"}, {\"source\": \"Hcfc1 and Ronin mouse models\", \"target\": \"Reduced MMACHC Expression\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Confirms in a whole animal that disrupting either member of the complex lowers Mmachc expression, which is the central claim of this entry\u0027s mechanism.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The alleles are mouse mutants of both genes rather than a knock-in of the human p.Phe80Leu, so the model establishes the regulatory relationship rather than this patient\u0027s lesion.\"}, {\"source\": \"Hcfc1 and Ronin mouse models\", \"target\": \"Impaired Neural Precursor Proliferation and Differentiation\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Extends the developmental branch from cartilage in fish to ribosome biogenesis in mouse, and reframes the syndrome as part cobalamin disorder and part ribosomopathy.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"No ribosomal or bone marrow phenotype has been sought in the single human MAHCL patient, so the ribosomopathy component is a mouse finding awaiting a human test. It is also derived largely from Hcfc1 rather than Ronin alleles in places, so the split between the two genes\u0027 contributions is not resolved.\"}, {\"source\": \"THAP11\", \"target\": \"Biallelic THAP11 p.Phe80Leu\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NM_020457.3:c.240C\u003eG (p.Phe80Leu)\", \"target\": \"THAP11\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5836,6 +5899,9 @@ This disease-associated gene is THAP11 (hgnc:23194). hgnc:23194 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5911,7 +5977,9 @@ This disease-associated gene is THAP11 (hgnc:23194). hgnc:23194 is a gene from t
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
@@ -5919,6 +5987,11 @@ This disease-associated gene is THAP11 (hgnc:23194). hgnc:23194 is a gene from t
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">The only reported MAHCL allele, homozygous in the index patient of Moroccan parentage. It falls in the THAP domain, the zinc-finger DNA-binding module that mediates sequence-specific promoter contact, which is what makes a binding defect the expected consequence rather than a guess.
@@ -5989,6 +6062,9 @@ This disease-associated gene is MMACHC (hgnc:24525). hgnc:24525 is a gene from t
 
 
                 </div>
+
+
+
 
 
 
@@ -6065,6 +6141,9 @@ This disease-associated gene is HCFC1 (hgnc:4839). hgnc:4839 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6133,6 +6212,9 @@ This disease-associated gene is ZNF143 (hgnc:12928). hgnc:12928 is a gene from t
 
 
                 </div>
+
+
+
 
 
 

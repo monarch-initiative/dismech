@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1056,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1071,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1125,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1138,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1296,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1306,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1347,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -1927,11 +1964,13 @@ This mechanism module involves response to xenobiotic stimulus (GO:0009410). GO:
             
             <div class="item-box anchor-target" id="module-pathophysiology-viral-dependence-on-host-dependency-factors" data-dismech-node="Viral Dependence on Host Dependency Factors" data-dismech-type="pathophysiology">
                 <div class="item-name">Viral Dependence on Host Dependency Factors</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Viruses are obligate intracellular parasites that cannot replicate autonomously: every stage of the life cycle — attachment, entry, genome replication, translation, assembly, and egress — co-opts host-cell proteins, membranes, and metabolic pathways collectively called host dependency factors. Cell entry is the archetype: coronaviruses depend on binding of the viral spike glycoprotein to a cellular receptor and on priming of that spike by a host-cell protease. This obligate reliance on the host is the premise of the entire module — it is what makes a host factor, rather than a viral enzyme, a viable antiviral target.</div>
                 
@@ -1993,11 +2032,13 @@ This pathophysiological event involves viral process (GO:0016032). GO:0016032 is
             
             <div class="item-box anchor-target" id="module-pathophysiology-host-receptor-and-protease-engagement" data-dismech-node="Host Receptor and Protease Engagement" data-dismech-type="pathophysiology">
                 <div class="item-name">Host Receptor and Protease Engagement</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The general dependence on the host resolves into a small number of specific, druggable host factors. The canonical worked example is SARS-CoV-2, which uses the host receptor ACE2 for entry and the host serine protease TMPRSS2 to prime its spike protein for membrane fusion; a TMPRSS2 inhibitor already approved for clinical use blocks entry. This identifiability is what converts the abstract &#34;viruses need the host&#34; premise into a concrete drug target, and it is the canonical conformance/treatment target of the module: a host-directed agent — the TMPRSS2 inhibitors camostat and nafamostat, or a soluble ACE2 receptor decoy that competitively sequesters the spike — points at this node. Because the engaged factor (ACE2, TMPRSS2, or a shared metabolic enzyme) is host-encoded, the same node can be the target of drugs deployed against several different viruses.</div>
                 
@@ -2106,11 +2147,13 @@ This pathophysiological event involves symbiont entry into host cell (GO:0046718
             
             <div class="item-box anchor-target" id="module-pathophysiology-host-directed-antiviral-blockade" data-dismech-node="Host-Directed Antiviral Blockade" data-dismech-type="pathophysiology">
                 <div class="item-name">Host-Directed Antiviral Blockade</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">therapeutic vulnerability</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Blocking a host dependency factor — rather than a viral enzyme — defines the host-directed antiviral strategy. Its decisive advantage follows directly from the target&#39;s biology: because the host factor is encoded by the comparatively stable host genome, the virus cannot escape by a simple point mutation in its own genome, so host-directed agents impose a higher genetic barrier to resistance than direct-acting antivirals. The same property makes a single agent potentially active against any virus that depends on that factor. This node is the therapeutic-rationale hinge of the module: the conformance/treatment edge sits one step upstream at the engaged host factor, but the reason to aim there is captured here.</div>
                 
@@ -2179,11 +2222,13 @@ This pathophysiological event involves negative regulation of viral process (GO:
             
             <div class="item-box anchor-target" id="module-pathophysiology-broad-spectrum-suppression-of-viral-replication" data-dismech-node="Broad-Spectrum Suppression of Viral Replication" data-dismech-type="pathophysiology">
                 <div class="item-name">Broad-Spectrum Suppression of Viral Replication</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The biological output of engaging a conserved host factor is suppression of viral replication that, unlike a virus-specific direct-acting antiviral, can extend across multiple unrelated viruses sharing that factor — the broad-spectrum promise that makes host-directed therapeutics attractive for pandemic preparedness, where the next threatening virus is not known in advance. This is the consequence node: it sits downstream of host-factor blockade and is the population-level antiviral effect a host-directed agent is deployed to achieve.</div>
                 
@@ -2231,11 +2276,13 @@ This pathophysiological event involves negative regulation of viral genome repli
             
             <div class="item-box anchor-target" id="module-pathophysiology-host-factor-escape-tropism-shift-and-on-target-toxicity" data-dismech-node="Host-Factor Escape, Tropism Shift, and On-Target Toxicity" data-dismech-type="pathophysiology">
                 <div class="item-name">Host-Factor Escape, Tropism Shift, and On-Target Toxicity</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">adaptive escape</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Host-directed antivirals are not escape-proof, and they carry a liability that direct-acting antivirals do not. First, a virus can evade the strategy not by mutating the drug target but by rewiring to an alternative host route: SARS-CoV-2 Omicron inefficiently uses the surface protease TMPRSS2 and instead relies more on the endosomal, cathepsin-dependent entry pathway, shifting its tropism and blunting the rationale for a TMPRSS2 inhibitor. Second, because the target is a host protein with its own physiological role, host-directed agents risk on-target cytotoxicity or disruption of normal cell function — a constraint that must be weighed in clinical development. This adaptive/limitation branch off the blockade node encodes why a host-directed agent&#39;s effect may erode (route switching) and why the therapeutic window is intrinsically constrained (host toxicity).</div>
                 

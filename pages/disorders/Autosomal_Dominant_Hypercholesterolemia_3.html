@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4988,6 +5027,7 @@ ADH3 is the rarest of the three dominant FH genes, accounting for a small minori
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pcsk9-gain-of-function-variant" data-dismech-node="PCSK9 Gain-of-Function Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">PCSK9 Gain-of-Function Variant</div>
 
+
                 <div class="item-desc">A heterozygous germline missense variant in PCSK9 that increases the protein&#39;s LDL-receptor-degrading activity. The classical alleles are S127R and F216L (the two variants of the founding French pedigrees) and D374Y (the severe British/Norwegian allele). The variants do not act through a common biochemical route: S127R and D374Y differ sharply in autocatalytic zymogen processing while F216L processes normally, and processing itself does not separate gain- from loss-of-function alleles. What they share is the functional output measured in cells - an excess of receptor-degrading PCSK9 activity.</div>
 
 
@@ -5100,6 +5140,8 @@ This genetic context concerns PCSK9 (hgnc:20001). hgnc:20001 is a gene from the 
 
 
 
+
+
         <span class="tag tag-classification">allele_type: missense</span>
 
 
@@ -5115,6 +5157,9 @@ This genetic context concerns PCSK9 (hgnc:20001). hgnc:20001 is a gene from the 
         <span class="tag tag-classification">functional_impact_category: GAIN_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">The variant consequence is a gain of function: the mutant protein degrades more LDL receptor than wild-type PCSK9 does. This is recorded on the genetic context (the variant), not as a Descriptor modifier, because the claim is about the consequence of a specific allele.</div>
 
@@ -5263,6 +5308,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hepatic-pcsk9-synthesis-and-secretion" data-dismech-node="Hepatic PCSK9 Synthesis and Secretion" data-dismech-type="pathophysiology">
                 <div class="item-name">Hepatic PCSK9 Synthesis and Secretion</div>
+
 
                 <div class="item-desc">PCSK9 is synthesised in the hepatocyte and secreted into the circulation, where it acts on LDL receptors on the same and other cells. Secreted PCSK9 is sufficient on its own to deplete hepatic LDL receptors, as parabiosis between PCSK9-transgenic and wild-type mice shows. This node is the shared upstream of both the canonical receptor-degradation route and the alternative apoB-secretion route, and it is where hepatic PCSK9 knockdown acts.</div>
 
@@ -5442,6 +5488,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pcsk9-binding-to-the-ldl-receptor-egf-a-domain" data-dismech-node="PCSK9 Binding to the LDL Receptor EGF-A Domain" data-dismech-type="pathophysiology">
                 <div class="item-name">PCSK9 Binding to the LDL Receptor EGF-A Domain</div>
 
+
                 <div class="item-desc">Secreted PCSK9 binds the first epidermal growth factor-like repeat (EGF-A) of the LDL receptor&#39;s EGF homology domain at the hepatocyte surface. The interaction is calcium-dependent and its affinity rises steeply as pH falls from 7 to 5.2, so the complex tightens rather than dissociates as the receptor traverses the endosome. The evidence curated on this node is from wild-type recombinant PCSK9 and establishes where and how PCSK9 engages the receptor; the variant-specific excess is curated one node downstream, where it was measured as receptor loss rather than as binding affinity.</div>
 
 
@@ -5619,6 +5666,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lysosomal-rerouting-and-degradation-of-the-hepatocyte-ldl-receptor" data-dismech-node="Lysosomal Rerouting and Degradation of the Hepatocyte LDL Receptor" data-dismech-type="pathophysiology">
                 <div class="item-name">Lysosomal Rerouting and Degradation of the Hepatocyte LDL Receptor</div>
+
 
                 <div class="item-desc">The rate-limiting step of ADH3. Instead of recycling to the plasma membrane, the PCSK9-bound LDL receptor is diverted from the endosome to the lysosome and degraded. The hepatocyte surface receptor pool therefore falls even though the LDLR gene and protein are structurally normal. This is the node that distinguishes ADH3 from LDLR- and APOB-related FH, and it is the node that PCSK9-directed drugs act upstream of.</div>
 
@@ -5894,6 +5942,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-hepatic-clearance-of-circulating-ldl-particles" data-dismech-node="Reduced Hepatic Clearance of Circulating LDL Particles" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Hepatic Clearance of Circulating LDL Particles</div>
+
 
                 <div class="item-desc">The liver is the principal route by which LDL leaves the circulation. With the hepatocyte receptor pool depleted, receptor-mediated uptake of LDL falls and the plasma residence time of LDL particles lengthens.</div>
 
@@ -6182,6 +6231,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-hepatic-secretion-of-apob-containing-lipoproteins" data-dismech-node="Increased Hepatic Secretion of ApoB-Containing Lipoproteins" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased Hepatic Secretion of ApoB-Containing Lipoproteins</div>
 
+
                 <div class="item-desc">A curated alternative contribution, not the canonical route. In rat hepatoma cells stably expressing the FH-associated PCSK9 variants, secretion of apoB100-containing lipoprotein rose 2-4 fold while LDL receptor content fell only slightly - the opposite emphasis to the hepatocyte receptor-degradation studies. Whether this contributes materially to the human phenotype, and in which cell context, is unresolved; the node is curated so the competing model is visible rather than lost in prose.</div>
 
 
@@ -6334,6 +6384,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chronic-elevation-of-plasma-ldl-cholesterol" data-dismech-node="Chronic Elevation of Plasma LDL Cholesterol" data-dismech-type="pathophysiology">
                 <div class="item-name">Chronic Elevation of Plasma LDL Cholesterol</div>
+
 
                 <div class="item-desc">Lifelong elevation of plasma LDL cholesterol from birth. In the best characterised PCSK9 cohort - 13 D374Y carriers from four unrelated British families - pretreatment total cholesterol averaged 13.6 mmol/L, materially higher than in severe LDLR-mutation heterozygotes, and remained higher on statin therapy.</div>
 
@@ -6508,6 +6559,7 @@ This pathophysiological event involves dysregulated cholesterol homeostasis (GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-subendothelial-retention-of-apob-containing-lipoproteins" data-dismech-node="Subendothelial Retention of ApoB-Containing Lipoproteins" data-dismech-type="pathophysiology">
                 <div class="item-name">Subendothelial Retention of ApoB-Containing Lipoproteins</div>
+
 
                 <div class="item-desc">The ADH3 substitution at the atherogenesis module&#39;s retention trigger: the disease-specific driver is the PCSK9-driven LDL/apoB burden, but the initiating event - infiltration and retention of apoB-containing lipoproteins in the arterial intima, followed by their oxidative modification and an inflammatory response - is the conserved one.</div>
 
@@ -6712,6 +6764,7 @@ This pathophysiological event occurs in tunica intima (UBERON:0002523). UBERON:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-macrophage-foam-cell-formation" data-dismech-node="Macrophage Foam Cell Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Macrophage Foam Cell Formation</div>
 
+
                 <div class="item-desc">Monocytes recruited into the intima differentiate into macrophages and internalise the modified apoB lipoproteins, becoming lipid-laden foam cells - the hallmark of the fatty streak. Macrophage inflammation then feeds back on lipoprotein oxidation, endothelial activation and further monocyte recruitment.</div>
 
 
@@ -6914,6 +6967,7 @@ This pathophysiological event occurs in tunica intima (UBERON:0002523). UBERON:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-smooth-muscle-cell-switching-and-fibrofatty-plaque-formation" data-dismech-node="Smooth Muscle Cell Switching and Fibrofatty Plaque Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Smooth Muscle Cell Switching and Fibrofatty Plaque Formation</div>
+
 
                 <div class="item-desc">Vascular smooth muscle cells infiltrate the lipid-rich intima, proliferate and secrete extracellular matrix, converting the fatty streak into an organised fibrofatty plaque with a matrix-rich fibrous cap. This is the conserved central effector of the atherogenesis module. The ADH3-specific claim curated here is only that carriers reach clinically manifest coronary atherosclerosis earlier than severe LDLR-mutation heterozygotes; the lesion-level steps are the module&#39;s conserved ones and are evidenced from general atherosclerosis sources.</div>
 
@@ -7209,6 +7263,7 @@ This pathophysiological event occurs in artery (UBERON:0001637). UBERON:0001637 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-advanced-atheroma-with-necrotic-core-and-fibrous-cap" data-dismech-node="Advanced Atheroma with Necrotic Core and Fibrous Cap" data-dismech-type="pathophysiology">
                 <div class="item-name">Advanced Atheroma with Necrotic Core and Fibrous Cap</div>
 
+
                 <div class="item-desc">Macrophage apoptosis and defective efferocytosis enlarge a necrotic lipid core, while matrix loss and collagen degradation thin the overlying fibrous cap, converting a stable plaque into a vulnerable one. Curated as the conserved module stage; no ADH3-specific plaque-histology series is cited.</div>
 
 
@@ -7377,6 +7432,7 @@ This pathophysiological event occurs in artery (UBERON:0001637). UBERON:0001637 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-plaque-rupture-thrombosis-and-ischemic-events" data-dismech-node="Plaque Rupture, Thrombosis, and Ischemic Events" data-dismech-type="pathophysiology">
                 <div class="item-name">Plaque Rupture, Thrombosis, and Ischemic Events</div>
+
 
                 <div class="item-desc">Cap rupture exposes thrombogenic plaque material, luminal thrombosis follows, and the resulting coronary occlusion produces the clinical ischemic events - angina and myocardial infarction - that occur more than a decade earlier in PCSK9 gain-of-function carriers than in severe LDLR-mutation heterozygotes.</div>
 
@@ -8493,6 +8549,9 @@ This disease-associated gene is PCSK9 (hgnc:20001). hgnc:20001 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -8595,6 +8654,7 @@ This disease-associated gene is PCSK9 (hgnc:20001). hgnc:20001 is a gene from th
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8614,11 +8674,17 @@ This variant is in PCSK9 (hgnc:20001). hgnc:20001 is a gene from the HUGO Gene N
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">One of the two founding ADH3 alleles. Markedly impairs autocatalytic zymogen processing and reduces cell-surface LDL receptor in patient lymphoblasts.</div>
@@ -8681,6 +8747,7 @@ This variant is in PCSK9 (hgnc:20001). hgnc:20001 is a gene from the HUGO Gene N
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8700,11 +8767,17 @@ This variant is in PCSK9 (hgnc:20001). hgnc:20001 is a gene from the HUGO Gene N
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">The second founding ADH3 allele, reported alongside S127R in the original French pedigrees. Zymogen processing is normal, so its gain of function is not explained by the processing defect seen with S127R.</div>
@@ -8767,6 +8840,7 @@ This variant is in PCSK9 (hgnc:20001). hgnc:20001 is a gene from the HUGO Gene N
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8786,11 +8860,17 @@ This variant is in PCSK9 (hgnc:20001). hgnc:20001 is a gene from the HUGO Gene N
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">The severe ADH3 allele. Roughly tenfold more potent than wild-type PCSK9 at reducing cell-surface LDL receptor, and associated with a clinical phenotype more severe than severe LDLR-mutation heterozygosity.</div>
@@ -8878,6 +8958,7 @@ This variant is in PCSK9 (hgnc:20001). hgnc:20001 is a gene from the HUGO Gene N
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8897,11 +8978,17 @@ This variant is in PCSK9 (hgnc:20001). hgnc:20001 is a gene from the HUGO Gene N
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A C-terminal cysteine-histidine-rich domain module 1 (CM1) gain-of-function allele. Mechanistically distinct from the three alleles above: rather than altering zymogen processing or receptor affinity directly, it abolishes binding of PCSK9 to LDL particles. Because LDL-bound PCSK9 is less able to degrade the receptor, losing that inhibitory association leaves more free, active PCSK9 - a third route to the same gain of function. Included as a representative of the C-terminal variant class rather than as a well-characterised ADH3 pedigree allele.</div>

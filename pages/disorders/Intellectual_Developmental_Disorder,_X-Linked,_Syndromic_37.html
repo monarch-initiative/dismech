@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -5313,6 +5352,7 @@ Counselling implication drawn by the reporting authors: endocrine testing should
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-germline-zfx-truncating-variant" data-dismech-node="Germline ZFX Truncating Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">Germline ZFX Truncating Variant</div>
 
+
                 <div class="item-desc">Frameshift and nonsense variants distributed across ZFX, accounting for seven of the eleven variants in the founding cohort. These alleles are presumed to act by loss of function, reducing functional ZFX dosage. In a hemizygous male no functional allele remains; in a heterozygous female, because ZFX escapes X inactivation, the remaining wild-type allele is expressed in every cell but cannot be up-regulated to compensate, giving a genuine partial dosage reduction rather than cellular mosaicism.
 </div>
 
@@ -5341,6 +5381,8 @@ Counselling implication drawn by the reporting authors: endocrine testing should
 
 
 
+
+
         <span class="tag tag-classification">allele_type: LOSS_OF_FUNCTION_VARIANT</span>
 
 
@@ -5354,6 +5396,9 @@ Counselling implication drawn by the reporting authors: endocrine testing should
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -5437,6 +5482,7 @@ Counselling implication drawn by the reporting authors: endocrine testing should
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-germline-zfx-zinc-finger-missense-variant" data-dismech-node="Germline ZFX Zinc-Finger Missense Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">Germline ZFX Zinc-Finger Missense Variant</div>
 
+
                 <div class="item-desc">Missense variants affecting the C2H2 zinc-finger DNA-binding region of ZFX, which in the founding cohort accounted for four variants but eleven of the eighteen subjects. This allele class is separated from the truncating class because its reported functional consequence is altered rather than simply absent transcriptional output, and because every founding-cohort family with hyperparathyroidism carried a missense allele. It is NOT curated as the only allele class that can produce hyperparathyroidism: a later series reports an in-frame insertion carrier with primary hyperparathyroidism, and the founding cohort never asserts absence of the endocrine phenotype in truncating carriers. The functionally critical fingers are the C-terminal ones: zinc fingers 11-13 are necessary and sufficient for DNA binding, and the somatic parathyroid-adenoma hotspot (R786/R787) lies in the same C-terminal zinc-finger region.
 </div>
 
@@ -5465,6 +5511,8 @@ Counselling implication drawn by the reporting authors: endocrine testing should
 
 
 
+
+
         <span class="tag tag-classification">allele_type: MISSENSE_VARIANT</span>
 
 
@@ -5476,6 +5524,9 @@ Counselling implication drawn by the reporting authors: endocrine testing should
 
 
     </div>
+
+
+
 
 
 
@@ -5606,6 +5657,7 @@ This pathophysiological event involves dysregulated DNA-binding transcription fa
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-escape-of-zfx-from-x-inactivation" data-dismech-node="Escape of ZFX from X Inactivation" data-dismech-type="pathophysiology">
                 <div class="item-name">Escape of ZFX from X Inactivation</div>
 
+
                 <div class="item-desc">ZFX is one of the few human X-linked genes that escape X inactivation, so it is transcribed from both the active and the inactive X in females. This is a constitutive property of the locus rather than a disease event, and it is modelled here because it is what determines the dosage consequence of a heterozygous allele: a female carrier has a uniform partial reduction in ZFX activity in every cell rather than a mosaic of wild-type and mutant cells, which is why females are genuinely affected rather than silent carriers.
 </div>
 
@@ -5733,6 +5785,7 @@ This pathophysiological event involves dysregulated DNA-binding transcription fa
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-zfx-dependent-transcriptional-activation-at-cpg-island-promoters" data-dismech-node="Impaired ZFX-Dependent Transcriptional Activation at CpG Island Promoters" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired ZFX-Dependent Transcriptional Activation at CpG Island Promoters</div>
+
 
                 <div class="item-desc">The convergent molecular node. ZFX binds a short motif roughly 200-250 bp downstream of the transcription start site at the majority of active CpG island promoters - an unusual, architecturally defined binding position inside the transcribed region rather than upstream - and acts there as an activator. Genes whose promoters ZFX occupies are expressed at higher levels, and knockdown reduces their expression. Both the truncating and the missense allele classes converge on degraded or mis-specified output from this promoter-proximal activator function.
 </div>
@@ -5996,6 +6049,7 @@ This pathophysiological event involves decreased RNA polymerase II cis-regulator
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-rna-polymerase-ii-promoter-proximal-pausing" data-dismech-node="Increased RNA Polymerase II Promoter-Proximal Pausing" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased RNA Polymerase II Promoter-Proximal Pausing</div>
 
+
                 <div class="item-desc">Reduced ZFX at target promoters increases Pol II pausing and decreases histone H4 acetylation, the two coupled readouts of the proposed mechanism: ZFX recruits H4 acetylation activity and thereby releases polymerase into productive elongation. This is the best-resolved step in the ZFX mechanism and is derived entirely from cell-line work, not from patient tissue.
 </div>
 
@@ -6136,6 +6190,7 @@ This pathophysiological event involves decreased transcription elongation by RNA
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-stem-and-progenitor-cell-self-renewal" data-dismech-node="Impaired Stem and Progenitor Cell Self-Renewal" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Stem and Progenitor Cell Self-Renewal</div>
+
 
                 <div class="item-desc">In model systems, loss of ZFX selectively impairs self-renewal while leaving differentiation capacity intact, with increased apoptosis and stem-cell-specific up-regulation of stress-inducible genes. The requirement is conserved to human embryonic stem cells, where ZFX behaves as a rheostat setting the balance between self-renewal and differentiation. Extension of this to neural progenitors in the developing human brain is INFERENCE, not observation - no patient-tissue or neural-progenitor data exist for MRXS37, which is recorded as a knowledge gap below. The cell types annotated on this node are therefore deliberately the ones actually assayed, embryonic and haematopoietic stem cells, and NOT neural stem cells, so that the pathograph and anything exported from it do not assert a neural-progenitor claim this entry&#39;s own prose declines to make.
 </div>
@@ -6464,6 +6519,7 @@ This pathophysiological event involves decreased cell population proliferation (
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-neurodevelopment" data-dismech-node="Disrupted Neurodevelopment" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Neurodevelopment</div>
 
+
                 <div class="item-desc">The neurodevelopmental consequence: global developmental delay and intellectual disability of variable severity, behavioural abnormalities and hypotonia. Structural brain findings reported in individual cases include reduced white matter with a thin corpus callosum and inferior cerebellar vermian hypoplasia. Kept separate from the craniofacial and congenital-anomaly node because they are distinct developmental programmes with distinct evidence, even though both follow from the same upstream transcriptional defect.
 </div>
 
@@ -6670,6 +6726,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-craniofacial-patterning-and-congenital-anomaly-formation" data-dismech-node="Disrupted Craniofacial Patterning and Congenital Anomaly Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Craniofacial Patterning and Congenital Anomaly Formation</div>
 
+
                 <div class="item-desc">The extra-neural developmental consequence: a recurrent and clinically recognisable facial gestalt present in every reported subject of the founding cohort - thickened and medially broadened eyebrows, altered facial shape, external eye anomalies, a smooth and/or long philtrum and ear anomalies - together with a variable burden of congenital anomalies. This node deliberately carries no mechanistic annotation beyond the clinical observation: no study has examined cranial neural crest, pharyngeal-arch patterning, or any other craniofacial developmental programme in ZFX deficiency, so the route from the transcriptional defect to the gestalt is entirely unexamined. That unexamined route is recorded as the `zfx_craniofacial_route_gap` discussion; it is a reason to draw the incoming edge as INDIRECT_UNKNOWN_INTERMEDIATES, not a reason to omit it - that ZFX variants produce this gestalt is the disease definition, and only the mechanism is unknown.
 </div>
 
@@ -6804,6 +6861,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-parathyroid-chief-cell-proliferation-and-adenoma-formation" data-dismech-node="Parathyroid Chief Cell Proliferation and Adenoma Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Parathyroid Chief Cell Proliferation and Adenoma Formation</div>
+
 
                 <div class="item-desc">The endocrine arm, reached from the zinc-finger missense allele class rather than from the truncating class. Germline missense carriers develop primary hyperparathyroidism, in some cases with a resectable parathyroid lesion and normalisation of PTH and calcium after parathyroidectomy. The supporting rationale is that recurrent SOMATIC ZFX missense mutations at a two-arginine hotspot (R786/R787) in a C-terminal zinc finger are positively selected in sporadic parathyroid adenomas, without loss of heterozygosity - the signature of a proto-oncogene rather than a tumour suppressor. Note this is convergence of two allele sets on one protein region, not a demonstration that the germline alleles act by the same biochemical route.
 </div>
@@ -9906,6 +9964,9 @@ This disease-associated gene is ZFX (hgnc:12869). hgnc:12869 is a gene from the 
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 

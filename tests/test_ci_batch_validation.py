@@ -91,6 +91,15 @@ def _step_named(filename: str, name: str) -> dict:
     return matches[0]
 
 
+def test_retired_dataset_cache_guard_runs_on_curation_only_prs() -> None:
+    step = _step_named("main.yaml", "Reject retired dataset cache")
+    assert "if" not in step, "old curation PRs must not bypass the cache guard"
+    assert step["run"].strip() == (
+        "uv run pytest -q "
+        "tests/test_data.py::test_no_automation_touches_the_frozen_dataset_cache"
+    )
+
+
 def test_entity_ref_check_runs_ungated_over_the_whole_kb() -> None:
     """The entity-ref lane must not acquire a path filter (#9473).
 

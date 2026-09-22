@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4385,6 +4424,7 @@ Clinically it is a subacute mass lesion with a deceptive imaging signature — h
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-acquisition-of-myd88-and-cd79b-driver-mutations" data-dismech-node="Acquisition of MYD88 and CD79B Driver Mutations" data-dismech-type="pathophysiology">
                 <div class="item-name">Acquisition of MYD88 and CD79B Driver Mutations</div>
 
+
                 <div class="item-desc">The initiating lesion, and an unusually stereotyped one. MYD88 L265P and CD79B ITAM mutations occur together in most cases, and clonal-evolution analysis of paired primary and relapse specimens places them, alongside TBL1XR1 mutation and BCL6 rearrangement, in a common progenitor cell that is held in a memory B-cell state before germinal-centre re-entry. This is the origin node: the transforming event is somatic, and the cell it happens in is bound as a memory B cell rather than as a generic B cell, because that is the state the cited clonal-evolution analysis places the common progenitor in. A single cell type is bound deliberately: binding both the generic and the specific term would make the cell-of-origin derivation report two origins, which would be an artefact of granularity rather than the genuine lump/split signal that report is for.</div>
 
 
@@ -4436,6 +4476,8 @@ This pathophysiological event involves memory-state common progenitor B cell, an
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: SOMATIC</span>
 
 
@@ -4446,6 +4488,9 @@ This pathophysiological event involves memory-state common progenitor B cell, an
         <span class="tag tag-classification">functional_impact_category: GAIN_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4568,6 +4613,7 @@ This pathophysiological event involves memory-state common progenitor B cell, an
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ligand-independent-bcr-and-toll-like-receptor-signaling" data-dismech-node="Ligand-Independent BCR and Toll-Like Receptor Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Ligand-Independent BCR and Toll-Like Receptor Signaling</div>
+
 
                 <div class="item-desc">MYD88 L265P allows the myddosome to assemble without receptor ligation, and mutation of the CD79B ITAM tyrosine removes the negative-feedback step that normally terminates B-cell receptor signalling. Both convert a transient, antigen-gated signal into a continuous one. This is a qualitative change in regulation rather than a quantitative increase, which is why the pathway modifiers here are GAIN_OF_FUNCTION rather than INCREASED.</div>
 
@@ -4740,6 +4786,7 @@ This pathophysiological event involves toll-like receptor signaling pathway (GO:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-constitutive-canonical-nf-kb-activation" data-dismech-node="Constitutive Canonical NF-kB Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Constitutive Canonical NF-kB Activation</div>
 
+
                 <div class="item-desc">The convergence point. Continuous signalling through both receptors, with CARD11 mutation and 3q12.3 gain driving NFKBIZ in a subset, holds canonical NF-kB transcriptionally active and sustains the survival and proliferation programme the tumour depends on. It is also the node the BTK inhibitors act on, which is why they work in a disease with no other targeted option.</div>
 
 
@@ -4852,6 +4899,7 @@ This pathophysiological event involves canonical NF-kappaB signal transduction (
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aberrant-somatic-hypermutation-and-cdkn2a-loss" data-dismech-node="Aberrant Somatic Hypermutation and CDKN2A Loss" data-dismech-type="pathophysiology">
                 <div class="item-name">Aberrant Somatic Hypermutation and CDKN2A Loss</div>
 
+
                 <div class="item-desc">A parallel arm rather than a downstream consequence: off-target activation-induced cytidine deaminase activity mutates PIM1, BTG1, BTG2 and other loci, while CDKN2A is lost by 9p21.3 deletion, mutation or promoter methylation. The result is loss of the p16INK4a/p14ARF brake on the cell cycle on top of the signalling lesions, and progressive genomic instability.</div>
 
 
@@ -4869,6 +4917,8 @@ This pathophysiological event involves canonical NF-kappaB signal transduction (
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: SOMATIC</span>
 
 
@@ -4879,6 +4929,9 @@ This pathophysiological event involves canonical NF-kappaB signal transduction (
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4973,6 +5026,7 @@ This pathophysiological event involves canonical NF-kappaB signal transduction (
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-acquisition-of-immune-escape-lesions" data-dismech-node="Acquisition of Immune-Escape Lesions" data-dismech-type="pathophysiology">
                 <div class="item-name">Acquisition of Immune-Escape Lesions</div>
 
+
                 <div class="item-desc">The genetically distinctive arm of this disease, and the one that separates it from nodal DLBCL. Loss of the HLA locus at 6p21 by deletion or copy-neutral loss of heterozygosity, B2M mutation, and gain or rearrangement of the PD-L1/PD-L2 locus at 9p24.1 remove the tumour from both MHC-restricted recognition and T-cell effector function. Clonal-evolution analysis places these as late events, arising independently in primary and relapse samples rather than being inherited from the common progenitor.</div>
 
 
@@ -4990,6 +5044,8 @@ This pathophysiological event involves canonical NF-kappaB signal transduction (
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: SOMATIC</span>
 
 
@@ -5000,6 +5056,9 @@ This pathophysiological event involves canonical NF-kappaB signal transduction (
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -5089,6 +5148,7 @@ This pathophysiological event involves decreased MHC class II protein complex (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-escape-from-t-cell-immunosurveillance" data-dismech-node="Escape from T-Cell Immunosurveillance" data-dismech-type="pathophysiology">
                 <div class="item-name">Escape from T-Cell Immunosurveillance</div>
+
 
                 <div class="item-desc">The functional consequence, and it compounds rather than creates the problem: the CNS is already an immune-sheltered compartment, so a tumour that also loses MHC display and overexpresses checkpoint ligands is doubly hidden. Reactive T cells, macrophages and microglia are present in the lesion but do not clear it. WHO&#39;s grouping of this disease with primary testicular and vitreoretinal large B-cell lymphoma rests on this shared biology.</div>
 
@@ -5253,6 +5313,7 @@ This pathophysiological event involves microglial cell (CL:0000129). CL:0000129 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-unchecked-clonal-b-cell-proliferation" data-dismech-node="Unchecked Clonal B-Cell Proliferation" data-dismech-type="pathophysiology">
                 <div class="item-name">Unchecked Clonal B-Cell Proliferation</div>
 
+
                 <div class="item-desc">Sustained NF-kB survival signalling with the cell-cycle brake removed. The clone that results is a diffuse large B-cell lymphoma by morphology and immunophenotype, non-germinal-centre in the great majority of cases, and it accounts for over 95% of lymphomas arising primarily in the CNS.</div>
 
 
@@ -5360,6 +5421,7 @@ This pathophysiological event involves neoplastic B cell, annotated with B cell 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-perivascular-infiltration-of-cns-parenchyma" data-dismech-node="Perivascular Infiltration of CNS Parenchyma" data-dismech-type="pathophysiology">
                 <div class="item-name">Perivascular Infiltration of CNS Parenchyma</div>
+
 
                 <div class="item-desc">The tumour grows in angiocentric cuffs around CNS microvessels rather than as a discrete encapsulated mass, which is why resection has no role and why the lesion is diffusely infiltrative well beyond its enhancing margin. Deep periventricular, basal ganglia, thalamic and corpus callosum involvement is characteristic and prognostically adverse.</div>
 
@@ -5505,6 +5567,7 @@ This pathophysiological event occurs in spinal cord (UBERON:0002240). UBERON:000
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mass-effect-and-blood-brain-barrier-disruption" data-dismech-node="Mass Effect and Blood-Brain Barrier Disruption" data-dismech-type="pathophysiology">
                 <div class="item-name">Mass Effect and Blood-Brain Barrier Disruption</div>
 
+
                 <div class="item-desc">Expanding perivascular tumour, vasogenic oedema and a leaking blood-brain barrier together produce the clinical syndrome. Which deficit appears is a matter of where the lesion sits rather than of anything specific to the tumour, which is why presentation is heterogeneous and frequently mistaken for stroke, demyelination or a psychiatric disorder before imaging.</div>
 
 
@@ -5621,6 +5684,7 @@ This pathophysiological event occurs in spinal cord (UBERON:0002240). UBERON:000
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-vitreoretinal-dissemination" data-dismech-node="Vitreoretinal Dissemination" data-dismech-type="pathophysiology">
                 <div class="item-name">Vitreoretinal Dissemination</div>
 
+
                 <div class="item-desc">Spread to the eye, itself a second immune-privileged compartment behind the blood-ocular barrier. It is common enough that ophthalmic examination is part of staging, and a substantial minority of affected eyes are asymptomatic, so it is found by looking rather than by complaint.</div>
 
 
@@ -5715,6 +5779,7 @@ This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-ebv-specific-t-cell-surveillance" data-dismech-node="Loss of EBV-Specific T-Cell Surveillance" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of EBV-Specific T-Cell Surveillance</div>
+
 
                 <div class="item-desc">A separate route into the same tumour, and the reason this entry is not purely a story about MYD88. In HIV infection, transplant immunosuppression and congenital immunodeficiency, failure of EBV-specific T-cell control permits outgrowth of an EBV-transformed B-cell clone without the same dependence on the somatic driver mutations above. The resulting disease is EBV-positive and is regarded as biologically distinct from the sporadic immunocompetent form, while converging on the same infiltrative endpoint.</div>
 
@@ -6797,6 +6862,9 @@ This disease-associated gene is MYD88 (hgnc:7562). hgnc:7562 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6867,6 +6935,9 @@ This disease-associated gene is CD79B (hgnc:1699). hgnc:1699 is a gene from the 
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: SOMATIC</span>
 
                 </div>
+
+
+
 
 
 
@@ -6945,6 +7016,9 @@ This disease-associated gene is CDKN2A (hgnc:1787). hgnc:1787 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7015,6 +7089,9 @@ This disease-associated gene is PIM1 (hgnc:8986). hgnc:8986 is a gene from the H
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: SOMATIC</span>
 
                 </div>
+
+
+
 
 
 
@@ -7093,6 +7170,9 @@ This disease-associated gene is B2M (hgnc:914). hgnc:914 is a gene from the HUGO
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7167,6 +7247,9 @@ This disease-associated gene is CD274 (hgnc:17635). hgnc:17635 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7237,6 +7320,9 @@ This disease-associated gene is CARD11 (hgnc:16393). hgnc:16393 is a gene from t
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: SOMATIC</span>
 
                 </div>
+
+
+
 
 
 

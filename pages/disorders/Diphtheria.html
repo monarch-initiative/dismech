@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4784,6 +4823,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lysogenic-conversion-by-a-tox-bearing-corynebacteriophage" data-dismech-node="Lysogenic Conversion by a tox-Bearing Corynebacteriophage" data-dismech-type="pathophysiology">
                 <div class="item-name">Lysogenic Conversion by a tox-Bearing Corynebacteriophage</div>
 
+
                 <div class="item-desc">The structural gene for diphtheria toxin is not chromosomal in origin. It is carried by a beta-corynephage that integrates into the bacterial genome, so that toxigenic and non-toxigenic strains of the same species coexist and a non-toxigenic isolate can be converted by phage infection. This was the first virulence factor shown to be phage-encoded, and it is why toxigenicity, not species identity, determines whether a patient develops toxin-mediated disease.</div>
 
 
@@ -4859,6 +4899,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-iron-regulated-diphtheria-toxin-expression" data-dismech-node="Iron-Regulated Diphtheria Toxin Expression" data-dismech-type="pathophysiology">
                 <div class="item-name">Iron-Regulated Diphtheria Toxin Expression</div>
+
 
                 <div class="item-desc">Transcription of tox is repressed by DtxR, an iron-dependent DNA-binding protein that occupies the tox operator when loaded with ferrous iron. In the iron-restricted environment of host mucosa the repressor is unloaded and derepresses tox along with a wider iron-acquisition regulon, so the bacterium makes most toxin precisely where it is establishing infection.</div>
 
@@ -4994,6 +5035,7 @@ This pathophysiological event involves cellular response to iron ion starvation 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mucosal-colonization-and-adherence" data-dismech-node="Mucosal Colonization and Adherence" data-dismech-type="pathophysiology">
                 <div class="item-name">Mucosal Colonization and Adherence</div>
+
 
                 <div class="item-desc">Before any toxin is made the organism must attach to and colonize the pharyngeal or cutaneous epithelium. Adherence is multifactorial: C. diphtheriae carries three sortase-assembled pilus gene clusters, and pilus type determines which epithelial cell lines a strain attaches to. Adherence is independent of the tox gene, which is why non-toxigenic strains colonize and transmit just as effectively.</div>
 
@@ -5189,6 +5231,7 @@ This pathophysiological event occurs in pharynx (UBERON:0006562). UBERON:0006562
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-diphtheria-toxin-binding-to-the-prohb-egf-receptor" data-dismech-node="Diphtheria Toxin Binding to the proHB-EGF Receptor" data-dismech-type="pathophysiology">
                 <div class="item-name">Diphtheria Toxin Binding to the proHB-EGF Receptor</div>
 
+
                 <div class="item-desc">The receptor-binding (R) domain of diphtheria toxin binds the membrane-anchored precursor of heparin-binding EGF-like growth factor. proHB-EGF was identified by expression cloning as the diphtheria toxin sensitivity determinant, and it associates with the tetraspanin CD9 (DRAP27), which increases the number of functional receptors and raises toxin sensitivity by more than an order of magnitude. Species differences in this receptor explain why mice and rats are naturally resistant to the toxin.</div>
 
 
@@ -5369,6 +5412,7 @@ This pathophysiological event involves receptor-mediated endocytosis (GO:0006898
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-endocytosis-and-catalytic-domain-translocation" data-dismech-node="Endocytosis and Catalytic Domain Translocation" data-dismech-type="pathophysiology">
                 <div class="item-name">Endocytosis and Catalytic Domain Translocation</div>
 
+
                 <div class="item-desc">Receptor-bound toxin is internalized into an endosome. Acidification triggers a conformational change in the translocation (T) domain, which inserts into the endosomal membrane and chaperones the catalytic (C) domain across it into the cytosol. A single translocated catalytic domain is sufficient to kill a cell, and the estimated human lethal dose is on the order of 100 ng/kg.</div>
 
 
@@ -5507,6 +5551,7 @@ This pathophysiological event involves increased receptor-mediated endocytosis (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-eef2-diphthamide-adp-ribosylation" data-dismech-node="eEF2 Diphthamide ADP-Ribosylation" data-dismech-type="pathophysiology">
                 <div class="item-name">eEF2 Diphthamide ADP-Ribosylation</div>
+
 
                 <div class="item-desc">The catalytic domain is a NAD+-dependent ADP-ribosyltransferase that transfers ADP-ribose onto diphthamide, a modified histidine unique to eukaryotic elongation factor 2. Diphthamide normally supports reading-frame fidelity; once ADP-ribosylated, eEF2 can no longer catalyse translocation of the peptidyl-tRNA-mRNA complex from the ribosomal A site to the P site. The reaction is catalytic rather than stoichiometric, which is why a single translocated catalytic domain is enough to kill the cell.</div>
 
@@ -5673,6 +5718,7 @@ This pathophysiological event involves increased NAD+-diphthamide ADP-ribosyltra
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-translational-arrest-and-host-cell-death" data-dismech-node="Translational Arrest and Host Cell Death" data-dismech-type="pathophysiology">
                 <div class="item-name">Translational Arrest and Host Cell Death</div>
+
 
                 <div class="item-desc">Elongation stalls, total protein synthesis falls, and the affected cell dies by apoptosis. This single lesion accounts for every toxin-attributable feature of the disease: epithelial necrosis under the membrane locally, and cardiomyocyte and Schwann cell injury at distant sites. Nothing about the mechanism is tissue-specific, so which organs are damaged is set by toxin delivery and by which cell types are least able to tolerate a translational block.</div>
 
@@ -5909,6 +5955,7 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pseudomembrane-formation" data-dismech-node="Pseudomembrane Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Pseudomembrane Formation</div>
 
+
                 <div class="item-desc">Necrotic epithelium, fibrin, leukocytes, erythrocytes and bacteria coalesce into a tough grey-white membrane that adheres to the underlying mucosa and bleeds if stripped. On the tonsils and pharynx it is the diagnostic sign of respiratory diphtheria, and it is found in roughly three quarters of clinically diagnosed cases in outbreak settings.</div>
 
 
@@ -6086,6 +6133,7 @@ This pathophysiological event occurs in larynx (UBERON:0001737). UBERON:0001737 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-upper-airway-obstruction" data-dismech-node="Upper Airway Obstruction" data-dismech-type="pathophysiology">
                 <div class="item-name">Upper Airway Obstruction</div>
 
+
                 <div class="item-desc">Progressive narrowing of the larynx and trachea by membrane and oedema. It is the most immediately lethal local complication and, unlike the toxin-mediated injuries, it is mechanical: it is relieved by bypassing the obstruction rather than by neutralizing toxin. In outbreak cohorts it occurred in 22.6% of children and carried roughly thirteenfold higher odds of death.</div>
 
 
@@ -6192,6 +6240,7 @@ This pathophysiological event occurs in larynx (UBERON:0001737). UBERON:0001737 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-systemic-toxin-dissemination" data-dismech-node="Systemic Toxin Dissemination" data-dismech-type="pathophysiology">
                 <div class="item-name">Systemic Toxin Dissemination</div>
+
 
                 <div class="item-desc">Toxin absorbed from the membrane-covered mucosa enters the bloodstream and reaches the heart, peripheral nerves and kidney. The distinction between local spread and haematogenous dissemination is clinically load-bearing: early palatal weakness reflects direct local toxin action, whereas the generalized demyelinating neuropathy that follows weeks later reflects blood-borne delivery. Only free toxin is neutralizable, so antitoxin given after dissemination and cellular uptake cannot reverse established injury.</div>
 
@@ -6301,6 +6350,7 @@ This pathophysiological event occurs in larynx (UBERON:0001737). UBERON:0001737 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-diphtheritic-myocarditis" data-dismech-node="Diphtheritic Myocarditis" data-dismech-type="pathophysiology">
                 <div class="item-name">Diphtheritic Myocarditis</div>
+
 
                 <div class="item-desc">Toxin taken up by cardiomyocytes produces patchy myocyte necrosis with mononuclear infiltration, interstitial oedema and fibrosis, typically appearing about two weeks after the pharyngeal illness. Ultrastructurally the mitochondria are swollen with disorganized cristae and glycogen is depleted, consistent with a cell whose protein synthesis has been arrested. Cardiac involvement is the leading cause of death in diphtheria, and it is potentially reversible if the patient survives the acute phase.</div>
 
@@ -6557,6 +6607,7 @@ This pathophysiological event occurs in myocardium (UBERON:0002349). UBERON:0002
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiac-conduction-system-injury" data-dismech-node="Cardiac Conduction System Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiac Conduction System Injury</div>
 
+
                 <div class="item-desc">Extension of the myocarditic process into the conduction system produces a spectrum of electrocardiographic abnormalities; about half of patients with diphtheritic myocarditis develop severe conduction disturbance, of which complete heart block is the most dangerous. Left bundle branch block and T-wave inversion have been reported to predict poor long-term survival.</div>
 
 
@@ -6663,6 +6714,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-toxin-mediated-schwann-cell-injury-and-demyelination" data-dismech-node="Toxin-Mediated Schwann Cell Injury and Demyelination" data-dismech-type="pathophysiology">
                 <div class="item-name">Toxin-Mediated Schwann Cell Injury and Demyelination</div>
+
 
                 <div class="item-desc">Diphtheria toxin enters Schwann cells and blocks synthesis of myelin proteolipid protein and myelin basic protein, producing segmental demyelination without primary axonal loss. Because myelin maintenance depends on ongoing protein synthesis, the Schwann cell is among the cell types least able to tolerate a translational block. The clinical consequence is a descending neuropathy beginning with palatal and other bulbar weakness, later oculomotor and ciliary paralysis, and in severe cases limb weakness, with recovery in most survivors because axons are preserved.</div>
 
@@ -6868,6 +6920,7 @@ This pathophysiological event occurs in peripheral nervous system (UBERON:000001
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-absent-or-waning-antitoxin-immunity" data-dismech-node="Absent or Waning Antitoxin Immunity" data-dismech-type="pathophysiology">
                 <div class="item-name">Absent or Waning Antitoxin Immunity</div>
 
+
                 <div class="item-desc">Toxoid-induced neutralizing antibody is the only established host protection. It does not prevent colonization, but it neutralizes toxin before it reaches its receptor, so unimmunized and partially immunized hosts develop the toxin-mediated syndrome that immunized hosts largely escape. Outbreak cohorts are dominated by unvaccinated young children, and in C. ulcerans disease vaccination status separates those who develop a classical pseudomembrane from those who do not.</div>
 
 
@@ -7007,6 +7060,7 @@ This pathophysiological event involves decreased adaptive immune response (GO:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bacterial-mrna-translation-by-the-ribosome-macrolide-target" data-dismech-node="Bacterial mRNA Translation by the Ribosome (Macrolide Target)" data-dismech-type="pathophysiology">
                 <div class="item-name">Bacterial mRNA Translation by the Ribosome (Macrolide Target)</div>
 
+
                 <div class="item-desc">Corynebacterium diphtheriae depends on 70S-ribosome translation. Macrolides (azithromycin, erythromycin, clarithromycin) bind the 50S subunit and arrest bacterial protein synthesis. WHO&#39;s 2024 clinical management guideline places macrolides ahead of penicillin as first-line therapy. Because diphtheria toxin is itself a translated secreted product, this target has an anti-toxin rationale in addition to bacterial clearance, but antibiotics do not neutralize toxin already released, so they never substitute for antitoxin.</div>
 
 
@@ -7141,6 +7195,7 @@ This pathophysiological event involves translation (GO:0006412). GO:0006412 is a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bacterial-peptidoglycan-cross-linking-beta-lactam-target" data-dismech-node="Bacterial Peptidoglycan Cross-Linking (Beta-Lactam Target)" data-dismech-type="pathophysiology">
                 <div class="item-name">Bacterial Peptidoglycan Cross-Linking (Beta-Lactam Target)</div>
+
 
                 <div class="item-desc">Penicillins acylate the penicillin-binding protein transpeptidases and halt peptidoglycan cross-linking. Benzylpenicillin remains a standard alternative or partner agent, and in the only randomized comparison in diphtheria it cleared fever faster than erythromycin with equivalent membrane and bacteriological clearance. UK guidance combines intravenous benzylpenicillin with a macrolide for severe disease.</div>
 

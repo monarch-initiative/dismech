@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4813,6 +4852,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-prrx1-loss-of-function" data-dismech-node="PRRX1 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">PRRX1 Loss of Function</div>
 
+
                 <div class="item-desc">PRRX1 encodes a homeobox transcriptional regulator expressed in embryonic cranial neural crest. Pathogenic loss of PRRX1 function is one established gene-specific trigger of agnathia-otocephaly.</div>
 
 
@@ -5022,6 +5062,7 @@ This pathophysiological event involves decreased DNA-binding transcription facto
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-otx2-loss-of-function" data-dismech-node="OTX2 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">OTX2 Loss of Function</div>
 
+
                 <div class="item-desc">OTX2 encodes a homeobox transcription factor with roles in craniofacial and anterior neural development. Pathogenic OTX2 loss of function is a second established gene-specific trigger of the complex.</div>
 
 
@@ -5213,6 +5254,7 @@ This pathophysiological event involves decreased DNA-binding transcription facto
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-first-arch-neural-crest-patterning-failure" data-dismech-node="First-Arch Neural Crest Patterning Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">First-Arch Neural Crest Patterning Failure</div>
+
 
                 <div class="item-desc">Agnathia-otocephaly reflects abnormal cranial neural crest migration and patterning of the first pharyngeal arch, disrupting the mesenchymal program that forms the viscerocranial skeleton. This disease-specific node is a central effector, rather than the generic module&#39;s trigger, because the upstream PRRX1 and OTX2 molecular triggers are represented explicitly here.</div>
 
@@ -5527,6 +5569,7 @@ This pathophysiological event occurs in pharyngeal arch (UBERON:0002539). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-mandibular-arch-skeletogenesis" data-dismech-node="Failure of Mandibular Arch Skeletogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Mandibular Arch Skeletogenesis</div>
+
 
                 <div class="item-desc">Loss of first-arch patterning and neural-crest skeletogenesis prevents formation of the mandible (agnathia) and its associated first-arch derivatives, producing hypoglossia/aglossia and microstomia. Mouse Prx1/Prx2 double mutants recapitulate this with a reduced and sometimes cleft mandible together with ear defects.</div>
 
@@ -5884,6 +5927,7 @@ This pathophysiological event occurs in Meckel&#39;s cartilage (UBERON:0003107).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failed-ventrolateral-migration-of-the-ears" data-dismech-node="Failed Ventrolateral Migration of the Ears" data-dismech-type="pathophysiology">
                 <div class="item-name">Failed Ventrolateral Migration of the Ears</div>
 
+
                 <div class="item-desc">Normal lateral and upward migration of the developing external ears depends on the growth of the mandibular skeleton. When the mandible fails to form, the auricles remain in their ventromedial embryonic position and may fuse in the midline below the face — the melotia/synotia that gives otocephaly its name. Together with the mandibular defect this constitutes the serially homologous, multi-element first-arch craniofacial malformation.</div>
 
 
@@ -6084,6 +6128,7 @@ This pathophysiological event occurs in pharyngeal arch 2 (UBERON:0003066). UBER
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-midline-forebrain-cleavage-failure" data-dismech-node="Midline Forebrain Cleavage Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Midline Forebrain Cleavage Failure</div>
 
+
                 <div class="item-desc">Agnathia-otocephaly frequently co-occurs with holoprosencephaly and other midline defects, reflecting the shared dependence of first-arch patterning and forebrain cleavage on overlapping midline signalling (SHH, BMP, FGF) programs. Holoprosencephaly is the most commonly identified associated anomaly, and cyclopia lies at the severe end of the same spectrum. The presence or absence of this arm separates the syndromic from the isolated form of the complex and is the dominant prognostic determinant.</div>
 
 
@@ -6282,6 +6327,7 @@ This pathophysiological event occurs in forebrain (UBERON:0001890). UBERON:00018
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-smad3-and-tgf-beta-bmp-signaling-disruption" data-dismech-node="SMAD3 and TGF-beta/BMP Signaling Disruption" data-dismech-type="pathophysiology">
                 <div class="item-name">SMAD3 and TGF-beta/BMP Signaling Disruption</div>
+
 
                 <div class="item-desc">A de novo SMAD3 missense variant with demonstrated reduction in SMAD3 mRNA was identified in a fetus with severe agnathia-otocephaly. SMAD3 transduces TGF-beta and BMP signals that pattern pharyngeal-arch-derived craniofacial structures, placing agnathia-otocephaly at the severe end of a spectrum of phenotypes caused by lesions in the interacting SMAD/TGFB/BMP/SHH/FGF developmental network. This is a single-family observation and is modelled as an emerging, not established, mechanism.</div>
 
@@ -6547,6 +6593,7 @@ This pathophysiological event involves decreased BMP signaling pathway (GO:00305
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-airway-obstruction-and-perinatal-respiratory-failure" data-dismech-node="Airway Obstruction and Perinatal Respiratory Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Airway Obstruction and Perinatal Respiratory Failure</div>
+
 
                 <div class="item-desc">The distorted upper airway produced by the absent mandible and oropharyngeal maldevelopment, together with associated forebrain/multisystem defects, can prevent establishment of a patent airway at birth and cause perinatal respiratory failure — the proximate cause of the usually lethal outcome. The same anatomy can make deglutition impossible, so the failure is aerodigestive as well as respiratory: impaired fetal swallowing produces polyhydramnios in utero, and coexisting pulmonary hypoplasia can be fatal even when an airway is successfully secured at delivery.</div>
 
@@ -8644,6 +8691,9 @@ This disease-associated gene is PRRX1 (hgnc:9142). hgnc:9142 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (5 references)
@@ -8764,6 +8814,9 @@ This disease-associated gene is OTX2 (hgnc:8522). hgnc:8522 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -8892,6 +8945,9 @@ This disease-associated gene is SMAD3 (hgnc:6769). hgnc:6769 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8960,6 +9016,9 @@ This disease-associated gene is CRKL (hgnc:2363). hgnc:2363 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -9061,6 +9120,9 @@ This disease-associated gene is PGAP1 (hgnc:25712). hgnc:25712 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9156,6 +9218,9 @@ This disease-associated gene is CNBP (hgnc:13164). hgnc:13164 is a gene from the
 
 
                 </div>
+
+
+
 
 
 

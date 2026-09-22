@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -5773,6 +5812,7 @@ This experiment is of type engineered heart tissue nutrient-switch assay.</span>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-mrpl44-loss-of-function-and-ml44-protein-depletion" data-dismech-node="Biallelic MRPL44 Loss of Function and mL44 Protein Depletion" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic MRPL44 Loss of Function and mL44 Protein Depletion</div>
 
+
                 <div class="item-desc">Pathogenic MRPL44 genotypes reduce steady-state mL44 abundance in examined patient tissues and fibroblasts. The recurrent p.Leu156Arg allele is associated with protein instability. The p.Thr161Serfs*2 allele is predicted to be null; p.Leu156Pro was observed in trans with p.Leu156Arg, so residual protein cannot be assigned specifically to the proline allele. These functional observations are not extended to the p.Arg78Gln or 2025 delins alleles. mL44 is a mitochondrial large-subunit protein; murine-expression experiments support matrix localization and multimer formation.</div>
 
 
@@ -5961,6 +6001,7 @@ This pathophysiological event involves mitochondrial large ribosomal subunit (GO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-large-mitoribosomal-subunit-assembly-defect" data-dismech-node="Large Mitoribosomal Subunit Assembly Defect" data-dismech-type="pathophysiology">
                 <div class="item-name">Large Mitoribosomal Subunit Assembly Defect</div>
 
+
                 <div class="item-desc">Loss of mL44 reduces the amount of assembled large (39S) mitoribosomal subunit and destabilizes the mtDNA-encoded 16S rRNA that forms its scaffold, while leaving the small (28S) subunit largely intact. Retroviral re-expression of wild-type MRPL44 in patient fibroblasts restores the large subunit assembly defect, establishing the causal direction.
 </div>
 
@@ -6146,6 +6187,7 @@ This pathophysiological event involves mitochondrial large ribosomal subunit (GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-mitochondrial-translation" data-dismech-node="Impaired Mitochondrial Translation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Mitochondrial Translation</div>
+
 
                 <div class="item-desc">Patient fibroblast assays demonstrate reduced mtDNA-encoded protein synthesis, with variation by genotype and assay. In the 2021 series, Patient 1 retained 33% of control incorporation (p&lt;0.01) and Patient 2 56% (p=0.08). This two-patient comparison suggests residual-function differences but does not validate clinical severity prediction; both infants died. The original family had a milder fibroblast translation defect despite impaired large-subunit assembly, raising an additional nascent-polypeptide stability hypothesis.</div>
 
@@ -6514,6 +6556,7 @@ This pathophysiological event involves decreased mitochondrial translation (GO:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failed-compensatory-mtdna-replication-and-transcription" data-dismech-node="Failed Compensatory mtDNA Replication and Transcription" data-dismech-type="pathophysiology">
                 <div class="item-name">Failed Compensatory mtDNA Replication and Transcription</div>
 
+
                 <div class="item-desc">In glucose-rich medium, a single p.Leu156Arg patient iPSC-cardiomyocyte line showed about 2.5-fold higher mtDNA copy number, elevated mitochondrial transcripts and increased mitochondrial content, despite reduced complex I protein. Compensation is the authors’ interpretation of these readouts. The observations do not demonstrate that increased DNA replication itself causes the stress response seen under a different nutrient condition, or that all patient tissues share this response.</div>
 
 
@@ -6738,6 +6781,7 @@ sion had no impact on the mitochondrial DNA content of cells ( S4 Fig)."</div>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nutrient-dependent-metabolic-stress-response-in-cardiomyocytes" data-dismech-node="Nutrient-Dependent Metabolic Stress Response in Cardiomyocytes" data-dismech-type="pathophysiology">
                 <div class="item-name">Nutrient-Dependent Metabolic Stress Response in Cardiomyocytes</div>
 
+
                 <div class="item-desc">Lipid-enriched medium induced mitochondrial stress-response and partial ER-stress transcripts in the p.Leu156Arg iPSC-cardiomyocyte line, with lipid droplets and altered lipid-uptake/cholesterol genes. ATF5 targets increased; FGF21 induction and XBP1 splicing were absent. Fatty-acid utilization was inferred from these data rather than directly measured as oxidation flux. Ingenuity pathway analysis predicted mTOR changes; direct mTORC1 activation was not measured. The authors propose that nutrient-dependent stress promotes hypertrophic growth, a preprint hypothesis requiring replication and in-vivo testing.</div>
 
 
@@ -6898,6 +6942,7 @@ This pathophysiological event involves cardiac muscle cell (CL:0000746). CL:0000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-combined-complex-i-and-iv-deficiency" data-dismech-node="Combined Complex I and IV Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Combined Complex I and IV Deficiency</div>
+
 
                 <div class="item-desc">Combined respiratory-chain deficiency emphasizes complexes I and IV but varies by patient, tissue and preparation. Patient 1 had profound cardiac complex IV and strong complex I deficiency, milder muscle deficits and borderline fibroblast complex IV activity, with abnormal complex I/V assembly. Patient 2 had multiple muscle deficiencies but normal fibroblast complex I/V assembly and complex IV holocomplex; complex IV activity was low only in the mitochondrial isolate. Reduced synthesis of mtDNA-encoded subunits supports the OXPHOS defect, but does not fully explain disproportionate complex IV involvement.</div>
 
@@ -7138,6 +7183,7 @@ This pathophysiological event involves decreased oxidative phosphorylation (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiomyocyte-contractile-element-loss" data-dismech-node="Cardiomyocyte Contractile Element Loss" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiomyocyte Contractile Element Loss</div>
+
 
                 <div class="item-desc">The first 2021 infant’s myocardial biopsy showed areas of contractile element loss and diffuse proliferation of enlarged mitochondria with abnormal cristae. This provides a cellular substrate for contractile dysfunction. Compensation and displacement are proposed interpretations of the morphology; the biopsy does not directly quantify ATP depletion or prove the cause of hypertrophic growth.</div>
 
@@ -10226,6 +10272,9 @@ This disease-associated gene is MRPL44 (hgnc:16650). hgnc:16650 is a gene from t
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive</span>
@@ -10284,6 +10333,7 @@ This disease-associated gene is MRPL44 (hgnc:16650). hgnc:16650 is a gene from t
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -10305,7 +10355,13 @@ This variant is in MRPL44 (hgnc:16650). hgnc:16650 is a gene from the HUGO Gene 
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">The recurrent missense allele, present in 9 of the first 10 published disease alleles. It is located in the conserved hydrophobic pocket of the RNase III-like domain and strongly reduces mL44 protein levels while leaving some residual protein and activity. Homozygotes have been reported with both fatal infantile cardiomyopathy and with later-onset multisystem disease, so genotype alone does not predict the clinical course.
@@ -10392,6 +10448,7 @@ This variant is in MRPL44 (hgnc:16650). hgnc:16650 is a gene from the HUGO Gene 
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -10413,7 +10470,13 @@ This variant is in MRPL44 (hgnc:16650). hgnc:16650 is a gene from the HUGO Gene 
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A missense allele identified in compound heterozygosity with the recurrent p.Leu156Arg variant in a patient with childhood-onset hypertrophic cardiomyopathy plus late multisystem features. No clinical_significance is recorded here deliberately: unlike the other four alleles, p.Arg78Gln has never been assigned a formal ACMG classification in the literature and has not been functionally assayed (no protein-abundance, mitoribosome-assembly, or translation data exist for it), so any classification would be curator invention rather than a sourced claim.
@@ -10477,6 +10540,7 @@ This variant is in MRPL44 (hgnc:16650). hgnc:16650 is a gene from the HUGO Gene 
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -10498,7 +10562,13 @@ This variant is in MRPL44 (hgnc:16650). hgnc:16650 is a gene from the HUGO Gene 
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A frameshift allele predicted to trigger nonsense-mediated decay or produce a premature stop codon, i.e. a true null. In trans with p.Leu156Arg it produced the most severe biochemical phenotype in the published series - mitochondrial protein synthesis at roughly a third of controls - and fatal infantile cardiomyopathy.
@@ -10562,6 +10632,7 @@ This variant is in MRPL44 (hgnc:16650). hgnc:16650 is a gene from the HUGO Gene 
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -10583,7 +10654,13 @@ This variant is in MRPL44 (hgnc:16650). hgnc:16650 is a gene from the HUGO Gene 
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A second substitution at Leu156, observed in trans with p.Leu156Arg. The authors predict a disruptive proline substitution. Reduced mL44 abundance was measured in the compound-heterozygous cells, without assigning residual protein specifically to the proline allele.</div>
@@ -10646,6 +10723,7 @@ This variant is in MRPL44 (hgnc:16650). hgnc:16650 is a gene from the HUGO Gene 
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -10667,7 +10745,13 @@ This variant is in MRPL44 (hgnc:16650). hgnc:16650 is a gene from the HUGO Gene 
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A homozygous delins allele reported in a Tunisian family with severe hypertrophic cardiomyopathy affecting two siblings. It shortens the protein and was absent from ClinVar and HGMD at the time of reporting; formal ACMG classification was VUS, with pathogenicity supported by co-segregation and in silico structural modelling rather than by functional assays.

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4831,6 +4870,7 @@ Explicitly excluded: sarcomatoid renal cell carcinoma (an epithelial carcinoma w
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-malignant-transformation-of-renal-mesenchyme" data-dismech-node="Malignant Transformation of Renal Mesenchyme" data-dismech-type="pathophysiology">
                 <div class="item-name">Malignant Transformation of Renal Mesenchyme</div>
 
+
                 <div class="item-desc">Kidney sarcomas arise by malignant transformation of the non-epithelial compartments of the kidney - the smooth muscle of the intrarenal arteries, veins and renal pelvic wall; the fibrous capsule and perinephric connective tissue; the adipose tissue of the renal sinus; and the vascular endothelium. This is the definitional node of the entry and the point at which it diverges from every renal cell carcinoma: there is no tubular epithelial precursor and no epithelial differentiation programme, so the transformed cell retains a mesenchymal phenotype from the outset. Which mesenchymal lineage transforms determines the histological subtype, and the transforming lesions differ completely between lineages - complex chromosomal loss in leiomyosarcoma and angiosarcoma, the 12q13-15 MDM2/CDK4 amplicon in liposarcoma, and the single SS18::SSX fusion in synovial sarcoma.</div>
 
 
@@ -5077,6 +5117,7 @@ This pathophysiological event involves increased cell population proliferation (
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-subtype-specific-driver-lesion-acquisition" data-dismech-node="Subtype-Specific Driver Lesion Acquisition" data-dismech-type="pathophysiology">
                 <div class="item-name">Subtype-Specific Driver Lesion Acquisition</div>
 
+
                 <div class="item-desc">The genetic route to malignancy is not shared across the subtypes, and this node exists to say so explicitly rather than to assert a common driver. Two genetic architectures are represented. The majority of renal sarcomas - leiomyosarcoma, angiosarcoma and dedifferentiated liposarcoma - are genomically complex: they carry aneuploid, structurally rearranged genomes produced by loss of tumour-suppressor and genome-maintenance function (TP53, RB1, ATRX) rather than by a single positive driver, which is the chromosomal instability arm of the genome-instability hallmark. A minority - renal synovial sarcoma - is instead fusion-driven, defined by a single SS18::SSX1/2 translocation on a near-diploid background, and does not conform to the mutator phenotype at all. Well-differentiated liposarcoma sits between the two with a focal, recurrent amplicon (12q13-15, containing MDM2 and CDK4). This heterogeneity is not an annotation artefact: national registry data show histological subtype to be the single strongest predictor of survival within renal sarcoma, with 3-year survival ranging from 19.0% for angiosarcoma to 94.4% for clear cell sarcoma of the kidney, and the largest combined SEER/NCDB series counts 43 distinct histiotypes under the renal-sarcoma heading with differing sensitivity to systemic therapy. The practical corollary, and the reason this node is modeled as divergence rather than as a shared driver, is that treatment selection follows the histology and not the organ.</div>
 
 
@@ -5241,6 +5282,7 @@ This pathophysiological event involves decreased DNA repair (GO:0006281). GO:000
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-silent-retroperitoneal-expansion" data-dismech-node="Silent Retroperitoneal Expansion" data-dismech-type="pathophysiology">
                 <div class="item-name">Silent Retroperitoneal Expansion</div>
 
+
                 <div class="item-desc">The kidney sits in a distensible retroperitoneal compartment, and a mesenchymal tumour growing within the renal capsule, sinus or perinephric tissue displaces structures rather than obstructing them. There is no early symptom analogous to the obstructive or bleeding presentation of tumours in a lumen, so the tumour is typically large at diagnosis - reported primary renal sarcomas are commonly 6-12 cm or greater - and produces only the non-specific triad of flank pain, haematuria (when the mass reaches the collecting system) and a palpable mass. This delay is the mechanism by which stage at diagnosis, itself the dominant prognostic variable, is set: in the SEER cohort stage III disease carried a hazard ratio for death of 4.93 against stage I, and median survival fell from 105 months to 8 months.</div>
 
 
@@ -5366,6 +5408,7 @@ This pathophysiological event involves decreased DNA repair (GO:0006281). GO:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-vascular-invasion-and-haematogenous-dissemination" data-dismech-node="Vascular Invasion and Haematogenous Dissemination" data-dismech-type="pathophysiology">
                 <div class="item-name">Vascular Invasion and Haematogenous Dissemination</div>
+
 
                 <div class="item-desc">Renal sarcomas invade locally through the perirenal fat and into the renal vein, and from there into the inferior vena cava, occasionally as a tumour thrombus reaching the right atrium. Because the subtypes originate in or adjacent to the renal vasculature, intravasation is anatomically immediate rather than a late acquired capability, and dissemination is predominantly haematogenous rather than lymphatic - the liver, lung, bone and brain are the usual destinations. Note that the epithelial-mesenchymal transition step of the invasion-and-metastasis module is deliberately not claimed here: these cells are mesenchymal from the outset and never undergo a phenotype switch to acquire motility.</div>
 
@@ -5565,6 +5608,7 @@ This pathophysiological event involves increased extracellular matrix organizati
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-absence-of-epithelial-therapeutic-target" data-dismech-node="Absence of Epithelial Therapeutic Target" data-dismech-type="pathophysiology">
                 <div class="item-name">Absence of Epithelial Therapeutic Target</div>
 
+
                 <div class="item-desc">The therapeutic consequence of the mesenchymal origin. The entire modern systemic framework for kidney cancer - VEGF-pathway tyrosine kinase inhibition, mTOR inhibition, and PD-1/CTLA-4 checkpoint blockade - was built on clear cell renal cell carcinoma biology (VHL loss, hypoxia-inducible factor stabilisation, a high-neoantigen immunogenic epithelial tumour) and none of it has a target in a renal sarcoma. Conventional soft-tissue sarcoma chemotherapy and radiotherapy are correspondingly of limited benefit, so complete surgical excision with negative margins is the only intervention that reliably alters outcome, and local recurrence after incomplete resection is common. This node is the mechanistic reason that kidney sarcoma carries a worse prognosis than renal cell carcinoma of equivalent stage, and it is why distinguishing the two at diagnosis matters clinically rather than only taxonomically.</div>
 
 
@@ -5675,6 +5719,7 @@ This pathophysiological event involves increased extracellular matrix organizati
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-diagnostic-confusion-with-sarcomatoid-renal-cell-carcinoma" data-dismech-node="Diagnostic Confusion with Sarcomatoid Renal Cell Carcinoma" data-dismech-type="pathophysiology">
                 <div class="item-name">Diagnostic Confusion with Sarcomatoid Renal Cell Carcinoma</div>
+
 
                 <div class="item-desc">A distinct pathological node rather than a clinical aside, because the two entities converge morphologically from opposite directions. A renal sarcoma is a mesenchymal tumour that has always been mesenchymal; sarcomatoid renal cell carcinoma is an epithelial carcinoma that has undergone dedifferentiation to a spindle-cell morphology. On haematoxylin and eosin alone a high-grade spindle-cell renal mass is compatible with either, and the distinction rests on demonstrating epithelial differentiation - cytokeratin and EMA expression, or a recognisable carcinomatous component - which is present in sarcomatoid renal cell carcinoma and absent in a true sarcoma. The distinction is not academic: sarcomatoid renal cell carcinoma remains a carcinoma for therapeutic purposes and retains access to checkpoint-inhibitor combinations, whereas a renal sarcoma does not. Sarcomatoid renal cell carcinoma is also far commoner, so it is the default diagnosis a spindle-cell renal mass must be argued out of.</div>
 
@@ -6509,6 +6554,9 @@ This disease-associated gene is SS18 (hgnc:11340). hgnc:11340 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6579,6 +6627,9 @@ This disease-associated gene is SSX1 (hgnc:11335). hgnc:11335 is a gene from the
 
 
                 </div>
+
+
+
 
 
 
@@ -6657,6 +6708,9 @@ This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6727,6 +6781,9 @@ This disease-associated gene is RB1 (hgnc:9884). hgnc:9884 is a gene from the HU
 
 
                 </div>
+
+
+
 
 
 
@@ -6805,6 +6862,9 @@ This disease-associated gene is ATRX (hgnc:886). hgnc:886 is a gene from the HUG
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6875,6 +6935,9 @@ This disease-associated gene is MDM2 (hgnc:6973). hgnc:6973 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -6953,6 +7016,9 @@ This disease-associated gene is CDK4 (hgnc:1773). hgnc:1773 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7027,6 +7093,9 @@ This disease-associated gene is EWSR1 (hgnc:3508). hgnc:3508 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7097,6 +7166,9 @@ This disease-associated gene is FLI1 (hgnc:3749). hgnc:3749 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 

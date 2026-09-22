@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1056,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1071,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1125,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1138,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1296,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1306,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1347,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2616,11 +2653,13 @@ The `Adrenergic and cAMP-Dependent Triggering` node was added under issue #11949
             
             <div class="item-box anchor-target" id="module-pathophysiology-cardiac-ion-channel-or-calcium-handling-variant" data-dismech-node="Cardiac Ion-Channel or Calcium-Handling Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiac Ion-Channel or Calcium-Handling Variant</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">A pathogenic germline variant alters a cardiac ion channel or calcium-handling protein, changing the magnitude, kinetics, or gating of a depolarizing or repolarizing current, or destabilizing sarcoplasmic-reticulum calcium release. Representative genes include the potassium channels KCNQ1 (IKs) and KCNH2 (IKr), the cardiac sodium channel SCN5A, the L-type calcium channel CACNA1C, the ryanodine receptor RYR2, and the pacemaker channel HCN4. The variant is the upstream trigger common to inherited arrhythmia syndromes in structurally normal hearts.</div>
                 
@@ -2850,11 +2889,13 @@ This pathophysiological event involves cardiomyocyte, annotated with cardiac mus
             
             <div class="item-box anchor-target" id="module-pathophysiology-adrenergic-and-camp-dependent-triggering" data-dismech-node="Adrenergic and cAMP-Dependent Triggering" data-dismech-type="pathophysiology">
                 <div class="item-name">Adrenergic and cAMP-Dependent Triggering</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">A variant is not by itself an arrhythmia. In several of the syndromes this module covers, the events cluster around exertion or sudden emotion, and the resting heart is electrically unremarkable. The step that converts the latent defect into a beat is a catecholamine surge acting on beta-adrenergic receptors, raising cardiomyocyte cyclic AMP and activating protein kinase A, which phosphorylates the calcium-handling apparatus and loads the sarcoplasmic reticulum. That signalling arm is curated once, in `cardiac_camp_pka_calcium_handling`, and referenced from here rather than duplicated; the same arm can be entered pharmacologically by a phosphodiesterase inhibitor, which is why it is a module of its own. The dependence is genotype-specific, not universal: it is strongest in the calcium-handling syndromes (CPVT) and in LQT1, where most events occur on exertion, and weakest in LQT2 and LQT3, where most occur at rest. A conforming disorder entry should carry its own trigger evidence rather than inheriting this one.</div>
                 
@@ -2948,11 +2989,13 @@ This pathophysiological event involves increased adenylate cyclase-activating ad
             
             <div class="item-box anchor-target" id="module-pathophysiology-altered-action-potential-and-calcium-handling" data-dismech-node="Altered Action Potential and Calcium Handling" data-dismech-type="pathophysiology">
                 <div class="item-name">Altered Action Potential and Calcium Handling</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">central effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The variant shifts the balance of cardiomyocyte membrane currents and calcium handling. Reduced repolarizing potassium current or persistent late sodium current prolongs action potential duration (long QT physiology); enhanced repolarizing current or reduced inward calcium current shortens it (short QT physiology); ryanodine-receptor calcium leak raises diastolic cytosolic calcium. Each disturbs the action potential and intracellular calcium that couple excitation to contraction.</div>
                 
@@ -3165,11 +3208,13 @@ This pathophysiological event involves dysregulated calcium ion transport (GO:00
             
             <div class="item-box anchor-target" id="module-pathophysiology-arrhythmogenic-substrate-and-triggered-activity" data-dismech-node="Arrhythmogenic Substrate and Triggered Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Arrhythmogenic Substrate and Triggered Activity</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">amplifier</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Disturbed repolarization and calcium handling generate afterdepolarizations: early afterdepolarizations (EADs) arise from oscillations during prolonged plateau, and delayed afterdepolarizations (DADs) arise when sodium-calcium-exchanger current responds to diastolic calcium release. Regional heterogeneity of action potential duration and conduction produces dispersion of repolarization, the tissue-level substrate that allows triggered beats to initiate and sustain reentrant ventricular arrhythmia.</div>
                 
@@ -3385,11 +3430,13 @@ This pathophysiological event involves dysregulated cardiac conduction (GO:00613
             
             <div class="item-box anchor-target" id="module-pathophysiology-ventricular-tachyarrhythmia" data-dismech-node="Ventricular Tachyarrhythmia" data-dismech-type="pathophysiology">
                 <div class="item-name">Ventricular Tachyarrhythmia</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Triggered activity and reentry on the arrhythmogenic substrate produce malignant ventricular tachyarrhythmia: torsade de pointes in long QT physiology, polymorphic or bidirectional ventricular tachycardia in catecholaminergic calcium-leak disorders, and ventricular fibrillation in short QT and Brugada physiology. These rhythms abolish effective cardiac output.</div>
                 
@@ -3574,11 +3621,13 @@ This pathophysiological event involves abnormal cardiac conduction (GO:0061337).
             
             <div class="item-box anchor-target" id="module-pathophysiology-sinoatrial-node-pacemaker-dysfunction" data-dismech-node="Sinoatrial Node Pacemaker Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Sinoatrial Node Pacemaker Dysfunction</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">When the variant causes loss of function in pacemaker or conduction currents, the sinoatrial node fails to generate or propagate impulses normally. Reduced funny current (HCN4) or depressed sodium current (SCN5A) in pacemaker and conduction tissue produces sinus bradycardia, sinus pauses/arrest, sinoatrial exit block, and chronotropic incompetence — the bradyarrhythmic counterpart to the ventricular-tachyarrhythmia branch.</div>
                 
@@ -3705,11 +3754,13 @@ This pathophysiological event involves decreased cardiac conduction (GO:0061337)
             
             <div class="item-box anchor-target" id="module-pathophysiology-syncope-and-sudden-cardiac-death" data-dismech-node="Syncope and Sudden Cardiac Death" data-dismech-type="pathophysiology">
                 <div class="item-name">Syncope and Sudden Cardiac Death</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">outcome</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Loss of effective cardiac output — from ventricular tachyarrhythmia or from severe bradyarrhythmia/asystole — causes transient cerebral hypoperfusion (syncope) and, when the rhythm does not terminate, sudden cardiac death. These are the shared clinical endpoints of the inherited arrhythmia syndromes, often the presenting or sentinel event.</div>
                 

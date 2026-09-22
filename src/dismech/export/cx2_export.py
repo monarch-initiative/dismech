@@ -27,6 +27,7 @@ from dismech.graph import (
     ENVIRONMENTAL_EFFECT_PREDICATES,
     ENVIRONMENTAL_PREDICATES,
     _build_section_lookup,
+    _descriptor_lookup_keys,
     _gene_lookup_keys,
     _genetic_item_infers_mechanism_edges,
     _resolve_descriptor_target,
@@ -262,6 +263,12 @@ EDGE_STYLE_BY_PREDICATE = {
     "variant_of": EdgeStyle(
         color="#7c3aed",
         line_style="solid",
+        target_arrow_shape="circle",
+        width=2,
+    ),
+    "has_regulatory_target": EdgeStyle(
+        color="#7c3aed",
+        line_style="dashed",
         target_arrow_shape="circle",
         width=2,
     ),
@@ -808,7 +815,7 @@ def _iquery_gene_symbols(
 ) -> list[str]:
     candidates: list[Any] = []
 
-    if node_type == "genetic":
+    if node_type == "genetic" and not meta.get("affected_regions"):
         candidates.append(node_name)
 
     genes = meta.get("genes")
@@ -1230,14 +1237,16 @@ def _build_edge_detail_lookup(
             continue
 
         genetic_targets: set[str] = set()
-        if parent_name:
+        if parent_name and not variant.get("regulatory_target_gene"):
             genetic_targets.add(parent_name)
         for gene_key in _gene_lookup_keys(variant):
             genetic_targets.update(genetic_nodes_by_gene_key.get(gene_key, set()))
 
         if genetic_targets:
             inference_basis = (
-                "nested_variant" if parent_name else "shared_gene_identifier"
+                "nested_variant"
+                if parent_name and not variant.get("regulatory_target_gene")
+                else "shared_gene_identifier"
             )
             for target_name in sorted(genetic_targets):
                 add_detail(
@@ -1251,18 +1260,45 @@ def _build_edge_detail_lookup(
                         "inference_basis": inference_basis,
                     },
                 )
-            continue
-
         mechanism_targets: set[str] = set()
-        for gene_key in _gene_lookup_keys(variant):
-            mechanism_targets.update(pathophysiology_by_gene_key.get(gene_key, set()))
+        if not genetic_targets:
+            for gene_key in _gene_lookup_keys(variant):
+                mechanism_targets.update(
+                    pathophysiology_by_gene_key.get(gene_key, set())
+                )
+
+        regulatory_keys = _descriptor_lookup_keys(variant.get("regulatory_target_gene"))
+        regulatory_targets: set[str] = set()
+        for gene_key in regulatory_keys:
+            regulatory_targets.update(genetic_nodes_by_gene_key.get(gene_key, set()))
+        if regulatory_targets:
+            for target_name in sorted(regulatory_targets):
+                add_detail(
+                    source_name,
+                    target_name,
+                    "has_regulatory_target",
+                    {
+                        "description": "Variant regulates the explicitly identified target gene.",
+                        "evidence": variant.get("evidence"),
+                    },
+                )
+        else:
+            for gene_key in regulatory_keys:
+                mechanism_targets.update(
+                    pathophysiology_by_gene_key.get(gene_key, set())
+                )
+
         for target_name in sorted(mechanism_targets):
             add_detail(
                 source_name,
                 target_name,
                 "contributes_to",
                 {
-                    "description": "Inferred from shared gene identifiers between the variant and pathophysiology node.",
+                    "description": (
+                        "Inferred from shared gene identifiers between the variant or its regulatory target and the pathophysiology node."
+                        if regulatory_keys
+                        else "Inferred from shared gene identifiers between the variant and pathophysiology node."
+                    ),
                     "evidence": variant.get("evidence"),
                     "inferred": True,
                     "inference_basis": "shared_gene_identifier",
@@ -1332,6 +1368,7 @@ def _node_attributes(
         "therapeutic_agents": "therapeutic_agents",
         "conditions": "conditions",
         "hypothesis_groups": "hypothesis_groups",
+        "genomic_contexts": "genomic_contexts",
     }
     simple_scalar_fields = {
         "evidence_count": "evidence_count",
@@ -1345,8 +1382,10 @@ def _node_attributes(
         "association": "association",
         "variant_count": "variant_count",
         "variant_type": "variant_type",
+        "variant_type_detail": "variant_type_detail",
         "clinical_significance": "clinical_significance",
         "regulatory_category": "regulatory_category",
+        "mechanism_confidence": "mechanism_confidence",
     }
 
     for source_key, target_key in simple_list_fields.items():
@@ -1358,6 +1397,44 @@ def _node_attributes(
         value = meta.get(source_key)
         if value is not None:
             attributes[target_key] = value
+
+    genetic_context = meta.get("genetic_context")
+    if isinstance(genetic_context, dict):
+        if genetic_context.get("variant_type"):
+            attributes["genetic_context_variant_type"] = genetic_context["variant_type"]
+        genomic_contexts = genetic_context.get("genomic_contexts")
+        if isinstance(genomic_contexts, list) and genomic_contexts:
+            attributes["genetic_context_genomic_contexts"] = genomic_contexts
+
+    # CX2 supports primitive attributes, so retain the full region objects as
+    # JSON alongside their searchable names. Do not promote landmark genes to
+    # iQuery gene annotations or inferred causal relationships.
+    for region_source, prefix in (
+        (meta, ""),
+        (genetic_context, "genetic_context_"),
+    ):
+        if not isinstance(region_source, dict):
+            continue
+        regions = region_source.get("affected_regions")
+        if isinstance(regions, list) and regions:
+            attributes[f"{prefix}affected_regions"] = [
+                region["name"]
+                for region in regions
+                if isinstance(region, dict) and region.get("name")
+            ]
+            attributes[f"{prefix}affected_regions_json"] = json.dumps(
+                regions, ensure_ascii=False, sort_keys=True
+            )
+
+    regulatory_target = meta.get("regulatory_target_gene")
+    if isinstance(regulatory_target, dict):
+        if regulatory_target.get("label"):
+            attributes["regulatory_target_gene"] = regulatory_target["label"]
+        if regulatory_target.get("id"):
+            attributes["regulatory_target_gene_id"] = regulatory_target["id"]
+            attributes["regulatory_target_gene_url"] = curie_to_url(
+                regulatory_target["id"]
+            )
 
     if isinstance(meta.get("term_id"), str):
         attributes["term_url"] = curie_to_url(meta["term_id"])

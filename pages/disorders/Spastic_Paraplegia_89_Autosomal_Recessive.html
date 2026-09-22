@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4502,6 +4541,7 @@ An earlier revision of this entry asserted that the lipid readout had never been
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-gp78-e3-ubiquitin-ligase-loss-of-function" data-dismech-node="gp78 E3 Ubiquitin Ligase Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">gp78 E3 Ubiquitin Ligase Loss of Function</div>
 
+
                 <div class="item-desc">Biallelic truncating AMFR variants remove gp78, a RING-H2 finger E3 ubiquitin ligase anchored at the ER membrane. gp78 is a core ERAD component, and the demonstrated downstream consequence in patient cells is a lipid one - not because the mechanism leaves ERAD behind, but because the ERAD substrates that matter here are the sterol-pathway regulators HMGCR and INSIG-1. Generalised proteostasis stress was tested for and not found.</div>
 
 
@@ -4561,6 +4601,8 @@ This pathophysiological event involves AMFR (hgnc:463). hgnc:463 is a gene from 
 
 
 
+
+
         <span class="tag tag-classification">allele_type: VARIANT</span>
 
 
@@ -4576,6 +4618,9 @@ This pathophysiological event involves AMFR (hgnc:463). hgnc:463 is a gene from 
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4709,6 +4754,7 @@ This pathophysiological event occurs in endoplasmic reticulum (GO:0005783). GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-blunted-erad-of-hmgcr-and-insig-1" data-dismech-node="Blunted ERAD of HMGCR and INSIG-1" data-dismech-type="pathophysiology">
                 <div class="item-name">Blunted ERAD of HMGCR and INSIG-1</div>
+
 
                 <div class="item-desc">The substrate-level step, and the one that makes the rest of the disease legible. Among the proteins gp78 polyubiquitinates for ER-associated degradation are HMGCR - the rate-limiting enzyme of cholesterol synthesis - and INSIG-1, its regulatory partner. Without the ligase their degradation is blunted, so the cholesterol-synthesis machinery is no longer turned over normally.
 This is why the mechanism is ERAD rather than a departure from it: the disease is not caused by losing a generic proteostasis function but by losing ERAD of *these* substrates. It is also the entire rationale for the statin hypothesis, since statins inhibit the very protein that accumulates.</div>
@@ -4919,6 +4965,7 @@ This pathophysiological event involves dysregulated cholesterol metabolic proces
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disturbed-lipid-homeostasis-with-lipid-droplet-accumulation" data-dismech-node="Disturbed Lipid Homeostasis with Lipid Droplet Accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Disturbed Lipid Homeostasis with Lipid Droplet Accumulation</div>
 
+
                 <div class="item-desc">The central mechanistic finding. Absence of AMFR disturbs lipid homeostasis, and lipid droplets accumulate in both patient-derived fibroblasts and patient-derived neural stem cells. The accumulation is rescued by re-expressing AMFR, which is what makes this causal rather than correlative - the rescue is the control.</div>
 
 
@@ -5079,6 +5126,7 @@ This pathophysiological event involves lipid droplet (GO:0005811). GO:0005811 is
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-endoplasmic-reticulum-morphology-alteration" data-dismech-node="Endoplasmic Reticulum Morphology Alteration" data-dismech-type="pathophysiology">
                 <div class="item-name">Endoplasmic Reticulum Morphology Alteration</div>
 
+
                 <div class="item-desc">Electron microscopy shows altered ER morphology in the absence of AMFR. Recorded as a parallel structural consequence rather than placed upstream of the lipid phenotype, because the cited work does not establish which of the two comes first.</div>
 
 
@@ -5160,6 +5208,7 @@ This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-motor-neuron-branching-failure" data-dismech-node="Motor Neuron Branching Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Motor Neuron Branching Failure</div>
+
 
                 <div class="item-desc">In amfra-null zebrafish larvae, motor neuron branching is defective and the touch-evoked escape response is altered - together described by the authors as phenocopying the human HSP. This is the node that connects the cellular lipid phenotype to a motor readout, and it currently rests on the zebrafish rather than on human tissue.</div>
 
@@ -5288,6 +5337,7 @@ This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-lower-limb-spasticity" data-dismech-node="Progressive Lower Limb Spasticity" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Lower Limb Spasticity</div>
+
 
                 <div class="item-desc">The clinical endpoint: corticospinal dysfunction producing progressive spasticity and motor dysfunction, mainly as a pure HSP but with complex forms carrying developmental delay and intellectual disability.</div>
 
@@ -6380,6 +6430,9 @@ This disease-associated gene is AMFR (hgnc:463). hgnc:463 is a gene from the HUG
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6427,6 +6480,12 @@ This disease-associated gene is AMFR (hgnc:463). hgnc:463 is a gene from the HUG
         c.707+1G&gt;A
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">Homozygous canonical splice donor variant reported in an Algerian patient with a complicated form, by a group independent of the founding report.</div>

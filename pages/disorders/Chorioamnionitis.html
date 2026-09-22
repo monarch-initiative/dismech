@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4750,6 +4789,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-vaginal-dysbiosis-and-cervical-barrier-breach" data-dismech-node="Vaginal Dysbiosis and Cervical Barrier Breach" data-dismech-type="pathophysiology">
                 <div class="item-name">Vaginal Dysbiosis and Cervical Barrier Breach</div>
 
+
                 <div class="item-desc">Loss of Lactobacillus dominance and overgrowth of anaerobes associated with bacterial vaginosis lowers the chemical and ecological barrier at the cervix, permitting organisms of the lower genital tract to reach the choriodecidual interface. Instrumentation of the cervix during labor, prolonged rupture of membranes, and cerclage act on the same step by breaching the mechanical barrier.
 </div>
 
@@ -4792,6 +4832,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ascending-microbial-invasion-of-the-amniotic-cavity" data-dismech-node="Ascending Microbial Invasion of the Amniotic Cavity" data-dismech-type="pathophysiology">
                 <div class="item-name">Ascending Microbial Invasion of the Amniotic Cavity</div>
+
 
                 <div class="item-desc">Organisms colonize the choriodecidual space and then cross into the amniotic fluid. The infection is characteristically polymicrobial and dominated by genital mycoplasmas, which is why culture-based diagnosis systematically underestimates it. Invasion is the step that distinguishes true intraamniotic infection from sterile intra-amniotic inflammation.
 </div>
@@ -4959,6 +5000,7 @@ This pathophysiological event occurs in fetal membrane (UBERON:0005630). UBERON:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-alarmin-release-and-sterile-intra-amniotic-inflammation" data-dismech-node="Alarmin Release and Sterile Intra-amniotic Inflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">Alarmin Release and Sterile Intra-amniotic Inflammation</div>
 
+
                 <div class="item-desc">Endogenous danger signals released by cellular stress or cell death in the membranes engage the same innate receptors as microbial products, producing an inflammatory lesion indistinguishable from the infectious one in the absence of demonstrable organisms. This arm is not a curiosity: in cohorts of preterm labor it is detected more often than microbial invasion itself, and it is the reason chorioamnionitis is modeled here as an inflammatory rather than a purely infectious final common pathway.
 </div>
 
@@ -5061,6 +5103,7 @@ This pathophysiological event occurs in fetal membrane (UBERON:0005630). UBERON:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pattern-recognition-receptor-activation-at-the-maternal-fetal-interface" data-dismech-node="Pattern Recognition Receptor Activation at the Maternal-Fetal Interface" data-dismech-type="pathophysiology">
                 <div class="item-name">Pattern Recognition Receptor Activation at the Maternal-Fetal Interface</div>
+
 
                 <div class="item-desc">Toll-like receptors on amnion epithelium, chorionic trophoblast, decidual stromal cells, and resident macrophages read both microbial products and endogenous danger signals. TLR2 and TLR4 expression in the chorioamniotic membranes is increased in the presence of histologic chorioamnionitis. This node is the convergence point that makes the infectious and sterile arms mechanistically indistinguishable downstream.
 </div>
@@ -5285,6 +5328,7 @@ This pathophysiological event involves increased response to lipopolysaccharide 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nlrp3-inflammasome-activation-and-pyroptosis" data-dismech-node="NLRP3 Inflammasome Activation and Pyroptosis" data-dismech-type="pathophysiology">
                 <div class="item-name">NLRP3 Inflammasome Activation and Pyroptosis</div>
 
+
                 <div class="item-desc">Assembly of the NLRP3 inflammasome activates caspase-1, which both matures pro-IL-1 beta and IL-18 and cleaves gasdermin D. Gasdermin D pores drive pyroptosis of amnion and decidual cells, releasing further alarmins and closing a self-amplifying loop. This is the step that converts a local signal into a syndrome: transcription alone yields inactive pro-IL-1 beta, so without this node the mechanism by which the cytokine becomes biologically active is unexplained. The node is engaged in both the infectious and the sterile arm, which is part of why the two are indistinguishable downstream.
 </div>
 
@@ -5455,6 +5499,7 @@ This pathophysiological event involves NLRP3 inflammasome complex (GO:0072559). 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-proinflammatory-cytokine-and-chemokine-production" data-dismech-node="Proinflammatory Cytokine and Chemokine Production" data-dismech-type="pathophysiology">
                 <div class="item-name">Proinflammatory Cytokine and Chemokine Production</div>
+
 
                 <div class="item-desc">Innate receptor signaling drives production of IL-1 beta, IL-6, TNF, and the neutrophil chemokine IL-8 within the membranes and decidua. Amniotic fluid IL-6 rises accordingly and is the operational marker of intra-amniotic inflammation. This node is the amplification step that converts a local signal into a syndrome, and it is the branch point from which the chemotactic, uterotonic, and matrix-degrading arms diverge.
 </div>
@@ -5639,6 +5684,7 @@ This pathophysiological event involves increased cytokine production involved in
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neutrophil-chemotaxis-into-the-chorioamniotic-membranes" data-dismech-node="Neutrophil Chemotaxis into the Chorioamniotic Membranes" data-dismech-type="pathophysiology">
                 <div class="item-name">Neutrophil Chemotaxis into the Chorioamniotic Membranes</div>
 
+
                 <div class="item-desc">Neutrophils migrate along the chemokine gradient toward the amniotic cavity. Crucially the traffic has two separate sources: maternal neutrophils enter from decidual vessels through chorion into amnion, while fetal neutrophils later cross chorionic plate and umbilical vessels. This directional two-source migration is what the histologic lesion actually consists of.
 </div>
 
@@ -5798,6 +5844,7 @@ This pathophysiological event involves increased neutrophil chemotaxis (GO:00305
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-maternal-inflammatory-response-and-acute-chorioamnionitis" data-dismech-node="Maternal Inflammatory Response and Acute Chorioamnionitis" data-dismech-type="pathophysiology">
                 <div class="item-name">Maternal Inflammatory Response and Acute Chorioamnionitis</div>
 
+
                 <div class="item-desc">Diffuse maternal neutrophil infiltration of the chorioamniotic membranes. This is the maternal arm of the histologic lesion and the one that gives the disease its name. Its frequency is steeply gestational-age dependent, which is the single most important epidemiological fact about the lesion.
 </div>
 
@@ -5897,6 +5944,7 @@ This pathophysiological event occurs in amnion (UBERON:0000305). UBERON:0000305 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fetal-inflammatory-response-with-funisitis-and-chorionic-vasculitis" data-dismech-node="Fetal Inflammatory Response with Funisitis and Chorionic Vasculitis" data-dismech-type="pathophysiology">
                 <div class="item-name">Fetal Inflammatory Response with Funisitis and Chorionic Vasculitis</div>
+
 
                 <div class="item-desc">Fetal neutrophils migrate into the walls of the umbilical vessels and chorionic plate vessels. Unlike the maternal lesion this represents the fetus&#39;s own response, and it is the histologic hallmark of systemic fetal inflammation. It predicts neonatal outcome considerably better than the maternal lesion does.
 </div>
@@ -6022,6 +6070,7 @@ This pathophysiological event occurs in umbilical cord (UBERON:0002331). UBERON:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-prostaglandin-synthesis-and-myometrial-activation" data-dismech-node="Prostaglandin Synthesis and Myometrial Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Prostaglandin Synthesis and Myometrial Activation</div>
 
+
                 <div class="item-desc">Inflammatory cytokines upregulate prostaglandin synthesis while the enzyme that normally degrades prostaglandins is downregulated, and gap-junction and oxytocin-receptor expression rise. The quiescent myometrium is converted into a contractile syncytium, driving labor at a gestational age at which it should not be occurring.
 </div>
 
@@ -6125,6 +6174,7 @@ This pathophysiological event involves increased prostaglandin biosynthetic proc
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mmp-mediated-chorioamniotic-matrix-degradation" data-dismech-node="MMP-Mediated Chorioamniotic Matrix Degradation" data-dismech-type="pathophysiology">
                 <div class="item-name">MMP-Mediated Chorioamniotic Matrix Degradation</div>
 
+
                 <div class="item-desc">Neutrophil-derived matrix metalloproteinase-8 (neutrophil collagenase) and MMP-9, together with elastase, degrade the collagen scaffold of the amniochorion while tissue inhibitors of metalloproteinases fall. Amniotic fluid MMP-8 is correspondingly a sensitive marker of intra-amniotic infection.
 </div>
 
@@ -6203,6 +6253,7 @@ This pathophysiological event involves increased prostaglandin biosynthetic proc
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-membrane-weakening-and-preterm-prelabor-rupture-of-membranes" data-dismech-node="Membrane Weakening and Preterm Prelabor Rupture of Membranes" data-dismech-type="pathophysiology">
                 <div class="item-name">Membrane Weakening and Preterm Prelabor Rupture of Membranes</div>
 
+
                 <div class="item-desc">Loss of tensile strength in the amniochorion leads to rupture before the onset of labor. This closes a vicious circle: rupture removes the remaining physical barrier and permits further ascending colonization, so preterm prelabor rupture of membranes is both a consequence and a cause of intra-amniotic infection.
 </div>
 
@@ -6276,6 +6327,7 @@ This pathophysiological event occurs in fetal membrane (UBERON:0005630). UBERON:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-preterm-labor-and-birth" data-dismech-node="Preterm Labor and Birth" data-dismech-type="pathophysiology">
                 <div class="item-name">Preterm Labor and Birth</div>
 
+
                 <div class="item-desc">Delivery before 37 completed weeks. Intrauterine infection and inflammation account for a substantial share of spontaneous preterm births, and the proportion rises as gestational age at delivery falls.
 </div>
 
@@ -6302,6 +6354,7 @@ This pathophysiological event occurs in fetal membrane (UBERON:0005630). UBERON:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-myometrial-contractility-at-term" data-dismech-node="Reduced Myometrial Contractility at Term" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Myometrial Contractility at Term</div>
+
 
                 <div class="item-desc">At term the inflammatory milieu is associated with the opposite uterine behavior from the preterm case: decreased uterine activity, failure to progress in labor, higher cesarean rates, and postpartum uterine atony with hemorrhage. This is curated as a distinct node rather than as a sign-reversing edge on the uterotonic arm, because the mechanisms are separated by gestational age and receptor context rather than contradicting one another.
 </div>
@@ -6389,6 +6442,7 @@ This pathophysiological event occurs in fetal membrane (UBERON:0005630). UBERON:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fetal-inflammatory-response-syndrome" data-dismech-node="Fetal Inflammatory Response Syndrome" data-dismech-type="pathophysiology">
                 <div class="item-name">Fetal Inflammatory Response Syndrome</div>
+
 
                 <div class="item-desc">A systemic inflammatory response mounted by the fetus itself, defined operationally by elevated fetal or cord plasma IL-6 and pathologically by funisitis or chorionic vasculitis. It is the fetal counterpart of the adult systemic inflammatory response syndrome, it is multi-organ, and it is the mechanistic bridge between an obstetric infection and lifelong neurodevelopmental and respiratory disability.
 </div>
@@ -6510,6 +6564,7 @@ This pathophysiological event occurs in fetal membrane (UBERON:0005630). UBERON:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-microglial-activation-and-preterm-white-matter-injury" data-dismech-node="Microglial Activation and Preterm White Matter Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Microglial Activation and Preterm White Matter Injury</div>
+
 
                 <div class="item-desc">Fetal systemic inflammation activates microglia; pre-oligodendrocytes, which are exquisitely vulnerable in the 23 to 32 week window, die by oxidative and excitotoxic injury and myelination fails. This is the cellular substrate of periventricular leukomalacia and of the cerebral palsy that follows.
 </div>
@@ -6670,6 +6725,7 @@ This pathophysiological event involves increased inflammatory response (GO:00069
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fetal-pulmonary-inflammation-and-arrested-alveolarization" data-dismech-node="Fetal Pulmonary Inflammation and Arrested Alveolarization" data-dismech-type="pathophysiology">
                 <div class="item-name">Fetal Pulmonary Inflammation and Arrested Alveolarization</div>
 
+
                 <div class="item-desc">Fetal lung exposure to infected amniotic fluid and inflammatory cytokines produces pneumonitis and a dissociation between functional and structural maturation: surfactant production is induced while alveolarization and microvascular development are suppressed, the arrested-development phenotype underlying bronchopulmonary dysplasia. The strength of this association in humans is genuinely contested, and the entry records that dispute rather than smoothing it over.
 </div>
 
@@ -6756,6 +6812,7 @@ This pathophysiological event involves increased inflammatory response (GO:00069
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-early-onset-neonatal-sepsis" data-dismech-node="Early-Onset Neonatal Sepsis" data-dismech-type="pathophysiology">
                 <div class="item-name">Early-Onset Neonatal Sepsis</div>
+
 
                 <div class="item-desc">Invasive neonatal infection within the first 72 hours of life. Notably, the rate of culture-confirmed neonatal bacteremia after clinical chorioamnionitis is low in absolute terms even though the relative risk is high, which is the tension underlying the modern shift from treating every exposed newborn to risk-stratified evaluation.
 </div>
@@ -6868,6 +6925,7 @@ This pathophysiological event involves increased inflammatory response (GO:00069
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chronic-chorioamnionitis-and-maternal-anti-fetal-rejection" data-dismech-node="Chronic Chorioamnionitis and Maternal Anti-Fetal Rejection" data-dismech-type="pathophysiology">
                 <div class="item-name">Chronic Chorioamnionitis and Maternal Anti-Fetal Rejection</div>
+
 
                 <div class="item-desc">A separate, non-neutrophilic arm that shares the anatomical site and the name. Maternal CD8+ T cells infiltrate the chorioamniotic membranes and can induce trophoblast apoptosis, in a process framed as rejection of the fetal semiallograft rather than as infection. It is the most common placental lesion in late spontaneous preterm birth.
 </div>

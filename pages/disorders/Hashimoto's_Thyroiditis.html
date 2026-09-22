@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4900,6 +4939,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-thyroglobulin-hyperiodination-and-neoantigen-formation" data-dismech-node="Thyroglobulin Hyperiodination and Neoantigen Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Thyroglobulin Hyperiodination and Neoantigen Formation</div>
 
+
                 <div class="item-desc">Excess iodide drives heavier iodination of thyroglobulin during hormone synthesis, and the more heavily iodinated protein carries altered epitopes that are more immunogenic than lightly iodinated Tg. This iodine-dependent neoantigen state is the proximate biochemical step through which chronic iodine excess presents modified self-antigen to the immune system, and is the intermediate node inserted between the iodine-excess exposure and the loss of tolerance.</div>
 
 
@@ -5047,6 +5087,7 @@ This pathophysiological event involves abnormal Thyroglobulin iodination, annota
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-thyroidal-oxidative-stress-from-selenoprotein-insufficiency" data-dismech-node="Thyroidal Oxidative Stress from Selenoprotein Insufficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Thyroidal Oxidative Stress from Selenoprotein Insufficiency</div>
+
 
                 <div class="item-desc">Thyroid hormone synthesis generates hydrogen peroxide at the apical thyrocyte surface, which selenoprotein glutathione peroxidases normally detoxify. When selenium supply is low these selenoenzymes are limiting, so peroxide accumulates and oxidatively injures thyroid follicular cells. This oxidative thyrocyte injury and antigen release is the mechanism node downstream of the &#34;Selenium Deficiency&#34; state and upstream of the loss of tolerance.</div>
 
@@ -5255,6 +5296,7 @@ This pathophysiological event involves increased Response to oxidative stress (G
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-vitamin-d-dependent-immune-tolerance" data-dismech-node="Impaired Vitamin D-Dependent Immune Tolerance" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Vitamin D-Dependent Immune Tolerance</div>
 
+
                 <div class="item-desc">Vitamin D signaling supports tolerogenic dendritic cells and regulatory T-cell function, an immunomodulatory brake that favors self-tolerance. Low vitamin D status weakens this brake and is proposed to permit escape from immune regulation. The direction of this association is unsettled: the cited cross-sectional finding is that levels are lower in people who already have the disease, and part of the same nutritional-risk literature attributes the low levels to the autoimmune process itself (including vitamin D receptor dysfunction) rather than the reverse.</div>
 
 
@@ -5428,6 +5470,7 @@ This pathophysiological event involves decreased Regulation of immune response (
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hepatitis-c-virus-associated-thyroid-immune-activation" data-dismech-node="Hepatitis C Virus-Associated Thyroid Immune Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Hepatitis C Virus-Associated Thyroid Immune Activation</div>
 
+
                 <div class="item-desc">The specific virus with human evidence here is hepatitis C virus (HCV; chronic HCV infection, MONDO:0005354), which is associated with thyroid autoimmunity and hypothyroidism. Molecular mimicry between viral and thyroid antigens and bystander activation of autoreactive lymphocytes are the usual mechanistic proposals, but the cited evidence is an epidemiological association, and interferon-based antiviral therapy for HCV is itself thyrotoxic, which confounds it. This HCV-associated immune-activation state is the intermediate node between the HCV-infection exposure and the loss of tolerance.</div>
 
 
@@ -5537,6 +5580,7 @@ This pathophysiological event involves Defense response to virus (GO:0051607). G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-immune-tolerance-to-thyroid-antigens" data-dismech-node="Loss of Immune Tolerance to Thyroid Antigens" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Immune Tolerance to Thyroid Antigens</div>
+
 
                 <div class="item-desc">Susceptibility variants in T-cell regulatory and immune-checkpoint genes (HLA class II, CTLA4, PTPN22, LAG3) act together with environmental triggers (iodine excess, selenium/vitamin D status, viral infection) to break self-tolerance to thyroid peroxidase and thyroglobulin, the initiating lesion that licenses autoreactive T- and B-cell responses against the thyroid. A rare LAG3 start-codon variant that lowers the inhibitory checkpoint LAG-3 exemplifies how impaired T-cell down-regulation predisposes to autoimmune thyroid disease.
 </div>
@@ -5780,6 +5824,7 @@ This pathophysiological event involves LAG3 (hgnc:6476). hgnc:6476 is a gene fro
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-th17-treg-imbalance" data-dismech-node="Th17/Treg Imbalance" data-dismech-type="pathophysiology">
                 <div class="item-name">Th17/Treg Imbalance</div>
+
 
                 <div class="item-desc">The CD4 T helper compartment in Hashimoto&#39;s thyroiditis is shifted away from Foxp3 regulatory commitment and toward the RORgt-driven, IL-17-producing Th17 program. Regulatory T cell frequency, Foxp3 transcript, and the Treg/Th17 ratio are all lower in patients, IL-17A is higher, and the ratio tracks inversely with thyroid autoantibody titres and TSH. IL-17 signalling in turn raises IL-6, CXCL10 and ICAM-1, feeding the intrathyroidal infiltrate. Whether this imbalance is an upstream initiator or a parallel feature of established disease is not settled: the human data are cross-sectional, and the claim that Th17 predominance precedes Th1-mediated destruction is a review-level synthesis with no longitudinal human series behind it (see notes).</div>
 
@@ -6045,6 +6090,7 @@ This pathophysiological event involves decreased Regulatory T cell differentiati
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-thyrocyte-antigen-presentation" data-dismech-node="Thyrocyte Antigen Presentation" data-dismech-type="pathophysiology">
                 <div class="item-name">Thyrocyte Antigen Presentation</div>
 
+
                 <div class="item-desc">Under interferon-gamma and TNF-alpha exposure, thyroid follicular cells aberrantly upregulate MHC class II together with the invariant chain CD74 and its ligand MIF, becoming non-professional antigen-presenting cells. This amplifies local antigen presentation and ligand-receptor cross-talk with infiltrating immune cells, sustaining and propagating the intrathyroidal autoimmune response.
 </div>
 
@@ -6204,6 +6250,7 @@ This pathophysiological event involves increased Antigen presentation via MHC cl
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-autoimmune-thyroid-destruction" data-dismech-node="Autoimmune Thyroid Destruction" data-dismech-type="pathophysiology">
                 <div class="item-name">Autoimmune Thyroid Destruction</div>
+
 
                 <div class="item-desc">T cell-mediated and antibody-mediated destruction of thyroid follicular cells leads to progressive loss of thyroid function. Anti-thyroid peroxidase (anti-TPO) and anti-thyroglobulin antibodies are characteristic.
 </div>
@@ -6441,6 +6488,7 @@ This pathophysiological event involves Autoimmune Response, annotated with adapt
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lymphocytic-infiltration" data-dismech-node="Lymphocytic Infiltration" data-dismech-type="pathophysiology">
                 <div class="item-name">Lymphocytic Infiltration</div>
+
 
                 <div class="item-desc">Dense lymphocytic infiltration of the thyroid gland with germinal center formation. CD4+ T cells, CD8+ T cells, and B cells accumulate in the thyroid parenchyma.
 </div>
@@ -6781,6 +6829,7 @@ This pathophysiological event involves increased Intrathyroidal germinal centre 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cytokine-sensitized-fas-mediated-thyrocyte-apoptosis" data-dismech-node="Cytokine-Sensitized Fas-Mediated Thyrocyte Apoptosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Cytokine-Sensitized Fas-Mediated Thyrocyte Apoptosis</div>
 
+
                 <div class="item-desc">Normal thyroid follicular cells express Fas but resist Fas-mediated apoptosis: signalling is blocked downstream of the proximal caspases. Interferon gamma together with interleukin 1 beta lifts that block by raising surface Fas, procaspases 7, 8 and 10, and the proapoptotic BH3 protein Bid, so that Fas ligation then cleaves caspases 7 and 3, engages mitochondria, and kills the cell. This cytokine gate is the reason destruction is confined to the inflamed gland. The killing is executed by the intrathyroidal lymphocytes rather than by the thyrocytes themselves, and it proceeds without perforin. It is not exclusively a Fas/FasL process: ex vivo killing is only partially blocked by disrupting Fas/FasL and a caspase-independent route appears to coexist.</div>
 
 
@@ -6978,6 +7027,7 @@ This pathophysiological event involves increased Fas death-receptor apoptotic si
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nf-b-il-6-signaling-pathway-activation" data-dismech-node="NF-κB-IL-6 Signaling Pathway Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">NF-κB-IL-6 Signaling Pathway Activation</div>
+
 
                 <div class="item-desc">Genetic regulation of NF-κB and IL-6 signaling modulates the autoimmune response in Hashimoto&#39;s thyroiditis. CCDC77 and SLC45A3 are novel genetic modifiers that regulate NF-κB pathway activation and IL-6 production. CCDC77 acts as a protective regulator (knockdown exacerbates thyroid damage), while SLC45A3 acts as a disease-promoting factor (knockdown alleviates thyroiditis). The NF-κB-IL-6 axis modulates immune cell activation and thyroid-targeted autoimmunity.
 </div>
@@ -7236,6 +7286,7 @@ This pathophysiological event involves Inflammatory response (GO:0006954). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-thyroid-hormone-deficiency" data-dismech-node="Thyroid Hormone Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Thyroid Hormone Deficiency</div>
+
 
                 <div class="item-desc">Progressive destruction of thyroid tissue leads to decreased production of T3 and T4, resulting in hypothyroidism with elevated TSH through negative feedback.
 </div>
@@ -8372,6 +8423,9 @@ This clinical feature is Weight Gain, annotated with Increased body weight (HP:0
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8418,6 +8472,9 @@ This clinical feature is Weight Gain, annotated with Increased body weight (HP:0
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Risk Factor)</span>
 
                 </div>
+
+
+
 
 
 
@@ -8496,6 +8553,9 @@ This disease-associated gene is CTLA4 (hgnc:2505). hgnc:2505 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8566,6 +8626,9 @@ This disease-associated gene is PTPN22 (hgnc:9652). hgnc:9652 is a gene from the
 
 
                 </div>
+
+
+
 
 
 
@@ -8642,6 +8705,9 @@ This disease-associated gene is LAG3 (hgnc:6476). hgnc:6476 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8710,6 +8776,9 @@ This disease-associated gene is CCDC77 (hgnc:28203). hgnc:28203 is a gene from t
 
 
                 </div>
+
+
+
 
 
 
@@ -8807,6 +8876,9 @@ This disease-associated gene is SLC45A3 (hgnc:8642). hgnc:8642 is a gene from th
 
 
                 </div>
+
+
+
 
 
 

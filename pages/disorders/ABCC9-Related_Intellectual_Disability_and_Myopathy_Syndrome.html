@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4993,6 +5032,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-abcc9-loss-of-function" data-dismech-node="Biallelic ABCC9 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic ABCC9 Loss of Function</div>
 
+
                 <div class="item-desc">Biallelic loss-of-function variants in ABCC9 - splice-site alleles causing in-frame exon skipping, and nonsense or frameshift alleles causing nonsense-mediated decay or drastic truncation - abolish production of functional SUR2 protein. This is the root lesion of AIMS and is the opposite direction of effect to the gain-of-function ABCC9 variants that cause Cantu syndrome.</div>
 
 
@@ -5167,6 +5207,7 @@ This pathophysiological event involves decreased ABCC9 (hgnc:60). hgnc:60 is a g
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-non-functional-sur2-containing-katp-channels" data-dismech-node="Non-Functional SUR2-Containing KATP Channels" data-dismech-type="pathophysiology">
                 <div class="item-name">Non-Functional SUR2-Containing KATP Channels</div>
+
 
                 <div class="item-desc">SUR2 is the regulatory subunit that confers ATP/ADP sensitivity and trafficking competence on Kir6.x pore subunits in skeletal muscle, cardiac muscle and vascular smooth muscle. Without functional SUR2, the SUR2-containing KATP channels of those tissues are absent or non-conducting, so cellular metabolic state can no longer be translated into membrane potassium conductance.</div>
 
@@ -5532,6 +5573,7 @@ This pathophysiological event involves decreased ATP-activated inward rectifier 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-sarcolemmal-katp-conductance-in-skeletal-muscle" data-dismech-node="Loss of Sarcolemmal KATP Conductance in Skeletal Muscle" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Sarcolemmal KATP Conductance in Skeletal Muscle</div>
 
+
                 <div class="item-desc">In healthy skeletal muscle the sarcolemmal KATP channel is closed at rest and opens as intracellular ATP falls during metabolic stress or fatigue. In AIMS muscle this metabolically gated conductance is absent.</div>
 
 
@@ -5679,6 +5721,7 @@ This pathophysiological event involves abnormal response to muscle activity (GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-membrane-potential-stabilization-during-fatigue" data-dismech-node="Failure of Membrane Potential Stabilization During Fatigue" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Membrane Potential Stabilization During Fatigue</div>
+
 
                 <div class="item-desc">Loss of the fatigue-activated potassium conductance removes the brake on sarcolemmal excitability during sustained activity, impairing recovery from fatigue and predisposing the fibre to contraction without stimulation.</div>
 
@@ -5828,6 +5871,7 @@ This pathophysiological event involves abnormal regulation of membrane potential
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-unstimulated-force-generation" data-dismech-node="Unstimulated Force Generation" data-dismech-type="pathophysiology">
                 <div class="item-name">Unstimulated Force Generation</div>
 
+
                 <div class="item-desc">SUR2-null muscle generates force without stimulation under fatiguing conditions, the proposed cellular correlate of the painful spasms reported by patients. The downstream effector remains unresolved; CaV1.1-mediated calcium influx was tested directly and did not explain the myopathy.</div>
 
 
@@ -5937,6 +5981,7 @@ This pathophysiological event involves skeletal muscle fiber (CL:0008002). CL:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-skeletal-muscle-delimited-myopathy" data-dismech-node="Skeletal-Muscle-Delimited Myopathy" data-dismech-type="pathophysiology">
                 <div class="item-name">Skeletal-Muscle-Delimited Myopathy</div>
+
 
                 <div class="item-desc">A myopathy that is clinically prominent but histologically and electrophysiologically bland: patients have generalised hypotonia, reduced strength, fatigability and exercise-induced pain, with normal serum creatine kinase, normal nerve conduction and essentially normal electromyography.</div>
 
@@ -6121,6 +6166,7 @@ This pathophysiological event involves abnormal skeletal muscle contraction (GO:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-cardiomyocyte-katp-conductance" data-dismech-node="Loss of Cardiomyocyte KATP Conductance" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Cardiomyocyte KATP Conductance</div>
 
+
                 <div class="item-desc">SUR2-containing KATP channels in cardiomyocytes couple cellular metabolism to membrane excitability. Loss of functional SUR2 removes that metabolically responsive conductance.</div>
 
 
@@ -6269,6 +6315,7 @@ This pathophysiological event involves decreased potassium ion transmembrane tra
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiac-systolic-dysfunction" data-dismech-node="Cardiac Systolic Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiac Systolic Dysfunction</div>
 
+
                 <div class="item-desc">Reduced systolic function, documented in the two oldest patients of the index cohort and reproduced in SUR2-null mice and zebrafish. It is an age-related feature rather than a presenting one.</div>
 
 
@@ -6354,6 +6401,7 @@ This pathophysiological event involves decreased potassium ion transmembrane tra
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-brain-vascular-smooth-muscle-differentiation-and-neurovascular-coupling" data-dismech-node="Impaired Brain Vascular Smooth Muscle Differentiation and Neurovascular Coupling" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Brain Vascular Smooth Muscle Differentiation and Neurovascular Coupling</div>
+
 
                 <div class="item-desc">KCNJ8/ABCC9-containing KATP channels are expressed on brain mural cell progenitors and are required cell-autonomously for arterial and arteriolar smooth muscle differentiation. Loss of channel function suppresses that differentiation and, in the corresponding knockout, degrades vasoconstrictive capacity and neuronally evoked vasodilation - the machinery that fine-tunes cerebral blood flow.</div>
 
@@ -6609,6 +6657,7 @@ This pathophysiological event involves abnormal regulation of cerebral blood cir
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cerebral-white-matter-injury" data-dismech-node="Cerebral White Matter Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Cerebral White Matter Injury</div>
 
+
                 <div class="item-desc">Cerebral white matter hyperintensities were present in every patient of the index cohort and white matter abnormalities, often with corpus callosum involvement, recur across the later cohorts. In the most recent series the pattern resembles periventricular leukomalacia or small vessel disease and is described as a key hallmark of the disorder. Lesions can progress over time.</div>
 
 
@@ -6745,6 +6794,7 @@ This pathophysiological event involves abnormal regulation of cerebral blood cir
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-intellectual-disability-and-developmental-delay" data-dismech-node="Intellectual Disability and Developmental Delay" data-dismech-type="pathophysiology">
                 <div class="item-name">Intellectual Disability and Developmental Delay</div>
 
+
                 <div class="item-desc">Psychomotor delay followed by intellectual disability, mild in the index Norwegian families and of variable severity across the expanded cohorts. Motor and cognitive decline has now been documented in older individuals, including a sexagenarian presenting with signs of dementia.</div>
 
 
@@ -6831,6 +6881,7 @@ This pathophysiological event involves abnormal regulation of cerebral blood cir
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pyramidal-tract-dysfunction" data-dismech-node="Pyramidal Tract Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Pyramidal Tract Dysfunction</div>
 
+
                 <div class="item-desc">Lower-limb hyperreflexia and spasticity, appearing in the older patients of the index cohort and recorded as spasticity across the expanded cohort.</div>
 
 
@@ -6916,6 +6967,7 @@ This pathophysiological event involves abnormal regulation of cerebral blood cir
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-seizure-susceptibility" data-dismech-node="Increased Seizure Susceptibility" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased Seizure Susceptibility</div>
+
 
                 <div class="item-desc">Seizures occur in a proportion of AIMS patients, and abcc9 loss of function lowers the chemoconvulsant threshold in zebrafish. In the index cohort one patient had clinical tonic-clonic episodes without EEG correlate, so the epileptic phenotype is not uniform.</div>
 
@@ -9690,6 +9742,9 @@ This disease-associated gene is ABCC9 (hgnc:60). hgnc:60 is a gene from the HUGO
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">

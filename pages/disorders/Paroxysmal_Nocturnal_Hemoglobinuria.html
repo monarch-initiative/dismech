@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4194,6 +4233,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-piga-mutation-and-gpi-anchor-deficiency" data-dismech-node="PIGA Mutation and GPI-Anchor Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">PIGA Mutation and GPI-Anchor Deficiency</div>
 
+
                 <div class="item-desc">PNH originates from an acquired somatic loss-of-function mutation in the X-linked PIGA gene in a hematopoietic stem cell. PIGA encodes a subunit of the enzyme complex that catalyzes the first committed step of GPI-anchor biosynthesis. Because PIGA is X-linked and only one allele is active per cell, a single inactivating mutation abolishes GPI-anchor assembly, and GPI-anchor-deficient progeny cannot display the roughly 150 GPI-linked surface proteins, including the complement regulators CD55 and CD59.</div>
 
 
@@ -4418,6 +4458,7 @@ This pathophysiological event involves decreased GPI Anchor Biosynthetic Process
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-cd55-and-cd59-complement-regulation" data-dismech-node="Loss of CD55 and CD59 Complement Regulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of CD55 and CD59 Complement Regulation</div>
 
+
                 <div class="item-desc">CD55 (decay-accelerating factor) accelerates decay of the C3 and C5 convertases, while CD59 (membrane inhibitor of reactive lysis) blocks assembly of the terminal C5b-9 membrane attack complex. Their absence on PNH erythrocytes permits unrestrained amplification of the alternative complement pathway on the cell surface and unchecked membrane attack complex formation.</div>
 
 
@@ -4590,6 +4631,7 @@ This pathophysiological event involves increased Complement Activation, Alternat
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-complement-mediated-intravascular-hemolysis" data-dismech-node="Complement-Mediated Intravascular Hemolysis" data-dismech-type="pathophysiology">
                 <div class="item-name">Complement-Mediated Intravascular Hemolysis</div>
+
 
                 <div class="item-desc">Deposition of the terminal membrane attack complex on complement-regulator-deficient erythrocytes causes intravascular hemolysis with release of cell-free hemoglobin and hemoglobinuria. Chronic complement-mediated destruction produces anemia, elevated lactate dehydrogenase, reduced haptoglobin, and reticulocytosis.</div>
 
@@ -4812,6 +4854,7 @@ This pathophysiological event involves increased Complement-Dependent Cytotoxici
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nitric-oxide-depletion-and-smooth-muscle-dystonia" data-dismech-node="Nitric Oxide Depletion and Smooth Muscle Dystonia" data-dismech-type="pathophysiology">
                 <div class="item-name">Nitric Oxide Depletion and Smooth Muscle Dystonia</div>
 
+
                 <div class="item-desc">Cell-free plasma hemoglobin released during intravascular hemolysis scavenges nitric oxide. Regional nitric-oxide deficiency causes smooth-muscle dystonia manifesting as dysphagia, esophageal spasm, abdominal pain, and erectile dysfunction, and contributes to platelet activation and the prothrombotic state.</div>
 
 
@@ -4941,6 +4984,7 @@ This pathophysiological event involves decreased Nitric Oxide Metabolic Process 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-prothrombotic-state" data-dismech-node="Prothrombotic State" data-dismech-type="pathophysiology">
                 <div class="item-name">Prothrombotic State</div>
+
 
                 <div class="item-desc">Thrombosis is the leading cause of death in PNH and characteristically occurs at unusual sites such as the hepatic (Budd-Chiari syndrome), portal, mesenteric, and cerebral veins. Complement-mediated platelet activation, nitric-oxide depletion, release of prothrombotic microparticles, and impaired fibrinolysis all contribute.</div>
 
@@ -5114,6 +5158,7 @@ This pathophysiological event involves increased Blood Coagulation (GO:0007596).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-clonal-expansion-and-bone-marrow-failure" data-dismech-node="Clonal Expansion and Bone Marrow Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Clonal Expansion and Bone Marrow Failure</div>
+
 
                 <div class="item-desc">PNH clones arise in the setting of bone marrow failure and are closely linked to aplastic anemia. A prevailing model holds that immune-mediated selective pressure against normal GPI-positive hematopoietic stem cells provides a relative survival advantage to GPI-deficient PIGA-mutant clones, allowing their expansion to clinically significant size.</div>
 
@@ -6225,6 +6270,9 @@ This disease-associated gene is PIGA (hgnc:8957). hgnc:8957 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 

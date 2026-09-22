@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -5539,6 +5578,7 @@ This experiment is of type isogenic human iPSC motor-neuron structure-function d
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-motor-neuron-degeneration" data-dismech-node="Motor Neuron Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Motor Neuron Degeneration</div>
 
+
                 <div class="item-desc">Progressive death of upper motor neurons in the motor cortex and lower motor neurons in the brainstem and spinal cord leads to denervation of skeletal muscles. The loss of upper motor neurons causes spasticity and hyperreflexia, while lower motor neuron loss results in muscle weakness, atrophy, and fasciculations.
 </div>
 
@@ -5736,6 +5776,7 @@ This pathophysiological event occurs in primary motor cortex (UBERON:0001384). U
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nuclear-pore-complex-dysfunction" data-dismech-node="Nuclear Pore Complex Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Nuclear Pore Complex Dysfunction</div>
+
 
                 <div class="item-desc">Selective loss of nuclear pore complex (NPC) components, particularly the scaffold proteins NUP107 and NUP93 and FG-repeat-containing components, is a consistent feature across ALS postmortem spinal cord, SOD1^G93A and TDP-43 mutant mouse models, and human cell systems. CRISPR-mediated NUP107 depletion is sufficient to trigger cytoplasmic TDP-43 mislocalization, increased TDP-43 phosphorylation, and autophagy dysfunction, placing NPC dysfunction upstream of TDP-43 proteinopathy in the canonical proteostatic failure cascade. Oxidative stress exacerbates NPC subunit mislocalization, creating a redox-sensitive vulnerability that amplifies the downstream TDP-43 aggregation phenotype.
 </div>
@@ -6021,6 +6062,7 @@ This pathophysiological event involves decreased nucleocytoplasmic transport (GO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tdp-43-proteinopathy" data-dismech-node="TDP-43 Proteinopathy" data-dismech-type="pathophysiology">
                 <div class="item-name">TDP-43 Proteinopathy</div>
 
+
                 <div class="item-desc">Cytoplasmic aggregation of TDP-43 (TAR DNA-binding protein 43) is found in approximately 97% of ALS cases, with notable exceptions such as SOD1- and FUS-associated ALS. TDP-43 normally functions as a predominantly nuclear RNA-binding protein. In ALS it becomes depleted from the nucleus and accumulates in cytoplasmic phosphorylated, ubiquitinated inclusions, creating a coupled loss-of-nuclear-function and cytoplasmic gain-of-function state. The nuclear loss arm impairs RNA processing and cryptic-exon repression, while cytoplasmic aggregation may block normal cellular processes, disturb proteostasis, and participate in spread-like propagation.
 </div>
 
@@ -6295,6 +6337,7 @@ This pathophysiological event involves abnormal RNA splicing, annotated with RNA
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tdp-43-dependent-cryptic-exon-misprocessing" data-dismech-node="TDP-43-Dependent Cryptic Exon Misprocessing" data-dismech-type="pathophysiology">
                 <div class="item-name">TDP-43-Dependent Cryptic Exon Misprocessing</div>
+
 
                 <div class="item-desc">Loss of nuclear TDP-43 derepresses cryptic exons and cryptic splice-polyadenylation events in RNA targets relevant to ALS. STMN2 misprocessing lowers stathmin-2, compromising axonal outgrowth, axon regeneration, and lysosome trafficking in TDP-43-deficient human motor neurons. UNC13A cryptic exon inclusion links common ALS/FTD risk variants to loss of nuclear TDP-43 function and can deplete a synaptic protein. This node represents the most concrete RNA-processing defect currently modeled as a candidate causal bridge from TDP-43 dysfunction toward motor-neuron death, while acknowledging that target priority and cell-type selectivity remain unresolved.
 </div>
@@ -6655,6 +6698,7 @@ This pathophysiological event involves increased nuclear-transcribed mRNA catabo
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-c9orf72-repeat-expansion-toxicity" data-dismech-node="C9orf72 Repeat Expansion Toxicity" data-dismech-type="pathophysiology">
                 <div class="item-name">C9orf72 Repeat Expansion Toxicity</div>
 
+
                 <div class="item-desc">Hexanucleotide (GGGGCC) repeat expansion in C9orf72 is the most common genetic cause of ALS, accounting for 40% of familial and 5-10% of sporadic cases. The expansion leads to RNA foci formation, dipeptide repeat protein aggregation, and haploinsufficiency.
 </div>
 
@@ -6806,6 +6850,7 @@ This pathophysiological event involves C9orf72 (hgnc:28337). hgnc:28337 is a gen
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-glutamate-excitotoxicity" data-dismech-node="Glutamate Excitotoxicity" data-dismech-type="pathophysiology">
                 <div class="item-name">Glutamate Excitotoxicity</div>
 
+
                 <div class="item-desc">Impaired glutamate clearance by astrocytes leads to excessive glutamate accumulation in the synaptic cleft, causing prolonged activation of glutamate receptors on motor neurons. This results in calcium overload and subsequent neuronal death.
 </div>
 
@@ -6956,6 +7001,7 @@ This pathophysiological event involves neurotransmitter transport (GO:0006836). 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-oxidative-stress" data-dismech-node="Oxidative Stress" data-dismech-type="pathophysiology">
                 <div class="item-name">Oxidative Stress</div>
+
 
                 <div class="item-desc">Motor neurons are particularly vulnerable to oxidative damage due to high metabolic demands. Mutations in SOD1, which encodes superoxide dismutase 1, lead to misfolded protein aggregation and increased oxidative stress contributing to neuronal death.
 </div>
@@ -7160,6 +7206,7 @@ This pathophysiological event involves response to oxidative stress (GO:0006979)
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neuroinflammation" data-dismech-node="Neuroinflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">Neuroinflammation</div>
 
+
                 <div class="item-desc">Activated microglia and astrocytes contribute to motor neuron death through the release of pro-inflammatory cytokines, reactive oxygen species, and other neurotoxic factors. This non-cell-autonomous mechanism amplifies neurodegeneration.
 </div>
 
@@ -7308,6 +7355,7 @@ This pathophysiological event involves astrocyte (CL:0000127). CL:0000127 is a c
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-microglial-trem2-signaling" data-dismech-node="Microglial TREM2 Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Microglial TREM2 Signaling</div>
+
 
                 <div class="item-desc">TREM2 expressed on microglia regulates proliferation, activation, and phagocytosis; altered TREM2 signaling is implicated in ALS progression through dysregulated microglial responses to motor neuron injury.
 </div>
@@ -7479,6 +7527,7 @@ This pathophysiological event involves microglial cell activation (GO:0001774). 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-axonal-transport-dysfunction" data-dismech-node="Axonal Transport Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Axonal Transport Dysfunction</div>
+
 
                 <div class="item-desc">Impaired axonal transport leads to accumulation of organelles and proteins in motor neuron axons, contributing to neurodegeneration. Gene mutations affecting cytoskeletal components (KIF5A, DCTN1, PFN1) contribute to this dysfunction.
 </div>
@@ -7839,6 +7888,7 @@ This pathophysiological event involves anterograde axonal transport (GO:0008089)
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-autophagy" data-dismech-node="Impaired Autophagy" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Autophagy</div>
 
+
                 <div class="item-desc">Defects in autophagy and protein quality control pathways lead to accumulation of misfolded proteins and damaged organelles in motor neurons. Multiple ALS genes (TBK1, OPTN, VCP, SQSTM1) function in autophagy.
 </div>
 
@@ -8092,6 +8142,7 @@ This pathophysiological event involves autophagy (GO:0006914). GO:0006914 is a b
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tdp-43-driven-glycolytic-failure" data-dismech-node="TDP-43-Driven Glycolytic Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">TDP-43-Driven Glycolytic Failure</div>
+
 
                 <div class="item-desc">Cytoplasmic TDP-43 directly binds hexokinase 1 (HK1), the first rate-limiting enzyme of glycolysis, dissociating it from mitochondria and sequestering it into insoluble aggregates. The resulting loss of HK1 impairs glycolytic ATP production in motor neurons — a metabolic lesion observed consistently across TDP-43 mutant mice, patient-derived iPSC motor neurons, and ALS postmortem spinal cord. Compensating for HK1 loss reduces cytoplasmic TDP-43 and ubiquitin accumulation and improves motor performance and survival in models, marking a metabolic intervention point within the canonical proteostatic-failure framework.
 </div>
@@ -8348,6 +8399,7 @@ This pathophysiological event involves decreased glycolytic process (GO:0006096)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-endogenous-retrovirus-reactivation-and-tdp-43-feedback" data-dismech-node="Endogenous Retrovirus Reactivation and TDP-43 Feedback" data-dismech-type="pathophysiology">
                 <div class="item-name">Endogenous Retrovirus Reactivation and TDP-43 Feedback</div>
+
 
                 <div class="item-desc">Reactivation of endogenous retroviruses (ERVs), in particular human endogenous retrovirus type K (HERV-K/HML-2), and TDP-43 proteinopathy are mutually reinforcing. ERV expression is sufficient to stimulate cytoplasmic aggregation of TDP-43, and viral ERV transmission propagates TDP-43 pathology to recipient cells, providing a self-sustaining positive-feedback loop that can drive intercellular spread and disease progression. ERV transcripts are elevated in ALS brain, and this loop is the mechanistic rationale for repurposing antiretroviral therapy (e.g., Triumeq) in ALS.
 </div>
@@ -12587,6 +12639,9 @@ This clinical feature is Cachexia (HP:0004326). HP:0004326 is a phenotype from t
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal Dominant</span>
@@ -12691,6 +12746,9 @@ This clinical feature is Cachexia (HP:0004326). HP:0004326 is a phenotype from t
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal Dominant</span>
@@ -12766,6 +12824,9 @@ This clinical feature is Cachexia (HP:0004326). HP:0004326 is a phenotype from t
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Causative)</span>
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -12845,6 +12906,9 @@ This clinical feature is Cachexia (HP:0004326). HP:0004326 is a phenotype from t
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal Dominant</span>
@@ -12920,6 +12984,9 @@ This clinical feature is Cachexia (HP:0004326). HP:0004326 is a phenotype from t
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Susceptibility)</span>
 
                 </div>
+
+
+
 
 
 
@@ -13017,6 +13084,9 @@ This disease-associated gene is ATXN2 (hgnc:10555). hgnc:10555 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -13085,6 +13155,9 @@ This disease-associated gene is ARHGEF28 (hgnc:30322). hgnc:30322 is a gene from
 
 
                 </div>
+
+
+
 
 
 
@@ -13161,6 +13234,9 @@ This disease-associated gene is ARPP21 (hgnc:16968). hgnc:16968 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -13229,6 +13305,9 @@ This disease-associated gene is CAV1 (hgnc:1527). hgnc:1527 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -13305,6 +13384,9 @@ This disease-associated gene is CAV2 (hgnc:1528). hgnc:1528 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -13373,6 +13455,9 @@ This disease-associated gene is CFAP410 (hgnc:1260). hgnc:1260 is a gene from th
 
 
                 </div>
+
+
+
 
 
 
@@ -13449,6 +13534,9 @@ This disease-associated gene is DCTN1 (hgnc:2711). hgnc:2711 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -13517,6 +13605,9 @@ This disease-associated gene is DNAJC7 (hgnc:12392). hgnc:12392 is a gene from t
 
 
                 </div>
+
+
+
 
 
 
@@ -13593,6 +13684,9 @@ This disease-associated gene is GLE1 (hgnc:4315). hgnc:4315 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -13661,6 +13755,9 @@ This disease-associated gene is GLT8D1 (hgnc:24870). hgnc:24870 is a gene from t
 
 
                 </div>
+
+
+
 
 
 
@@ -13737,6 +13834,9 @@ This disease-associated gene is LGALSL (hgnc:25012). hgnc:25012 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -13805,6 +13905,9 @@ This disease-associated gene is NEFH (hgnc:7737). hgnc:7737 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -13881,6 +13984,9 @@ This disease-associated gene is NUP50 (hgnc:8065). hgnc:8065 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -13949,6 +14055,9 @@ This disease-associated gene is PRPH (hgnc:9461). hgnc:9461 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -14025,6 +14134,9 @@ This disease-associated gene is SPTLC2 (hgnc:11278). hgnc:11278 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -14097,6 +14209,9 @@ This disease-associated gene is SS18L1 (hgnc:15592). hgnc:15592 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -14165,6 +14280,9 @@ This disease-associated gene is TAF15 (hgnc:11547). hgnc:11547 is a gene from th
 
 
                 </div>
+
+
+
 
 
 

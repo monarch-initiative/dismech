@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4482,6 +4521,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-loss-of-function-orai1-variants" data-dismech-node="Biallelic Loss-of-Function ORAI1 Variants" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic Loss-of-Function ORAI1 Variants</div>
 
+
                 <div class="item-desc">Homozygous or compound heterozygous ORAI1 variants. Reported alleles include the founding p.R91W missense change, frameshift/nonsense alleles (p.A88SfsX25, p.V181SfsX8), and missense alleles p.A103E, p.L194P and p.G98R. Frameshift and several missense alleles abolish ORAI1 protein expression outright; p.R91W leaves protein expressed but non-conducting, so both null and functionally-null genotypes converge on the same cellular phenotype.
 </div>
 
@@ -4547,6 +4587,8 @@ This pathophysiological event involves ORAI1 (hgnc:25896), qualified as loss of 
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4565,6 +4607,9 @@ This pathophysiological event involves ORAI1 (hgnc:25896), qualified as loss of 
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Germline biallelic ORAI1 alleles. Both protein-abolishing (frameshift, nonsense, several missense) and expression-preserving but pore-inactivating (p.R91W) mechanisms are represented.</div>
 
@@ -4664,6 +4709,7 @@ This pathophysiological event involves ORAI1 (hgnc:25896), qualified as loss of 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-crac-channel-pore-function" data-dismech-node="Loss of CRAC Channel Pore Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of CRAC Channel Pore Function</div>
+
 
                 <div class="item-desc">ORAI1 is the pore-forming subunit of the CRAC channel. Without functional ORAI1, STIM1 has no pore to gate on store depletion, and the CRAC current (I_CRAC) is absent. That ORAI1 is the pore rather than a regulator is established by the rescue experiment: expressing wild-type Orai1 in patient SCID T cells restores both store-operated calcium influx and I_CRAC.
 </div>
@@ -4780,6 +4826,7 @@ This pathophysiological event involves store-operated calcium channel activity (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-abolished-store-operated-calcium-entry" data-dismech-node="Abolished Store-Operated Calcium Entry" data-dismech-type="pathophysiology">
                 <div class="item-name">Abolished Store-Operated Calcium Entry</div>
+
 
                 <div class="item-desc">Store-operated calcium entry is the dominant sustained calcium influx pathway in lymphocytes. Its loss is demonstrable in patient T cells, fibroblasts and other cell types, and is the single cellular lesion from which every downstream arm of the disease follows. Because ORAI1 is expressed almost ubiquitously, the lesion is present in far more tissues than are clinically affected — the restriction of the phenotype reflects where SOCE is non-redundant, not where ORAI1 is expressed.
 </div>
@@ -5013,6 +5060,7 @@ This pathophysiological event involves decreased store-operated calcium entry (G
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-calcineurin-nfat-dependent-transcription" data-dismech-node="Failure of Calcineurin-NFAT Dependent Transcription" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Calcineurin-NFAT Dependent Transcription</div>
 
+
                 <div class="item-desc">NFAT is heavily phosphorylated and cytoplasmic in resting lymphocytes and enters the nucleus only when dephosphorylated by the calcium/calmodulin dependent phosphatase calcineurin. Without sustained calcium entry calcineurin is not activated, NFAT does not translocate, and the large NFAT-dependent transcriptional programme — cytokines, chemokines and many other genes required for a productive immune response — is not induced.
 </div>
 
@@ -5136,6 +5184,7 @@ This pathophysiological event involves decreased calcineurin-NFAT signaling casc
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-t-cell-effector-function" data-dismech-node="Impaired T Cell Effector Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired T Cell Effector Function</div>
+
 
                 <div class="item-desc">The defining immunological abnormality. T cells are present in normal numbers and develop normally, but fail to produce cytokines and fail to proliferate on stimulation. This is a functional, not a developmental, combined immunodeficiency — the point at which ORAI1 deficiency separates from the classical T-negative severe combined immunodeficiencies.
 </div>
@@ -5321,6 +5370,7 @@ This pathophysiological event involves decreased T cell proliferation (GO:004209
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-invariant-nkt-and-regulatory-t-cell-numbers" data-dismech-node="Reduced Invariant NKT and Regulatory T Cell Numbers" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Invariant NKT and Regulatory T Cell Numbers</div>
 
+
                 <div class="item-desc">Beyond the functional defect in conventional T cells, ORAI1-deficient patients have strongly reduced numbers of invariant natural killer T cells and regulatory T cells, and altered composition of gamma-delta T cell and NK cell subsets. Loss of the regulatory compartment is the most plausible route from a calcium-signalling defect to the autoimmunity these patients develop, which is otherwise a counterintuitive feature of an immunodeficiency.
 </div>
 
@@ -5475,6 +5525,7 @@ This pathophysiological event involves decreased regulatory T cell differentiati
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-susceptibility-to-severe-infection" data-dismech-node="Susceptibility to Severe Infection" data-dismech-type="pathophysiology">
                 <div class="item-name">Susceptibility to Severe Infection</div>
 
+
                 <div class="item-desc">Recurrent and life-threatening infection presenting in infancy, the clinical presentation that brings these patients to attention. Untreated, the immunodeficiency is fatal in early childhood.
 </div>
 
@@ -5552,6 +5603,7 @@ This pathophysiological event involves decreased regulatory T cell differentiati
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-autoimmunity" data-dismech-node="Autoimmunity" data-dismech-type="pathophysiology">
                 <div class="item-name">Autoimmunity</div>
+
 
                 <div class="item-desc">Autoimmune cytopenias — haemolytic anaemia and thrombocytopenia — occur in ORAI1-deficient patients alongside the immunodeficiency, and where they occur they are attributed to loss of the regulatory T cell compartment rather than to the effector defect. How often they occur is disputed and the entry does not settle it. The published series up to 2015 record the same single autoimmune patient — 1 of 6 in the 2009 report, which states it covers every ORAI1 patient then known, and 1 of 7 in the 2015 review, whose denominator is those six plus one later patient — and the review calls autoimmunity less common in ORAI1 than in STIM1 deficiency on that basis. Lian 2018 then reported three affected patients in one series. So the disagreement is between an early near-complete census and a later series, not between two independent cohorts. The review itself notes that the small patient numbers and early mortality may censor the observation rather than establish a low rate. The node is retained because the phenomenon is real and mechanistically informative about the Treg compartment, not because it is a recurrent feature of every patient.
 </div>
@@ -5684,6 +5736,7 @@ This pathophysiological event involves decreased regulatory T cell differentiati
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-skeletal-muscle-calcium-handling" data-dismech-node="Impaired Skeletal Muscle Calcium Handling" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Skeletal Muscle Calcium Handling</div>
+
 
                 <div class="item-desc">A congenital, non-progressive muscular hypotonia is part of the core syndrome. Store-operated calcium entry contributes to refilling sarcoplasmic reticulum calcium stores in skeletal muscle, and its loss produces a myopathy that is present from birth and does not progress in the way an inflammatory or dystrophic myopathy would.
 </div>
@@ -5869,6 +5922,7 @@ This pathophysiological event involves decreased skeletal muscle contraction (GO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-enamel-mineralization" data-dismech-node="Defective Enamel Mineralization" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective Enamel Mineralization</div>
 
+
                 <div class="item-desc">Ameloblasts depend on CRAC-mediated calcium influx to supply the calcium used to mineralize enamel. Loss of that supply produces an amelogenesis imperfecta-like enamel phenotype affecting both deciduous and permanent teeth, with discoloration, hypoplasia, increased wear and chipping. In some reported patients the dental problem was the chief presenting complaint.
 </div>
 
@@ -6044,6 +6098,7 @@ This pathophysiological event involves decreased enamel mineralization (GO:00701
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sweat-gland-secretory-failure" data-dismech-node="Sweat Gland Secretory Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Sweat Gland Secretory Failure</div>
+
 
                 <div class="item-desc">Anhidrosis or hypohidrosis, part of the ectodermal dysplasia component of the syndrome. Sweat gland fluid secretion is calcium-dependent, and loss of store-operated calcium entry in sweat gland secretory cells is the presumed mechanism. The step from SOCE loss to failed secretion has been reasoned from the phenotype rather than measured directly in patient sweat gland tissue, which is why the incoming edge is marked indirect.
 </div>
@@ -6749,6 +6804,9 @@ This disease-associated gene is ORAI1 (hgnc:25896). hgnc:25896 is a gene from th
 
 
                 </div>
+
+
+
 
 
 

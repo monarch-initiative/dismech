@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -5566,6 +5605,7 @@ by the rearrangement have been suggested"</div>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-segmental-copy-number-gain-on-xq" data-dismech-node="Segmental Copy Number Gain on Xq" data-dismech-type="pathophysiology">
                 <div class="item-name">Segmental Copy Number Gain on Xq</div>
 
+
                 <div class="item-desc">An extra copy of a segment of the long arm of the X chromosome. In males this arises most often as an intrachromosomal duplication transmitted by a non-manifesting mother, and less often from an unbalanced X/Y or X/autosome translocation. Duplication size and gene content vary widely, from cytogenetically visible multi-megabase segments to submicroscopic gains encompassing only one or a few genes detectable by array CGH.
 </div>
 
@@ -5645,6 +5685,7 @@ autosome translocation."</div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-x-chromosome-dosage-compensation" data-dismech-node="Failure of X-Chromosome Dosage Compensation" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of X-Chromosome Dosage Compensation</div>
+
 
                 <div class="item-desc">X-chromosome inactivation, initiated from the X-inactivation centre (XIC) at Xq13, normally equalises X-linked gene expression between XX and XY cells. This safeguard fails in three distinguishable ways. In XY males there is no second X to inactivate, so any structural Xq disomy is obligatorily functional disomy. In females carrying an intrachromosomal duplication, inactivation is usually skewed towards the abnormal X, which rescues the phenotype; manifesting females are those with a random inactivation pattern. In females with an unbalanced X/autosome translocation, the translocated X segment is physically separated from its XIC in cis and therefore cannot be inactivated at all, so the phenotype is fully expressed and can be as severe as in males.
 </div>
@@ -5790,6 +5831,7 @@ carrier females show complete skewing of X inactivation."</div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-functional-xq-disomy-and-increased-gene-dosage" data-dismech-node="Functional Xq Disomy and Increased Gene Dosage" data-dismech-type="pathophysiology">
                 <div class="item-name">Functional Xq Disomy and Increased Gene Dosage</div>
+
 
                 <div class="item-desc">Double expression of the X-linked genes lying within the duplicated segment. Because most X-linked genes are not tolerant of a twofold expression increase, the identity of the dosage-sensitive genes captured by the duplication determines which organ systems are affected — this is why breakpoint position, not duplication size alone, drives the phenotype.
 </div>
@@ -6022,6 +6064,7 @@ segment."</div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mecp2-overexpression" data-dismech-node="MECP2 Overexpression" data-dismech-type="pathophysiology">
                 <div class="item-name">MECP2 Overexpression</div>
+
 
                 <div class="item-desc">MeCP2 is a methyl-CpG-binding chromatin protein expressed most highly in post-mitotic, post-migratory neurons. Its level must be tightly regulated in both directions: loss of function causes Rett syndrome, while a roughly twofold increase from duplication is itself pathogenic. The duplicated allele is structurally wild type, so this is a quantitative overexpression rather than a qualitative change in protein function. Copy number is transmitted through to protein: patient-derived lymphoblastoid RNA and protein levels are correlated, and triplications produce significantly more MECP2 transcript than duplications.
 </div>
@@ -6277,6 +6320,7 @@ and MECP2 protein levels."</div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-neuronal-maturation-and-progressive-neurological-decline" data-dismech-node="Impaired Neuronal Maturation and Progressive Neurological Decline" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Neuronal Maturation and Progressive Neurological Decline</div>
+
 
                 <div class="item-desc">Excess MeCP2 disturbs activity-dependent transcriptional regulation in maturing neurons. In transgenic mice expressing MeCP2 at approximately twice wild-type levels the course is biphasic and delayed: an early period of enhanced hippocampal synaptic plasticity and learning is followed after 20 weeks by seizures, hypoactivity and premature death. This delayed, progressive trajectory mirrors the human course, in which early hypotonia and developmental delay give way to progressive spasticity and epilepsy.
 </div>
@@ -6581,6 +6625,7 @@ severe form of MR associated with progressive spasticity."</div>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dosage-and-architecture-dependent-severity-gradient" data-dismech-node="Dosage- and Architecture-Dependent Severity Gradient" data-dismech-type="pathophysiology">
                 <div class="item-name">Dosage- and Architecture-Dependent Severity Gradient</div>
 
+
                 <div class="item-desc">Severity is graded rather than all-or-none, and is set by two partly separable variables: the absolute level of MeCP2 (triplication worse than duplication) and the structural class of the rearrangement itself. Phenotypic burden — survival, developmental level, microcephaly, epilepsy, and genitourinary/eye anomalies — worsens progressively across tandem duplications, other complex rearrangements, terminal duplications/translocations, and triplications. Rearrangement structure therefore contributes to expression variability independently of copy number alone, plausibly through position effects and disruption of regulatory architecture at the breakpoints.
 </div>
 
@@ -6674,6 +6719,7 @@ variability."</div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sox3-overdosage" data-dismech-node="SOX3 Overdosage" data-dismech-type="pathophysiology">
                 <div class="item-name">SOX3 Overdosage</div>
+
 
                 <div class="item-desc">SOX3 is a developmental transcription factor at Xq27.1 expressed in the infundibulum. Both over- and underdosage impair infundibular development and produce hypopituitarism, indicating a narrow tolerated expression window rather than a simple loss-of-function relationship. This is the mechanistic basis of the hypopituitary presentations of Xq26-q27 duplication.
 </div>
@@ -6835,6 +6881,7 @@ of infundibular hypoplasia and hypopituitarism but not necessarily MR."</div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-stag2-dosage-and-cohesin-dysregulation" data-dismech-node="Increased STAG2 Dosage and Cohesin Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased STAG2 Dosage and Cohesin Dysregulation</div>
+
 
                 <div class="item-desc">STAG2 encodes a subunit of the cohesin complex, which mediates sister chromatid cohesion and, critically for this phenotype, shapes chromatin architecture and enhancer-promoter looping. Increased STAG2 copy number at Xq25 is proposed to act by dysregulating cohesin downstream target genes, placing this interval among the cohesinopathies. The transcriptional consequences are inferred from the mapping data rather than directly measured in patients.
 </div>
@@ -7006,6 +7053,7 @@ findings of this syndrome."</div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-plp1-dosage-and-central-dysmyelination" data-dismech-node="Increased PLP1 Dosage and Central Dysmyelination" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased PLP1 Dosage and Central Dysmyelination</div>
+
 
                 <div class="item-desc">PLP1 at Xq22 encodes proteolipid protein 1, a protein of central nervous system myelin, and is dosage sensitive: complete duplication of the gene is the cause of most Pelizaeus-Merzbacher disease. A proximal Xq duplication that includes Xq22 therefore carries a distinct mechanism from the distal Xq loci in this entry - a disorder of central myelin formation rather than of neuronal maturation or pituitary development - which is consistent with aberrant brain myelination being reported in the proximal Xq21-q24 phenotype.
 </div>
@@ -7236,6 +7284,7 @@ This pathophysiological event involves abnormal myelination (GO:0042552). GO:004
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-irak1-dosage" data-dismech-node="Increased IRAK1 Dosage" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased IRAK1 Dosage</div>
+
 
                 <div class="item-desc">IRAK1 and IKBKG lie immediately telomeric to MECP2 and are usually contained within the duplicated Xq28 segment. Both are innate immune signalling components downstream of the Toll-like and IL-1 receptors, and their increased dosage has been proposed as the explanation for the recurrent respiratory infections that distinguish Xq28 functional disomy from other X-linked intellectual disability/hypotonia syndromes. This remains a proposed rather than demonstrated mechanism: the one direct pathway test found that patient cells do not show increased canonical NF-kB signalling despite the IRAK1 duplication.
 </div>
@@ -10349,6 +10398,9 @@ This disease-associated gene is MECP2 (hgnc:6990). hgnc:6990 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -10447,6 +10499,9 @@ This disease-associated gene is SOX3 (hgnc:11199). hgnc:11199 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10515,6 +10570,9 @@ This disease-associated gene is STAG2 (hgnc:11355). hgnc:11355 is a gene from th
 
 
                 </div>
+
+
+
 
 
 
@@ -10593,6 +10651,9 @@ This disease-associated gene is L1CAM (hgnc:6470). hgnc:6470 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10667,6 +10728,9 @@ This disease-associated gene is IRAK1 (hgnc:6112). hgnc:6112 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10736,6 +10800,9 @@ This disease-associated gene is PLP1 (hgnc:9086). hgnc:9086 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 

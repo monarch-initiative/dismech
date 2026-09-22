@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4999,6 +5038,7 @@ The contact-site direction sharpens this further, and cuts against a simple read
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-wolframin-at-the-endoplasmic-reticulum-membrane" data-dismech-node="Loss of Wolframin at the Endoplasmic Reticulum Membrane" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Wolframin at the Endoplasmic Reticulum Membrane</div>
 
+
                 <div class="item-desc">Biallelic loss-of-function variants in WFS1 remove wolframin, a multipass transmembrane glycoprotein of the endoplasmic reticulum. Wolframin holds three jobs at once: it negatively regulates the unfolded protein response, it maintains endoplasmic reticulum calcium stores, and it supports the contact sites where the endoplasmic reticulum meets mitochondria. Nothing downstream in this entry is a separate insult; every later node is one of those three jobs going unattended.</div>
 
 
@@ -5196,6 +5236,7 @@ This pathophysiological event involves endoplasmic reticulum membrane (GO:000578
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-cisd2-at-organelle-contact-membranes" data-dismech-node="Loss of CISD2 at Organelle Contact Membranes" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of CISD2 at Organelle Contact Membranes</div>
 
+
                 <div class="item-desc">Biallelic loss-of-function variants remove CISD2, an integral membrane protein present at the endoplasmic reticulum, mitochondrial outer membrane, and mitochondria-associated endoplasmic-reticulum membranes. Unlike wolframin, CISD2 does not interact with WFS1 directly. Its loss independently disrupts intracellular calcium handling, organelle contacts, mitochondrial function, and beta-cell insulin secretion.</div>
 
 
@@ -5368,6 +5409,7 @@ This pathophysiological event involves mitochondria-associated endoplasmic retic
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-unrestrained-er-stress-signaling-through-atf6-alpha" data-dismech-node="Unrestrained ER Stress Signaling Through ATF6-alpha" data-dismech-type="pathophysiology">
                 <div class="item-name">Unrestrained ER Stress Signaling Through ATF6-alpha</div>
+
 
                 <div class="item-desc">Wolframin&#39;s mechanism of restraint is specific and now well defined. It stabilizes the E3 ubiquitin ligase HRD1, brings the transcription factor ATF6-alpha to the proteasome, and enhances its ubiquitination and degradation. Without wolframin, ATF6-alpha accumulates, its target genes are derepressed, and the endoplasmic reticulum stress response element promoter is activated. Patient lymphocytes show the same dysregulation, with ATF6-alpha up and HRD1 down. A chronically engaged unfolded protein response is not a louder version of a normal signal; it is an alarm that never stops, and the building is eventually evacuated for good.</div>
 
@@ -5566,6 +5608,7 @@ This pathophysiological event involves decreased ATF6-alpha ubiquitination and p
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-er-mitochondria-contact-and-calcium-transfer-dysregulation" data-dismech-node="ER-Mitochondria Contact and Calcium Transfer Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">ER-Mitochondria Contact and Calcium Transfer Dysregulation</div>
+
 
                 <div class="item-desc">Wolframin forms a complex with neuronal calcium sensor 1 (NCS1) and the inositol 1,4,5-trisphosphate receptor to move calcium from the endoplasmic reticulum into mitochondria at mitochondria-associated membranes. In WFS1-null patient fibroblasts, NCS1 abundance falls, endoplasmic reticulum to mitochondria contacts and calcium exchange fall. CISD2 deficiency converges on the same compartment: isogenic CISD2-knockout human cortical neurons lose contact sites and calcium transfer, whereas one patient CISD2 missense variant increased both in fibroblasts. The node therefore records dysregulation, not a universal direction of effect across both molecular subtypes.</div>
 
@@ -5779,6 +5822,7 @@ This pathophysiological event involves mitochondria-associated endoplasmic retic
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mitochondrial-dysfunction" data-dismech-node="Mitochondrial Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Mitochondrial Dysfunction</div>
 
+
                 <div class="item-desc">Disturbed calcium exchange at endoplasmic-reticulum to mitochondria contact sites disrupts mitochondrial dynamics and bioenergetics. WFS1 knockdown in neurons inhibits mitochondrial fusion, alters trafficking, and augments mitophagy. CISD2-knockout human cortical neurons show reduced oxygen consumption, ATP production, and mitochondrial membrane-potential maintenance. These subtype-specific experiments converge on one atomic mitochondrial dysfunction node.</div>
 
 
@@ -5985,6 +6029,7 @@ This pathophysiological event involves dysregulated mitochondrion organization (
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-neuronal-development" data-dismech-node="Impaired Neuronal Development" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Neuronal Development</div>
 
+
                 <div class="item-desc">WFS1 down-regulation in neurons delays development downstream of endoplasmic-reticulum stress, calcium dyshomeostasis, and disturbed mitochondrial dynamics. Interventions at each upstream level improve the downstream steps, supporting a causal developmental branch rather than an imaging correlation alone.</div>
 
 
@@ -6158,6 +6203,7 @@ This pathophysiological event involves decreased neuron development (GO:0048666)
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cytosolic-calcium-dysregulation" data-dismech-node="Cytosolic Calcium Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Cytosolic Calcium Dysregulation</div>
 
+
                 <div class="item-desc">WFS1-knockout insulinoma cells have impaired intracellular calcium homeostasis and Akt signaling, with reduced viability and glucose-stimulated insulin secretion. Re-expressing WFS1, overexpressing NCS1, or treating with a calpain inhibitor or ibudilast reverses these deficits. Because the quoted experiments do not directly quantify calpain activation, this node records only the demonstrated calcium dysregulation.</div>
 
 
@@ -6300,6 +6346,7 @@ This pathophysiological event involves pancreatic beta cell, annotated with type
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-beta-cell-apoptosis" data-dismech-node="Beta Cell Apoptosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Beta Cell Apoptosis</div>
+
 
                 <div class="item-desc">Chronic unresolvable endoplasmic reticulum stress and calcium dyshomeostasis converge on intrinsic apoptosis in pancreatic beta cells. The loss is non-autoimmune and progressive. This node is restricted to demonstrated cell death; the downstream hormone deficit is represented separately so that replacement insulin does not appear to reverse apoptosis.</div>
 
@@ -6448,6 +6495,7 @@ This pathophysiological event involves increased intrinsic apoptotic signaling i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-insulin-deficiency" data-dismech-node="Insulin Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Insulin Deficiency</div>
+
 
                 <div class="item-desc">Endogenous insulin supply falls through two related but non-identical routes. Progressive non-autoimmune beta-cell loss dominates WFS1, whereas CISD2 loss in beta cells also impairs beta-granule synthesis, calcium-mediated secretory signaling, and glucose-stimulated insulin secretion. The hormone deficit is the immediate mechanism producing diabetes mellitus and the mechanism restored by exogenous insulin.</div>
 
@@ -6659,6 +6707,7 @@ This pathophysiological event involves decreased insulin secretion (GO:0030073).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-retinal-ganglion-cell-and-cns-neuron-degeneration" data-dismech-node="Retinal Ganglion Cell and CNS Neuron Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Retinal Ganglion Cell and CNS Neuron Degeneration</div>
 
+
                 <div class="item-desc">Cell-intrinsic stress, calcium-transfer defects, and mitochondrial dysfunction reduce the survival of retinal ganglion cells and long-projection central neurons. Retinal ganglion cell loss thins the retinal nerve fiber layer and produces the bilateral progressive optic atrophy that, paired with early diabetes, defines the syndrome clinically. WFS1 evidence directly links endoplasmic-reticulum stress to cell death; CISD2-knockout human cortical neurons show markedly reduced resilience to an apoptosis inducer.</div>
 
 
@@ -6860,6 +6909,7 @@ This pathophysiological event involves increased neuron apoptotic process (GO:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hypothalamic-magnocellular-neuron-loss" data-dismech-node="Hypothalamic Magnocellular Neuron Loss" data-dismech-type="pathophysiology">
                 <div class="item-name">Hypothalamic Magnocellular Neuron Loss</div>
 
+
                 <div class="item-desc">Human neuropathology in WS1 shows gliosis and severe loss of magnocellular neurons in the supraoptic and paraventricular hypothalamic nuclei. Loss of these vasopressin-producing neurons supplies the tissue-level link between the molecular WFS1 defect and central diabetes insipidus; the upstream molecular steps that create this selective vulnerability are not yet resolved.</div>
 
 
@@ -6991,6 +7041,7 @@ This pathophysiological event occurs in hypothalamus (UBERON:0001898). UBERON:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cochlear-and-auditory-pathway-degeneration" data-dismech-node="Cochlear and Auditory Pathway Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Cochlear and Auditory Pathway Degeneration</div>
 
+
                 <div class="item-desc">Human WS1 neuropathology shows a continuous pattern of auditory-system injury: loss of the organ of Corti in basal cochlear turns, cochlear-nerve fibers, and neurons in the cochlear nuclei and inferior colliculus. This regional lesion connects WFS1 deficiency to the progressive sensorineural hearing phenotype without assuming that every affected person has injury at every listed site.</div>
 
 
@@ -7087,6 +7138,7 @@ This pathophysiological event occurs in cochlea (UBERON:0001844). UBERON:0001844
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lower-urinary-tract-neural-dysfunction" data-dismech-node="Lower Urinary Tract Neural Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Lower Urinary Tract Neural Dysfunction</div>
+
 
                 <div class="item-desc">Neurologic and autonomic involvement in WS1 disrupts lower-urinary-tract control. Urodynamic studies show both hypocontractile detrusor and detrusor-sphincter dyssynergia, explaining how the neural disease produces neurogenic bladder and, secondarily, upper-tract dilatation.</div>
 
@@ -7217,6 +7269,7 @@ This pathophysiological event occurs in urinary bladder (UBERON:0001255). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-brainstem-and-cerebellar-volume-loss" data-dismech-node="Brainstem and Cerebellar Volume Loss" data-dismech-type="pathophysiology">
                 <div class="item-name">Brainstem and Cerebellar Volume Loss</div>
+
 
                 <div class="item-desc">Volume loss centers on the brainstem, ventral pons, and cerebellum, and it is already measurable at the earliest clinical presentation, in the youngest patients with the mildest symptoms. Longitudinal morphometry separates two processes that clinical intuition tends to blur: controls gained white matter volume where the Wolfram group was flat in the optic radiations or shrinking in the brainstem and ventral pons, so there is failed developmental growth as well as frank degeneration. That distinction is not academic. Because part of the deficit is growth that never happened, a disease-modifying therapy plausibly has to start before or around the time diabetes is diagnosed to capture the full benefit. Progressive bulbar dysfunction and central apnea from this territory are what ultimately kill.</div>
 
@@ -10132,6 +10185,9 @@ This disease-associated gene is WFS1 (hgnc:12762). hgnc:12762 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -10252,6 +10308,9 @@ This disease-associated gene is CISD2 (hgnc:24212). hgnc:24212 is a gene from th
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 

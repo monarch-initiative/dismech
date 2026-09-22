@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -5379,6 +5418,7 @@ Worse, the two null lines disagree with EACH OTHER. Wang&#39;s knockout gave ost
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-heterozygous-ano5-missense-variant" data-dismech-node="Heterozygous ANO5 Missense Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">Heterozygous ANO5 Missense Variant</div>
 
+
                 <div class="item-desc">GDD is caused by a heterozygous missense variant in ANO5 (TMEM16E), the gene originally designated GDD1. The reported alleles are strikingly clustered: the founding Japanese and African American families carried substitutions at the evolutionarily conserved cysteine 356 (p.Cys356Arg, p.Cys356Gly, and later p.Cys356Tyr), and subsequent families added p.Cys360Tyr, p.Arg215Gly, p.Ser500Phe, p.Thr513Ile and p.Gly518Glu. All map either to the extracellular loop following the first transmembrane domain or to the fourth putative transmembrane domain, which is what makes a simple gene-dosage explanation implausible: a haploinsufficiency mechanism would tolerate nonsense and frameshift alleles anywhere in the gene, and those alleles instead produce a recessive myopathy.</div>
 
 
@@ -5430,6 +5470,8 @@ This genetic context concerns ANO5 (hgnc:27337). hgnc:27337 is a gene from the H
 
 
 
+
+
         <span class="tag tag-classification">allele_type: Missense substitution clustered at ANO5 residues 215, 356, 360, 500, 513 and 518</span>
 
 
@@ -5445,6 +5487,9 @@ This genetic context concerns ANO5 (hgnc:27337). hgnc:27337 is a gene from the H
         <span class="tag tag-classification">functional_impact_category: GAIN_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Heterozygous germline ANO5 missense allele. `functional_impact_category` is set to GAIN_OF_FUNCTION rather than LOSS_OF_FUNCTION on two converging grounds: the dominant inheritance with a restricted missense spectrum, and functional assay data. Note the scope of that assay evidence precisely - the calcium-independent-scrambling demonstration is for p.Thr513Ile specifically (PMID:29124309), and the class-level claim that GDD alleles gain function while muscular-dystrophy alleles lose it comes from a separate head-to-head comparison (PMID:32112655) that did not name every allele it tested. It is NOT established that every GDD allele behaves this way; the two commonest, p.Cys356Tyr and p.Cys360Tyr, have published *reduced* steady-state protein in overexpression. The category is therefore an allele-class judgement, and the competing loss-of-function reading is not dismissed - see the mechanistic hypotheses and the `gdd_gof_vs_lof_dispute` discussion.</div>
 
@@ -5542,6 +5587,7 @@ This genetic context concerns ANO5 (hgnc:27337). hgnc:27337 is a gene from the H
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-altered-calcium-activated-phospholipid-scrambling-by-tmem16e" data-dismech-node="Altered Calcium-Activated Phospholipid Scrambling by TMEM16E" data-dismech-type="pathophysiology">
                 <div class="item-name">Altered Calcium-Activated Phospholipid Scrambling by TMEM16E</div>
+
 
                 <div class="item-desc">ANO5 encodes TMEM16E/anoctamin-5, a member of the TMEM16 family that behaves as a calcium-activated phospholipid scramblase and a poorly selective ion conduit, and that localizes predominantly to the endoplasmic reticulum rather than the plasma membrane. In heterologous expression, the GDD-associated p.Thr513Ile protein scrambles phospholipid and carries large currents even at very low cytosolic calcium, i.e. it is uncoupled from its normal calcium gating rather than inactivated. When GDD alleles and muscular-dystrophy alleles were compared side by side in the same assay system, they moved in opposite directions - GDD towards gain of function, muscular dystrophy towards loss of function. This is the node at which the two ANO5 diseases separate, and it is why bone disease is not simply &#34;less ANO5&#34;.</div>
 
@@ -5840,6 +5886,7 @@ This pathophysiological event involves phospholipid scramblase activity (GO:0017
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pro-osteogenic-signalling-dysregulation-in-osteoblasts" data-dismech-node="Pro-Osteogenic Signalling Dysregulation in Osteoblasts" data-dismech-type="pathophysiology">
                 <div class="item-name">Pro-Osteogenic Signalling Dysregulation in Osteoblasts</div>
+
 
                 <div class="item-desc">The osteoblast-side intermediate between the ANO5 defect and the remodelling imbalance. Four convergent mouse studies identify signalling routes by which perturbed ANO5 drives excess bone formation: AMPK phosphorylation rises and accelerates glycolysis and PGC1a-dependent mitochondrial respiration; AMPK in turn upregulates ATG9A and activates autophagy, which is required for the excess osteogenesis; miR-34c-5p falls, de-repressing KLF4 and activating canonical Wnt/beta-catenin; and Akt phosphorylation falls, with Akt re-activation suppressing mineralization. Each arm has a pharmacological or genetic rescue.
 READ THE GENOTYPES BEFORE TRANSFERRING ANY OF THIS TO HUMAN GDD. The AMPK and Akt arms come from the Ano5 p.Cys360Tyr knock-in, which carries an actual human GDD allele. The autophagy/ATG9A, miR-34c-5p/KLF4 and NF-kB arms come from Ano5-null mice - a genotype that in humans causes myopathy, not bone disease. So this node is better evidenced than the bare &#34;unknown intermediates&#34; it replaces, but it is not thereby established for human GDD, and the two model classes are not interchangeable. See `gdd_mouse_model_mismatch`.</div>
@@ -6215,6 +6262,7 @@ This pathophysiological event involves increased AMP-activated protein kinase ac
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-osteoclast-differentiation-blockade-and-apoptosis" data-dismech-node="Osteoclast Differentiation Blockade and Apoptosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Osteoclast Differentiation Blockade and Apoptosis</div>
 
+
                 <div class="item-desc">The osteoclast-side intermediate. Perturbed ANO5 suppresses RANKL-induced early signalling and the NF-kB pathway, reducing NFATc1, c-Fos and the osteoclast effector programme and leaving disrupted actin rings with impaired mineral resorption. Separately, calcium dyshomeostasis in Ano5-null osteoclasts drives an overactivated endoplasmic-reticulum stress response and CHOP-mediated apoptosis, so osteoclasts are both under-differentiated and actively lost. Akt is the third arm: it is reduced in the knock-in, and the Akt activator SC79 restores multinucleated osteoclast formation.
 The same genotype caveat as the osteoblast node applies - the NF-kB and ER-stress arms are null-mouse work.</div>
 
@@ -6514,6 +6562,7 @@ This pathophysiological event involves increased osteoclast apoptosis, annotated
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysregulated-osteoblast-and-osteoclast-differentiation" data-dismech-node="Dysregulated Osteoblast and Osteoclast Differentiation" data-dismech-type="pathophysiology">
                 <div class="item-name">Dysregulated Osteoblast and Osteoclast Differentiation</div>
+
 
                 <div class="item-desc">ANO5 is expressed in osteoblasts and periodontal ligament cells, and manipulating it in cell culture perturbs both arms of bone remodelling. Knockdown in osteoblast precursors raises osteoblast marker expression and mineral nodule formation, while ANO5 supports RANKL-driven osteoclast differentiation through Akt-NFATc1 signalling and its loss impairs osteoclastogenesis and actin-ring formation. The direction of effect is not consistent across systems - which is itself informative, and is the reason the cellular arm is curated as a hypothesis-tagged step rather than a settled mechanism. Both processes therefore carry `modifier: DYSREGULATED` rather than a direction: knockdown in MC3T3-E1 precursors increased osteoblast markers and mineralization, ANO5 downregulation in another system did not affect osteoblast differentiation at all, and the Ano5-null osteoblasts of a third study showed decreased indices. Asserting INCREASED here would pick a winner among three published directions.</div>
 
@@ -6854,6 +6903,7 @@ This pathophysiological event involves dysregulated osteoclast differentiation (
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-high-turnover-skeletal-remodelling-imbalance" data-dismech-node="High-Turnover Skeletal Remodelling Imbalance" data-dismech-type="pathophysiology">
                 <div class="item-name">High-Turnover Skeletal Remodelling Imbalance</div>
 
+
                 <div class="item-desc">Full osteological assessment of a GDD patient carrying p.Ser500Phe showed increased trabecular bone mass with elevated serum markers of both bone formation and bone resorption, and an iliac crest biopsy with markedly increased osteoblast and osteoclast indices. GDD is therefore not a low-turnover sclerosing disease: bone is being both laid down and resorbed faster than normal, and the resulting tissue is sclerotic in the diaphyses yet mechanically inadequate. Elevated serum alkaline phosphatase is the usual laboratory correlate of this high-turnover presentation, but it is not universal across GDD: the osteopenic sub-entity has been reported with low bone-formation markers, and individual patients with normal ALP are documented.</div>
 
 
@@ -7034,6 +7084,7 @@ This pathophysiological event occurs in diaphysis (UBERON:0004769). UBERON:00047
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-jaw-cemento-osseous-fibrous-lesion-formation" data-dismech-node="Jaw Cemento-Osseous Fibrous Lesion Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Jaw Cemento-Osseous Fibrous Lesion Formation</div>
 
+
                 <div class="item-desc">The gnathic component of GDD is a multi-quadrant fibro-osseous lesion of the mandible and maxilla - cementum-like calcified deposits scattered in a fibroblastic stroma - that expands, deforms the face, and frequently becomes secondarily infected. It has been variously reported as florid cemento-osseous dysplasia, cemento-ossifying fibroma, or familial gigantiform cementoma, and ANO5 p.Cys356Tyr has since been found in familial gigantiform cementoma kindreds, suggesting that entity is an atypical variant of GDD rather than a separate disease. Notably, osteosclerosis - the hallmark of the long-bone lesion - is not a feature of the jaw lesion, so the two components of GDD are not the same pathology in two places.</div>
 
 
@@ -7181,6 +7232,7 @@ This pathophysiological event occurs in mandible (UBERON:0001684). UBERON:000168
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-diaphyseal-sclerosis-and-bone-fragility" data-dismech-node="Diaphyseal Sclerosis and Bone Fragility" data-dismech-type="pathophysiology">
                 <div class="item-name">Diaphyseal Sclerosis and Bone Fragility</div>
+
 
                 <div class="item-desc">The extragnathic skeletal phenotype: sclerosis and cortical thickening of the diaphyses of the tubular bones, bowing of the lower limbs, and recurrent fractures that typically begin around puberty but may present prenatally as bone bowing. The combination of radiographically dense bone with a high fracture rate is the feature that historically caused GDD to be misfiled as osteogenesis imperfecta.</div>
 
@@ -7359,6 +7411,7 @@ This pathophysiological event occurs in diaphysis (UBERON:0004769). UBERON:00047
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mandibular-osteomyelitis-and-facial-deformity" data-dismech-node="Mandibular Osteomyelitis and Facial Deformity" data-dismech-type="pathophysiology">
                 <div class="item-name">Mandibular Osteomyelitis and Facial Deformity</div>
+
 
                 <div class="item-desc">Jaw lesions enlarge through adolescence and adult life, producing maxillofacial deformity and malocclusion that may require orthognathic or reconstructive surgery, and are susceptible to purulent osteomyelitis. This was a defining feature of the original Japanese kindred.</div>
 
@@ -8441,6 +8494,9 @@ This disease-associated gene is ANO5 (hgnc:27337). hgnc:27337 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -8541,6 +8597,7 @@ This disease-associated gene is ANO5 (hgnc:27337). hgnc:27337 is a gene from the
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8562,7 +8619,13 @@ This variant is in ANO5 (hgnc:27337). hgnc:27337 is a gene from the HUGO Gene No
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">The most frequently recurring GDD allele, seen in unrelated GDD kindreds and in familial gigantiform cementoma.</div>
@@ -8625,6 +8688,7 @@ This variant is in ANO5 (hgnc:27337). hgnc:27337 is a gene from the HUGO Gene No
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8646,7 +8710,13 @@ This variant is in ANO5 (hgnc:27337). hgnc:27337 is a gene from the HUGO Gene No
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">The GDD allele with the most direct functional characterization: it confers calcium-independent phospholipid scrambling in heterologous expression. It is also the allele reported in a dominant kindred with combined muscle and bone involvement, so it is the pivot point for both the gain-of-function argument and the challenge to a clean phenotypic dichotomy.</div>
@@ -8709,6 +8779,7 @@ This variant is in ANO5 (hgnc:27337). hgnc:27337 is a gene from the HUGO Gene No
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8730,7 +8801,13 @@ This variant is in ANO5 (hgnc:27337). hgnc:27337 is a gene from the HUGO Gene No
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">The two founding GDD alleles, at the evolutionarily conserved cysteine 356.</div>
@@ -8793,6 +8870,7 @@ This variant is in ANO5 (hgnc:27337). hgnc:27337 is a gene from the HUGO Gene No
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8814,7 +8892,13 @@ This variant is in ANO5 (hgnc:27337). hgnc:27337 is a gene from the HUGO Gene No
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A recurrent GDD allele, reported with cementoma and purulent osteomyelitis, and the allele modelled by the p.Cys360Tyr knock-in mouse.</div>
@@ -8877,6 +8961,7 @@ This variant is in ANO5 (hgnc:27337). hgnc:27337 is a gene from the HUGO Gene No
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8898,7 +8983,13 @@ This variant is in ANO5 (hgnc:27337). hgnc:27337 is a gene from the HUGO Gene No
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A variant at the second recurrently affected cysteine, segregating with disease in a large Iranian kindred - useful because segregation across an extended pedigree is stronger evidence of pathogenicity than a single proband.</div>
@@ -8961,6 +9052,7 @@ This variant is in ANO5 (hgnc:27337). hgnc:27337 is a gene from the HUGO Gene No
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8982,7 +9074,13 @@ This variant is in ANO5 (hgnc:27337). hgnc:27337 is a gene from the HUGO Gene No
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A third substitution at cysteine 356, found by genome sequencing in a large family first diagnosed as cherubism - the allele that makes the cherubism differential concrete rather than theoretical.</div>
@@ -9045,6 +9143,7 @@ This variant is in ANO5 (hgnc:27337). hgnc:27337 is a gene from the HUGO Gene No
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -9066,7 +9165,13 @@ This variant is in ANO5 (hgnc:27337). hgnc:27337 is a gene from the HUGO Gene No
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A sporadic GDD allele lying in the extracellular loop after the first transmembrane domain - the more N-terminal of the two mutational clusters.</div>
@@ -9129,6 +9234,7 @@ This variant is in ANO5 (hgnc:27337). hgnc:27337 is a gene from the HUGO Gene No
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -9150,7 +9256,13 @@ This variant is in ANO5 (hgnc:27337). hgnc:27337 is a gene from the HUGO Gene No
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">The de novo in-frame insertion that anchors the low-bone-mass argument. Unlike every other allele curated here it is not a missense substitution, it reduces TMEM16E expression, and the family presented with osteopenia rather than osteosclerosis - which is why this entry curates two bone-mass directions and an EMERGING sub-entity hypothesis rather than a single phenotype.</div>
@@ -9238,6 +9350,7 @@ This variant is in ANO5 (hgnc:27337). hgnc:27337 is a gene from the HUGO Gene No
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -9259,7 +9372,13 @@ This variant is in ANO5 (hgnc:27337). hgnc:27337 is a gene from the HUGO Gene No
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A de novo GDD allele in a patient with recurrent femoral diaphyseal fractures, whose full osteological workup established the high-turnover osteosclerotic phenotype. Its murine equivalent is the knock-in that failed to reproduce GDD.</div>

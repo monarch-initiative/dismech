@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -5374,6 +5413,7 @@ This is deliberately recorded as an open question rather than curated as a mecha
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-shp2-gain-of-function-activation" data-dismech-node="SHP2 Gain-of-Function Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">SHP2 Gain-of-Function Activation</div>
 
+
                 <div class="item-desc">PTPN11 mutations destabilize the autoinhibitory interaction between the N-SH2 and PTP domains, resulting in constitutively elevated phosphatase activity. SHP2 is a positive regulator of RAS-MAPK signaling and gain-of-function mutations lead to enhanced ERK activation.</div>
 
 
@@ -5538,6 +5578,7 @@ This pathophysiological event involves protein tyrosine phosphatase activity (GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sos-family-mediated-ras-gtp-loading" data-dismech-node="SOS-Family-Mediated RAS-GTP Loading" data-dismech-type="pathophysiology">
                 <div class="item-name">SOS-Family-Mediated RAS-GTP Loading</div>
+
 
                 <div class="item-desc">SOS-family gain-of-function mutations encode guanine nucleotide exchange factor variants with enhanced activity, increasing the rate of RAS-GDP to RAS-GTP conversion and amplifying downstream MAPK signaling.</div>
 
@@ -5731,6 +5772,7 @@ This pathophysiological event involves guanyl-nucleotide exchange factor activit
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-raf1-kinase-hyperactivation" data-dismech-node="RAF1 Kinase Hyperactivation" data-dismech-type="pathophysiology">
                 <div class="item-name">RAF1 Kinase Hyperactivation</div>
 
+
                 <div class="item-desc">RAF1 mutations, particularly those altering Ser259 and flanking residues, disrupt 14-3-3 binding and autoinhibition, resulting in constitutively elevated serine-threonine kinase activity and enhanced MEK phosphorylation.</div>
 
 
@@ -5892,6 +5934,7 @@ This pathophysiological event involves protein serine/threonine kinase activity 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-rit1-mediated-raf-recruitment" data-dismech-node="RIT1-Mediated RAF Recruitment" data-dismech-type="pathophysiology">
                 <div class="item-name">RIT1-Mediated RAF Recruitment</div>
 
+
                 <div class="item-desc">RIT1 gain-of-function mutations cause aberrant membrane localization and RAF recruitment, bypassing normal RAS regulation and driving excessive MAPK pathway activation.</div>
 
 
@@ -6052,6 +6095,7 @@ This pathophysiological event involves Ras protein signal transduction (GO:00072
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lztr1-mediated-ras-proteostasis-defect" data-dismech-node="LZTR1-Mediated RAS Proteostasis Defect" data-dismech-type="pathophysiology">
                 <div class="item-name">LZTR1-Mediated RAS Proteostasis Defect</div>
+
 
                 <div class="item-desc">Loss of LZTR1-mediated RAS proteostasis through CRL3 E3 ligase increases RAS-family protein levels (including MRAS, RIT1, and KRAS) and MAPK signaling. Dominant LZTR1 mutations act in a dominant-negative manner to disrupt ubiquitination and degradation of RAS proteins.</div>
 
@@ -6235,6 +6279,7 @@ This pathophysiological event involves regulation of proteolysis (GO:0030162). G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-additional-ras-mapk-signal-amplifying-variants" data-dismech-node="Additional RAS-MAPK Signal-Amplifying Variants" data-dismech-type="pathophysiology">
                 <div class="item-name">Additional RAS-MAPK Signal-Amplifying Variants</div>
+
 
                 <div class="item-desc">Additional established Noonan genes affecting small GTPases, RAF/MEK kinases, and RasGAP regulation converge on increased RAS-MAPK pathway throughput despite diverse molecular entry points. Two of the genes bound here reach that endpoint by losing a brake rather than by gaining a signal: CBL is an E3 ubiquitin ligase whose mutations impair receptor ubiquitylation, and SPRED2 is a negative modulator of EGF-promoted RAF1, MEK and ERK phosphorylation. SPRED2 is the exception to this entry&#39;s dominant pattern - it acts recessively - and is recorded in the autosomal recessive inheritance block alongside LZTR1.</div>
 
@@ -6717,6 +6762,7 @@ This pathophysiological event involves SPRED2 (hgnc:17722). hgnc:17722 is a gene
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-erk-cascade-hyperactivation" data-dismech-node="ERK Cascade Hyperactivation" data-dismech-type="pathophysiology">
                 <div class="item-name">ERK Cascade Hyperactivation</div>
 
+
                 <div class="item-desc">Convergent point where all upstream RAS-MAPK pathway defects lead to sustained ERK1/2 phosphorylation and hyperactivation. This affects cell proliferation, differentiation, and survival during embryonic development and postnatal life.</div>
 
 
@@ -7002,6 +7048,7 @@ This pathophysiological event involves regulation of ERK1 and ERK2 cascade (GO:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-growth-plate-chondrocyte-differentiation-defect" data-dismech-node="Growth Plate Chondrocyte Differentiation Defect" data-dismech-type="pathophysiology">
                 <div class="item-name">Growth Plate Chondrocyte Differentiation Defect</div>
 
+
                 <div class="item-desc">Local RAS-ERK hyperactivation in the growth plate impairs chondrocyte differentiation during endochondral bone growth, contributing to the characteristic postnatal growth impairment of Noonan syndrome.</div>
 
 
@@ -7175,6 +7222,7 @@ This pathophysiological event involves chondrocyte differentiation (GO:0002062).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cortical-layer-development-abnormalities" data-dismech-node="Cortical Layer Development Abnormalities" data-dismech-type="pathophysiology">
                 <div class="item-name">Cortical Layer Development Abnormalities</div>
+
 
                 <div class="item-desc">NS-derived cortical organoid models show abnormal excitatory-neuron layer specification and reduced synaptic connectivity, consistent with neurodevelopmental pathway disruption.</div>
 
@@ -7378,6 +7426,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lymphatic-structural-abnormalities" data-dismech-node="Lymphatic Structural Abnormalities" data-dismech-type="pathophysiology">
                 <div class="item-name">Lymphatic Structural Abnormalities</div>
 
+
                 <div class="item-desc">Noonan syndrome can include severe central and peripheral lymphatic abnormalities that produce clinically significant fluid and lymphatic-flow complications.</div>
 
 
@@ -7556,6 +7605,7 @@ This pathophysiological event involves lymphangiogenesis (GO:0001946). GO:000194
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hematologic-dysregulation" data-dismech-node="Hematologic Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Hematologic Dysregulation</div>
 
+
                 <div class="item-desc">PTPN11-associated Noonan syndrome can include mutation-associated bleeding diathesis and predisposition to juvenile myelomonocytic leukemia, indicating a distinct hematologic disease branch.</div>
 
 
@@ -7685,6 +7735,7 @@ This pathophysiological event involves hematopoietic stem cell (CL:0000037). CL:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiac-valve-morphogenesis-defects" data-dismech-node="Cardiac Valve Morphogenesis Defects" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiac Valve Morphogenesis Defects</div>
+
 
                 <div class="item-desc">In endocardial and valvular tissues, perturbed ERK signaling alters endocardial-mesenchymal transition and valve morphogenesis, underlying pulmonary valve stenosis, the most common cardiac defect in Noonan syndrome.</div>
 
@@ -7898,6 +7949,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-congenital-cardiac-structural-defects" data-dismech-node="Congenital Cardiac Structural Defects" data-dismech-type="pathophysiology">
                 <div class="item-name">Congenital Cardiac Structural Defects</div>
 
+
                 <div class="item-desc">Beyond pulmonary valve dysplasia, disturbed embryonic cardiac morphogenesis in Noonan syndrome can produce septation defects and branch pulmonary artery abnormalities.</div>
 
 
@@ -7990,6 +8042,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-rasopathy-neoplastic-predisposition" data-dismech-node="RASopathy Neoplastic Predisposition" data-dismech-type="pathophysiology">
                 <div class="item-name">RASopathy Neoplastic Predisposition</div>
 
+
                 <div class="item-desc">Noonan syndrome shares the broader RASopathy tendency toward benign and malignant neoplasia, reflecting chronic developmental dysregulation of the RAS-MAPK pathway.</div>
 
 
@@ -8065,6 +8118,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiomyocyte-hypertrophy" data-dismech-node="Cardiomyocyte Hypertrophy" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiomyocyte Hypertrophy</div>
+
 
                 <div class="item-desc">In cardiomyocytes, sustained ERK signaling (and intersecting AKT/mTOR activity) promotes hypertrophic growth and fetal gene reprogramming, leading to hypertrophic cardiomyopathy, particularly in patients with RAF1 and RIT1 mutations.</div>
 
@@ -8284,6 +8338,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neural-crest-cell-developmental-dysregulation" data-dismech-node="Neural Crest Cell Developmental Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Neural Crest Cell Developmental Dysregulation</div>
+
 
                 <div class="item-desc">The neural crest is the lineage in which the RAS-MAPK lesion reaches the conotruncal and craniofacial features of Noonan syndrome. Neural crest cells populate the cardiac outflow tract and supply a large share of the facial and cranial skeleton, and SHP2 is separately required within them: ablating PTPN11 in premigratory neural crest blocks outflow-tract colonisation and produces persistent truncus arteriosus with pronounced craniofacial deficits, while driving the Noonan SHP2 Q79R allele in neural crest is by itself enough to cause craniofacial malformation. Modelling this as an explicit node makes the neural crest step visible instead of leaving the craniofacial and conotruncal outcomes hanging directly off the ERK node.
 The `modifier` on neural crest cell migration is deliberately DYSREGULATED rather than INCREASED or DECREASED: the direction is not fixed across lesions. Loss of SHP2 in neural crest impairs migration into the outflow tract, whereas at least one Noonan-spectrum missense variant has been reported to drive excessive migration. Which lesions move it which way, and whether that is ERK-dependent, is captured as an open question in `discussions` (`noonan_erk_magnitude_vs_neural_crest_phenotype`).</div>
@@ -12317,6 +12372,9 @@ This disease-associated gene is PTPN11 (hgnc:9644). hgnc:9644 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -12435,6 +12493,9 @@ This disease-associated gene is SOS1 (hgnc:11187). hgnc:11187 is a gene from the
 
 
                 </div>
+
+
+
 
 
 
@@ -12561,6 +12622,9 @@ This disease-associated gene is SOS2 (hgnc:11188). hgnc:11188 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -12679,6 +12743,9 @@ This disease-associated gene is RAF1 (hgnc:9829). hgnc:9829 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -12805,6 +12872,9 @@ This disease-associated gene is BRAF (hgnc:1097). hgnc:1097 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -12927,6 +12997,9 @@ This disease-associated gene is MAP2K1 (hgnc:6840). hgnc:6840 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -13020,6 +13093,9 @@ This disease-associated gene is RIT1 (hgnc:10023). hgnc:10023 is a gene from the
 
 
                 </div>
+
+
+
 
 
 
@@ -13146,6 +13222,9 @@ This disease-associated gene is RRAS2 (hgnc:17271). hgnc:17271 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -13264,6 +13343,9 @@ This disease-associated gene is KRAS (hgnc:6407). hgnc:6407 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -13390,6 +13472,9 @@ This disease-associated gene is NRAS (hgnc:7989). hgnc:7989 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -13508,6 +13593,9 @@ This disease-associated gene is RASA2 (hgnc:9872). hgnc:9872 is a gene from the 
 
 
                 </div>
+
+
+
 
 
 
@@ -13634,6 +13722,9 @@ This disease-associated gene is LZTR1 (hgnc:6742). hgnc:6742 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -13754,6 +13845,9 @@ This disease-associated gene is MRAS (hgnc:7227). hgnc:7227 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -13884,6 +13978,9 @@ This disease-associated gene is CBL (hgnc:1541). hgnc:1541 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -13979,6 +14076,9 @@ This disease-associated gene is SPRED2 (hgnc:17722). hgnc:17722 is a gene from t
 
 
                 </div>
+
+
+
 
 
 
@@ -14080,6 +14180,9 @@ This disease-associated gene is MAP2K2 (hgnc:6842). hgnc:6842 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -14148,6 +14251,9 @@ This disease-associated gene is RRAS (hgnc:10447). hgnc:10447 is a gene from the
 
 
                 </div>
+
+
+
 
 
 

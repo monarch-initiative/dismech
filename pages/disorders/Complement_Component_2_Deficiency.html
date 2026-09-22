@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3836,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 7</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 10</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Complement%20Component%202%20Deficiency"
@@ -3993,7 +4032,7 @@
             <a class="stat-link" href="#phenotypes">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">●</div>
-                <div class="stat-value">2</div>
+                <div class="stat-value">5</div>
                 <div class="stat-label">Phenotypes</div>
             </div>
             </a>
@@ -4012,7 +4051,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">7</div>
+                <div class="stat-value">10</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4027,6 +4066,14 @@
             </a>
 
 
+
+            <a class="stat-link" href="#treatments">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">💊</div>
+                <div class="stat-value">2</div>
+                <div class="stat-label">Medical Actions</div>
+            </div>
+            </a>
 
 
             <a class="stat-link" href="#subtypes">
@@ -4478,15 +4525,15 @@
 
             </div>
 
-            <div class="item-box discussion-box anchor-target" id="c2d_no_curated_treatments">
-                <div class="item-name">What is the evidence base for vaccination and antibiotic prophylaxis in C2 deficiency specifically, as opposed to complement deficiency in general?</div>
+            <div class="item-box discussion-box anchor-target" id="c2d_prophylaxis_efficacy_gap">
+                <div class="item-name">Does long-term antibiotic prophylaxis reduce invasive infection in C2 deficiency specifically, as opposed to complement deficiency as a class?</div>
                 <div class="item-meta">
 
                     <span class="tag tag-discussion-kind">KNOWLEDGE GAP</span>
 
 
 
-                    <span class="entity-ref-chip">c2d_no_curated_treatments</span>
+                    <span class="entity-ref-chip">c2d_prophylaxis_efficacy_gap</span>
 
                 </div>
 
@@ -4497,7 +4544,7 @@
 
 
 
-    <span class="entity-ref-chip">treatments#</span>
+    <a class="entity-ref-chip" href="#treatment-antibiotic-prophylaxis">treatments#Antibiotic Prophylaxis</a>
 
 
 
@@ -4505,7 +4552,9 @@
                 </div>
 
 
-                <div class="item-desc" style="margin-top: 10px;">No treatments are curated because the sources consulted describe management for complement deficiency as a class rather than reporting outcomes in C2 deficient cohorts. Curating class-level guidance as C2 evidence would overstate what the cited literature shows.</div>
+                <div class="item-desc" style="margin-top: 10px;">Narrowed from an earlier gap that asked the same question of vaccination and prophylaxis together and recorded that no treatments were curated. The vaccination half is now answered: PMID:22842196 studied vaccination in hereditary C2 deficiency itself, showing intact antibody titres and restored opsonophagocytosis through antibody-dependent alternative-pathway activation, which is C2-specific rather than class-level evidence.
+The prophylaxis half is genuinely still open, and the two sources that bear on it point opposite ways without either settling it. The favourable one is two brothers followed for 21 years with no comparator arm and with vaccination given alongside, so it cannot isolate the antibiotic&#39;s contribution. The unfavourable one, a 77-patient European registry, found no association between prophylactic antibiotic use and subsequent infection risk — but it pooled mixed complement defects, of which C2 was 29%, so it cannot isolate C2 either. Both are curated on the treatment, the second as a REFUTE item.
+What would close this is a C2-specific cohort with a prophylaxis comparator. Until then the treatment is curated as recommended practice with its evidence base shown as contested, rather than as an intervention of established benefit.</div>
 
 
 
@@ -4530,6 +4579,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-c2-gene-defect-and-absent-c2-protein" data-dismech-node="C2 Gene Defect and Absent C2 Protein" data-dismech-type="pathophysiology">
                 <div class="item-name">C2 Gene Defect and Absent C2 Protein</div>
+
 
                 <div class="item-desc">The predominant type I allele carries a 28-bp deletion at the exon 6 exon/intron boundary, introducing an early stop codon so that no C2 protein reaches plasma. Type II alleles instead permit synthesis but block secretion.</div>
 
@@ -4588,9 +4638,14 @@ This genetic context concerns C2 (hgnc:1248). hgnc:1248 is a gene from the HUGO 
 
 
 
+
+
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4686,6 +4741,7 @@ This genetic context concerns C2 (hgnc:1248). hgnc:1248 is a gene from the HUGO 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-classical-pathway-c3-convertase-failure" data-dismech-node="Classical Pathway C3 Convertase Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Classical Pathway C3 Convertase Failure</div>
+
 
                 <div class="item-desc">C2 is an obligate component of the classical pathway C3 convertase C4b2a. Its absence blocks classical-pathway C3 cleavage, measurable as absent CH50. The lectin pathway converges on the same C4b2a convertase — MASP-2 cleaves C4 and C2 — so its effector arm fails too; only the alternative pathway (C3bBb) remains intact, which is why lysis is preserved and the phenotype is milder than a C3 deficiency.</div>
 
@@ -4808,6 +4864,7 @@ This pathophysiological event involves decreased Complement activation, classica
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-opsonophagocytosis" data-dismech-node="Impaired Opsonophagocytosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Opsonophagocytosis</div>
+
 
                 <div class="item-desc">Without classical-pathway C3b deposition on encapsulated organisms, chiefly Streptococcus pneumoniae, phagocytes cannot engage them efficiently through complement receptors.</div>
 
@@ -5012,6 +5069,7 @@ This pathophysiological event involves decreased phagocytosis (GO:0006909). GO:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-immune-complex-and-apoptotic-debris-clearance" data-dismech-node="Defective Immune Complex and Apoptotic Debris Clearance" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective Immune Complex and Apoptotic Debris Clearance</div>
 
+
                 <div class="item-desc">Classical-pathway activity is required to solubilise immune complexes and to opsonise apoptotic cells for silent clearance. Without it, both persist.</div>
 
 
@@ -5160,6 +5218,7 @@ This pathophysiological event involves decreased apoptotic cell clearance (GO:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-tolerance-to-nuclear-autoantigen" data-dismech-node="Loss of Tolerance to Nuclear Autoantigen" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Tolerance to Nuclear Autoantigen</div>
 
+
                 <div class="item-desc">Sustained exposure to uncleared nuclear autoantigen drives loss of B- and T-cell tolerance and anti-nuclear autoantibody production. This is the accepted explanation for the SLE association, but the step from impaired clearance to autoantibody production has not been demonstrated directly in C2-deficient patients — see the knowledge gap below.</div>
 
 
@@ -5181,6 +5240,14 @@ This pathophysiological event involves decreased apoptotic cell clearance (GO:00
 	                <div class="crosslink-block">
 	                    <div class="crosslink-title">Downstream</div>
 	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Rheumatological disease</span>
+
+	                            <span class="crosslink-desc">The same loss of tolerance produces rheumatological disease more broadly than SLE alone — 43% of the Swedish cohort against the ~25% SLE penetrance curated elsewhere in this entry. The two edges are drawn separately because the figures are not the same patients counted twice: SLE is the dominant component of the broader category, not the whole of it.</span>
+
+
+	                        </div>
 
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Systemic Lupus Erythematosus</span>
@@ -5258,7 +5325,7 @@ This pathophysiological event involves decreased apoptotic cell clearance (GO:00
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"C2 Gene Defect and Absent C2 Protein\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The predominant type I allele carries a 28-bp deletion at the exon 6 exon/intron boundary, introducing an early stop codon so that no C2 protein reaches plasma. Type II alleles instead permit synthesis but block secretion.\", \"meta\": {\"evidence_count\": 2, \"genetic_context\": {\"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"gene_terms\": [{\"label\": \"C2\", \"id\": \"hgnc:1248\"}]}}}, {\"id\": \"Classical Pathway C3 Convertase Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"C2 is an obligate component of the classical pathway C3 convertase C4b2a. Its absence blocks classical-pathway C3 cleavage, measurable as absent CH50. The lectin pathway converges on the same C4b2a convertase \\u2014 MASP-2 cleaves C4 and C2 \\u2014 so its effector arm fails too; only the alternative pathway (C3bBb) remains intact, which is why lysis is preserved and the phenotype is milder than a C3 deficiency.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Complement activation, classical pathway\"]}}, {\"id\": \"Defective Immune Complex and Apoptotic Debris Clearance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Classical-pathway activity is required to solubilise immune complexes and to opsonise apoptotic cells for silent clearance. Without it, both persist.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"immune complex clearance\", \"apoptotic cell clearance\"]}}, {\"id\": \"Impaired Opsonophagocytosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Without classical-pathway C3b deposition on encapsulated organisms, chiefly Streptococcus pneumoniae, phagocytes cannot engage them efficiently through complement receptors.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Neutrophil\", \"Macrophage\"], \"biological_processes\": [\"phagocytosis\"]}}, {\"id\": \"Loss of Tolerance to Nuclear Autoantigen\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sustained exposure to uncleared nuclear autoantigen drives loss of B- and T-cell tolerance and anti-nuclear autoantibody production. This is the accepted explanation for the SLE association, but the step from impaired clearance to autoantibody production has not been demonstrated directly in C2-deficient patients \\u2014 see the knowledge gap below.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Recurrent Bacterial Infection\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent invasive pyogenic infection, predominantly pneumococcal. Reported frequency spans a wide range \\u2014 about 25% of C2-deficient homozygotes in the Sjoholm/Johnson series, against 57.8% of diagnosed C2D patients in the later French cohort. The two are not in conflict so much as differently ascertained; see notes.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002718\"}}, {\"id\": \"Systemic Lupus Erythematosus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"SLE develops in roughly 25% of individuals with complete C2 deficiency.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002725\"}}], \"edges\": [{\"source\": \"C2 Gene Defect and Absent C2 Protein\", \"target\": \"Classical Pathway C3 Convertase Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Without C2 there is no C4b2a, so the classical pathway cannot generate C3 convertase activity.\"}, {\"source\": \"Classical Pathway C3 Convertase Failure\", \"target\": \"Impaired Opsonophagocytosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure to deposit C3b on encapsulated organisms impairs opsonophagocytic clearance.\"}, {\"source\": \"Classical Pathway C3 Convertase Failure\", \"target\": \"Defective Immune Complex and Apoptotic Debris Clearance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Classical pathway activity is required to solubilise immune complexes and clear apoptotic cells; its loss permits their persistence.\"}, {\"source\": \"Impaired Opsonophagocytosis\", \"target\": \"Recurrent Bacterial Infection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of opsonophagocytic clearance manifests as recurrent invasive pyogenic infection.\"}, {\"source\": \"Defective Immune Complex and Apoptotic Debris Clearance\", \"target\": \"Loss of Tolerance to Nuclear Autoantigen\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persisting apoptotic debris is a sustained source of nuclear autoantigen.\"}, {\"source\": \"Loss of Tolerance to Nuclear Autoantigen\", \"target\": \"Systemic Lupus Erythematosus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of tolerance manifests as clinical systemic lupus erythematosus in roughly a quarter of individuals with complete C2 deficiency.\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Antibiotic Prophylaxis\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Long-term prophylactic penicillin is recommended alongside vaccination. The evidence for it is weaker than the recommendation\u0027s ubiquity suggests, and the entry records both sides rather than the favourable one: a 21-year two-brother follow-up reports no severe or invasive infection under combined vaccination and prophylaxis, while the 77-patient European registry found no association between prophylactic antibiotic use and subsequent infection risk. The registry also found prescribing varied by country rather than by patient, which is what a practice without a settled evidence base looks like.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"benzathine benzylpenicillin\", \"phenoxymethylpenicillin\", \"amoxicillin\"]}}, {\"id\": \"C2 Gene Defect and Absent C2 Protein\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The predominant type I allele carries a 28-bp deletion at the exon 6 exon/intron boundary, introducing an early stop codon so that no C2 protein reaches plasma. Type II alleles instead permit synthesis but block secretion.\", \"meta\": {\"evidence_count\": 2, \"genetic_context\": {\"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"gene_terms\": [{\"label\": \"C2\", \"id\": \"hgnc:1248\"}]}}}, {\"id\": \"Classical Pathway C3 Convertase Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"C2 is an obligate component of the classical pathway C3 convertase C4b2a. Its absence blocks classical-pathway C3 cleavage, measurable as absent CH50. The lectin pathway converges on the same C4b2a convertase \\u2014 MASP-2 cleaves C4 and C2 \\u2014 so its effector arm fails too; only the alternative pathway (C3bBb) remains intact, which is why lysis is preserved and the phenotype is milder than a C3 deficiency.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Complement activation, classical pathway\"]}}, {\"id\": \"Defective Immune Complex and Apoptotic Debris Clearance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Classical-pathway activity is required to solubilise immune complexes and to opsonise apoptotic cells for silent clearance. Without it, both persist.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"immune complex clearance\", \"apoptotic cell clearance\"]}}, {\"id\": \"Impaired Opsonophagocytosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Without classical-pathway C3b deposition on encapsulated organisms, chiefly Streptococcus pneumoniae, phagocytes cannot engage them efficiently through complement receptors.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Neutrophil\", \"Macrophage\"], \"biological_processes\": [\"phagocytosis\"]}}, {\"id\": \"Loss of Tolerance to Nuclear Autoantigen\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sustained exposure to uncleared nuclear autoantigen drives loss of B- and T-cell tolerance and anti-nuclear autoantibody production. This is the accepted explanation for the SLE association, but the step from impaired clearance to autoantibody production has not been demonstrated directly in C2-deficient patients \\u2014 see the knowledge gap below.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Recurrent Bacterial Infection\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent invasive pyogenic infection, predominantly pneumococcal. Reported frequency spans a wide range \\u2014 about 25% of C2-deficient homozygotes in the Sjoholm/Johnson series, against 57.8% of diagnosed C2D patients in the later French cohort. The two are not in conflict so much as differently ascertained; see notes.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002718\"}}, {\"id\": \"Rheumatological disease\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Rheumatological disease of any kind, reported in 43% of a 40-patient Swedish C2-deficient cohort. Curated alongside the separately recorded Systemic Lupus Erythematosus rather than instead of it, because the source names SLE as the dominant component but not the whole of it \\u2014 the two records should not be added together.\\nWhat the non-SLE remainder consists of is not curated, and the reason is worth recording. A deep-research report for this disease names Henoch-Schonlein purpura, polymyositis, arthralgia and glomerulonephritis, attributing them to Orphanet. That attribution could not be verified: the cited cohort abstract does not name them, and ORPHA:169147 is not in this repository\u0027s reference cache and cannot be built here because the Orphadata bulk XML is not present. The list is therefore left out rather than curated on a report\u0027s word.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002960\"}}, {\"id\": \"Systemic Lupus Erythematosus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"SLE develops in roughly 25% of individuals with complete C2 deficiency.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002725\"}}, {\"id\": \"Vaccination Against Encapsulated Bacteria\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Pneumococcal, meningococcal and Haemophilus influenzae type b vaccination is the primary preventive intervention, and it works in C2 deficiency for a mechanistically specific reason. C2-deficient individuals mount normal antibody titres \\u2014 the block is in effector function, not in the humoral response \\u2014 and those antibodies restore opsonophagocytosis by driving complement activation through the alternative pathway, bypassing the missing C2 step. Vaccination therefore does not repair the classical pathway; it routes around it.\", \"meta\": {\"evidence_count\": 3}}], \"edges\": [{\"source\": \"C2 Gene Defect and Absent C2 Protein\", \"target\": \"Classical Pathway C3 Convertase Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Without C2 there is no C4b2a, so the classical pathway cannot generate C3 convertase activity.\"}, {\"source\": \"Classical Pathway C3 Convertase Failure\", \"target\": \"Impaired Opsonophagocytosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure to deposit C3b on encapsulated organisms impairs opsonophagocytic clearance.\"}, {\"source\": \"Classical Pathway C3 Convertase Failure\", \"target\": \"Defective Immune Complex and Apoptotic Debris Clearance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Classical pathway activity is required to solubilise immune complexes and clear apoptotic cells; its loss permits their persistence.\"}, {\"source\": \"Impaired Opsonophagocytosis\", \"target\": \"Recurrent Bacterial Infection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure of opsonophagocytic clearance manifests as recurrent invasive pyogenic infection.\"}, {\"source\": \"Defective Immune Complex and Apoptotic Debris Clearance\", \"target\": \"Loss of Tolerance to Nuclear Autoantigen\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Persisting apoptotic debris is a sustained source of nuclear autoantigen.\"}, {\"source\": \"Loss of Tolerance to Nuclear Autoantigen\", \"target\": \"Rheumatological disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The same loss of tolerance produces rheumatological disease more broadly than SLE alone \\u2014 43% of the Swedish cohort against the ~25% SLE penetrance curated elsewhere in this entry. The two edges are drawn separately because the figures are not the same patients counted twice: SLE is the dominant component of the broader category, not the whole of it.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Tolerance to Nuclear Autoantigen\", \"target\": \"Systemic Lupus Erythematosus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of tolerance manifests as clinical systemic lupus erythematosus in roughly a quarter of individuals with complete C2 deficiency.\"}, {\"source\": \"Vaccination Against Encapsulated Bacteria\", \"target\": \"Impaired Opsonophagocytosis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Antibiotic Prophylaxis\", \"target\": \"Recurrent Bacterial Infection\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5271,19 +5338,160 @@ This pathophysiological event involves decreased apoptotic cell clearance (GO:00
             <div class="card-header">
                 <div class="card-icon" style="background: #dcfce7; color: #16a34a;">●</div>
                 <h2 class="card-title">Phenotypes</h2>
-                <span class="card-count">2</span>
+                <span class="card-count">5</span>
             </div>
 
 
+            <div class="pheno-toc">
 
-            <div class="item-box phenotype-box anchor-target" id="phenotype-recurrent-bacterial-infection" data-dismech-node="Recurrent Bacterial Infection" data-dismech-type="phenotype">
-                <div class="item-name">
-                    Recurrent Bacterial Infection
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(1)</span></button>
 
-                    <span class="phenotype-freq">OCCASIONAL</span>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Cardiovascular<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Immune<span class="pill-count">(3)</span></button>
+
+                <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
+            </div>
 
 
-                    <span class="phenotype-category">Immunological</span>
+            <details class="phenotype-category-group" id="pheno-cat-1">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Blood
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypogammaglobulinemia" data-dismech-node="Hypogammaglobulinemia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hypogammaglobulinemia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Decreased circulating immunoglobulin concentration</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004313" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0004313</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypogammaglobulinemia, annotated with Decreased circulating immunoglobulin concentration (HP:0004313), qualified as course progressive. HP:0004313 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Course: PROGRESSIVE</span>
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32164349" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32164349" target="_blank">PMID:32164349</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"At the age of 16, the younger brother developed progressive hypogammaglobulinemia of all three classes, IgA, IgM and IgG."</div>
+
+
+                <div class="evidence-explanation">The observation itself, with the age at which it declared and the classes involved.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32164349" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32164349" target="_blank">PMID:32164349</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Moreover, a periodical check of immunoglobulin serum levels could be useful to detect a possible hypogammaglobulinemia."</div>
+
+
+                <div class="evidence-explanation">The monitoring recommendation that follows from it, and the reason this phenotype is worth curating despite resting on one patient.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Cardiovascular
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-atherosclerosis" data-dismech-node="Atherosclerosis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Atherosclerosis
+
+
 
 
 
@@ -5292,15 +5500,103 @@ This pathophysiological event involves decreased apoptotic cell clearance (GO:00
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002718" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0002718</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002621" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0002621</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Atherosclerosis (HP:0002621). HP:0002621 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16026838" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16026838" target="_blank">PMID:16026838</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text reports an observation, measurement, analysis, or conclusion the cited publication itself produced.">PRIMARY RESULT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In addition, a significant association was found between C2 deficiency and atherosclerosis."</div>
+
+
+                <div class="evidence-explanation">The association claim itself. No effect size or rate is given in the abstract, which is why no frequency band is asserted.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Immune
+                    <span class="cat-count">3</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-recurrent-bacterial-infection" data-dismech-node="Recurrent Bacterial Infection" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Recurrent Bacterial Infection
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Recurrent bacterial infections</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002718" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0002718</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Recurrent bacterial infections (HP:0002718). HP:0002718 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                </div>
+                    </div>
 
 
 
@@ -5373,16 +5669,15 @@ This clinical feature is Recurrent bacterial infections (HP:0002718). HP:0002718
 
 
 
-            </div>
+                </div>
 
-            <div class="item-box phenotype-box anchor-target" id="phenotype-systemic-lupus-erythematosus" data-dismech-node="Systemic Lupus Erythematosus" data-dismech-type="phenotype">
-                <div class="item-name">
-                    Systemic Lupus Erythematosus
+                <div class="item-box phenotype-box anchor-target" id="phenotype-systemic-lupus-erythematosus" data-dismech-node="Systemic Lupus Erythematosus" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Systemic Lupus Erythematosus
 
-                    <span class="phenotype-freq">OCCASIONAL</span>
+                        <span class="phenotype-freq">OCCASIONAL</span>
 
 
-                    <span class="phenotype-category">Immunological</span>
 
 
 
@@ -5391,15 +5686,16 @@ This clinical feature is Recurrent bacterial infections (HP:0002718). HP:0002718
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002725" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0002725</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002725" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0002725</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Systemic lupus erythematosus (HP:0002725). HP:0002725 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                </div>
+                    </div>
 
 
 
@@ -5447,8 +5743,112 @@ This clinical feature is Systemic lupus erythematosus (HP:0002725). HP:0002725 i
 
 
 
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-rheumatological-disease" data-dismech-node="Rheumatological disease" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Rheumatological disease
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Autoimmunity</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002960" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0002960</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Rheumatological disease, annotated with Autoimmunity (HP:0002960). HP:0002960 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16026838" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16026838" target="_blank">PMID:16026838</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text reports an observation, measurement, analysis, or conclusion the cited publication itself produced.">PRIMARY RESULT</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Rheumatological disease, mainly systemic lupus erythematosus was present in 43% of the patients."</div>
+
+
+                <div class="evidence-explanation">Gives the 43% figure and states that SLE is the main but not the sole component, which is why this record is broader than the SLE phenotype and does not replace it.</div>
+
+
+
             </div>
 
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <script>
+            (function() {
+                // TOC pill click: expand target group and scroll to it
+                document.querySelectorAll('.pheno-toc-pill').forEach(function(pill) {
+                    pill.addEventListener('click', function() {
+                        var target = document.getElementById(pill.dataset.target);
+                        if (target) {
+                            target.open = true;
+                            target.scrollIntoView({behavior: 'smooth', block: 'start'});
+                        }
+                    });
+                });
+                // Expand/collapse all toggle
+                var btn = document.getElementById('phenoToggleAll');
+                if (btn) {
+                    btn.addEventListener('click', function() {
+                        var groups = document.querySelectorAll('.phenotype-category-group');
+                        var anyOpen = Array.from(groups).some(function(g) { return g.open; });
+                        groups.forEach(function(g) { g.open = !anyOpen; });
+                        btn.textContent = anyOpen ? 'Expand all' : 'Collapse all';
+                    });
+                }
+            })();
+            </script>
 
         </div>
 
@@ -5478,10 +5878,10 @@ This clinical feature is Systemic lupus erythematosus (HP:0002725). HP:0002725 i
                         Gene: C2
 
 
-    <a href="https://bioregistry.io/hgnc:1248" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:1248</a>
+    <a href="https://bioregistry.io/hgnc:1248" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-13">hgnc:1248</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is C2 (hgnc:1248). hgnc:1248 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -5495,9 +5895,12 @@ This disease-associated gene is C2 (hgnc:1248). hgnc:1248 is a gene from the HUG
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (3 references)
         </summary>
         <div class="evidence-list">
 
@@ -5521,6 +5924,60 @@ This disease-associated gene is C2 (hgnc:1248). hgnc:1248 is a gene from the HUG
 
 
                 <div class="evidence-explanation">Establishes the predominant causal allele.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32164349" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32164349" target="_blank">PMID:32164349</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text restates something established elsewhere -- an introduction, a background or framing sentence, a motivation for the work -- rather than a finding of the cited publication.">BACKGROUND</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Type 1 C2 deficiency is the most common complement alteration, due in 95% of cases to a homozygous 28-bp deletion in the C2 gene"</div>
+
+
+                <div class="evidence-explanation">Quantifies the type I share at 95%, putting a number on the &#34;predominates&#34; claim in this record&#39;s notes.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32164349" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32164349" target="_blank">PMID:32164349</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text restates something established elsewhere -- an introduction, a background or framing sentence, a motivation for the work -- rather than a finding of the cited publication.">BACKGROUND</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A less common type 2 C2 deficiency that represents 5–7% of the cases"</div>
+
+
+                <div class="evidence-explanation">The complementary figure for type II alleles, which the notes describe qualitatively as acting by blocking secretion.</div>
 
 
 
@@ -5550,10 +6007,10 @@ This disease-associated gene is C2 (hgnc:1248). hgnc:1248 is a gene from the HUG
                         Gene: C4A
 
 
-    <a href="https://bioregistry.io/hgnc:1323" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-11">hgnc:1323</a>
+    <a href="https://bioregistry.io/hgnc:1323" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-14">hgnc:1323</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is C4A (hgnc:1323). hgnc:1323 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -5563,6 +6020,9 @@ This disease-associated gene is C4A (hgnc:1323). hgnc:1323 is a gene from the HU
 
 
                 </div>
+
+
+
 
 
 
@@ -5616,6 +6076,468 @@ This disease-associated gene is C4A (hgnc:1323). hgnc:1323 is a gene from the HU
 
 
         <!-- Medical actions -->
+
+        <div class="card" id="treatments">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
+                <h2 class="card-title">Medical Actions</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box treatment-box anchor-target" id="treatment-vaccination-against-encapsulated-bacteria" data-dismech-node="Vaccination Against Encapsulated Bacteria" data-dismech-type="treatment">
+                <div class="item-name">
+                    Vaccination Against Encapsulated Bacteria
+                </div>
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-15">vaccination against encapsulated bacteria<span class="pill-tip" role="tooltip" id="pill-tip-15">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is vaccination against encapsulated bacteria, annotated with Vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Vaccination</span>
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15346" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15346">NCIT:C15346</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Vaccine</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
+                <div class="item-desc">Pneumococcal, meningococcal and Haemophilus influenzae type b vaccination is the primary preventive intervention, and it works in C2 deficiency for a mechanistically specific reason. C2-deficient individuals mount normal antibody titres — the block is in effector function, not in the humoral response — and those antibodies restore opsonophagocytosis by driving complement activation through the alternative pathway, bypassing the missing C2 step. Vaccination therefore does not repair the classical pathway; it routes around it.</div>
+
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+
+                        </span>
+                        <strong style="color: #5b21b6;">Impaired Opsonophagocytosis</strong>
+
+                        <span style="color: #7c3aed;"> &mdash; Vaccine-induced antibody permits antibody-dependent alternative-pathway activation, which restores granulocyte phagocytosis of pneumococci to control levels despite the classical-pathway block.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22842196" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22842196" target="_blank">PMID:22842196</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Post-vaccination sera from C2D persons showed poor complement-mediated opsonization and phagocytosis of pneumococci by granulocytes when depending on classical and lectin pathway activation only, but increased (p=0.007) and equaled that of the normal controls when also alternative pathway..."</div>
+
+
+                <div class="evidence-explanation">Identifies the bypass as the mechanism by which vaccination corrects the opsonophagocytic defect, and shows directly that the correction requires alternative-pathway activation rather than repair of the classical arm.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22842196" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22842196" target="_blank">PMID:22842196</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Post-vaccination IgG antibodies against pneumococci serotype 6B and 23F at a concentration ≥1.0mg/L was found in similar frequency in C2D persons and controls."</div>
+
+
+                <div class="evidence-explanation">Establishes that the antibody response itself is intact in C2 deficiency, which is what makes vaccination worth giving.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22842196" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22842196" target="_blank">PMID:22842196</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In conclusion, the C2D persons benefited from the vaccination and achieve an increased phagocytic capacity."</div>
+
+
+                <div class="evidence-explanation">The authors&#39; summary judgement on benefit, resting on the opsonophagocytic assay rather than on a clinical infection endpoint.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32164349" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32164349" target="_blank">PMID:32164349</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text restates something established elsewhere -- an introduction, a background or framing sentence, a motivation for the work -- rather than a finding of the cited publication.">BACKGROUND</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"should receive prophylactic penicillin therapy and be considered for both pneumococcal and meningococcal vaccinations"</div>
+
+
+                <div class="evidence-explanation">States the standard recommendation. The sentence it comes from names the target organisms as Streptococcus pneumoniae, and less frequently Neisseria meningitides and Haemophilus influenzae type B; the quote is cut before that clause because the source interleaves its own bracketed reference markers there, which the snippet validator strips.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box treatment-box anchor-target" id="treatment-antibiotic-prophylaxis" data-dismech-node="Antibiotic Prophylaxis" data-dismech-type="treatment">
+                <div class="item-name">
+                    Antibiotic Prophylaxis
+                </div>
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-16">antibiotic prophylaxis<span class="pill-tip" role="tooltip" id="pill-tip-16">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is antibiotic prophylaxis (NCIT:C51993). NCIT:C51993 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Antibiotic Prophylaxis</span>
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C51993" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C51993">NCIT:C51993</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    </div>
+
+
+
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+
+
+
+                    <span class="tag tag-treatment">
+                        benzathine benzylpenicillin
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_51352" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-17">CHEBI:51352</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses benzathine benzylpenicillin, annotated with benzylpenicillin benzathine (CHEBI:51352). CHEBI:51352 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
+                    </span>
+
+
+
+                    <span class="tag tag-treatment">
+                        phenoxymethylpenicillin
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_27446" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-18">CHEBI:27446</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses phenoxymethylpenicillin (CHEBI:27446). CHEBI:27446 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
+                    </span>
+
+
+
+                    <span class="tag tag-treatment">
+                        amoxicillin
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CHEBI_2676" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-19">CHEBI:2676</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses amoxicillin (CHEBI:2676). CHEBI:2676 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
+                <div class="item-desc">Long-term prophylactic penicillin is recommended alongside vaccination. The evidence for it is weaker than the recommendation&#39;s ubiquity suggests, and the entry records both sides rather than the favourable one: a 21-year two-brother follow-up reports no severe or invasive infection under combined vaccination and prophylaxis, while the 77-patient European registry found no association between prophylactic antibiotic use and subsequent infection risk. The registry also found prescribing varied by country rather than by patient, which is what a practice without a settled evidence base looks like.</div>
+
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+
+                        </span>
+                        <strong style="color: #5b21b6;">Recurrent Bacterial Infection</strong>
+
+                        <span style="color: #7c3aed;"> &mdash; Prophylaxis acts on the clinical endpoint rather than on the complement lesion: it suppresses the encapsulated-organism infections that the opsonisation defect permits, without restoring classical-pathway function. That is why it is drawn to the phenotype and not to a mechanism node — and why the evidence for it is contested, since an intervention acting downstream of an unrepaired defect is the kind whose benefit is hardest to demonstrate.</span>
+
+
+
+
+                    </div>
+
+                </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32164349" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32164349" target="_blank">PMID:32164349</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Antibiotic prophylaxis was also started, initially with intramuscular benzathine benzylpenicillin every 21 d, replaced by oral phenoxymethylpenicillin in 2002 and currently with oral amoxicillin in a single daily dose."</div>
+
+
+                <div class="evidence-explanation">Documents the agents and the switch across two decades of follow-up, which is where the two bound therapeutic agents come from.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32164349" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32164349" target="_blank">PMID:32164349</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Our data show that early diagnosis, use of vaccinations and antibiotic prophylaxis may allow a normal life in hereditary C2 deficiency, which can be characterized using functional and genetic methods."</div>
+
+
+                <div class="evidence-explanation">The favourable claim, and the reason it is graded INDIRECT: the outcome is two brothers observed without a comparator, so the absence of infection supports the strategy only by inference from an uncontrolled series.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25663093" data-dismech-supports="REFUTE">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25663093" target="_blank">PMID:25663093</a>
+                    </span>
+
+
+                    <span class="evidence-support support-REFUTE">REFUTE</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Age of the patient and use of prophylactic antibiotics were not associated with subsequent infection risk."</div>
+
+
+                <div class="evidence-explanation">The largest cohort addressing the question finds no protective association for prophylactic antibiotics. Recorded as REFUTE against the efficacy claim rather than omitted, because a treatment block that cited only the two-patient favourable series would misrepresent the evidence base.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
 
 
         <!-- Environmental Factors -->
@@ -6351,6 +7273,27 @@ pathophysiology:
     impaired clearance to autoantibody production has not been demonstrated
     directly in C2-deficient patients — see the knowledge gap below.
   downstream:
+  - target: Rheumatological disease
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    evidence:
+    - reference: PMID:16026838
+      reference_title: &#34;Complement deficiency and disease: an update.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      quote_role: PRIMARY_RESULT
+      snippet: &gt;-
+        Rheumatological disease, mainly systemic lupus erythematosus was present
+        in 43% of the patients.
+      explanation: &gt;-
+        The cohort figure this edge carries, and the source of the contrast with
+        the narrower SLE edge drawn from the same node.
+    description: &gt;-
+      The same loss of tolerance produces rheumatological disease more broadly
+      than SLE alone — 43% of the Swedish cohort against the ~25% SLE
+      penetrance curated elsewhere in this entry. The two edges are drawn
+      separately because the figures are not the same patients counted twice:
+      SLE is the dominant component of the broader category, not the whole of
+      it.
   - target: Systemic Lupus Erythematosus
     description: &gt;-
       Loss of tolerance manifests as clinical systemic lupus erythematosus in
@@ -6419,6 +7362,119 @@ phenotypes:
     snippet: &#34;In contrast, complete C2 deficiency is one of the most common complement deficiencies, with an estimated prevalence of 1:20,000 in the Swedish population and a penetrance for SLE of ~25%&#34;
     explanation: &gt;-
       States the SLE penetrance of complete C2 deficiency.
+- name: Rheumatological disease
+  category: Immunological
+  description: &gt;-
+    Rheumatological disease of any kind, reported in 43% of a 40-patient Swedish
+    C2-deficient cohort. Curated alongside the separately recorded Systemic
+    Lupus Erythematosus rather than instead of it, because the source names SLE
+    as the dominant component but not the whole of it — the two records should
+    not be added together.
+
+    What the non-SLE remainder consists of is not curated, and the reason is
+    worth recording. A deep-research report for this disease names
+    Henoch-Schonlein purpura, polymyositis, arthralgia and glomerulonephritis,
+    attributing them to Orphanet. That attribution could not be verified: the
+    cited cohort abstract does not name them, and ORPHA:169147 is not in this
+    repository&#39;s reference cache and cannot be built here because the Orphadata
+    bulk XML is not present. The list is therefore left out rather than curated
+    on a report&#39;s word.
+  frequency: FREQUENT
+  phenotype_term:
+    preferred_term: Rheumatological disease
+    term:
+      id: HP:0002960
+      label: Autoimmunity
+  evidence:
+  - reference: PMID:16026838
+    reference_title: &#34;Complement deficiency and disease: an update.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: PRIMARY_RESULT
+    snippet: &gt;-
+      Rheumatological disease, mainly systemic lupus erythematosus was present
+      in 43% of the patients.
+    explanation: &gt;-
+      Gives the 43% figure and states that SLE is the main but not the sole
+      component, which is why this record is broader than the SLE phenotype and
+      does not replace it.
+- name: Atherosclerosis
+  category: Cardiovascular
+  description: &gt;-
+    A significant association between C2 deficiency and atherosclerosis was
+    reported in the same Swedish cohort. Curated as an association rather than
+    given a frequency band, because the source states that an association was
+    found without reporting a rate, and because the mechanism is not
+    established — impaired clearance of immune complexes and apoptotic debris
+    is a plausible route given the rest of this entry, but no cited source
+    makes that link.
+  phenotype_term:
+    preferred_term: Atherosclerosis
+    term:
+      id: HP:0002621
+      label: Atherosclerosis
+  evidence:
+  - reference: PMID:16026838
+    reference_title: &#34;Complement deficiency and disease: an update.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: PRIMARY_RESULT
+    snippet: &gt;-
+      In addition, a significant association was found between C2 deficiency
+      and atherosclerosis.
+    explanation: &gt;-
+      The association claim itself. No effect size or rate is given in the
+      abstract, which is why no frequency band is asserted.
+- name: Hypogammaglobulinemia
+  category: Laboratory
+  description: &gt;-
+    Progressive reduction in serum immunoglobulins, reported as affecting all
+    three classes by adolescence in a long-term follow-up. This is deliberately
+    not given a frequency band: the longitudinal observation is a single patient
+    in one family, and the authors present it as a possible association calling
+    for further study rather than an established feature. It is curated because
+    it changes management — it argues for periodic immunoglobulin monitoring in
+    a disease where nobody would otherwise order it — and because it is distinct
+    from the separately curated isotype-specific deficits (low IgG4, IgD and
+    IgG2), which are a cross-sectional property of C2 deficiency rather than a
+    progressive panhypogammaglobulinemia.
+
+    No incoming causal edge, deliberately. Nothing cited explains how C2 loss
+    would produce a progressive fall in all three immunoglobulin classes, and
+    the observation rests on one patient followed to age 16. Attaching it to
+    the convertase or clearance nodes would invent a route to justify a
+    connection.
+  phenotype_term:
+    preferred_term: Hypogammaglobulinemia
+    term:
+      id: HP:0004313
+      label: Decreased circulating immunoglobulin concentration
+    clinical_course: PROGRESSIVE
+  evidence:
+  - reference: PMID:32164349
+    reference_title: &gt;-
+      Hereditary Deficiency of the Second Component of Complement: Early
+      Diagnosis and 21-Year Follow-Up of a Family.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      At the age of 16, the younger brother developed progressive
+      hypogammaglobulinemia of all three classes, IgA, IgM and IgG.
+    explanation: &gt;-
+      The observation itself, with the age at which it declared and the classes
+      involved.
+  - reference: PMID:32164349
+    reference_title: &gt;-
+      Hereditary Deficiency of the Second Component of Complement: Early
+      Diagnosis and 21-Year Follow-Up of a Family.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Moreover, a periodical check of immunoglobulin serum levels could be
+      useful to detect a possible hypogammaglobulinemia.
+    explanation: &gt;-
+      The monitoring recommendation that follows from it, and the reason this
+      phenotype is worth curating despite resting on one patient.
 prevalence:
 - population: Swedish population
   measure_type: POINT_PREVALENCE
@@ -6474,6 +7530,10 @@ biochemical:
     unlike IgG4, is equally common in those with and without infections — a
     useful negative that separates a co-occurring immunoglobulin abnormality
     from an actual infection-risk modifier.
+
+    The isotype-specific deficits recorded in this section are cross-sectional
+    properties of C2 deficiency, distinct from the progressive
+    panhypogammaglobulinemia of all three classes that declares over years.
   presence: DECREASED
   evidence:
   - reference: PMID:12959222
@@ -6528,6 +7588,31 @@ genetic:
     snippet: &#34;The predominant cause of complete C2 deficiency is a 28‐bp deletion (rs9332736) in the exon/intron boundary of exon 6.&#34;
     explanation: &gt;-
       Establishes the predominant causal allele.
+  - reference: PMID:32164349
+    reference_title: &gt;-
+      Hereditary Deficiency of the Second Component of Complement: Early
+      Diagnosis and 21-Year Follow-Up of a Family.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: BACKGROUND
+    snippet: &gt;-
+      Type 1 C2 deficiency is the most common complement alteration, due in 95%
+      of cases to a homozygous 28-bp deletion in the C2 gene
+    explanation: &gt;-
+      Quantifies the type I share at 95%, putting a number on the &#34;predominates&#34;
+      claim in this record&#39;s notes.
+  - reference: PMID:32164349
+    reference_title: &gt;-
+      Hereditary Deficiency of the Second Component of Complement: Early
+      Diagnosis and 21-Year Follow-Up of a Family.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: BACKGROUND
+    snippet: &gt;-
+      A less common type 2 C2 deficiency that represents 5–7% of the cases
+    explanation: &gt;-
+      The complementary figure for type II alleles, which the notes describe
+      qualitatively as acting by blocking secretion.
 - name: C4A copy number
   gene_term:
     preferred_term: C4A
@@ -6548,6 +7633,181 @@ genetic:
     explanation: &gt;-
       Quantifies the interaction between heterozygous C2 deficiency and low C4A
       copy number.
+treatments:
+- name: Vaccination Against Encapsulated Bacteria
+  description: &gt;-
+    Pneumococcal, meningococcal and Haemophilus influenzae type b vaccination is
+    the primary preventive intervention, and it works in C2 deficiency for a
+    mechanistically specific reason. C2-deficient individuals mount normal
+    antibody titres — the block is in effector function, not in the humoral
+    response — and those antibodies restore opsonophagocytosis by driving
+    complement activation through the alternative pathway, bypassing the missing
+    C2 step. Vaccination therefore does not repair the classical pathway; it
+    routes around it.
+  therapeutic_modality: VACCINE
+  treatment_term:
+    preferred_term: vaccination against encapsulated bacteria
+    term:
+      id: NCIT:C15346
+      label: Vaccination
+  target_mechanisms:
+  - target: Impaired Opsonophagocytosis
+    description: &gt;-
+      Vaccine-induced antibody permits antibody-dependent alternative-pathway
+      activation, which restores granulocyte phagocytosis of pneumococci to
+      control levels despite the classical-pathway block.
+    evidence:
+    - reference: PMID:22842196
+      reference_title: &gt;-
+        Vaccination against encapsulated bacteria in hereditary C2 deficiency
+        results in antibody response and opsonization due to antibody-dependent
+        complement activation.
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &gt;-
+        Post-vaccination sera from C2D persons showed poor complement-mediated
+        opsonization and phagocytosis of pneumococci by granulocytes when
+        depending on classical and lectin pathway activation only, but increased
+        (p=0.007) and equaled that of the normal controls when also alternative
+        pathway activation was allowed due to antibody-dependent C2 bypass
+        activation.
+      explanation: &gt;-
+        Identifies the bypass as the mechanism by which vaccination corrects the
+        opsonophagocytic defect, and shows directly that the correction requires
+        alternative-pathway activation rather than repair of the classical arm.
+  evidence:
+  - reference: PMID:22842196
+    reference_title: &gt;-
+      Vaccination against encapsulated bacteria in hereditary C2 deficiency
+      results in antibody response and opsonization due to antibody-dependent
+      complement activation.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Post-vaccination IgG antibodies against pneumococci serotype 6B and 23F at
+      a concentration ≥1.0mg/L was found in similar frequency in C2D persons and
+      controls.
+    explanation: &gt;-
+      Establishes that the antibody response itself is intact in C2 deficiency,
+      which is what makes vaccination worth giving.
+  - reference: PMID:22842196
+    reference_title: &gt;-
+      Vaccination against encapsulated bacteria in hereditary C2 deficiency
+      results in antibody response and opsonization due to antibody-dependent
+      complement activation.
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      In conclusion, the C2D persons benefited from the vaccination and achieve
+      an increased phagocytic capacity.
+    explanation: &gt;-
+      The authors&#39; summary judgement on benefit, resting on the opsonophagocytic
+      assay rather than on a clinical infection endpoint.
+  - reference: PMID:32164349
+    reference_title: &gt;-
+      Hereditary Deficiency of the Second Component of Complement: Early
+      Diagnosis and 21-Year Follow-Up of a Family.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: BACKGROUND
+    snippet: &gt;-
+      should receive prophylactic penicillin therapy and be considered for both
+      pneumococcal and meningococcal vaccinations
+    explanation: &gt;-
+      States the standard recommendation. The sentence it comes from names the
+      target organisms as Streptococcus pneumoniae, and less frequently
+      Neisseria meningitides and Haemophilus influenzae type B; the quote is cut
+      before that clause because the source interleaves its own bracketed
+      reference markers there, which the snippet validator strips.
+- name: Antibiotic Prophylaxis
+  description: &gt;-
+    Long-term prophylactic penicillin is recommended alongside vaccination. The
+    evidence for it is weaker than the recommendation&#39;s ubiquity suggests, and
+    the entry records both sides rather than the favourable one: a 21-year
+    two-brother follow-up reports no severe or invasive infection under combined
+    vaccination and prophylaxis, while the 77-patient European registry found no
+    association between prophylactic antibiotic use and subsequent infection
+    risk. The registry also found prescribing varied by country rather than by
+    patient, which is what a practice without a settled evidence base looks like.
+  therapeutic_modality: SMALL_MOLECULE
+  target_mechanisms:
+  - target: Recurrent Bacterial Infection
+    description: &gt;-
+      Prophylaxis acts on the clinical endpoint rather than on the complement
+      lesion: it suppresses the encapsulated-organism infections that the
+      opsonisation defect permits, without restoring classical-pathway
+      function. That is why it is drawn to the phenotype and not to a
+      mechanism node — and why the evidence for it is contested, since an
+      intervention acting downstream of an unrepaired defect is the kind whose
+      benefit is hardest to demonstrate.
+  treatment_term:
+    preferred_term: antibiotic prophylaxis
+    term:
+      id: NCIT:C51993
+      label: Antibiotic Prophylaxis
+    therapeutic_agent:
+    - preferred_term: benzathine benzylpenicillin
+      term:
+        id: CHEBI:51352
+        label: benzylpenicillin benzathine
+    - preferred_term: phenoxymethylpenicillin
+      term:
+        id: CHEBI:27446
+        label: phenoxymethylpenicillin
+    - preferred_term: amoxicillin
+      term:
+        id: CHEBI:2676
+        label: amoxicillin
+  evidence:
+  - reference: PMID:32164349
+    reference_title: &gt;-
+      Hereditary Deficiency of the Second Component of Complement: Early
+      Diagnosis and 21-Year Follow-Up of a Family.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Antibiotic prophylaxis was also started, initially with intramuscular
+      benzathine benzylpenicillin every 21 d, replaced by oral
+      phenoxymethylpenicillin in 2002 and currently with oral amoxicillin in a
+      single daily dose.
+    explanation: &gt;-
+      Documents the agents and the switch across two decades of follow-up, which
+      is where the two bound therapeutic agents come from.
+  - reference: PMID:32164349
+    reference_title: &gt;-
+      Hereditary Deficiency of the Second Component of Complement: Early
+      Diagnosis and 21-Year Follow-Up of a Family.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    directness: INDIRECT
+    snippet: &gt;-
+      Our data show that early diagnosis, use of vaccinations and antibiotic
+      prophylaxis may allow a normal life in hereditary C2 deficiency, which can
+      be characterized using functional and genetic methods.
+    explanation: &gt;-
+      The favourable claim, and the reason it is graded INDIRECT: the outcome is
+      two brothers observed without a comparator, so the absence of infection
+      supports the strategy only by inference from an uncontrolled series.
+  - reference: PMID:25663093
+    reference_title: &gt;-
+      Spectrum and management of complement immunodeficiencies (excluding
+      hereditary angioedema) across Europe.
+    supports: REFUTE
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Age of the patient and use of prophylactic antibiotics were not associated
+      with subsequent infection risk.
+    explanation: &gt;-
+      The largest cohort addressing the question finds no protective association
+      for prophylactic antibiotics. Recorded as REFUTE against the efficacy
+      claim rather than omitted, because a treatment block that cited only the
+      two-patient favourable series would misrepresent the evidence base.
+  notes: &gt;-
+    The two findings are not necessarily contradictory — the registry measured
+    an association across mixed complement defects and could not isolate C2, and
+    the follow-up describes vaccination and prophylaxis given together, so
+    neither isolates the antibiotic&#39;s contribution. Recorded as a genuine
+    disagreement rather than resolved.
 differential_diagnoses:
 - name: Late Complement Component Deficiency
   description: &gt;-
@@ -6596,18 +7856,35 @@ discussions:
     modifiers such as C4A copy number carry much of the risk. PMID:35729719
     shows C4A dose matters in heterozygotes but the analogous analysis in
     complete C2 deficiency has not been done.
-- discussion_id: c2d_no_curated_treatments
+- discussion_id: c2d_prophylaxis_efficacy_gap
   kind: KNOWLEDGE_GAP
   attaches_to:
-  - treatments#
+  - treatments#Antibiotic Prophylaxis
   prompt: &gt;-
-    What is the evidence base for vaccination and antibiotic prophylaxis in C2
-    deficiency specifically, as opposed to complement deficiency in general?
+    Does long-term antibiotic prophylaxis reduce invasive infection in C2
+    deficiency specifically, as opposed to complement deficiency as a class?
   rationale: &gt;-
-    No treatments are curated because the sources consulted describe management
-    for complement deficiency as a class rather than reporting outcomes in C2
-    deficient cohorts. Curating class-level guidance as C2 evidence would
-    overstate what the cited literature shows.
+    Narrowed from an earlier gap that asked the same question of vaccination
+    and prophylaxis together and recorded that no treatments were curated. The
+    vaccination half is now answered: PMID:22842196 studied vaccination in
+    hereditary C2 deficiency itself, showing intact antibody titres and
+    restored opsonophagocytosis through antibody-dependent alternative-pathway
+    activation, which is C2-specific rather than class-level evidence.
+
+    The prophylaxis half is genuinely still open, and the two sources that bear
+    on it point opposite ways without either settling it. The favourable one is
+    two brothers followed for 21 years with no comparator arm and with
+    vaccination given alongside, so it cannot isolate the antibiotic&#39;s
+    contribution. The unfavourable one, a 77-patient European registry, found
+    no association between prophylactic antibiotic use and subsequent infection
+    risk — but it pooled mixed complement defects, of which C2 was 29%, so it
+    cannot isolate C2 either. Both are curated on the treatment, the second as
+    a REFUTE item.
+
+    What would close this is a C2-specific cohort with a prophylaxis comparator.
+    Until then the treatment is curated as recommended practice with its
+    evidence base shown as contested, rather than as an intervention of
+    established benefit.
 notes: &gt;-
   The prevalence and carrier-frequency figures both come from the introduction
   of PMID:35729719, which cites them to earlier work rather than measuring them.
@@ -6671,6 +7948,26 @@ notes: &gt;-
                     <span class="card-count">1</span>
                 </div>
                 <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Review: C2 deficiency publication-completeness deep review (IUIS Table 8)</strong> · 2026-09-15T18:48:36Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Complement_Component_2_Deficiency/2026-09-15T184836Z-claude-code-25a6b2.yaml">View source</a></p>
+                        <p class="research-review-text">The entry had no treatments section at all. For a disease whose whole clinical problem is preventable invasive pneumococcal infection, that was the most consequential gap in it.
+
+Added two treatments. Vaccination against encapsulated bacteria is linked to the Impaired Opsonophagocytosis node, because the reason it works here is mechanistically specific: C2-deficient people make normal antibody, and that antibody restores opsonophagocytosis by driving alternative-pathway activation around the missing C2 step, rather than by repairing the classical pathway. Antibiotic prophylaxis carries both sides of a genuine disagreement - a 21-year two-brother follow-up reporting no invasive infection under combined vaccination and prophylaxis, and the 77-patient European registry finding no association between prophylactic antibiotics and subsequent infection risk, recorded as a REFUTE item rather than omitted.
+
+Also added the progressive hypogammaglobulinemia reported on long-term follow-up, deliberately without a frequency band because it rests on one patient, and quantified the type I/type II allele split at 95% and 5-7%.
+
+Three references fetched for this: PMID:22842196, PMID:25663093, PMID:32164349. 33/33 snippets verify.
+
+Review rounds. A KNOWLEDGE_GAP reading &#34;No treatments are curated&#34; was left in place by the commit that added two treatments, 520 lines below them; it is now narrowed to the prophylaxis half, which is the part genuinely still open, and retargeted at that treatment rather than the whole section. The prophylaxis treatment was rebound from generic Pharmacotherapy to NCIT:C51993 Antibiotic Prophylaxis, and benzathine benzylpenicillin added so all three agents named in the quoted snippet are bound.
+
+PMID:16026838 was fetched and two phenotypes curated from it: rheumatological disease at 43% and an atherosclerosis association with no band, since the source reports an association and no rate. The wider autoimmune spectrum a deep-research report attributed to Orphanet is deliberately NOT curated - the abstract does not name it and ORPHA:169147 cannot be built here - and the phenotype description records that rather than leaving the omission unexplained.</p>
+                    </div>
+
+                </details>
 
 
                 <div style="margin-bottom: 4px;">
@@ -7018,7 +8315,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Complement Component 2 Deficiency", "mondoId": "MONDO:0009006", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Complement_Component_2_Deficiency", "yamlRevision": "5797f43364ac"};
+        const OS_CONFIG = {"diseaseName": "Complement Component 2 Deficiency", "mondoId": "MONDO:0009006", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Complement_Component_2_Deficiency", "yamlRevision": "aa147b92dca4"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

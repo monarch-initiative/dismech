@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -7995,6 +8034,7 @@ This readout is measured by lipid peroxidation assay.</span>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-atp7b-copper-trafficking-defect" data-dismech-node="ATP7B Copper-Trafficking Defect" data-dismech-type="pathophysiology">
                 <div class="item-name">ATP7B Copper-Trafficking Defect</div>
 
+
                 <div class="item-desc">Loss of hepatocyte ATP7B copper-trafficking function is the shared upstream defect that impairs both copper excretion into bile and copper incorporation into apoceruloplasmin in the secretory pathway.
 </div>
 
@@ -8287,6 +8327,7 @@ This pathophysiological event involves Golgi apparatus (GO:0005794). GO:0005794 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-biliary-copper-excretion" data-dismech-node="Impaired Biliary Copper Excretion" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Biliary Copper Excretion</div>
+
 
                 <div class="item-desc">ATP7B mutations impair copper excretion into bile. ATP7B normally resides in the trans-Golgi network and traffics to the bile canalicular membrane when intracellular copper is elevated. Loss of ATP7B function prevents this copper export pathway.
 </div>
@@ -8622,6 +8663,7 @@ This pathophysiological event involves bile canalicular membrane, annotated with
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-ceruloplasmin-loading" data-dismech-node="Impaired Ceruloplasmin Loading" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Ceruloplasmin Loading</div>
 
+
                 <div class="item-desc">ATP7B normally loads copper into apoceruloplasmin in the trans-Golgi network. Loss of ATP7B function results in secretion of copper-free apoceruloplasmin, which is rapidly degraded, leading to the characteristic low serum ceruloplasmin levels.
 </div>
 
@@ -8873,6 +8915,7 @@ This pathophysiological event involves decreased ceruloplasmin ferroxidase activ
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hepatic-copper-accumulation" data-dismech-node="Hepatic Copper Accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Hepatic Copper Accumulation</div>
+
 
                 <div class="item-desc">Impaired biliary excretion causes progressive copper retention in hepatocytes. When hepatic storage capacity is exceeded, copper is released into the circulation.
 </div>
@@ -9175,6 +9218,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-systemic-copper-distribution" data-dismech-node="Systemic Copper Distribution" data-dismech-type="pathophysiology">
                 <div class="item-name">Systemic Copper Distribution</div>
 
+
                 <div class="item-desc">When hepatic copper storage capacity is exceeded, free copper enters the circulation and deposits in the brain, kidneys, eyes, heart, muscles, and bones, causing multi-organ injury.
 </div>
 
@@ -9468,6 +9512,7 @@ This pathophysiological event involves abnormal systemic copper ion homeostasis,
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hepatocyte-injury" data-dismech-node="Hepatocyte Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Hepatocyte Injury</div>
+
 
                 <div class="item-desc">Copper accumulation in hepatocytes causes oxidative stress, mitochondrial dysfunction, impaired bioenergetics, and cell death. Severe injury can manifest as hepatitis, jaundice, hepatomegaly, and acute liver failure. Copper overload also activates autophagy and mitophagy-based mitochondrial quality control responses, while cuproptosis and ferroptosis may amplify injury in model systems and susceptible hepatic contexts.
 </div>
@@ -9854,6 +9899,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hepatic-stellate-cell-activation" data-dismech-node="Hepatic Stellate Cell Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Hepatic Stellate Cell Activation</div>
 
+
                 <div class="item-desc">Copper-injured liver tissue activates pro-fibrotic signaling, including TGF-beta and NF-kappaB pathways, which stimulate hepatic stellate cells to transdifferentiate toward collagen-secreting myofibroblasts.
 </div>
 
@@ -10053,6 +10099,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-excessive-hepatic-ecm-deposition" data-dismech-node="Excessive Hepatic ECM Deposition" data-dismech-type="pathophysiology">
                 <div class="item-name">Excessive Hepatic ECM Deposition</div>
+
 
                 <div class="item-desc">Collagen-secreting myofibroblasts deposit excessive extracellular matrix in the liver, progressively distorting architecture and promoting cirrhosis.
 </div>
@@ -10289,6 +10336,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neurodegeneration" data-dismech-node="Neurodegeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Neurodegeneration</div>
+
 
                 <div class="item-desc">Copper deposition is thought to drive brain cellular damage with characteristic striatal/basal ganglia lesions. Longitudinal atrophy data support active neurodegeneration, while reactive astrogliosis and microglial activation with increased CNS inflammatory cytokines indicate neuroinflammation contributing to movement and psychiatric symptoms.
 </div>
@@ -10799,6 +10847,7 @@ This pathophysiological event occurs in putamen (UBERON:0001874). UBERON:0001874
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cuproptosis" data-dismech-node="Cuproptosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Cuproptosis</div>
 
+
                 <div class="item-desc">Copper-dependent cell death has been proposed in Wilson disease, involving binding of copper to lipoylated enzymes in the tricarboxylic acid (TCA) cycle and leading to proteotoxic stress and mitochondrial dysfunction. The strongest Wilson disease-specific evidence currently comes from ATP7B knockout mouse and copper-treated hepatocyte models rather than human tissue.
 </div>
 
@@ -10985,6 +11034,7 @@ This pathophysiological event involves increased cuproptosis (GO:0160119). GO:01
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ferroptosis" data-dismech-node="Ferroptosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Ferroptosis</div>
 
+
                 <div class="item-desc">Iron-related cell death pathway involving phospholipid peroxidation. Secondary hepatic iron overload has been documented in a subset of Wilson disease patients, raising the possibility of ferroptotic injury alongside copper-mediated toxicity. This remains an emerging modifier mechanism rather than a universal explanation for Wilson disease liver injury. The ferroptosis biological-process node is deliberately left without a direction modifier: the human evidence is indirect and frames ferroptosis as an emerging possibility, so the caution is expressed structurally instead — through the hypothesis-grouped, MODEL_ORGANISM-graded causal edge to Hepatocyte Injury rather than by asserting a quantitative direction on the process itself.
 </div>
 
@@ -11167,6 +11217,7 @@ This pathophysiological event involves ferroptosis (GO:0097707). GO:0097707 is a
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-erythrocyte-oxidative-membrane-injury" data-dismech-node="Erythrocyte Oxidative Membrane Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Erythrocyte Oxidative Membrane Injury</div>
 
+
                 <div class="item-desc">Abrupt release of copper from injured hepatocytes raises the free (non-ceruloplasmin-bound) serum copper, which acts as an oxidant on erythrocyte membrane phospholipids and hemoglobin. This oxidative membrane injury is the Wilson-disease-specific lesion that primes red cells for premature destruction.</div>
 
 
@@ -11314,6 +11365,7 @@ This pathophysiological event involves increased response to oxidative stress (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-premature-erythrocyte-destruction" data-dismech-node="Premature Erythrocyte Destruction" data-dismech-type="pathophysiology">
                 <div class="item-name">Premature Erythrocyte Destruction</div>
+
 
                 <div class="item-desc">Copper-oxidized, poorly deformable erythrocytes undergo premature intravascular hemolysis and splenic clearance, producing Coombs-negative hemolysis — the Wilson-disease substitution for the module&#39;s shared erythrocyte-destruction effector.</div>
 
@@ -12273,6 +12325,7 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
             </div>
 
 
+
             <div class="context-notes">Orphanet&#39;s structured HPO table gives hepatomegaly a very-frequent frequency band.</div>
 
 
@@ -12665,6 +12718,7 @@ This clinical feature is Cirrhosis (HP:0001394). HP:0001394 is a phenotype from 
 
 
             </div>
+
 
 
             <div class="context-notes">Orphanet&#39;s structured HPO table gives cirrhosis a very-frequent frequency band.</div>
@@ -13590,6 +13644,7 @@ This clinical feature is Kayser-Fleischer ring (HP:0200032). HP:0200032 is a phe
             </div>
 
 
+
             <div class="context-notes">Orphanet&#39;s structured HPO table gives Kayser-Fleischer ring a very-frequent frequency band.</div>
 
 
@@ -14468,6 +14523,7 @@ This clinical feature is Pruritus (HP:0000989). HP:0000989 is a phenotype from t
             </div>
 
 
+
             <div class="context-notes">Orphanet&#39;s structured HPO table gives pruritus a very-frequent frequency band.</div>
 
 
@@ -14588,6 +14644,7 @@ This clinical feature is Proximal lower limb muscle weakness (HP:0008994). HP:00
             </div>
 
 
+
             <div class="context-notes">Orphanet&#39;s structured HPO table gives proximal lower-limb muscle weakness a very-frequent frequency band.</div>
 
 
@@ -14697,6 +14754,7 @@ This clinical feature is Abnormality of the hand (HP:0001155). HP:0001155 is a p
 
 
             </div>
+
 
 
             <div class="context-notes">Orphanet&#39;s structured HPO table gives abnormality of the hand a very-frequent frequency band.</div>
@@ -14893,6 +14951,7 @@ This clinical feature is Joint swelling (HP:0001386). HP:0001386 is a phenotype 
             </div>
 
 
+
             <div class="context-notes">Orphanet&#39;s structured HPO table gives joint swelling a very-frequent frequency band.</div>
 
 
@@ -15085,6 +15144,7 @@ This clinical feature is Arthritis (HP:0001369). HP:0001369 is a phenotype from 
             </div>
 
 
+
             <div class="context-notes">Orphanet&#39;s structured HPO table gives arthritis a very-frequent frequency band.</div>
 
 
@@ -15194,6 +15254,7 @@ This clinical feature is Pathologic fracture (HP:0002756). HP:0002756 is a pheno
 
 
             </div>
+
 
 
             <div class="context-notes">Orphanet&#39;s structured HPO table gives pathologic fracture a very-frequent frequency band.</div>
@@ -15671,6 +15732,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
             </div>
+
 
 
             <div class="context-notes">Orphanet&#39;s structured HPO table gives intellectual disability a very-frequent frequency band.</div>
@@ -16547,6 +16609,7 @@ This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from
             </div>
 
 
+
             <div class="context-notes">Orphanet&#39;s structured HPO table gives dysarthria a very-frequent frequency band.</div>
 
 
@@ -17015,6 +17078,7 @@ commonly described (45.9%), followed by depression (27%). Cognitive changes,"</d
             </div>
 
 
+
             <div class="context-notes">Orphanet&#39;s structured HPO table gives aggressive behavior a very-frequent frequency band.</div>
 
 
@@ -17159,6 +17223,7 @@ This clinical feature is Depression (HP:0000716). HP:0000716 is a phenotype from
 
 
             </div>
+
 
 
             <div class="context-notes">Orphanet&#39;s structured HPO table gives depression a very-frequent frequency band.</div>
@@ -17616,6 +17681,7 @@ This clinical feature is Amplification of sexual behavior (HP:5200321). HP:52003
 
 
             </div>
+
 
 
             <div class="context-notes">Orphanet&#39;s structured HPO table gives amplification of sexual behavior a very-frequent frequency band.</div>
@@ -18137,6 +18203,7 @@ This clinical feature is Back pain (HP:0003418). HP:0003418 is a phenotype from 
             </div>
 
 
+
             <div class="context-notes">Orphanet&#39;s structured HPO table gives back pain a very-frequent frequency band.</div>
 
 
@@ -18279,6 +18346,7 @@ This clinical feature is Arthralgia (HP:0002829). HP:0002829 is a phenotype from
 
 
             </div>
+
 
 
             <div class="context-notes">Orphanet&#39;s structured HPO table gives arthralgia a very-frequent frequency band.</div>
@@ -18557,6 +18625,9 @@ This disease-associated gene is ATP7B (hgnc:870). hgnc:870 is a gene from the HU
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal Recessive</span>
@@ -18664,6 +18735,12 @@ This disease-associated gene is ATP7B (hgnc:870). hgnc:870 is a gene from the HU
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Common Central/Northern European ATP7B founder allele. In a 12-year Swiss (Lausanne/Geneva) tertiary-referral cohort of adult hepatic Wilson disease, the H1069Q allelic frequency was 19%. Note the very small denominator: at least one ATP7B mutation was identified in only eight patients, so 19% is approximately 3 of 16 alleles. Larger Central/Northern European genotyping series report substantially higher H1069Q allele frequencies, so this regional datapoint should not be read as the canonical European estimate.</div>
 
 
@@ -18750,6 +18827,12 @@ This disease-associated gene is ATP7B (hgnc:870). hgnc:870 is a gene from the HU
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Classic East-Asian-specific ATP7B founder allele. Sequencing of 65 Hong Kong Chinese Wilson disease patients identified 42 different mutations, of which p.R778L was the most prevalent at 17.3%. This is an allele/mutation share among Wilson disease chromosomes in that series, not a patient-denominated frequency — the source reports no patient-level figure.</div>
 
 
@@ -18809,6 +18892,12 @@ This disease-associated gene is ATP7B (hgnc:870). hgnc:870 is a gene from the HU
         <span class="variant-significance variant-significance-likely-pathogenic">Likely Pathogenic</span>
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">Rare intron 4 splice-site variant that disrupts the canonical splice donor site, predicted to cause aberrant mRNA splicing, potentially resulting in a frameshift or premature stop codon and thus a nonfunctional, dysfunctional, or truncated ATP7B protein. Previously reported only in the compound heterozygous state in three cases worldwide, all showing hepatic involvement without neurologic or ocular involvement; those cases span an asymptomatic child diagnosed at 8 years and two adults presenting with acute liver failure at 44 and 58 years, so onset is not uniformly late. Homozygosity in a 47-year-old asymptomatic man with cryptogenic cirrhosis and hepatic steatosis is the first reported homozygous case, and illustrates that late-onset hepatic Wilson disease can be missed when the presentation mimics lean MASLD (metabolic dysfunction-associated steatotic liver disease).</div>

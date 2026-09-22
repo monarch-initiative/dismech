@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4806,6 +4845,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-wwox-loss-of-function-lesion" data-dismech-node="Biallelic WWOX Loss-of-Function Lesion" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic WWOX Loss-of-Function Lesion</div>
 
+
                 <div class="item-desc">Two pathogenic WWOX alleles are present - homozygous or compound heterozygous - spanning nonsense, frameshift, splice-site, missense and copy-number variants. This node records the lesion only; the genotype class it falls into is modelled separately, because that is what the outcome data stratify on.</div>
 
 
@@ -4906,6 +4946,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-wwox-scaffold-function" data-dismech-node="Loss of WWOX Scaffold Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of WWOX Scaffold Function</div>
+
 
                 <div class="item-desc">WWOX is a 46 kDa adaptor carrying two N-terminal WW domains and a C-terminal short-chain dehydrogenase/reductase domain. The WW domains bind PPxY-motif partners, so the protein acts as a hub rather than through a single catalytic output - its own substrate is still unknown. Loss of the hub is what propagates into the separate signalling arms below.</div>
 
@@ -5061,6 +5102,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-wnt-gsk-3beta-signalling-dysregulation" data-dismech-node="Wnt/GSK-3beta Signalling Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Wnt/GSK-3beta Signalling Dysregulation</div>
 
+
                 <div class="item-desc">WWOX loss produces significantly increased activation of glycogen synthase kinase 3beta across cerebral cortex, hippocampus and cerebellum in Wwox-null mice. This arm is separated from the others because it carries its own pharmacological test: inhibiting GSK-3beta with lithium abolishes induced seizures in these animals.</div>
 
 
@@ -5195,6 +5237,7 @@ This pathophysiological event involves dysregulated Wnt signaling pathway (GO:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hyal-2-wwox-smad4-complex-failure" data-dismech-node="Hyal-2/WWOX/Smad4 Complex Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Hyal-2/WWOX/Smad4 Complex Failure</div>
 
+
                 <div class="item-desc">In a non-canonical TGF-beta route, hyaluronan-bound membrane hyaluronidase Hyal-2 recruits WWOX and Smad4 into a complex that relocates to the nucleus. WWOX is the bridge that binds both partners, so in its absence Smad relocation fails. Curated as a distinct arm because it is a transcriptional-signalling defect, not a synaptic or myelin one.</div>
 
 
@@ -5293,6 +5336,7 @@ This pathophysiological event involves decreased transforming growth factor beta
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-oligodendrocyte-maturation" data-dismech-node="Impaired Oligodendrocyte Maturation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Oligodendrocyte Maturation</div>
+
 
                 <div class="item-desc">Oligodendrocyte precursors fail to mature into myelinating oligodendrocytes, with a measured fall in myelination-gene transcripts. Kept separate from the hypomyelination it produces, because the cellular differentiation failure and the tissue-level myelin deficit are distinct measurements.</div>
 
@@ -5492,6 +5536,7 @@ This pathophysiological event involves decreased oligodendrocyte differentiation
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cns-hypomyelination" data-dismech-node="CNS Hypomyelination" data-dismech-type="pathophysiology">
                 <div class="item-name">CNS Hypomyelination</div>
 
+
                 <div class="item-desc">Reduced myelinated axon content in the central nervous system. Whether this arm contributes causally to the seizures, as opposed to running in parallel with them, is an open question recorded in the discussions.</div>
 
 
@@ -5648,6 +5693,7 @@ This pathophysiological event involves decreased myelination (GO:0042552). GO:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-axonal-conductivity" data-dismech-node="Impaired Axonal Conductivity" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Axonal Conductivity</div>
 
+
                 <div class="item-desc">Axonal conduction is measurably impaired in neuronal Wwox-deletion mice. Recorded as its own node because it is the functional consequence of hypomyelination and the point at which the myelin arm could in principle act on network behaviour.</div>
 
 
@@ -5708,6 +5754,7 @@ This pathophysiological event involves decreased myelination (GO:0042552). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-cortical-neuronal-migration" data-dismech-node="Disrupted Cortical Neuronal Migration" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Cortical Neuronal Migration</div>
+
 
                 <div class="item-desc">A developmental arm separate from the synaptic and myelin arms: Wwox-null mice show neuronal disorganisation and heterotopia, incomplete separation of the cerebral hemispheres, and defective cerebellar midline fusion.</div>
 
@@ -5843,6 +5890,7 @@ This pathophysiological event involves abnormal hippocampus development (GO:0021
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-excitatory-synaptic-drive" data-dismech-node="Increased Excitatory Synaptic Drive" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased Excitatory Synaptic Drive</div>
 
+
                 <div class="item-desc">Layer II/III pyramidal neurons show elevated excitatory postsynaptic current amplitude. Curated separately from the inhibitory change because the two were measured separately and move in opposite directions - collapsing them into one &#34;E/I imbalance&#34; node would discard which side actually changed.</div>
 
 
@@ -5972,6 +6020,7 @@ This pathophysiological event involves pyramidal neuron (CL:0000598). CL:0000598
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-inhibitory-synaptic-drive" data-dismech-node="Reduced Inhibitory Synaptic Drive" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Inhibitory Synaptic Drive</div>
+
 
                 <div class="item-desc">The same layer II/III recordings show reduced frequency and amplitude of inhibitory postsynaptic currents - a loss of inhibition running alongside, and independent of, the gain in excitation.</div>
 
@@ -6103,6 +6152,7 @@ This pathophysiological event involves pyramidal neuron (CL:0000598). CL:0000598
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-intrinsic-neuronal-hyperexcitability" data-dismech-node="Intrinsic Neuronal Hyperexcitability" data-dismech-type="pathophysiology">
                 <div class="item-name">Intrinsic Neuronal Hyperexcitability</div>
 
+
                 <div class="item-desc">Beyond synaptic drive, the neurons themselves are altered: depolarised resting membrane potential, increased action-potential frequency, increased sag current and post-inhibitory rebound. This is a membrane-property change, not a synaptic one, so it is a third independent contributor rather than part of the E/I node.</div>
 
 
@@ -6213,6 +6263,7 @@ This pathophysiological event involves pyramidal neuron (CL:0000598). CL:0000598
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cortical-excitation-inhibition-imbalance" data-dismech-node="Cortical Excitation-Inhibition Imbalance" data-dismech-type="pathophysiology">
                 <div class="item-name">Cortical Excitation-Inhibition Imbalance</div>
 
+
                 <div class="item-desc">The net shift of neocortical circuits toward excitation, produced by the independent gain in excitatory drive and loss of inhibitory drive above.</div>
 
 
@@ -6288,6 +6339,7 @@ This pathophysiological event involves pyramidal neuron (CL:0000598). CL:0000598
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neocortical-network-hypersynchrony" data-dismech-node="Neocortical Network Hypersynchrony" data-dismech-type="pathophysiology">
                 <div class="item-name">Neocortical Network Hypersynchrony</div>
+
 
                 <div class="item-desc">Spontaneous bursting appears in neocortical but not hippocampal slices, is NMDA receptor- and gap-junction-dependent, and propagates from layer II/III to layer V - so the neocortex, and specifically its superficial layers, is the driver.</div>
 
@@ -6410,6 +6462,7 @@ This pathophysiological event involves pyramidal neuron (CL:0000598). CL:0000598
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-early-onset-drug-resistant-seizures" data-dismech-node="Early-Onset Drug-Resistant Seizures" data-dismech-type="pathophysiology">
                 <div class="item-name">Early-Onset Drug-Resistant Seizures</div>
 
+
                 <div class="item-desc">Multiple seizure types begin within the first weeks to months of life - most often focal seizures, epileptic spasms and tonic seizures - and respond poorly to antiseizure medication.</div>
 
 
@@ -6510,6 +6563,7 @@ This pathophysiological event involves pyramidal neuron (CL:0000598). CL:0000598
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-cerebral-and-optic-atrophy" data-dismech-node="Progressive Cerebral and Optic Atrophy" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Cerebral and Optic Atrophy</div>
+
 
                 <div class="item-desc">A degenerative arm distinct from the malformation arm: severe frontotemporal, hippocampal and optic atrophy with thin corpus callosum and white matter signal change on patient MRI, mirrored in mice by optic nerve atrophy, Purkinje cell loss and cerebellar granule cell apoptosis.</div>
 
@@ -6655,6 +6709,7 @@ This pathophysiological event involves abnormal regulation of neuron apoptotic p
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-profound-developmental-impairment" data-dismech-node="Profound Developmental Impairment" data-dismech-type="pathophysiology">
                 <div class="item-name">Profound Developmental Impairment</div>
 
+
                 <div class="item-desc">Affected children acquire neither language nor independent walking. Two upstream routes converge here - the developmental malformation arm and the seizure burden - and the published data do not separate their contributions.</div>
 
 
@@ -6715,6 +6770,7 @@ This pathophysiological event involves abnormal regulation of neuron apoptotic p
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-genotype-stratified-mortality-risk" data-dismech-node="Genotype-Stratified Mortality Risk" data-dismech-type="pathophysiology">
                 <div class="item-name">Genotype-Stratified Mortality Risk</div>
+
 
                 <div class="item-desc">Survival tracks genotype class rather than any single clinical feature: biallelic null genotypes have significantly lower survival probability than genotypes carrying at least one presumed hypomorphic missense allele. This is the entry&#39;s best-quantified genotype-phenotype claim and the reason the lesion node and the genotype class are modelled separately.</div>
 
@@ -8809,6 +8865,9 @@ This disease-associated gene is WWOX (hgnc:12799). hgnc:12799 is a gene from the
 
 
                 </div>
+
+
+
 
 
 

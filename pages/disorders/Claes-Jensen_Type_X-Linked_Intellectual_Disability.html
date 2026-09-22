@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -5334,6 +5373,7 @@ The historical &#34;X-linked recessive&#34; label is empirically inaccurate for 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pathogenic-kdm5c-variant" data-dismech-node="Pathogenic KDM5C Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">Pathogenic KDM5C Variant</div>
 
+
                 <div class="item-desc">A hemizygous (males) or heterozygous (females) pathogenic variant in KDM5C is the shared upstream lesion from which the two mechanistic arms of this disorder diverge. Most reported variants reduce or abolish JmjC-domain catalytic output, engaging the demethylase arm. However, catalytic loss is not required: the R1115H substitution leaves both enzymatic activity and protein stability intact yet still fails to repress KDM5C target genes, demonstrating that disruption of the non-enzymatic REST/HDAC1-2/G9a scaffolding role is a parallel consequence of the variant rather than a downstream consequence of demethylase loss. The two arms are therefore modelled as siblings fanning out from this node, not as a chain.
 </div>
 
@@ -5441,6 +5481,7 @@ The historical &#34;X-linked recessive&#34; label is empirically inaccurate for 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-kdm5c-h3k4me3-me2-demethylase-function" data-dismech-node="Loss of KDM5C H3K4me3/me2 Demethylase Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of KDM5C H3K4me3/me2 Demethylase Function</div>
+
 
                 <div class="item-desc">KDM5C is a JmjC-domain, Fe(II)/2-oxoglutarate-dependent histone demethylase that converts H3K4me3 to H3K4me2 and H3K4me1 (but not to the unmethylated product). Pathogenic variants abolish or reduce this catalytic output by several distinct routes: nonsense/frameshift alleles that eliminate the transcript or protein, missense alleles that destabilise the protein, and missense alleles within or adjacent to the catalytic JmjC/C5HC2 module that directly impair turnover. Variants adjacent to the accessory ARID and PHD1 domains additionally corrupt substrate recognition by enhancing non-specific DNA binding. ClinGen assigns KDM5C a haploinsufficiency score of 3, and the gene is extremely loss-of-function intolerant, consistent with a pure loss-of-function mechanism rather than gain-of-function or dominant-negative action.
 </div>
@@ -5734,6 +5775,7 @@ This pathophysiological event occurs in Brain (UBERON:0000955). UBERON:0000955 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-non-enzymatic-kdm5c-scaffolding-in-the-rest-repressor-complex" data-dismech-node="Loss of Non-Enzymatic KDM5C Scaffolding in the REST Repressor Complex" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Non-Enzymatic KDM5C Scaffolding in the REST Repressor Complex</div>
 
+
                 <div class="item-desc">KDM5C also acts non-catalytically as a component of a repressor assembly. An SMCX/KDM5C complex contains the histone deacetylases HDAC1 and HDAC2, the H3K9 methyltransferase G9a, and the transcriptional repressor REST, and co-occupies neuron-restrictive silencer elements in the promoters of REST target genes including SCN2A and SYN1. Depleting KDM5C derepresses these targets with a concomitant rise in promoter H3K4me3. Critically, the patient variant R1115H has entirely normal catalytic activity and protein stability yet still fails to suppress target genes, establishing that loss of demethylase activity alone is an incomplete account of the disease and that a scaffolding/recruitment arm exists in parallel.
 </div>
 
@@ -5973,6 +6015,7 @@ This pathophysiological event involves abnormal Regulation of transcription by R
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-locus-specific-h3k4me3-fine-tuning-at-cpg-island-promoters" data-dismech-node="Failure of Locus-Specific H3K4me3 Fine-Tuning at CpG-Island Promoters" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Locus-Specific H3K4me3 Fine-Tuning at CpG-Island Promoters</div>
 
+
                 <div class="item-desc">In neurons KDM5C is recruited to CpG-island promoters already decorated with high H3K4me3, where it trims rather than erases the mark. The consequence of KDM5C loss is therefore not a bulk collapse of chromatin state but a locus-specific failure of transcriptional fine-tuning, biased toward upregulation of lowly expressed target genes. KDM5C performs the same trimming function at activity-regulated enhancers during neuronal maturation. This distinction matters mechanistically: global H3K4 methylation levels are preserved in patient fibroblasts and in Kdm5c-null neurons, so the pathology arises from mis-set thresholds at specific regulatory elements.
 </div>
 
@@ -6211,6 +6254,7 @@ This pathophysiological event involves abnormal Regulation of transcription by R
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-derepression-of-non-neuronal-germline-and-cryptic-transcriptional-programs" data-dismech-node="Derepression of Non-Neuronal, Germline and Cryptic Transcriptional Programs" data-dismech-type="pathophysiology">
                 <div class="item-name">Derepression of Non-Neuronal, Germline and Cryptic Transcriptional Programs</div>
+
 
                 <div class="item-desc">The direct transcriptional consequence of failed H3K4me3 trimming is spurious activation of gene programs that should be silent in neurons. In the developing brain this manifests as failure to silence germline genes during differentiation; in the adult brain KDM5C serves an ongoing genome surveillance role, preventing activation of non-neuronal and cryptic promoters. This surveillance function is shared with, and reinforced by, the related demethylase KDM1A: combined forebrain loss of both enzymes produces stronger ectopic expression of non-neuronal genes in hippocampal neurons and thousands of de novo H3K4me3-enriched regions. The net effect is progressive erosion of neuronal transcriptional identity.
 </div>
@@ -6463,6 +6507,7 @@ This pathophysiological event occurs in Hippocampal formation (UBERON:0002421). 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mistimed-canonical-wnt-signalling-and-progenitor-transition" data-dismech-node="Mistimed Canonical WNT Signalling and Progenitor Transition" data-dismech-type="pathophysiology">
                 <div class="item-name">Mistimed Canonical WNT Signalling and Progenitor Transition</div>
+
 
                 <div class="item-desc">During a defined prenatal window of corticogenesis, KDM5C directly controls canonical WNT output to set the timing of the primary-to-intermediate neural progenitor transition and therefore the tempo of neurogenesis. Loss of KDM5C removes this timing safeguard. The deficit is developmental-window dependent and, in mice and patient-derived induced pluripotent stem cells, transiently reversible: WNT-pathway modulation restricted to that window rescues the transcriptomic and chromatin landscapes in patient-derived cells and rescues behavioural abnormalities in Kdm5c-knockout mice. Conversely, a single WNT3A injection into wild-type embryonic mouse brain produces anxiety and memory changes. This is the most therapeutically actionable mechanism identified to date, but the window may close before postnatal molecular diagnosis is possible.
 </div>
@@ -6721,6 +6766,7 @@ This pathophysiological event occurs in Cerebral cortex (UBERON:0000956). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-dendritic-arborisation-and-spine-density" data-dismech-node="Reduced Dendritic Arborisation and Spine Density" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Dendritic Arborisation and Spine Density</div>
+
 
                 <div class="item-desc">The convergent structural endpoint of the transcriptional lesion is a hypoplastic dendritic tree with reduced spine density and immature spine morphology, most pronounced in amygdalar and cortical pyramidal neurons. Reduced dendritic development is seen with KDM5C knockdown in primary mammalian neurons and in zebrafish, and dendritic spine loss is a shared feature of Kdm5c-null and Kmt2a-null mice - the eraser and writer of the same mark - indicating that spine density is set by the balance of the H3K4-methylation writer-eraser pair rather than by either enzyme alone. There is no neurodegeneration, gliosis or tissue destruction; the adult Kdm5c-knockout cortex, hippocampus and amygdala are cytoarchitecturally normal.
 </div>
@@ -7060,6 +7106,7 @@ This pathophysiological event occurs in Cerebral cortex (UBERON:0000956). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neuronal-hyperexcitability-and-seizure-substrate" data-dismech-node="Neuronal Hyperexcitability and Seizure Substrate" data-dismech-type="pathophysiology">
                 <div class="item-name">Neuronal Hyperexcitability and Seizure Substrate</div>
+
 
                 <div class="item-desc">Seizures affect roughly a third to a half of individuals and arise from a cell-intrinsic neuronal requirement for KDM5 activity. Two convergent lines define the substrate. First, KDM5C loss derepresses REST targets including the sodium channel gene SCN2A, itself a major epilepsy gene, with increased promoter H3K4me3. Second, combined KDM1A/KDM5C forebrain loss alters hippocampal ion channel expression and increases the intrinsic excitability of CA1 pyramidal neurons. In Drosophila, reducing Kdm5 in neurons but not in glia is sufficient to produce spontaneous and stimulus-induced seizures, establishing that the requirement is neuron-autonomous.
 </div>
@@ -9488,6 +9535,9 @@ This disease-associated gene is KDM5C (hgnc:11114). hgnc:11114 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -9599,6 +9649,7 @@ This disease-associated gene is KDM5C (hgnc:11114). hgnc:11114 is a gene from th
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -9618,11 +9669,17 @@ This variant is in KDM5C (hgnc:11114). hgnc:11114 is a gene from the HUGO Gene N
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">MISSENSE</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A missense variant identified in an individual with MRXSCJ-like features plus autism. Functionally exceptional: it has no measurable effect on either enzymatic activity or protein stability, yet when overexpressed in post-mitotic neurons it fails to fully suppress KDM5C target genes and additionally perturbs a distinct gene set. It is the primary evidence that KDM5C has disease-relevant non-enzymatic roles, and the reason the pathophysiology here models an enzymatic and a scaffolding arm separately.
@@ -9709,6 +9766,7 @@ This variant is in KDM5C (hgnc:11114). hgnc:11114 is a gene from the HUGO Gene N
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -9728,11 +9786,17 @@ This variant is in KDM5C (hgnc:11114). hgnc:11114 is a gene from the HUGO Gene N
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">FRAMESHIFT</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A frameshift variant (c.3223delG) that results in complete loss of KDM5C protein - the cleanest example of the null-allele end of the spectrum.
@@ -9794,6 +9858,7 @@ This variant is in KDM5C (hgnc:11114). hgnc:11114 is a gene from the HUGO Gene N
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -9813,11 +9878,17 @@ This variant is in KDM5C (hgnc:11114). hgnc:11114 is a gene from the HUGO Gene N
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">NONSENSE</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A de novo heterozygous nonsense variant (c.3533C&gt;A) in a 4-year-old girl with a Claes-Jensen-type phenotype. Notably, X-chromosome inactivation analysis showed no significant skewing, undercutting the simple assumption that female expression is governed by skewed XCI.

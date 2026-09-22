@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1056,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1071,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1125,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1138,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1296,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1306,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1347,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2074,11 +2111,13 @@ This is not an Xogenesis module: the terminal output is a systemic physiological
             
             <div class="item-box anchor-target" id="module-pathophysiology-sustained-interleukin-6-oversupply" data-dismech-node="Sustained Interleukin-6 Oversupply" data-dismech-type="pathophysiology">
                 <div class="item-name">Sustained Interleukin-6 Oversupply</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">IL-6 is produced in excess of what its clearance and negative-feedback machinery can absorb, and the excess is sustained rather than transient. The producing cell is the disorder-specific substitution and varies widely - stromal cells, plasma cells, macrophages, endothelium, synovial fibroblasts, tumour cells - and in one case the ligand is not host IL-6 at all but a virally encoded homolog. Normal control operates through induction of suppressor molecules after pathway activation and through circulating soluble IL-6 receptor and gp130; sustained oversupply overwhelms it.</div>
                 
@@ -2163,11 +2202,13 @@ This pathophysiological event involves increased Interleukin-6 production (GO:00
             
             <div class="item-box anchor-target" id="module-pathophysiology-gp130-receptor-complex-engagement" data-dismech-node="gp130 Receptor Complex Engagement" data-dismech-type="pathophysiology">
                 <div class="item-name">gp130 Receptor Complex Engagement</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">amplifier</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">IL-6 signals through a complex of IL-6, an IL-6 receptor and the signal-transducing subunit gp130. Three modes exist: classic signaling through the membrane-bound receptor, trans-signaling through a soluble receptor, and trans-presentation from a neighbouring cell. The amplification that makes hypercytokinemia systemic is trans-signaling: only a few cell types express the membrane receptor, whereas gp130 is ubiquitous, so a soluble-receptor complex dramatically enlarges the spectrum of responder cells. Pro-inflammatory responses are attributed rather to trans-signaling and regenerative or anti-inflammatory responses to classic signaling.</div>
                 
@@ -2231,11 +2272,13 @@ This pathophysiological event involves increased Interleukin-6-mediated signalin
             
             <div class="item-box anchor-target" id="module-pathophysiology-jak-stat3-activation-in-responder-cells" data-dismech-node="JAK-STAT3 Activation in Responder Cells" data-dismech-type="pathophysiology">
                 <div class="item-name">JAK-STAT3 Activation in Responder Cells</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">central effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The rate-limiting, disorder-agnostic step and the key conformance target. gp130 dimerization activates Janus kinases, which phosphorylate tyrosine residues in the gp130 cytoplasmic tail. Two arms follow: recruitment and phosphorylation of STAT transcription factors, which dimerize, translocate to the nucleus and activate target genes; and engagement of SHP-2 with activation of the Ras/Raf/MAPK pathway. Every conforming disorder funnels through this node regardless of what supplies the ligand, and it is the point a JAK inhibitor acts on.</div>
                 
@@ -2353,11 +2396,13 @@ This pathophysiological event involves increased MAPK cascade (GO:0000165). GO:0
             
             <div class="item-box anchor-target" id="module-pathophysiology-hepatic-acute-phase-reprogramming" data-dismech-node="Hepatic Acute-Phase Reprogramming" data-dismech-type="pathophysiology">
                 <div class="item-name">Hepatic Acute-Phase Reprogramming</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">STAT3-driven transcription in the hepatocyte induces the positive acute-phase proteins, including C-reactive protein and fibrinogen, while suppressing albumin synthesis; hepcidin induction restricts iron availability and produces the anemia of inflammation. These outputs reverse on IL-6 blockade, and their laboratory markers normalize in a reproducible sequence, which is the evidence that they are downstream of the cytokine rather than independent.</div>
                 
@@ -2470,11 +2515,13 @@ This pathophysiological event involves increased Acute-phase response (GO:000695
             
             <div class="item-box anchor-target" id="module-pathophysiology-b-lineage-differentiation-and-immunoglobulin-output" data-dismech-node="B-Lineage Differentiation and Immunoglobulin Output" data-dismech-type="pathophysiology">
                 <div class="item-name">B-Lineage Differentiation and Immunoglobulin Output</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">IL-6 drives IL-21 production by CD4+ T cells, and STAT3 in the B cell is then required for optimal immunoglobulin production and for upregulation of the master plasma cell factor PRDM1. The output is plasma cell differentiation and immunoglobulin secretion. This is a separate effector arm from the hepatic one: it acts on a different cell lineage through an IL-21 intermediate, and its clinical read-out (immunoglobulin) is the last to normalize on IL-6 blockade rather than among the first.</div>
                 
@@ -2641,11 +2688,13 @@ This pathophysiological event involves increased Immunoglobulin production (GO:0
             
             <div class="item-box anchor-target" id="module-pathophysiology-systemic-inflammatory-syndrome" data-dismech-node="Systemic Inflammatory Syndrome" data-dismech-type="pathophysiology">
                 <div class="item-name">Systemic Inflammatory Syndrome</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The clinical state: fever, fatigue and weight loss, anemia of inflammation, hypoalbuminemia with third-space fluid accumulation, a raised C-reactive protein and erythrocyte sedimentation rate, hypergammaglobulinemia, and platelet counts driven away from normal. Which of these dominate is the disorder-specific substitution. The defining property for conformance is that the syndrome remits when the IL-6 axis is blocked - if it does not, the disorder is being driven by something this module does not model.</div>
                 

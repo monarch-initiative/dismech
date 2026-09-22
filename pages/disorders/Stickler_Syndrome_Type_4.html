@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4606,6 +4645,7 @@ Two things distinguish STL4 clinically. Sensorineural hearing loss is near-unive
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-col9a1-loss-of-function" data-dismech-node="COL9A1 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">COL9A1 Loss of Function</div>
 
+
                 <div class="item-desc">Biallelic loss-of-function variants abolish the alpha-1 chain of collagen IX. The reported alleles are nonsense changes (R295X in the founding Moroccan family, R507X in a Turkish family), a frameshift (p.Pro657fs), and a 44.6 kb in-frame deletion removing exons 6 to 33.</div>
 
 
@@ -4666,6 +4706,8 @@ This pathophysiological event involves COL9A1 (hgnc:2217). hgnc:2217 is a gene f
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4678,6 +4720,9 @@ This pathophysiological event involves COL9A1 (hgnc:2217). hgnc:2217 is a gene f
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4798,6 +4843,7 @@ This pathophysiological event involves COL9A1 (hgnc:2217). hgnc:2217 is a gene f
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-collagen-ix-heterotrimer-failure" data-dismech-node="Collagen IX Heterotrimer Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Collagen IX Heterotrimer Failure</div>
+
 
                 <div class="item-desc">Without the alpha-1 chain, the normal collagen IX heterotrimer is not formed. Collagen IX is a FACIT collagen assembled onto the surface of the collagen II/XI fibril and covalently linked to collagen II, so it acts as a bridge between fibrils and the surrounding matrix. Its loss is therefore felt wherever a collagen II fibril network has to be spaced and stabilised: the vitreous gel, hyaline cartilage, and the cochlea.</div>
 
@@ -4932,6 +4978,7 @@ This pathophysiological event involves decreased collagen trimer (GO:0005581). G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-vitreous-gel-architectural-failure" data-dismech-node="Vitreous Gel Architectural Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Vitreous Gel Architectural Failure</div>
+
 
                 <div class="item-desc">The vitreous is hypoplastic with abnormal architecture and the globe is enlarged with high axial myopia. Unlike the dominant forms, which each carry a characteristic membranous or beaded vitreous phenotype used to subclassify them, the collagen IX vitreous is described simply as hypoplastic and abnormal — although the 2011 COL9A1 families were reported to show vitreous changes distinctive enough to suggest the gene.</div>
 
@@ -5110,6 +5157,7 @@ This pathophysiological event occurs in vitreous humor (UBERON:0001797). UBERON:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cartilage-and-craniofacial-matrix-disorganization" data-dismech-node="Cartilage and Craniofacial Matrix Disorganization" data-dismech-type="pathophysiology">
                 <div class="item-name">Cartilage and Craniofacial Matrix Disorganization</div>
+
 
                 <div class="item-desc">Collagen IX loss in hyaline cartilage produces epiphyseal dysplasia and a markedly milder skeletal and orofacial phenotype than the dominant collagen II and XI Sticklers. Midface hypoplasia is present in a minority, arthropathy is uncommon and variable, and cleft palate — a defining feature of the collagen XI forms — has not been reported in any collagen IX patient. Intervertebral disc bulging was seen in one COL9A1 patient and, notably, in two heterozygous carriers.</div>
 
@@ -5323,6 +5371,7 @@ This pathophysiological event occurs in cartilage tissue (UBERON:0002418). UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tectorial-membrane-collagen-disorganization" data-dismech-node="Tectorial Membrane Collagen Disorganization" data-dismech-type="pathophysiology">
                 <div class="item-name">Tectorial Membrane Collagen Disorganization</div>
+
 
                 <div class="item-desc">The mechanistic step between collagen IX loss and deafness, worked out in the Col9a1 knockout mouse rather than in humans. Type IX collagen is present in the tectorial membrane and co-localizes there with type II collagen; in knockout mice the tectorial membrane is misshapen, its collagen fibrils are disorganized on electron microscopy, and an anti-type-II-collagen antibody fails to detect type II collagen in it at all. So the same surface-decoration failure that disorganizes the vitreous and cartilage matrices removes the type II collagen network from the structure that transduces sound onto the hair cells. The human counterpart has not been examined; the human-side evidence is that COL9A1 is highly expressed in the inner ear.</div>
 
@@ -6456,6 +6505,9 @@ This disease-associated gene is COL9A1 (hgnc:2217). hgnc:2217 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -6555,6 +6607,12 @@ This disease-associated gene is COL9A1 (hgnc:2217). hgnc:2217 is a gene from the
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Homozygous in the founding consanguineous Moroccan family of four affected children. A nonsense allele, and the first COL9A1 variant reported in Stickler syndrome. It was later found again in an unrelated Moroccan boy.</div>
 
 
@@ -6577,6 +6635,12 @@ This disease-associated gene is COL9A1 (hgnc:2217). hgnc:2217 is a gene from the
         p.R507X
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">Homozygous in two affected Turkish sisters. The second independent nonsense allele, which established COL9A1 as a disease gene rather than a single-family observation.</div>
@@ -6603,6 +6667,12 @@ This disease-associated gene is COL9A1 (hgnc:2217). hgnc:2217 is a gene from the
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">A frameshift allele reported in the NHS England type IX cohort, in a patient who also carried an ARID1B variant.</div>
 
 
@@ -6625,6 +6695,12 @@ This disease-associated gene is COL9A1 (hgnc:2217). hgnc:2217 is a gene from the
         g.70,948,188_70,997,277del
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">A 44.6 kb homozygous in-frame deletion spanning exons 6 to 33, found by copy-number analysis of exome data in two Iranian siblings reported as having nonsyndromic hearing loss. It is the only structural COL9A1 allele reported and the only one not associated with the full syndrome.</div>

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -5226,6 +5265,7 @@ neonatal onset."</div>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-canalicular-bile-formation-defect" data-dismech-node="Canalicular Bile Formation Defect" data-dismech-type="pathophysiology">
                 <div class="item-name">Canalicular Bile Formation Defect</div>
 
+
                 <div class="item-desc">The shared upstream lesion in every PFIC subtype is biallelic loss of a protein required for hepatocanalicular bile formation - a canalicular transporter (BSEP, MDR3), a membrane lipid flippase (FIC1), a tight junction scaffold (ZO-2), the nuclear bile acid receptor (FXR), or an apical trafficking motor (myosin Vb). The result in every case is failure of the hepatocyte to form and export normal bile. USP53, KIF12 and ZFYVE19 are listed here as well: they are established causes of PFIC-spectrum cholestasis but their proximate mechanisms are not yet resolved well enough to warrant separate downstream mechanism nodes, so this umbrella node is the only place they are wired into the pathograph.</div>
 
 
@@ -5791,6 +5831,7 @@ mutations in hepatocellular transport-system genes involved in bile formation."<
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fic1-flippase-loss-and-canalicular-membrane-destabilization" data-dismech-node="FIC1 Flippase Loss and Canalicular Membrane Destabilization" data-dismech-type="pathophysiology">
                 <div class="item-name">FIC1 Flippase Loss and Canalicular Membrane Destabilization</div>
 
+
                 <div class="item-desc">ATP8B1 encodes FIC1, a P4-type ATPase that flips phosphatidylserine from the outer to the inner leaflet of the canalicular membrane. Loss of this inward translocation destroys membrane lipid asymmetry and leaves the canalicular membrane abnormally susceptible to the detergent action of luminal bile salts, impairing bile formation. Because FIC1 is also expressed in intestine, pancreas and cochlea, its loss produces extrahepatic disease that liver replacement cannot correct.</div>
 
 
@@ -6018,6 +6059,7 @@ respectively."</div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bsep-mediated-bile-salt-export-failure" data-dismech-node="BSEP-Mediated Bile Salt Export Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">BSEP-Mediated Bile Salt Export Failure</div>
+
 
                 <div class="item-desc">ABCB11 encodes BSEP, the ATP-dependent canalicular pump that performs the rate-limiting step of bile salt secretion into the canaliculus. Biallelic loss blocks bile salt export at the apical hepatocyte membrane. Severity tracks residual protein: the recurrent p.Glu297Gly and p.Asp482Gly alleles retain detectable BSEP in a substantial minority of patients, while biallelic protein-truncating genotypes leave none and are the most severe. Because the cholangiocyte is not the primary target, serum GGT remains low or normal.</div>
 
@@ -6302,6 +6344,7 @@ This pathophysiological event involves decreased canalicular bile acid transmemb
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mdr3-mediated-biliary-phospholipid-secretion-failure" data-dismech-node="MDR3-Mediated Biliary Phospholipid Secretion Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">MDR3-Mediated Biliary Phospholipid Secretion Failure</div>
 
+
                 <div class="item-desc">ABCB4 encodes MDR3, the canalicular floppase that translocates phosphatidylcholine into the outer leaflet of the canalicular membrane for extraction into bile. Biallelic loss makes bile phospholipid-poor. Because phosphatidylcholine is what sequesters bile salts into mixed micelles, its absence leaves free, monomeric bile salts at detergent concentrations in the biliary tree - the mechanistic reason PFIC3 behaves as a cholangiopathy rather than a purely hepatocellular disease, and consequently the reason its serum GGT is high.</div>
 
 
@@ -6567,6 +6610,7 @@ impair biliary phospholipid secretion, resulting in PFIC3."</div>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-unbuffered-bile-salt-injury-to-the-cholangiocyte" data-dismech-node="Unbuffered Bile Salt Injury to the Cholangiocyte" data-dismech-type="pathophysiology">
                 <div class="item-name">Unbuffered Bile Salt Injury to the Cholangiocyte</div>
 
+
                 <div class="item-desc">This node is the mechanistic pivot of the GGT split. In health, biliary phosphatidylcholine sequesters bile salts into mixed micelles that are non-toxic to the biliary epithelium. When MDR3 is absent (and in the newer high-GGT forms KIF12 and ZFYVE19), free bile salts strip the cholangiocyte apical membrane, on which gamma-glutamyltransferase is a GPI-anchored ectoenzyme; membrane damage releases GGT into bile and serum. In the low-GGT subtypes (ATP8B1, ABCB11, TJP2, NR1H4, USP53, MYO5B) the cholangiocyte is not the primary target, biliary GGT is not shed, and serum GGT stays low or normal despite profound cholestasis. Cholangiocyte injury also drives the ductular reaction, portal fibrosis and bile duct proliferation seen on PFIC3 biopsy.</div>
 
 
@@ -6710,6 +6754,7 @@ PFIC2 patients, but is elevated in PFIC3 patients."</div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-canalicular-tight-junction-failure-and-paracellular-bile-reflux" data-dismech-node="Canalicular Tight Junction Failure and Paracellular Bile Reflux" data-dismech-type="pathophysiology">
                 <div class="item-name">Canalicular Tight Junction Failure and Paracellular Bile Reflux</div>
+
 
                 <div class="item-desc">TJP2 (ZO-2) is a cytosolic scaffold that anchors claudins at the tight junctions sealing the bile canaliculus. Biallelic protein-truncating TJP2 variants abolish the protein; claudin-1 is expressed at normal levels but fails to localize to the junction, and tight junctions appear elongated and lose their densest zonula occludens material. The seal that normally confines detergent bile salts to the canalicular lumen is lost, permitting paracellular reflux of toxic bile constituents into the hepatocyte and the space of Disse.</div>
 
@@ -6955,6 +7000,7 @@ This pathophysiological event involves abnormal bicellular tight junction (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fxr-bile-acid-sensing-and-transcriptional-failure" data-dismech-node="FXR Bile Acid Sensing and Transcriptional Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">FXR Bile Acid Sensing and Transcriptional Failure</div>
+
 
                 <div class="item-desc">NR1H4 encodes the farnesoid X receptor, the bile-acid-activated nuclear receptor that senses the hepatocyte bile acid load and responds by inducing ABCB11/BSEP and repressing de novo bile acid synthesis. Biallelic NR1H4 loss removes both arms of this feedback loop, producing an unregulated bile acid burden together with undetectable hepatic BSEP - a transcriptional phenocopy of BSEP deficiency layered on failure to restrain bile acid synthesis.</div>
 
@@ -7216,6 +7262,7 @@ acid metabolism"</div>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-apical-trafficking-failure-of-canalicular-transporters" data-dismech-node="Apical Trafficking Failure of Canalicular Transporters" data-dismech-type="pathophysiology">
                 <div class="item-name">Apical Trafficking Failure of Canalicular Transporters</div>
 
+
                 <div class="item-desc">MYO5B (myosin Vb) drives Rab11-dependent recycling-endosome delivery of apical cargo. Biallelic loss leaves BSEP and MDR3 synthesized but mislocalized away from the canalicular membrane - immunostaining shows the transporters are present but abnormally distributed. The functional consequence is the same low-GGT bile salt export failure as in PFIC2, reached by a trafficking rather than a transporter lesion. Because MYO5B governs polarity in all epithelia, the same defect can produce microvillus inclusion disease in the gut.</div>
 
 
@@ -7428,6 +7475,7 @@ This pathophysiological event involves abnormal recycling endosome (GO:0055037).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hepatocellular-bile-salt-retention" data-dismech-node="Hepatocellular Bile Salt Retention" data-dismech-type="pathophysiology">
                 <div class="item-name">Hepatocellular Bile Salt Retention</div>
 
+
                 <div class="item-desc">The convergent node of the low-GGT PFIC subtypes. Whatever the upstream lesion, detergent bile salts accumulate inside the hepatocyte and spill into the systemic circulation. Intracellular bile salts are membrane-active and mitochondriotoxic, driving oxidative stress, hepatocyte apoptosis and necrosis and an inflammatory response; the circulating fraction produces pruritus and the raised serum bile acid concentration that is the field&#39;s principal pharmacodynamic and prognostic biomarker.</div>
 
 
@@ -7631,6 +7679,7 @@ This pathophysiological event involves decreased bile acid secretion (GO:0032782
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-enterohepatic-bile-acid-recirculation" data-dismech-node="Enterohepatic Bile Acid Recirculation" data-dismech-type="pathophysiology">
                 <div class="item-name">Enterohepatic Bile Acid Recirculation</div>
+
 
                 <div class="item-desc">Roughly 95% of secreted bile acids are reclaimed from the terminal ileum by the apical sodium-dependent ileal bile acid transporter (IBAT/ASBT, SLC10A2) and returned to the liver in the portal blood. In PFIC this recycling loop continuously re-delivers a bile acid load that the diseased hepatocyte cannot handle, sustaining hepatocellular bile salt retention - so within the pathograph it acts as an amplifier of the central effector node. That also makes it the single most exploitable therapeutic node in PFIC: interrupting it - surgically by partial external or internal biliary diversion or ileal exclusion, or pharmacologically by IBAT inhibition with odevixibat or maralixibat - diverts bile acids into the faeces, lowers serum bile acids, and relieves pruritus. Response is genotype-dependent: reducing enterohepatic return cannot help when canalicular export is completely absent, so patients with complete BSEP loss respond poorly.</div>
 
@@ -7871,6 +7920,7 @@ reduce pruritus and slow or reverse the progression to hepatic fibrosis"</div>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-systemic-bile-acid-load-and-pruritogenesis" data-dismech-node="Systemic Bile Acid Load and Pruritogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Systemic Bile Acid Load and Pruritogenesis</div>
 
+
                 <div class="item-desc">Cholestasis raises circulating bile acids and other retained pruritogens, producing the intractable itch that is the dominant symptom burden of PFIC. Pruritus in PFIC is severe enough to cause skin mutilation and profound sleep disruption and is a stand-alone indication for biliary diversion or transplantation independent of liver synthetic function. Serum bile acid concentration serves as the pharmacodynamic surrogate for this node in trials.</div>
 
 
@@ -7948,6 +7998,7 @@ resulting in disrupted bile formation, cholestasis, and pruritus."</div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-intestinal-bile-acid-delivery-and-fat-malabsorption" data-dismech-node="Reduced Intestinal Bile Acid Delivery and Fat Malabsorption" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Intestinal Bile Acid Delivery and Fat Malabsorption</div>
+
 
                 <div class="item-desc">Bile that never reaches the duodenum cannot form the mixed micelles needed to solubilize dietary long-chain triglyceride and the fat-soluble vitamins A, D, E and K. The result is steatorrhoea, energy deficit despite adequate intake, growth failure and short stature, and fat-soluble vitamin deficiency with rickets and coagulopathy. This is why nutritional management uses medium-chain triglyceride formulas, which are absorbed without micellar solubilization, alongside aggressive fat-soluble vitamin replacement.</div>
 
@@ -8096,6 +8147,7 @@ deficiencies are treated symptomatically."</div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hepatic-stellate-cell-activation-and-biliary-fibrosis" data-dismech-node="Hepatic Stellate Cell Activation and Biliary Fibrosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Hepatic Stellate Cell Activation and Biliary Fibrosis</div>
+
 
                 <div class="item-desc">Sustained bile-salt-mediated hepatocyte injury (low-GGT subtypes) and cholangiocyte injury with ductular reaction (high-GGT subtypes) both converge on activation of hepatic stellate cells into collagen-secreting myofibroblasts. Progressive portal and lobular fibrosis becomes biliary cirrhosis with portal hypertension and synthetic failure, typically before adulthood in untreated disease. Fibrosis may be present early even in phenotypically mild ATP8B1 disease, which is why the historical assumption that intermittent cholestasis is non-fibrotic has been abandoned.</div>
 
@@ -8298,6 +8350,7 @@ disease course."</div>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hepatocarcinogenesis-in-bsep-and-tjp2-deficiency" data-dismech-node="Hepatocarcinogenesis in BSEP and TJP2 Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Hepatocarcinogenesis in BSEP and TJP2 Deficiency</div>
 
+
                 <div class="item-desc">Severe BSEP deficiency and TJP2 deficiency carry a subtype-specific risk of hepatobiliary malignancy - hepatocellular carcinoma and cholangiocarcinoma - presenting in early childhood, in some cases before age two. Risk is genotype-stratified in ABCB11 disease: biallelic protein-truncating genotypes carry roughly a fourfold higher malignancy risk than potentially less severe genotypes. This is a genuine mechanistic distinction from PFIC1, in which tumour development is not a recognised association, and it drives the recommendation for tumour surveillance from the first year of life.</div>
 
 
@@ -8436,6 +8489,7 @@ malignancy versus 10% (11/107) with potentially less severe genotypes"</div>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biliary-cholesterol-supersaturation" data-dismech-node="Biliary Cholesterol Supersaturation" data-dismech-type="pathophysiology">
                 <div class="item-name">Biliary Cholesterol Supersaturation</div>
 
+
                 <div class="item-desc">In ABCB4/MDR3 disease the phospholipid-poor bile has a high cholesterol saturation index, so cholesterol crystallizes and forms intraductal and gallbladder stones. This underlies the low-phospholipid-associated cholelithiasis phenotype seen in biallelic PFIC3 and in monoallelic ABCB4 carriers.</div>
 
 
@@ -8514,6 +8568,7 @@ drug-induced liver injury, transient neonatal cholestasis, adult biliary..."</di
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-extrahepatic-fic1-deficiency" data-dismech-node="Extrahepatic FIC1 Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Extrahepatic FIC1 Deficiency</div>
+
 
                 <div class="item-desc">ATP8B1 is expressed well beyond the hepatocyte, so PFIC1 alone among the classical subtypes has an extrahepatic disease burden: secretory diarrhoea, exocrine pancreatic insufficiency, elevated sweat chloride, short stature and sensorineural hearing loss. This is clinically decisive because liver transplantation replaces only the hepatic compartment: the diarrhoea persists or worsens after transplant and is associated with allograft steatosis and fibrosis that can require re-transplantation, and audiological surveillance must continue lifelong regardless of hepatic outcome.</div>
 
@@ -10781,6 +10836,9 @@ This disease-associated gene is ATP8B1 (hgnc:3706). hgnc:3706 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10853,6 +10911,9 @@ This disease-associated gene is ABCB11 (hgnc:42). hgnc:42 is a gene from the HUG
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -10932,6 +10993,9 @@ This disease-associated gene is ABCB4 (hgnc:45). hgnc:45 is a gene from the HUGO
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -11002,6 +11066,9 @@ This disease-associated gene is TJP2 (hgnc:11828). hgnc:11828 is a gene from the
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -11080,6 +11147,9 @@ This disease-associated gene is NR1H4 (hgnc:7967). hgnc:7967 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -11151,6 +11221,9 @@ This disease-associated gene is MYO5B (hgnc:7603). hgnc:7603 is a gene from the 
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -11232,6 +11305,9 @@ This disease-associated gene is USP53 (hgnc:29255). hgnc:29255 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -11302,6 +11378,9 @@ This disease-associated gene is KIF12 (hgnc:21495). hgnc:21495 is a gene from th
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -11377,6 +11456,9 @@ This disease-associated gene is ZFYVE19 (hgnc:20758). hgnc:20758 is a gene from 
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 

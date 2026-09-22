@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4199,6 +4238,13 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-isochromosome-7q-formation" data-dismech-node="Isochromosome 7q Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Isochromosome 7q Formation</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Isochromosome 7q, with loss of 7p and gain of 7q material, is the characteristic cytogenetic lesion of HSTCL and is present in the majority of karyotyped cases, frequently alongside trisomy 8. It is treated here as the transforming somatic event in the gamma/delta T-cell compartment.</div>
 
 
@@ -4250,6 +4296,8 @@ This pathophysiological event involves cytotoxic gamma-delta T cell, annotated w
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: SOMATIC</span>
 
 
@@ -4258,6 +4306,9 @@ This pathophysiological event involves cytotoxic gamma-delta T cell, annotated w
 
 
     </div>
+
+
+
 
 
 
@@ -4328,6 +4379,7 @@ This pathophysiological event involves cytotoxic gamma-delta T cell, annotated w
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-stat5b-gain-of-function-activation" data-dismech-node="STAT5B Gain-of-Function Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">STAT5B Gain-of-Function Activation</div>
+
 
                 <div class="item-desc">Activating mutations in STAT5B, and less often STAT3, drive ligand-independent JAK-STAT signalling. STAT5B is the most frequently mutated signalling gene in HSTCL and the pathway is a candidate therapeutic target.</div>
 
@@ -4511,6 +4563,7 @@ This pathophysiological event involves JAK-STAT signalling driven by activating 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chromatin-modifier-loss-of-function" data-dismech-node="Chromatin Modifier Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Chromatin Modifier Loss of Function</div>
 
+
                 <div class="item-desc">Loss-of-function mutation of chromatin-modifying genes is the most common lesion class in HSTCL, affecting the majority of cases; SETD2, INO80 and ARID1B are the recurrently affected members. SETD2, the H3K36 trimethyltransferase, is bound here as the exemplar because it is the most frequently silenced single gene and the one shown experimentally to act as a tumor suppressor. The 62% figure below is the frequency of the lesion class, not of SETD2 alone.</div>
 
 
@@ -4693,6 +4746,7 @@ This pathophysiological event involves SETD2 H3K36 trimethyltransferase activity
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-clonal-expansion-of-cytotoxic-gamma-delta-t-cells" data-dismech-node="Clonal Expansion of Cytotoxic Gamma-Delta T Cells" data-dismech-type="pathophysiology">
                 <div class="item-name">Clonal Expansion of Cytotoxic Gamma-Delta T Cells</div>
 
+
                 <div class="item-desc">A monoclonal population of cytotoxic T cells, usually expressing the gamma/delta T-cell receptor with restricted V-delta-1 usage, expands. Clonality is demonstrable by T-cell receptor gamma and delta gene rearrangement.</div>
 
 
@@ -4835,6 +4889,7 @@ This pathophysiological event involves cytotoxic gamma-delta T cell, annotated w
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sinusoidal-infiltration-of-spleen-liver-and-bone-marrow" data-dismech-node="Sinusoidal Infiltration of Spleen, Liver and Bone Marrow" data-dismech-type="pathophysiology">
                 <div class="item-name">Sinusoidal Infiltration of Spleen, Liver and Bone Marrow</div>
+
 
                 <div class="item-desc">Neoplastic cells occupy the splenic red pulp cords and sinuses and the hepatic sinusoids, and infiltrate the bone marrow, producing organomegaly and cytopenias without nodal disease. This sinusoidal tropism is the defining tissue-level feature of the entity.</div>
 
@@ -5032,6 +5087,7 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-systemic-inflammatory-response" data-dismech-node="Systemic Inflammatory Response" data-dismech-type="pathophysiology">
                 <div class="item-name">Systemic Inflammatory Response</div>
+
 
                 <div class="item-desc">A systemic inflammatory state accompanies the disease, producing fever in essentially all patients and, in a subset, hemophagocytic syndrome. Hemophagocytic syndrome at onset marks a harder-to-treat course with higher mortality.</div>
 
@@ -5292,7 +5348,7 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Allogeneic Hematopoietic Cell Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"There is no consensus standard of care. Several studies support a role for allogeneic hematopoietic stem cell transplant, though the largest single-centre series did not demonstrate a statistically significant benefit, which it attributed to sample size.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Anemia at presentation, from marrow infiltration and splenic sequestration.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001903\"}}, {\"id\": \"Chromatin Modifier Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss-of-function mutation of chromatin-modifying genes is the most common lesion class in HSTCL, affecting the majority of cases; SETD2, INO80 and ARID1B are the recurrently affected members. SETD2, the H3K36 trimethyltransferase, is bound here as the exemplar because it is the most frequently silenced single gene and the one shown experimentally to act as a tumor suppressor. The 62% figure below is the frequency of the lesion class, not of SETD2 alone.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"SETD2 H3K36 trimethyltransferase activity\"], \"genes\": [\"SETD2\"], \"gene_terms\": [{\"label\": \"SETD2\", \"id\": \"hgnc:18420\"}]}}, {\"id\": \"Chronic combined thiopurine and anti-TNF immunosuppression\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"A substantial minority of HSTCL arises in patients on long-term therapeutic immunosuppression, classically a thiopurine combined with an anti-TNF agent for inflammatory bowel disease. The association is real but is neither necessary nor confined to young men, and population-based series have identified cohorts with no anti-TNF exposure at all.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Clonal Expansion of Cytotoxic Gamma-Delta T Cells\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A monoclonal population of cytotoxic T cells, usually expressing the gamma/delta T-cell receptor with restricted V-delta-1 usage, expands. Clonality is demonstrable by T-cell receptor gamma and delta gene rearrangement.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cytotoxic gamma-delta T cell\"]}}, {\"id\": \"Combination Chemotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Combination chemotherapy is the backbone of initial treatment for most patients, with transplant added where feasible. Relapse is frequent and most patients die of the disease.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Fever\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"B symptoms, including fever, are a common presenting complex.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001945\"}}, {\"id\": \"Hemophagocytosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hemophagocytic syndrome occurs in a subset of patients and is an adverse prognostic marker.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012156\"}}, {\"id\": \"Hepatomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hepatic involvement with enlargement, from sinusoidal infiltration.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002240\"}}, {\"id\": \"Isochromosome 7q Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Isochromosome 7q, with loss of 7p and gain of 7q material, is the characteristic cytogenetic lesion of HSTCL and is present in the majority of karyotyped cases, frequently alongside trisomy 8. It is treated here as the transforming somatic event in the gamma/delta T-cell compartment.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cytotoxic gamma-delta T cell\"], \"genetic_context\": {\"variant_origin\": \"SOMATIC\"}}}, {\"id\": \"SETD2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"SETD2\"], \"gene_terms\": [{\"label\": \"SETD2\", \"id\": \"hgnc:18420\"}], \"relationship_type\": \"SOMATIC_DRIVER\"}}, {\"id\": \"STAT5B\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"STAT5B\"], \"gene_terms\": [{\"label\": \"STAT5B\", \"id\": \"hgnc:11367\"}], \"relationship_type\": \"SOMATIC_DRIVER\"}}, {\"id\": \"STAT5B Gain-of-Function Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Activating mutations in STAT5B, and less often STAT3, drive ligand-independent JAK-STAT signalling. STAT5B is the most frequently mutated signalling gene in HSTCL and the pathway is a candidate therapeutic target.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"JAK-STAT signalling driven by activating STAT5B mutation\"], \"genes\": [\"STAT5B\"], \"gene_terms\": [{\"label\": \"STAT5B\", \"id\": \"hgnc:11367\"}]}}, {\"id\": \"Sinusoidal Infiltration of Spleen, Liver and Bone Marrow\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Neoplastic cells occupy the splenic red pulp cords and sinuses and the hepatic sinusoids, and infiltrate the bone marrow, producing organomegaly and cytopenias without nodal disease. This sinusoidal tropism is the defining tissue-level feature of the entity.\", \"meta\": {\"evidence_count\": 3, \"locations\": [\"red pulp of spleen\", \"hepatic sinusoid\", \"bone marrow\"]}}, {\"id\": \"Splenectomy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Splenectomy followed by chemotherapy was associated with longer survival than chemotherapy alone in a 40-case series, and three of the four long-term survivors in a separate institutional cohort had splenectomy as part of initial treatment.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Splenomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Splenomegaly is near-universal and characteristically massive, reflecting diffuse red pulp infiltration.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001744\"}}, {\"id\": \"Systemic Inflammatory Response\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A systemic inflammatory state accompanies the disease, producing fever in essentially all patients and, in a subset, hemophagocytic syndrome. Hemophagocytic syndrome at onset marks a harder-to-treat course with higher mortality.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Thrombocytopenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cytopenias are a presenting feature and may suggest acute leukemia before the diagnosis is made.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001873\"}}], \"edges\": [{\"source\": \"Isochromosome 7q Formation\", \"target\": \"Clonal Expansion of Cytotoxic Gamma-Delta T Cells\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The cytogenetic lesion establishes the clone from which the disease grows.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"STAT5B Gain-of-Function Activation\", \"target\": \"Clonal Expansion of Cytotoxic Gamma-Delta T Cells\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Constitutive JAK-STAT signalling supports survival and proliferation of the neoplastic clone.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Chromatin Modifier Loss of Function\", \"target\": \"Clonal Expansion of Cytotoxic Gamma-Delta T Cells\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the tumor suppressor removes a brake on proliferation of the clone.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Clonal Expansion of Cytotoxic Gamma-Delta T Cells\", \"target\": \"Sinusoidal Infiltration of Spleen, Liver and Bone Marrow\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The expanded clone homes to and fills the sinusoidal compartments.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Clonal Expansion of Cytotoxic Gamma-Delta T Cells\", \"target\": \"Systemic Inflammatory Response\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The neoplastic clone drives a systemic inflammatory state, which in a subset of patients reaches frank hemophagocytic syndrome.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Sinusoidal Infiltration of Spleen, Liver and Bone Marrow\", \"target\": \"Splenomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Sinusoidal Infiltration of Spleen, Liver and Bone Marrow\", \"target\": \"Hepatomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Sinusoidal Infiltration of Spleen, Liver and Bone Marrow\", \"target\": \"Thrombocytopenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Sinusoidal Infiltration of Spleen, Liver and Bone Marrow\", \"target\": \"Anemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic Inflammatory Response\", \"target\": \"Fever\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic Inflammatory Response\", \"target\": \"Hemophagocytosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Chronic combined thiopurine and anti-TNF immunosuppression\", \"target\": \"Clonal Expansion of Cytotoxic Gamma-Delta T Cells\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Sustained pharmacologic immunosuppression is the setting in which the gamma/delta clone emerges in this subset of patients.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Combination Chemotherapy\", \"target\": \"Clonal Expansion of Cytotoxic Gamma-Delta T Cells\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Splenectomy\", \"target\": \"Sinusoidal Infiltration of Spleen, Liver and Bone Marrow\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Allogeneic Hematopoietic Cell Transplantation\", \"target\": \"Clonal Expansion of Cytotoxic Gamma-Delta T Cells\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"STAT5B\", \"target\": \"STAT5B Gain-of-Function Activation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SETD2\", \"target\": \"Chromatin Modifier Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Allogeneic Hematopoietic Cell Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"There is no consensus standard of care. Several studies support a role for allogeneic hematopoietic stem cell transplant, though the largest single-centre series did not demonstrate a statistically significant benefit, which it attributed to sample size.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Anemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Anemia at presentation, from marrow infiltration and splenic sequestration.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001903\"}}, {\"id\": \"Chromatin Modifier Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss-of-function mutation of chromatin-modifying genes is the most common lesion class in HSTCL, affecting the majority of cases; SETD2, INO80 and ARID1B are the recurrently affected members. SETD2, the H3K36 trimethyltransferase, is bound here as the exemplar because it is the most frequently silenced single gene and the one shown experimentally to act as a tumor suppressor. The 62% figure below is the frequency of the lesion class, not of SETD2 alone.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"SETD2 H3K36 trimethyltransferase activity\"], \"genes\": [\"SETD2\"], \"gene_terms\": [{\"label\": \"SETD2\", \"id\": \"hgnc:18420\"}]}}, {\"id\": \"Chronic combined thiopurine and anti-TNF immunosuppression\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"A substantial minority of HSTCL arises in patients on long-term therapeutic immunosuppression, classically a thiopurine combined with an anti-TNF agent for inflammatory bowel disease. The association is real but is neither necessary nor confined to young men, and population-based series have identified cohorts with no anti-TNF exposure at all.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Clonal Expansion of Cytotoxic Gamma-Delta T Cells\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A monoclonal population of cytotoxic T cells, usually expressing the gamma/delta T-cell receptor with restricted V-delta-1 usage, expands. Clonality is demonstrable by T-cell receptor gamma and delta gene rearrangement.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cytotoxic gamma-delta T cell\"]}}, {\"id\": \"Combination Chemotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Combination chemotherapy is the backbone of initial treatment for most patients, with transplant added where feasible. Relapse is frequent and most patients die of the disease.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Fever\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"B symptoms, including fever, are a common presenting complex.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001945\"}}, {\"id\": \"Hemophagocytosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hemophagocytic syndrome occurs in a subset of patients and is an adverse prognostic marker.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012156\"}}, {\"id\": \"Hepatomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hepatic involvement with enlargement, from sinusoidal infiltration.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002240\"}}, {\"id\": \"Isochromosome 7q Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Isochromosome 7q, with loss of 7p and gain of 7q material, is the characteristic cytogenetic lesion of HSTCL and is present in the majority of karyotyped cases, frequently alongside trisomy 8. It is treated here as the transforming somatic event in the gamma/delta T-cell compartment.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cytotoxic gamma-delta T cell\"], \"genetic_context\": {\"variant_origin\": \"SOMATIC\"}, \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"SETD2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"SETD2\"], \"gene_terms\": [{\"label\": \"SETD2\", \"id\": \"hgnc:18420\"}], \"relationship_type\": \"SOMATIC_DRIVER\"}}, {\"id\": \"STAT5B\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"STAT5B\"], \"gene_terms\": [{\"label\": \"STAT5B\", \"id\": \"hgnc:11367\"}], \"relationship_type\": \"SOMATIC_DRIVER\"}}, {\"id\": \"STAT5B Gain-of-Function Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Activating mutations in STAT5B, and less often STAT3, drive ligand-independent JAK-STAT signalling. STAT5B is the most frequently mutated signalling gene in HSTCL and the pathway is a candidate therapeutic target.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"JAK-STAT signalling driven by activating STAT5B mutation\"], \"genes\": [\"STAT5B\"], \"gene_terms\": [{\"label\": \"STAT5B\", \"id\": \"hgnc:11367\"}]}}, {\"id\": \"Sinusoidal Infiltration of Spleen, Liver and Bone Marrow\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Neoplastic cells occupy the splenic red pulp cords and sinuses and the hepatic sinusoids, and infiltrate the bone marrow, producing organomegaly and cytopenias without nodal disease. This sinusoidal tropism is the defining tissue-level feature of the entity.\", \"meta\": {\"evidence_count\": 3, \"locations\": [\"red pulp of spleen\", \"hepatic sinusoid\", \"bone marrow\"]}}, {\"id\": \"Splenectomy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Splenectomy followed by chemotherapy was associated with longer survival than chemotherapy alone in a 40-case series, and three of the four long-term survivors in a separate institutional cohort had splenectomy as part of initial treatment.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Splenomegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Splenomegaly is near-universal and characteristically massive, reflecting diffuse red pulp infiltration.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001744\"}}, {\"id\": \"Systemic Inflammatory Response\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A systemic inflammatory state accompanies the disease, producing fever in essentially all patients and, in a subset, hemophagocytic syndrome. Hemophagocytic syndrome at onset marks a harder-to-treat course with higher mortality.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Thrombocytopenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cytopenias are a presenting feature and may suggest acute leukemia before the diagnosis is made.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001873\"}}], \"edges\": [{\"source\": \"Isochromosome 7q Formation\", \"target\": \"Clonal Expansion of Cytotoxic Gamma-Delta T Cells\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The cytogenetic lesion establishes the clone from which the disease grows.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"STAT5B Gain-of-Function Activation\", \"target\": \"Clonal Expansion of Cytotoxic Gamma-Delta T Cells\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Constitutive JAK-STAT signalling supports survival and proliferation of the neoplastic clone.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Chromatin Modifier Loss of Function\", \"target\": \"Clonal Expansion of Cytotoxic Gamma-Delta T Cells\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the tumor suppressor removes a brake on proliferation of the clone.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Clonal Expansion of Cytotoxic Gamma-Delta T Cells\", \"target\": \"Sinusoidal Infiltration of Spleen, Liver and Bone Marrow\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The expanded clone homes to and fills the sinusoidal compartments.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Clonal Expansion of Cytotoxic Gamma-Delta T Cells\", \"target\": \"Systemic Inflammatory Response\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The neoplastic clone drives a systemic inflammatory state, which in a subset of patients reaches frank hemophagocytic syndrome.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Sinusoidal Infiltration of Spleen, Liver and Bone Marrow\", \"target\": \"Splenomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Sinusoidal Infiltration of Spleen, Liver and Bone Marrow\", \"target\": \"Hepatomegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Sinusoidal Infiltration of Spleen, Liver and Bone Marrow\", \"target\": \"Thrombocytopenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Sinusoidal Infiltration of Spleen, Liver and Bone Marrow\", \"target\": \"Anemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic Inflammatory Response\", \"target\": \"Fever\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic Inflammatory Response\", \"target\": \"Hemophagocytosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Chronic combined thiopurine and anti-TNF immunosuppression\", \"target\": \"Clonal Expansion of Cytotoxic Gamma-Delta T Cells\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Sustained pharmacologic immunosuppression is the setting in which the gamma/delta clone emerges in this subset of patients.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Combination Chemotherapy\", \"target\": \"Clonal Expansion of Cytotoxic Gamma-Delta T Cells\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Splenectomy\", \"target\": \"Sinusoidal Infiltration of Spleen, Liver and Bone Marrow\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Allogeneic Hematopoietic Cell Transplantation\", \"target\": \"Clonal Expansion of Cytotoxic Gamma-Delta T Cells\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"STAT5B\", \"target\": \"STAT5B Gain-of-Function Activation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SETD2\", \"target\": \"Chromatin Modifier Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6074,6 +6130,9 @@ This disease-associated gene is STAT5B (hgnc:11367). hgnc:11367 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6142,6 +6201,9 @@ This disease-associated gene is SETD2 (hgnc:18420). hgnc:18420 is a gene from th
 
 
                 </div>
+
+
+
 
 
 

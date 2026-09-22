@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4549,6 +4588,13 @@ The gap is therefore not knowledge of the biology, which is unusually well worke
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-somatic-driver-mutation-in-the-corticotroph" data-dismech-node="Somatic Driver Mutation in the Corticotroph" data-dismech-type="pathophysiology">
                 <div class="item-name">Somatic Driver Mutation in the Corticotroph</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">A somatic variant arises in a single anterior pituitary corticotroph and gives it a growth and secretory advantage. USP8 is the commonest driver, with variants clustering in the 14-3-3 protein binding motif rather than being distributed across the gene - a positional pattern that signals a gain-of-function mechanism rather than loss of the protease. In USP8 wild-type tumours the drivers are USP48 (p.M415I/p.M415V) and BRAF p.V600E. The three are close to mutually exclusive across a 169-tumour series, which is the evidence that they are alternative entries into one pathway. Loss-of-function variants in NR3C1, the glucocorticoid receptor, appear in a minority and attack the same autonomy from the feedback side.</div>
 
 
@@ -4635,6 +4681,8 @@ This genetic context concerns USP8 (hgnc:12631). hgnc:12631 is a gene from the H
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: SOMATIC</span>
 
 
@@ -4645,6 +4693,9 @@ This genetic context concerns USP8 (hgnc:12631). hgnc:12631 is a gene from the H
         <span class="tag tag-classification">functional_impact_category: GAIN_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4862,6 +4913,13 @@ This pathophysiological event occurs in adenohypophysis (UBERON:0002196). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sustained-egfr-signalling" data-dismech-node="Sustained EGFR Signalling" data-dismech-type="pathophysiology">
                 <div class="item-name">Sustained EGFR Signalling</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Wild-type USP8 is held inactive by 14-3-3 binding. Variants in that motif disrupt the interaction, allowing proteolytic cleavage into a hyperactive fragment which deubiquitinates EGFR. Ubiquitination is the signal that routes an activated receptor to the lysosome, so removing it rescues EGFR from degradation and returns it to the surface. The corticotroph therefore experiences continuous EGF pathway signalling from a normal amount of ligand - the defect is in receptor disposal, not in ligand supply. BRAF V600E reaches the same downstream state by constitutively activating the MAPK cascade below the receptor.</div>
 
@@ -5093,6 +5151,13 @@ This pathophysiological event involves increased ERK1 and ERK2 cascade (GO:00703
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pomc-transcription-and-acth-hypersecretion" data-dismech-node="POMC Transcription and ACTH Hypersecretion" data-dismech-type="pathophysiology">
                 <div class="item-name">POMC Transcription and ACTH Hypersecretion</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Proopiomelanocortin is the precursor from which ACTH is cleaved, so POMC promoter activity sets corticotroph output. All three drivers increase it. This convergence is the strongest argument that the molecular heterogeneity of these tumours is superficial: whatever the driver, the phenotype is excess ACTH, and the tumours are otherwise clinically indistinguishable.</div>
 
 
@@ -5287,6 +5352,13 @@ This pathophysiological event involves increased corticotropin secretion (GO:005
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-glucocorticoid-negative-feedback" data-dismech-node="Loss of Glucocorticoid Negative Feedback" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Glucocorticoid Negative Feedback</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">A normal corticotroph suppresses ACTH when circulating cortisol rises. The adenoma does not, so the axis stabilises at a pathologically high setpoint with both ACTH and cortisol elevated - the combination that distinguishes this from adrenal Cushing syndrome, where ACTH is suppressed. The relative resistance is graded rather than absolute, which is what allows the high-dose dexamethasone test to separate pituitary from ectopic ACTH sources. In a minority of tumours the feedback lesion is direct, through loss-of-function variants in the glucocorticoid receptor gene itself.</div>
 
 
@@ -5423,6 +5495,13 @@ This pathophysiological event involves corticotropin secretion (GO:0051458), qua
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-adrenocortical-stimulation-and-cortisol-excess" data-dismech-node="Adrenocortical Stimulation and Cortisol Excess" data-dismech-type="pathophysiology">
                 <div class="item-name">Adrenocortical Stimulation and Cortisol Excess</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Chronically elevated ACTH drives bilateral adrenocortical hyperplasia and sustained cortisol output. The adrenal is not diseased here - it is responding normally to an abnormal signal, which is why removing the pituitary source restores adrenal behaviour and why bilateral adrenalectomy works as a last-resort treatment despite doing nothing about the tumour.</div>
 
@@ -5591,6 +5670,13 @@ This pathophysiological event occurs in adrenal cortex (UBERON:0001235). UBERON:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-systemic-glucocorticoid-toxicity" data-dismech-node="Systemic Glucocorticoid Toxicity" data-dismech-type="pathophysiology">
                 <div class="item-name">Systemic Glucocorticoid Toxicity</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Every clinically important consequence of Cushing disease sits at this node rather than at the tumour. Chronic cortisol excess produces central adiposity with peripheral wasting, proximal myopathy, dermal atrophy with wide purple striae, insulin resistance and diabetes, hypertension, osteoporosis, hypercoagulability, immunosuppression and mood and cognitive disturbance. The burden is cumulative and outlives the biochemistry: mortality is raised relative to the general population, and quality of life after remission does not fully normalise.</div>
 
 
@@ -5699,7 +5785,7 @@ This pathophysiological event occurs in adrenal cortex (UBERON:0001235). UBERON:
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Adrenocortical Stimulation and Cortisol Excess\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronically elevated ACTH drives bilateral adrenocortical hyperplasia and sustained cortisol output. The adrenal is not diseased here - it is responding normally to an abnormal signal, which is why removing the pituitary source restores adrenal behaviour and why bilateral adrenalectomy works as a last-resort treatment despite doing nothing about the tumour.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"glucocorticoid secretion\", \"cortisol biosynthetic process\"], \"locations\": [\"adrenal cortex\"]}}, {\"id\": \"AtT-20 murine corticotroph tumour cell line\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"The standard in vitro model for ACTH-secreting tumours, used in culture and as nude-mouse xenografts. Its value is that it couples a measurable ACTH output to POMC transcription, so a candidate that acts on the transcriptional node can be read out directly.\", \"meta\": {\"model_type\": \"CELL_LINE\", \"publication\": \"PMID:28505327\"}}, {\"id\": \"Bilateral Adrenalectomy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Definitive control of hypercortisolism for refractory disease, at the cost of permanent adrenal insufficiency and the risk of Nelson syndrome as the unresected corticotroph tumour loses what feedback restraint it had. It cures the cortisol excess while leaving the actual lesion in place, which is an unusually clear illustration of where in this pathograph the morbidity sits.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Loss of Glucocorticoid Negative Feedback\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A normal corticotroph suppresses ACTH when circulating cortisol rises. The adenoma does not, so the axis stabilises at a pathologically high setpoint with both ACTH and cortisol elevated - the combination that distinguishes this from adrenal Cushing syndrome, where ACTH is suppressed. The relative resistance is graded rather than absolute, which is what allows the high-dose dexamethasone test to separate pituitary from ectopic ACTH sources. In a minority of tumours the feedback lesion is direct, through loss-of-function variants in the glucocorticoid receptor gene itself.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"corticotropin secretion\"]}}, {\"id\": \"Osilodrostat\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"An oral 11-beta-hydroxylase inhibitor that blocks the final step of cortisol synthesis in the adrenal. It treats the consequence rather than the cause - the tumour is untouched and ACTH typically rises - which is also why hypocortisolism and accumulation of adrenal steroid precursors are the characteristic adverse effects rather than incidental ones. A second Phase III trial, LINC 4, tested it against placebo from the outset rather than in a withdrawal design and found 77% versus 8% achieving normal urinary free cortisol at 12 weeks - so the effect is not an artefact of the LINC 3 withdrawal structure.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"osilodrostat\"]}}, {\"id\": \"POMC Transcription and ACTH Hypersecretion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Proopiomelanocortin is the precursor from which ACTH is cleaved, so POMC promoter activity sets corticotroph output. All three drivers increase it. This convergence is the strongest argument that the molecular heterogeneity of these tumours is superficial: whatever the driver, the phenotype is excess ACTH, and the tumours are otherwise clinically indistinguishable.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"corticotroph\"], \"biological_processes\": [\"corticotropin secretion\"], \"experimental_models\": [{\"name\": \"AtT-20 murine corticotroph tumour cell line\", \"model_type\": \"CELL_LINE\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reproduces regulated POMC transcription and ACTH secretion in a corticotroph tumour cell, which is the node this entry treats as the convergence point of all three drivers.\"}]}}, {\"id\": \"Pasireotide\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A multi-receptor somatostatin analogue with affinity for SSTR5, which corticotroph adenomas express. Unlike osilodrostat it acts on the tumour rather than the adrenal. In the long-acting Phase III extension, urinary free cortisol was at or below the upper limit of normal in about half of patients at last assessment and clinical improvements were sustained. The cost is metabolic and predictable rather than idiosyncratic: SSTR5 agonism impairs insulin secretion, and hyperglycaemia-related adverse events occurred in 39.5% of patients.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"pasireotide\"]}}, {\"id\": \"Somatic Driver Mutation in the Corticotroph\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A somatic variant arises in a single anterior pituitary corticotroph and gives it a growth and secretory advantage. USP8 is the commonest driver, with variants clustering in the 14-3-3 protein binding motif rather than being distributed across the gene - a positional pattern that signals a gain-of-function mechanism rather than loss of the protease. In USP8 wild-type tumours the drivers are USP48 (p.M415I/p.M415V) and BRAF p.V600E. The three are close to mutually exclusive across a 169-tumour series, which is the evidence that they are alternative entries into one pathway. Loss-of-function variants in NR3C1, the glucocorticoid receptor, appear in a minority and attack the same autonomy from the feedback side.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"corticotroph\"], \"biological_processes\": [\"protein deubiquitination\"], \"molecular_functions\": [\"cysteine-type deubiquitinase activity\"], \"genetic_context\": {\"variant_origin\": \"SOMATIC\", \"functional_impact_category\": \"GAIN_OF_FUNCTION\", \"gene_terms\": [{\"label\": \"USP8\", \"id\": \"hgnc:12631\"}]}, \"locations\": [\"adenohypophysis\"]}}, {\"id\": \"Sustained EGFR Signalling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Wild-type USP8 is held inactive by 14-3-3 binding. Variants in that motif disrupt the interaction, allowing proteolytic cleavage into a hyperactive fragment which deubiquitinates EGFR. Ubiquitination is the signal that routes an activated receptor to the lysosome, so removing it rescues EGFR from degradation and returns it to the surface. The corticotroph therefore experiences continuous EGF pathway signalling from a normal amount of ligand - the defect is in receptor disposal, not in ligand supply. BRAF V600E reaches the same downstream state by constitutively activating the MAPK cascade below the receptor.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"corticotroph\"], \"biological_processes\": [\"epidermal growth factor receptor signaling pathway\", \"ERK1 and ERK2 cascade\"]}}, {\"id\": \"Systemic Glucocorticoid Toxicity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Every clinically important consequence of Cushing disease sits at this node rather than at the tumour. Chronic cortisol excess produces central adiposity with peripheral wasting, proximal myopathy, dermal atrophy with wide purple striae, insulin resistance and diabetes, hypertension, osteoporosis, hypercoagulability, immunosuppression and mood and cognitive disturbance. The burden is cumulative and outlives the biochemistry: mortality is raised relative to the general population, and quality of life after remission does not fully normalise.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Transsphenoidal Selective Adenomectomy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"First-line treatment and the only one that addresses the lesion itself. Reported initial remission in a 1106-patient single-centre series was 72.5%, with about a quarter left in persistent hypercortisolism. Remission is substantially lower with invasive tumours, macroadenomas, pathologically negative specimens and repeat surgery, so the figure quoted for any given patient depends on which of those apply. Remission is not the end of the story: recurrence occurred in 27.4% of patients over a median 38 months in one operated series, and is markedly higher after macroadenoma resection than after microadenoma or no visible lesion (45% versus 19%). An early postoperative nadir cortisol at or below 3 mcg/dL is the best available predictor of durable remission.\", \"meta\": {\"evidence_count\": 4}}], \"edges\": [{\"source\": \"Somatic Driver Mutation in the Corticotroph\", \"target\": \"Sustained EGFR Signalling\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Sustained EGFR Signalling\", \"target\": \"POMC Transcription and ACTH Hypersecretion\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"POMC Transcription and ACTH Hypersecretion\", \"target\": \"Loss of Glucocorticoid Negative Feedback\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"POMC Transcription and ACTH Hypersecretion\", \"target\": \"Adrenocortical Stimulation and Cortisol Excess\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Glucocorticoid Negative Feedback\", \"target\": \"Adrenocortical Stimulation and Cortisol Excess\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Adrenocortical Stimulation and Cortisol Excess\", \"target\": \"Systemic Glucocorticoid Toxicity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Transsphenoidal Selective Adenomectomy\", \"target\": \"POMC Transcription and ACTH Hypersecretion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Osilodrostat\", \"target\": \"Adrenocortical Stimulation and Cortisol Excess\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Pasireotide\", \"target\": \"POMC Transcription and ACTH Hypersecretion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Bilateral Adrenalectomy\", \"target\": \"Adrenocortical Stimulation and Cortisol Excess\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"AtT-20 murine corticotroph tumour cell line\", \"target\": \"POMC Transcription and ACTH Hypersecretion\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Reproduces regulated POMC transcription and ACTH secretion in a corticotroph tumour cell, which is the node this entry treats as the convergence point of all three drivers.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"AtT-20 cells do not carry the human USP8 hotspot variant, and no widely used genetically engineered mouse reproduces USP8-driven Cushing disease. So the line models the output of the pathway without modelling the lesion that drives it - it is informative about POMC/ACTH regulation and uninformative about the driver biology that distinguishes this disease from any other cause of corticotroph ACTH excess.\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Adrenocortical Stimulation and Cortisol Excess\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronically elevated ACTH drives bilateral adrenocortical hyperplasia and sustained cortisol output. The adrenal is not diseased here - it is responding normally to an abnormal signal, which is why removing the pituitary source restores adrenal behaviour and why bilateral adrenalectomy works as a last-resort treatment despite doing nothing about the tumour.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"glucocorticoid secretion\", \"cortisol biosynthetic process\"], \"locations\": [\"adrenal cortex\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"AtT-20 murine corticotroph tumour cell line\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"The standard in vitro model for ACTH-secreting tumours, used in culture and as nude-mouse xenografts. Its value is that it couples a measurable ACTH output to POMC transcription, so a candidate that acts on the transcriptional node can be read out directly.\", \"meta\": {\"model_type\": \"CELL_LINE\", \"publication\": \"PMID:28505327\"}}, {\"id\": \"Bilateral Adrenalectomy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Definitive control of hypercortisolism for refractory disease, at the cost of permanent adrenal insufficiency and the risk of Nelson syndrome as the unresected corticotroph tumour loses what feedback restraint it had. It cures the cortisol excess while leaving the actual lesion in place, which is an unusually clear illustration of where in this pathograph the morbidity sits.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Loss of Glucocorticoid Negative Feedback\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A normal corticotroph suppresses ACTH when circulating cortisol rises. The adenoma does not, so the axis stabilises at a pathologically high setpoint with both ACTH and cortisol elevated - the combination that distinguishes this from adrenal Cushing syndrome, where ACTH is suppressed. The relative resistance is graded rather than absolute, which is what allows the high-dose dexamethasone test to separate pituitary from ectopic ACTH sources. In a minority of tumours the feedback lesion is direct, through loss-of-function variants in the glucocorticoid receptor gene itself.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"corticotropin secretion\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Osilodrostat\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"An oral 11-beta-hydroxylase inhibitor that blocks the final step of cortisol synthesis in the adrenal. It treats the consequence rather than the cause - the tumour is untouched and ACTH typically rises - which is also why hypocortisolism and accumulation of adrenal steroid precursors are the characteristic adverse effects rather than incidental ones. A second Phase III trial, LINC 4, tested it against placebo from the outset rather than in a withdrawal design and found 77% versus 8% achieving normal urinary free cortisol at 12 weeks - so the effect is not an artefact of the LINC 3 withdrawal structure.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"osilodrostat\"]}}, {\"id\": \"POMC Transcription and ACTH Hypersecretion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Proopiomelanocortin is the precursor from which ACTH is cleaved, so POMC promoter activity sets corticotroph output. All three drivers increase it. This convergence is the strongest argument that the molecular heterogeneity of these tumours is superficial: whatever the driver, the phenotype is excess ACTH, and the tumours are otherwise clinically indistinguishable.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"corticotroph\"], \"biological_processes\": [\"corticotropin secretion\"], \"mechanism_confidence\": \"ESTABLISHED\", \"experimental_models\": [{\"name\": \"AtT-20 murine corticotroph tumour cell line\", \"model_type\": \"CELL_LINE\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reproduces regulated POMC transcription and ACTH secretion in a corticotroph tumour cell, which is the node this entry treats as the convergence point of all three drivers.\"}]}}, {\"id\": \"Pasireotide\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A multi-receptor somatostatin analogue with affinity for SSTR5, which corticotroph adenomas express. Unlike osilodrostat it acts on the tumour rather than the adrenal. In the long-acting Phase III extension, urinary free cortisol was at or below the upper limit of normal in about half of patients at last assessment and clinical improvements were sustained. The cost is metabolic and predictable rather than idiosyncratic: SSTR5 agonism impairs insulin secretion, and hyperglycaemia-related adverse events occurred in 39.5% of patients.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"pasireotide\"]}}, {\"id\": \"Somatic Driver Mutation in the Corticotroph\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A somatic variant arises in a single anterior pituitary corticotroph and gives it a growth and secretory advantage. USP8 is the commonest driver, with variants clustering in the 14-3-3 protein binding motif rather than being distributed across the gene - a positional pattern that signals a gain-of-function mechanism rather than loss of the protease. In USP8 wild-type tumours the drivers are USP48 (p.M415I/p.M415V) and BRAF p.V600E. The three are close to mutually exclusive across a 169-tumour series, which is the evidence that they are alternative entries into one pathway. Loss-of-function variants in NR3C1, the glucocorticoid receptor, appear in a minority and attack the same autonomy from the feedback side.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"corticotroph\"], \"biological_processes\": [\"protein deubiquitination\"], \"molecular_functions\": [\"cysteine-type deubiquitinase activity\"], \"genetic_context\": {\"variant_origin\": \"SOMATIC\", \"functional_impact_category\": \"GAIN_OF_FUNCTION\", \"gene_terms\": [{\"label\": \"USP8\", \"id\": \"hgnc:12631\"}]}, \"locations\": [\"adenohypophysis\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Sustained EGFR Signalling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Wild-type USP8 is held inactive by 14-3-3 binding. Variants in that motif disrupt the interaction, allowing proteolytic cleavage into a hyperactive fragment which deubiquitinates EGFR. Ubiquitination is the signal that routes an activated receptor to the lysosome, so removing it rescues EGFR from degradation and returns it to the surface. The corticotroph therefore experiences continuous EGF pathway signalling from a normal amount of ligand - the defect is in receptor disposal, not in ligand supply. BRAF V600E reaches the same downstream state by constitutively activating the MAPK cascade below the receptor.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"corticotroph\"], \"biological_processes\": [\"epidermal growth factor receptor signaling pathway\", \"ERK1 and ERK2 cascade\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Systemic Glucocorticoid Toxicity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Every clinically important consequence of Cushing disease sits at this node rather than at the tumour. Chronic cortisol excess produces central adiposity with peripheral wasting, proximal myopathy, dermal atrophy with wide purple striae, insulin resistance and diabetes, hypertension, osteoporosis, hypercoagulability, immunosuppression and mood and cognitive disturbance. The burden is cumulative and outlives the biochemistry: mortality is raised relative to the general population, and quality of life after remission does not fully normalise.\", \"meta\": {\"evidence_count\": 2, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Transsphenoidal Selective Adenomectomy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"First-line treatment and the only one that addresses the lesion itself. Reported initial remission in a 1106-patient single-centre series was 72.5%, with about a quarter left in persistent hypercortisolism. Remission is substantially lower with invasive tumours, macroadenomas, pathologically negative specimens and repeat surgery, so the figure quoted for any given patient depends on which of those apply. Remission is not the end of the story: recurrence occurred in 27.4% of patients over a median 38 months in one operated series, and is markedly higher after macroadenoma resection than after microadenoma or no visible lesion (45% versus 19%). An early postoperative nadir cortisol at or below 3 mcg/dL is the best available predictor of durable remission.\", \"meta\": {\"evidence_count\": 4}}], \"edges\": [{\"source\": \"Somatic Driver Mutation in the Corticotroph\", \"target\": \"Sustained EGFR Signalling\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Sustained EGFR Signalling\", \"target\": \"POMC Transcription and ACTH Hypersecretion\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"POMC Transcription and ACTH Hypersecretion\", \"target\": \"Loss of Glucocorticoid Negative Feedback\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"POMC Transcription and ACTH Hypersecretion\", \"target\": \"Adrenocortical Stimulation and Cortisol Excess\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Glucocorticoid Negative Feedback\", \"target\": \"Adrenocortical Stimulation and Cortisol Excess\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Adrenocortical Stimulation and Cortisol Excess\", \"target\": \"Systemic Glucocorticoid Toxicity\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Transsphenoidal Selective Adenomectomy\", \"target\": \"POMC Transcription and ACTH Hypersecretion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Osilodrostat\", \"target\": \"Adrenocortical Stimulation and Cortisol Excess\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Pasireotide\", \"target\": \"POMC Transcription and ACTH Hypersecretion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Bilateral Adrenalectomy\", \"target\": \"Adrenocortical Stimulation and Cortisol Excess\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"AtT-20 murine corticotroph tumour cell line\", \"target\": \"POMC Transcription and ACTH Hypersecretion\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Reproduces regulated POMC transcription and ACTH secretion in a corticotroph tumour cell, which is the node this entry treats as the convergence point of all three drivers.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"AtT-20 cells do not carry the human USP8 hotspot variant, and no widely used genetically engineered mouse reproduces USP8-driven Cushing disease. So the line models the output of the pathway without modelling the lesion that drives it - it is informative about POMC/ACTH regulation and uninformative about the driver biology that distinguishes this disease from any other cause of corticotroph ACTH excess.\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -7099,6 +7185,9 @@ This disease-associated gene is USP8 (hgnc:12631). hgnc:12631 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7167,6 +7256,9 @@ This disease-associated gene is USP48 (hgnc:18533). hgnc:18533 is a gene from th
 
 
                 </div>
+
+
+
 
 
 
@@ -7243,6 +7335,9 @@ This disease-associated gene is BRAF (hgnc:1097). hgnc:1097 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7311,6 +7406,9 @@ This disease-associated gene is NR3C1 (hgnc:7978). hgnc:7978 is a gene from the 
 
 
                 </div>
+
+
+
 
 
 

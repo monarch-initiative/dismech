@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -5437,6 +5476,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tgfb2-loss-of-function-variant" data-dismech-node="TGFB2 Loss-of-Function Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">TGFB2 Loss-of-Function Variant</div>
 
+
                 <div class="item-desc">Heterozygous TGFB2 variants are the genetic trigger of LDS4. The reported allelic spectrum is dominated by predicted loss-of-function classes - nonsense, frameshift, splice-site and whole- or partial-gene deletion - with a minority of missense alleles; deletions at 1q41 encompassing the whole gene produce the same phenotype, which is the strongest human argument that the mechanism is simple haploinsufficiency rather than a dominant-negative protein. A substantial share of the reported variants fall in the latency-associated peptide (LAP) domain or the RKKR furin cleavage motif required to release the mature TGF-beta 2 cytokine from LAP. Where a frameshift escapes nonsense-mediated decay, the mutant transcript is present but the proprotein is degraded, so the net effect is still reduced cellular TGF-beta 2.</div>
 
 
@@ -5752,6 +5792,7 @@ This pathophysiological event involves TGFB2 (hgnc:11768). hgnc:11768 is a gene 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-tgf-beta-2-ligand-availability" data-dismech-node="Reduced TGF-beta 2 Ligand Availability" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced TGF-beta 2 Ligand Availability</div>
 
+
                 <div class="item-desc">The proximal biochemical consequence of a TGFB2 loss-of-function allele is reduced cellular TGF-beta 2 proprotein and mature ligand. In smooth muscle cells and dermal fibroblasts from affected family members, TGFB2 transcript levels were comparable to control but TGF-beta 2 proprotein was reduced and no truncated protein was detectable. Crucially, this reduction is measured in peripheral cells and is the opposite of what the diseased aorta shows, which is what sets up the disorder&#39;s central paradox.</div>
 
 
@@ -6002,6 +6043,7 @@ This pathophysiological event involves decreased transforming growth factor beta
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-paradoxical-aortic-tgf-beta-signaling-dysregulation" data-dismech-node="Paradoxical Aortic TGF-beta Signaling Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Paradoxical Aortic TGF-beta Signaling Dysregulation</div>
+
 
                 <div class="item-desc">Despite the loss-of-function genetics, aortic wall tissue from TGFB2-variant patients shows the same high-TGF-beta tissue signature as the rest of the Loeys-Dietz spectrum: increased nuclear phosphorylated SMAD2 in medial smooth muscle cells and increased CTGF expression, together with paradoxically increased TGF-beta 2 and TGF-beta 1 ligand expression and protein. In the Tgfb2 heterozygous mouse both the canonical (pSmad2/3) and non-canonical (pErk1/2) arms are activated, so the dysregulation is not confined to the SMAD branch. This node is the conserved hub of the heritable-aortopathy module, reached here from a ligand rather than a receptor lesion.</div>
 
@@ -6257,6 +6299,7 @@ This pathophysiological event involves increased ERK1 and ERK2 cascade (GO:00703
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-aortic-root-smooth-muscle-cell-differentiation" data-dismech-node="Impaired Aortic Root Smooth Muscle Cell Differentiation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Aortic Root Smooth Muscle Cell Differentiation</div>
 
+
                 <div class="item-desc">A developmental arm that helps explain why the aneurysm in LDS4 is concentrated at the aortic root. In human iPSC-derived smooth muscle cells, TGFB2 signals distinctively through TGFBR3 (betaglycan) rather than only the canonical type I/II receptors, and both TGFB2 and TGFBR3 are enriched in the tunica media of the aortic root specifically. TGFB2 haploinsufficiency and TGFB2 neutralisation impair differentiation of second heart field-derived smooth muscle cells - the lineage that populates the root - and a missense TGFB2 variant produced measurable mechanical defects in engineered smooth muscle tissue rings that were rescued by adding back TGFB2. This arm is grounded entirely in an in vitro human system; it complements rather than replaces the paradoxical-signalling arm.</div>
 
 
@@ -6447,6 +6490,7 @@ This pathophysiological event involves decreased smooth muscle cell differentiat
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aortic-medial-degeneration" data-dismech-node="Aortic Medial Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Aortic Medial Degeneration</div>
 
+
                 <div class="item-desc">The histological lesion of LDS4 is the medial degeneration common to the heritable aortopathies: fragmentation and loss of elastic fibres in the tunica media with accumulation of proteoglycans, described in both of the 2012 defining cohorts and independently as cystic medial necrosis in a dissected LDS4 aorta. The result is a media that has lost its recoil and tensile competence.</div>
 
 
@@ -6628,6 +6672,7 @@ This pathophysiological event involves decreased elastic fiber assembly (GO:0048
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-aortic-root-dilation" data-dismech-node="Progressive Aortic Root Dilation" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Aortic Root Dilation</div>
 
+
                 <div class="item-desc">Aortic root dilation at the sinuses of Valsalva is the principal cardiovascular manifestation. In LDS4 it characteristically appears later than in the receptor-related subtypes - typically in the fourth decade - and progresses more slowly, which is the clinical basis for calling LDS4 the mild end of the Loeys-Dietz spectrum. Aneurysm and ectasia elsewhere in the arterial tree (iliac, carotid, vertebral, cerebral, pulmonary) and arterial tortuosity also occur, so surveillance cannot be limited to echocardiography of the root.</div>
 
 
@@ -6757,6 +6802,7 @@ This pathophysiological event involves decreased elastic fiber assembly (GO:0048
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aortic-dissection-and-rupture" data-dismech-node="Aortic Dissection and Rupture" data-dismech-type="pathophysiology">
                 <div class="item-name">Aortic Dissection and Rupture</div>
 
+
                 <div class="item-desc">The lethal endpoint. Type A dissection extending the full length of the aorta, dissection of abdominal aortic aneurysm, and sudden death have all been reported in TGFB2 pedigrees, and it was the occurrence of dissection and death across multiple generations that led to gene identification. Relative to LDS1/LDS2, dissection in LDS4 is less frequent, but it is not absent - families ascertained through sudden death are on record, and descending aortic dissection can occur while root dilation is still relatively mild.</div>
 
 
@@ -6882,6 +6928,7 @@ This pathophysiological event involves decreased elastic fiber assembly (GO:0048
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-immune-dysregulation" data-dismech-node="Immune Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Immune Dysregulation</div>
+
 
                 <div class="item-desc">Loeys-Dietz syndrome carries a strong predisposition to allergic and inflammatory disease - asthma, eczema, reactions to food and environmental allergens, eosinophilic gastrointestinal disease and inflammatory bowel disease - and this immune arm is modelled here as its own branch from the genetic lesion rather than as a consequence of the vascular disease. It is the immunological counterpart of the aortic signalling-direction paradox: TGF-beta is a major immunosuppressive cytokine, so an atopic, inflammation-prone phenotype in a TGF-beta-pathway disorder is itself paradoxical, and the registered I-LoDiS study exists to characterise which immune subpopulations are affected. The documentation is spectrum-level and dominated by the receptor genotypes; no TGFB2-specific immunophenotyping study has been published, which is recorded as an open question in the discussions.</div>
 
@@ -9633,6 +9680,9 @@ This disease-associated gene is TGFB2 (hgnc:11768). hgnc:11768 is a gene from th
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 

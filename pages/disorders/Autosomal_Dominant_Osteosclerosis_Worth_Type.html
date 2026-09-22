@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4296,6 +4335,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lrp5-first-propeller-missense-variants" data-dismech-node="LRP5 First-Propeller Missense Variants" data-dismech-type="pathophysiology">
                 <div class="item-name">LRP5 First-Propeller Missense Variants</div>
 
+
                 <div class="item-desc">Heterozygous missense variants clustered in the amino-terminal first beta-propeller of LRP5, before the first EGF-like domain. The same small region accounts for high bone density across several diagnoses that were historically kept apart.</div>
 
 
@@ -4390,6 +4430,8 @@ This genetic context concerns LRP5 (hgnc:6697). hgnc:6697 is a gene from the HUG
 
 
 
+
+
         <span class="tag tag-classification">allele_type: MISSENSE</span>
 
 
@@ -4405,6 +4447,9 @@ This genetic context concerns LRP5 (hgnc:6697). hgnc:6697 is a gene from the HUG
         <span class="tag tag-classification">functional_impact_category: GAIN_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Heterozygous first-propeller missense alleles that block sclerostin and DKK1 inhibition of the receptor. The gain of function is in the receptor&#39;s escape from regulation, not in raised ligand or raised receptor abundance.</div>
 
@@ -4502,6 +4547,7 @@ This genetic context concerns LRP5 (hgnc:6697). hgnc:6697 is a gene from the HUG
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lrp5-resistance-to-sclerostin-and-dkk1" data-dismech-node="LRP5 Resistance to Sclerostin and DKK1" data-dismech-type="pathophysiology">
                 <div class="item-name">LRP5 Resistance to Sclerostin and DKK1</div>
+
 
                 <div class="item-desc">The mutant receptor no longer responds to the two secreted Wnt inhibitors that normally restrain bone formation. Knock-in mice carrying the human p.G171V and p.A214V alleles are protected from osteopenia induced by overexpressing either inhibitor, which is the in vivo demonstration of the same mechanism.</div>
 
@@ -4742,6 +4788,7 @@ This pathophysiological event involves decreased negative regulation of canonica
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-unrestrained-canonical-wnt-signalling-in-bone" data-dismech-node="Unrestrained Canonical Wnt Signalling in Bone" data-dismech-type="pathophysiology">
                 <div class="item-name">Unrestrained Canonical Wnt Signalling in Bone</div>
 
+
                 <div class="item-desc">Canonical Wnt/beta-catenin output in the osteoblast lineage is raised because the receptor is deaf to its inhibitors, not because ligand is more abundant. The modifier here is GAIN_OF_FUNCTION rather than INCREASED for that reason: the pathway is running outside its normal regulatory constraints, which is a qualitative change, not a quantitative one.</div>
 
 
@@ -4917,6 +4964,7 @@ This pathophysiological event involves canonical Wnt signaling pathway (GO:00600
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-osteoblastic-bone-formation-with-normal-resorption" data-dismech-node="Increased Osteoblastic Bone Formation with Normal Resorption" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased Osteoblastic Bone Formation with Normal Resorption</div>
+
 
                 <div class="item-desc">Bone formation markers are raised while resorption markers stay normal. This is the point that separates the disorder from osteopetrosis, where the defect is failed resorption and the bone is brittle. Here the bone is added, not retained, and it is mechanically sound.</div>
 
@@ -5098,6 +5146,7 @@ This pathophysiological event involves increased bone mineralization (GO:0030282
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-endosteal-hyperostosis-and-cortical-thickening" data-dismech-node="Endosteal Hyperostosis and Cortical Thickening" data-dismech-type="pathophysiology">
                 <div class="item-name">Endosteal Hyperostosis and Cortical Thickening</div>
 
+
                 <div class="item-desc">Bone is added from the endosteal surface inward: the cranial diploe is lost, long-bone diaphyses and the pelvis sclerose, and the mandible thickens and loses its antegonial notches. Because the deposition is endosteal, the marrow cavity narrows while the external contour is largely preserved.</div>
 
 
@@ -5254,6 +5303,7 @@ This pathophysiological event occurs in mandible (UBERON:0001684). UBERON:000168
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cranial-foramina-and-posterior-fossa-encroachment" data-dismech-node="Cranial Foramina and Posterior Fossa Encroachment" data-dismech-type="pathophysiology">
                 <div class="item-name">Cranial Foramina and Posterior Fossa Encroachment</div>
+
 
                 <div class="item-desc">Cranial nerve compression giving hearing loss, facial palsy and anosmia, and in reported families posterior fossa crowding with Chiari I malformation and chronic headache requiring decompression.</div>
 
@@ -6538,6 +6588,9 @@ This disease-associated gene is LRP5 (hgnc:6697). hgnc:6697 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6611,6 +6664,7 @@ This disease-associated gene is LRP5 (hgnc:6697). hgnc:6697 is a gene from the H
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -6632,7 +6686,13 @@ This variant is in LRP5 (hgnc:6697). hgnc:6697 is a gene from the HUGO Gene Nome
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A more recently reported first-propeller allele, notable for arising de novo. Its clinical significance was returned as uncertain on the diagnostic panel, which is worth carrying rather than smoothing over.</div>
@@ -6717,6 +6777,12 @@ This variant is in LRP5 (hgnc:6697). hgnc:6697 is a gene from the HUGO Gene Nome
         p.Gly171Val
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">The founding kindred&#39;s variant, in the conserved propeller motif.</div>
@@ -7166,7 +7232,7 @@ This treatment is suboccipital craniectomy, annotated with Surgical Procedure (N
 
                 </div>
 
-                <div class="evidence-snippet">"The patients underwent a midline suboccipital craniectomy with excision of the posterior arch of C1 and duroplasty."</div>
+                <div class="evidence-snippet">"The patients underwent a midline suboccipital craniectomy with excision of the posterior arch of C1 and duroplasty. However, due to a symptomatic recurrence 5 years after surgery, Patient 1 was reoperated on. We extended the craniectomy and also carried out a C2 laminectomy. CONCLUSION: After..."</div>
 
 
                 <div class="evidence-explanation">The operation performed is described directly.</div>
@@ -9164,8 +9230,11 @@ treatments:
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
-      The patients underwent a midline suboccipital craniectomy with excision of
-      the posterior arch of C1 and duroplasty.
+      The patients underwent a midline suboccipital craniectomy with excision of the posterior
+      arch of C1 and duroplasty. However, due to a symptomatic recurrence 5 years after
+      surgery, Patient 1 was reoperated on. We extended the craniectomy and also carried out a
+      C2 laminectomy. CONCLUSION: After surgical interventions, patients&#39; neurologic symptoms
+      were successfully resolved.
     explanation: &gt;-
       The operation performed is described directly.
   - reference: PMID:29709743
@@ -10122,7 +10191,7 @@ check-snippet-length, check-title-snippets and check-snippet-grading all pass.
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Autosomal Dominant Osteosclerosis Worth Type", "mondoId": "MONDO:0007764", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Autosomal_Dominant_Osteosclerosis_Worth_Type", "yamlRevision": "56bb2330f352"};
+        const OS_CONFIG = {"diseaseName": "Autosomal Dominant Osteosclerosis Worth Type", "mondoId": "MONDO:0007764", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Autosomal_Dominant_Osteosclerosis_Worth_Type", "yamlRevision": "dd539fb2fb27"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4309,6 +4348,7 @@ Two boundaries move under this entry and curators should know it. The 2021 refin
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-somatic-activating-kit-mutation-in-a-small-mast-cell-clone" data-dismech-node="Somatic Activating KIT Mutation in a Small Mast Cell Clone" data-dismech-type="pathophysiology">
                 <div class="item-name">Somatic Activating KIT Mutation in a Small Mast Cell Clone</div>
 
+
                 <div class="item-desc">An activating KIT variant, characteristically D816V, arises somatically in the mast cell lineage. The variant is the same one that drives systemic mastocytosis, and the distinguishing feature of this disorder is quantitative: the clone stays below the mast cell burden that the systemic mastocytosis criteria require. Nothing about the variant itself is different, which is why the entry does not claim a distinct molecular lesion.
 </div>
 
@@ -4361,6 +4401,8 @@ This genetic context concerns KIT (hgnc:6342). hgnc:6342 is a gene from the HUGO
 
 
 
+
+
         <span class="tag tag-classification">allele_type: SNV</span>
 
 
@@ -4374,6 +4416,9 @@ This genetic context concerns KIT (hgnc:6342). hgnc:6342 is a gene from the HUGO
         <span class="tag tag-classification">functional_impact_category: GAIN_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Somatic gain-of-function KIT variant, characteristically D816V, restricted to the mast cell compartment.</div>
 
@@ -4484,6 +4529,7 @@ This pathophysiological event involves protein tyrosine kinase activity (GO:0004
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-constitutive-kit-downstream-signaling" data-dismech-node="Constitutive KIT Downstream Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Constitutive KIT Downstream Signaling</div>
+
 
                 <div class="item-desc">D816V-KIT signals constitutively through STAT5 and PI3K, with STAT5A and STAT5B activation mediated by JAK2 and also by MEK and ERK1/2, the latter driving both STAT5 phosphorylation and its long-term transcription. STAT3 and STAT4 are not involved. The functional consequence demonstrated in this pathway is persistent IL-6 production by the mast cell itself, which links the clone to a systemic inflammatory output independent of degranulation.
 </div>
@@ -4618,6 +4664,7 @@ This pathophysiological event involves mast cell (CL:0000097). CL:0000097 is a c
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lowered-mast-cell-activation-threshold" data-dismech-node="Lowered Mast Cell Activation Threshold" data-dismech-type="pathophysiology">
                 <div class="item-name">Lowered Mast Cell Activation Threshold</div>
+
 
                 <div class="item-desc">The clonal mast cells activate and degranulate on stimuli that would not trigger normal mast cells, which is what converts a small clone into a systemic clinical syndrome. This is the node the entry is least able to source directly: the concept was articulated at the consensus conference that classified systemic mastocytosis variants, as a hypothesis, and the evidence curated here is that statement of the hypothesis rather than a measurement in MMAS patients. The `directness: INDIRECT` grading and this note are the honest description of its status.
 </div>
@@ -4767,6 +4814,7 @@ This pathophysiological event involves increased mast cell activation (GO:004557
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-systemic-mast-cell-mediator-release" data-dismech-node="Systemic Mast Cell Mediator Release" data-dismech-type="pathophysiology">
                 <div class="item-name">Systemic Mast Cell Mediator Release</div>
+
 
                 <div class="item-desc">Degranulation releases histamine, tryptase and other mediators, producing severe, recurrent, systemic symptoms across skin, gastrointestinal tract and cardiovascular system. In clonal disease the episodes have a characteristic shape - cardiovascular collapse predominating, frequently without urticaria - which is what makes hymenoptera anaphylaxis in a patient with no skin lesions the classic presentation.
 </div>
@@ -4951,6 +4999,7 @@ This pathophysiological event involves increased mast cell degranulation (GO:004
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sub-threshold-clonal-burden" data-dismech-node="Sub-threshold Clonal Burden" data-dismech-type="pathophysiology">
                 <div class="item-name">Sub-threshold Clonal Burden</div>
+
 
                 <div class="item-desc">The clonal population does not reach the mast cell burden required by the systemic mastocytosis criteria. This node records the defining negative, and it is the reason the entry exists: the disorder is constituted by failing a threshold, so the negative is part of the mechanism rather than a caveat about it. It has no downstream edges by design. Note that where the threshold sits has moved - the 2021 refined bone marrow mastocytosis criteria describe an SM variant with lower neoplastic mast cell burden and more hymenoptera-triggered reactions than typical indolent systemic mastocytosis - so this node&#39;s extension depends on which criteria set is applied.
 </div>
@@ -5817,6 +5866,9 @@ This disease-associated gene is KIT (hgnc:6342). hgnc:6342 is a gene from the HU
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: SOMATIC</span>
 
                 </div>
+
+
+
 
 
 

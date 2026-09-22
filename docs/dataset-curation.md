@@ -280,7 +280,7 @@ against their repository API on every run and cache nothing. Migrating one means
 writing a reference fetcher for it and adding it to `REFERENCE_CACHED_PREFIXES`
 in `scripts/verify_dataset_accessions.py`.
 
-### `cache/dataset_accessions.json` is frozen — never touch it
+### `cache/dataset_accessions.json` is deleted — never restore it
 
 Verification results used to go into one shared JSON object. Every run rewrote
 that file **in full**, including a run over a single disorder file, so every
@@ -289,9 +289,11 @@ curation PR touching a `datasets:` block churned the same 1.8 MB file — and wi
 accessions collided.
 
 Nothing reads or writes it now, and
-`test_no_automation_touches_the_frozen_dataset_cache` keeps it that way. It stays
-in git only until the open PRs carrying edits to it have drained. Do not stage
-it, and do not regenerate it.
+`test_no_automation_touches_the_frozen_dataset_cache` keeps it that way. The
+temporary freeze has ended: the file is deleted and ignored, and CI checks its
+absence from Git's index on every run. Old PRs that modified it may have a
+modify/delete conflict; keep the deletion without reading or merging its
+contents. Do not restore or regenerate it.
 
 Why not a `datasets/` folder instead, one file per dataset shared across
 entries? Because de-duplication is not the problem: of 1,747 dataset records,

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -5222,6 +5261,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-gluten-triggered-immune-response" data-dismech-node="Gluten-Triggered Immune Response" data-dismech-type="pathophysiology">
                 <div class="item-name">Gluten-Triggered Immune Response</div>
 
+
                 <div class="item-desc">Gluten peptides (gliadin) cross the intestinal epithelium and are deamidated by tissue transglutaminase (tTG). Deamidated peptides bind HLA-DQ2/DQ8 and activate CD4+ T cells.
 </div>
 
@@ -5414,6 +5454,7 @@ This pathophysiological event involves Antigen Processing, annotated with antige
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mixed-th1-th17-il-21-mucosal-cytokine-response" data-dismech-node="Mixed Th1/Th17/IL-21 Mucosal Cytokine Response" data-dismech-type="pathophysiology">
                 <div class="item-name">Mixed Th1/Th17/IL-21 Mucosal Cytokine Response</div>
+
 
                 <div class="item-desc">The effector cytokine milieu of active celiac mucosa is not purely Th1/IFN-gamma. IL-17A and IL-21 are overproduced alongside IFN-gamma, and the IL-17A-producing CD4+ and CD4+CD8+ cells largely co-express IFN-gamma rather than forming a separate stable Th17 lineage. IL-15, the innate arm cytokine, positively regulates mucosal IL-21 production, providing a mechanistic junction between the innate and adaptive arms. Curated as cytokine complexity within the canonical response, not as an independent coequal Th17 driver.</div>
 
@@ -5649,6 +5690,7 @@ This pathophysiological event involves increased Mucosal interleukin-17A product
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-intestinal-epithelial-damage" data-dismech-node="Intestinal Epithelial Damage" data-dismech-type="pathophysiology">
                 <div class="item-name">Intestinal Epithelial Damage</div>
 
+
                 <div class="item-desc">Activated T cells release IFN-gamma and other cytokines causing villous atrophy, crypt hyperplasia, and increased intraepithelial lymphocytes. Leads to malabsorption.
 </div>
 
@@ -5825,6 +5867,7 @@ This pathophysiological event involves Apoptosis, annotated with apoptotic proce
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-autoantibody-production" data-dismech-node="Autoantibody Production" data-dismech-type="pathophysiology">
                 <div class="item-name">Autoantibody Production</div>
 
+
                 <div class="item-desc">B cells produce antibodies against tTG (anti-tTG IgA) and deamidated gliadin peptides (anti-DGP). These serve as diagnostic markers and may contribute to pathology.
 </div>
 
@@ -5946,6 +5989,7 @@ This pathophysiological event involves Plasma Cell (CL:0000786). CL:0000786 is a
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-barrier-dysfunction" data-dismech-node="Barrier Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Barrier Dysfunction</div>
 
+
                 <div class="item-desc">Increased intestinal permeability allows greater gluten peptide translocation. Zonulin upregulation disrupts tight junctions.
 </div>
 
@@ -6005,6 +6049,7 @@ This pathophysiological event involves Plasma Cell (CL:0000786). CL:0000786 is a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-microbiome-dysbiosis" data-dismech-node="Microbiome Dysbiosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Microbiome Dysbiosis</div>
+
 
                 <div class="item-desc">Alterations in gut microbial composition and metabolic activity contribute to disease initiation and progression. Dysbiosis occurs in genetically at-risk individuals prior to disease onset, persists in active disease, and may not be fully restored by gluten-free diet. Dysbiosis impairs microbial-mediated gluten degradation, reduces production of short-chain fatty acids, and compromises intestinal barrier integrity and immune homeostasis.
 </div>
@@ -8326,6 +8371,9 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8386,6 +8434,9 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-il2" data-dismech-node="IL2" data-dismech-type="genetic">
@@ -8419,6 +8470,9 @@ This disease-associated gene is IL2 (hgnc:6001). hgnc:6001 is a gene from the HU
 
 
                 </div>
+
+
+
 
 
 
@@ -8464,6 +8518,9 @@ This disease-associated gene is IL21 (hgnc:6005). hgnc:6005 is a gene from the H
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-bach2" data-dismech-node="BACH2" data-dismech-type="genetic">
@@ -8497,6 +8554,9 @@ This disease-associated gene is BACH2 (hgnc:14078). hgnc:14078 is a gene from th
 
 
                 </div>
+
+
+
 
 
 
@@ -8542,6 +8602,9 @@ This disease-associated gene is TNFAIP3 (hgnc:11896). hgnc:11896 is a gene from 
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-cd28" data-dismech-node="CD28" data-dismech-type="genetic">
@@ -8575,6 +8638,9 @@ This disease-associated gene is CD28 (hgnc:1653). hgnc:1653 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -8620,6 +8686,9 @@ This disease-associated gene is EGR2 (hgnc:3239). hgnc:3239 is a gene from the H
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-ets1" data-dismech-node="ETS1" data-dismech-type="genetic">
@@ -8653,6 +8722,9 @@ This disease-associated gene is ETS1 (hgnc:3488). hgnc:3488 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -8698,6 +8770,9 @@ This disease-associated gene is IRF4 (hgnc:6119). hgnc:6119 is a gene from the H
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-smad3" data-dismech-node="SMAD3" data-dismech-type="genetic">
@@ -8737,6 +8812,9 @@ This disease-associated gene is SMAD3 (hgnc:6769). hgnc:6769 is a gene from the 
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-ptpn22" data-dismech-node="PTPN22" data-dismech-type="genetic">
@@ -8770,6 +8848,9 @@ This disease-associated gene is PTPN22 (hgnc:9652). hgnc:9652 is a gene from the
 
 
                 </div>
+
+
+
 
 
 

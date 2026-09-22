@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -5002,6 +5041,7 @@ This subtype is caused by variation in MAGED2 (hgnc:16353). hgnc:16353 is a gene
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nkcc2-apical-cotransport-failure-type-1" data-dismech-node="NKCC2 Apical Cotransport Failure (Type 1)" data-dismech-type="pathophysiology">
                 <div class="item-name">NKCC2 Apical Cotransport Failure (Type 1)</div>
 
+
                 <div class="item-desc">SLC12A1 encodes NKCC2, the furosemide-sensitive apical cotransporter that carries Na+, K+ and Cl- together from the tubular lumen into the thick ascending limb cell. Biallelic loss of function removes the entry step of the transcellular NaCl pathway and defines type I Bartter syndrome.</div>
 
 
@@ -5221,6 +5261,7 @@ This pathophysiological event involves decreased NKCC2 Na-K-2Cl cotransport, ann
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-romk-potassium-recycling-failure-type-2" data-dismech-node="ROMK Potassium Recycling Failure (Type 2)" data-dismech-type="pathophysiology">
                 <div class="item-name">ROMK Potassium Recycling Failure (Type 2)</div>
+
 
                 <div class="item-desc">KCNJ1 encodes ROMK (Kir1.1), the apical channel that returns K+ to the tubular lumen. That recycling is what keeps luminal K+ available for NKCC2, so losing ROMK stalls the cotransporter indirectly rather than by disabling it. ROMK is also expressed in the cortical collecting duct, where it secretes K+ — which is why type II disease can show transient neonatal hyperkalaemia despite the salt-wasting phenotype.</div>
 
@@ -5442,6 +5483,7 @@ This pathophysiological event involves decreased ROMK inward-rectifier potassium
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-clc-kb-basolateral-chloride-exit-failure-type-3" data-dismech-node="ClC-Kb Basolateral Chloride Exit Failure (Type 3)" data-dismech-type="pathophysiology">
                 <div class="item-name">ClC-Kb Basolateral Chloride Exit Failure (Type 3)</div>
 
+
                 <div class="item-desc">CLCNKB encodes ClC-Kb, one of at least two basolateral chloride channels that let Cl- leave the thick ascending limb cell towards the interstitium. Biallelic loss of function blocks the exit step of the transcellular pathway and causes classic type III Bartter syndrome. ClC-Kb is expressed along the TAL, distal convoluted tubule and collecting-duct intercalated cells, which is consistent with the wide phenotypic range of this subtype.</div>
 
 
@@ -5662,6 +5704,7 @@ This pathophysiological event involves decreased ClC-Kb chloride channel activit
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-maged2-dependent-cotransporter-trafficking-failure-type-5" data-dismech-node="MAGED2-Dependent Cotransporter Trafficking Failure (Type 5)" data-dismech-type="pathophysiology">
                 <div class="item-name">MAGED2-Dependent Cotransporter Trafficking Failure (Type 5)</div>
 
+
                 <div class="item-desc">MAGED2 is not itself a transporter. It raises the cell-surface expression of NKCC2 in the thick ascending limb and of NCC in the distal convoluted tubule, so X-linked loss of function removes transporters from the membrane rather than disabling them in place. That is a distinct mechanism from the type I-IV channel and cotransporter lesions, and it matches the distinct clinical course: severe antenatal polyhydramnios followed by spontaneous resolution after birth.</div>
 
 
@@ -5881,6 +5924,7 @@ This pathophysiological event involves decreased Cotransporter delivery to the a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-clc-k-barttin-chloride-channel-dysfunction-type-4" data-dismech-node="ClC-K/Barttin Chloride Channel Dysfunction (Type 4)" data-dismech-type="pathophysiology">
                 <div class="item-name">ClC-K/Barttin Chloride Channel Dysfunction (Type 4)</div>
+
 
                 <div class="item-desc">In type 4 Bartter syndrome, BSND loss-of-function or digenic CLCNKA/CLCNKB disruption impairs the ClC-K/barttin chloride-channel system shared by renal epithelia and the inner ear. This links the renal salt-wasting branch to the sensorineural-hearing branch without implying that all Bartter subtypes cause deafness.</div>
 
@@ -6162,6 +6206,7 @@ This pathophysiological event involves decreased Chloride transmembrane transpor
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-nacl-reabsorption-in-thick-ascending-limb" data-dismech-node="Impaired NaCl Reabsorption in Thick Ascending Limb" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired NaCl Reabsorption in Thick Ascending Limb</div>
 
+
                 <div class="item-desc">The primary defect in Bartter syndrome is impaired sodium chloride reabsorption in the thick ascending limb (TAL) of the loop of Henle. NKCC2 (apical) mediates electroneutral entry of Na+, K+, and 2Cl-; ROMK recycles K+ back to the lumen to sustain NKCC2 activity; and ClC-Kb (with barttin) provides basolateral Cl- exit. Loss of any component disrupts the entire transcellular NaCl transport pathway.</div>
 
 
@@ -6388,6 +6433,7 @@ This pathophysiological event involves decreased Chloride transmembrane transpor
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-compensatory-distal-sodium-reabsorption-and-potassium-wasting" data-dismech-node="Compensatory Distal Sodium Reabsorption and Potassium Wasting" data-dismech-type="pathophysiology">
                 <div class="item-name">Compensatory Distal Sodium Reabsorption and Potassium Wasting</div>
 
+
                 <div class="item-desc">Reduced NaCl reabsorption in the TAL increases sodium delivery to the distal convoluted tubule and collecting duct. Enhanced sodium reabsorption through ENaC in principal cells, driven by secondary hyperaldosteronism, creates a lumen-negative potential that drives potassium and hydrogen ion secretion, producing hypokalemia and metabolic alkalosis.</div>
 
 
@@ -6592,6 +6638,7 @@ This pathophysiological event involves increased Potassium ion transmembrane tra
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-renin-angiotensin-aldosterone-system-activation" data-dismech-node="Renin-Angiotensin-Aldosterone System Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Renin-Angiotensin-Aldosterone System Activation</div>
 
+
                 <div class="item-desc">Chronic volume depletion from renal salt wasting stimulates the juxtaglomerular apparatus to increase renin secretion, resulting in hyperreninemia and secondary hyperaldosteronism. Despite elevated aldosterone, blood pressure remains normal or low because the primary renal tubular defect prevents effective sodium retention.</div>
 
 
@@ -6780,6 +6827,7 @@ This pathophysiological event involves increased Renin secretion into blood stre
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-medullary-concentration-gradient" data-dismech-node="Loss of Medullary Concentration Gradient" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Medullary Concentration Gradient</div>
 
+
                 <div class="item-desc">NaCl reabsorption in the TAL is essential for generating the corticomedullary osmotic gradient required for urinary concentration. Impaired TAL transport reduces medullary tonicity, causing nephrogenic diabetes insipidus-like polyuria, polydipsia, and isosthenuria.</div>
 
 
@@ -6916,6 +6964,7 @@ This pathophysiological event involves decreased Water transport (GO:0006833). G
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-prostaglandin-e2-overproduction" data-dismech-node="Prostaglandin E2 Overproduction" data-dismech-type="pathophysiology">
                 <div class="item-name">Prostaglandin E2 Overproduction</div>
 
+
                 <div class="item-desc">Hypokalemia and volume depletion stimulate renal prostaglandin E2 synthesis, which further inhibits NaCl reabsorption in the TAL and stimulates renin release, creating a positive feedback loop that amplifies salt wasting and electrolyte disturbances.</div>
 
 
@@ -7039,6 +7088,7 @@ This pathophysiological event involves increased Prostaglandin biosynthetic proc
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-paracellular-cation-reabsorption" data-dismech-node="Impaired Paracellular Cation Reabsorption" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Paracellular Cation Reabsorption</div>
+
 
                 <div class="item-desc">NKCC2-mediated K+ recycling through ROMK generates a lumen-positive transepithelial voltage in the TAL that drives paracellular reabsorption of Ca2+ and Mg2+. Loss of this voltage in Types 1 and 2 causes hypercalciuria (leading to nephrocalcinosis) and hypomagnesemia.</div>
 
@@ -7198,6 +7248,7 @@ This pathophysiological event involves decreased Magnesium ion homeostasis (GO:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nephrocalcinosis" data-dismech-node="Nephrocalcinosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Nephrocalcinosis</div>
 
+
                 <div class="item-desc">Hypercalciuria from impaired paracellular calcium reabsorption in the TAL leads to medullary calcium deposition. Nephrocalcinosis is most prominent in Types 1 and 2 and is less common in Type 3.</div>
 
 
@@ -7271,6 +7322,7 @@ This pathophysiological event involves decreased Magnesium ion homeostasis (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-inner-ear-chloride-transport-defect-type-4" data-dismech-node="Inner Ear Chloride Transport Defect (Type 4)" data-dismech-type="pathophysiology">
                 <div class="item-name">Inner Ear Chloride Transport Defect (Type 4)</div>
+
 
                 <div class="item-desc">Barttin is co-expressed with ClC-Ka and ClC-Kb in the stria vascularis of the inner ear, where chloride channels are essential for endolymph potassium secretion. Loss of barttin (Type 4A) or both ClC-K channels (Type 4B) disrupts the endocochlear potential, causing sensorineural hearing loss.</div>
 
@@ -9060,6 +9112,9 @@ This disease-associated gene is SLC12A1 (hgnc:10910). hgnc:10910 is a gene from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9130,6 +9185,9 @@ This disease-associated gene is KCNJ1 (hgnc:6255). hgnc:6255 is a gene from the 
 
 
                 </div>
+
+
+
 
 
 
@@ -9208,6 +9266,9 @@ This disease-associated gene is CLCNKB (hgnc:2027). hgnc:2027 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9278,6 +9339,9 @@ This disease-associated gene is BSND (hgnc:16512). hgnc:16512 is a gene from the
 
 
                 </div>
+
+
+
 
 
 
@@ -9356,6 +9420,9 @@ This disease-associated gene is CLCNKA (hgnc:2026). hgnc:2026 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9426,6 +9493,9 @@ This disease-associated gene is MAGED2 (hgnc:16353). hgnc:16353 is a gene from t
 
 
                 </div>
+
+
+
 
 
 

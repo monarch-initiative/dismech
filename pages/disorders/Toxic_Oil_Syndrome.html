@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4897,6 +4936,7 @@ The agent has never been definitively identified. Fatty acid esters of 3-(N-phen
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ingestion-of-aniline-denatured-rapeseed-oil" data-dismech-node="Ingestion of Aniline-Denatured Rapeseed Oil" data-dismech-type="pathophysiology">
                 <div class="item-name">Ingestion of Aniline-Denatured Rapeseed Oil</div>
 
+
                 <div class="item-desc">Rapeseed oil imported for industrial use was denatured with 2% aniline, then illegally re-refined to remove the denaturant and sold door to door as cooking oil. Aniline itself is not the toxin; the refining step is what generated the compounds that track with disease.</div>
 
 
@@ -5001,6 +5041,7 @@ The agent has never been definitively identified. Fatty acid esters of 3-(N-phen
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-systemic-exposure-to-pap-fatty-acid-esters" data-dismech-node="Systemic Exposure to PAP Fatty Acid Esters" data-dismech-type="pathophysiology">
                 <div class="item-name">Systemic Exposure to PAP Fatty Acid Esters</div>
+
 
                 <div class="item-desc">The di- and mono-oleyl esters of 3-(N-phenylamino)-1,2-propanediol are the compounds most strongly associated with case-related oil. They are hydrolysed by pancreatic lipase like a triglyceride, absorbed from the gut, and distributed to organs - which is what makes a systemic disease from an ingested compound.</div>
 
@@ -5210,6 +5251,7 @@ This pathophysiological event involves response to xenobiotic stimulus (GO:00094
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hepatic-biotransformation-of-pap-to-3-phenylamino-alanine" data-dismech-node="Hepatic Biotransformation of PAP to 3-(Phenylamino)alanine" data-dismech-type="pathophysiology">
                 <div class="item-name">Hepatic Biotransformation of PAP to 3-(Phenylamino)alanine</div>
 
+
                 <div class="item-desc">Liver tissue converts PAP to 3-(phenylamino)alanine, the aniline derivative independently isolated from the L-tryptophan implicated in eosinophilia-myalgia syndrome. This is the chemical link between the two epidemics, and it is a shared metabolite rather than a shared exposure.</div>
 
 
@@ -5335,6 +5377,7 @@ This pathophysiological event involves response to xenobiotic stimulus (GO:00094
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-vascular-endothelial-injury" data-dismech-node="Vascular Endothelial Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Vascular Endothelial Injury</div>
+
 
                 <div class="item-desc">The first lesion in the vessel wall, graded in the pathology series from endothelial cell swelling through to cell necrosis. Every later vascular step in this entry follows from it.</div>
 
@@ -5493,6 +5536,7 @@ This pathophysiological event occurs in blood vessel (UBERON:0001981). UBERON:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-t-cell-activation-with-th2-skewing-in-lung-tissue" data-dismech-node="T Cell Activation with Th2 Skewing in Lung Tissue" data-dismech-type="pathophysiology">
                 <div class="item-name">T Cell Activation with Th2 Skewing in Lung Tissue</div>
+
 
                 <div class="item-desc">Lung tissue from affected patients shows T-cell activation with both Th1 and Th2 cytokine profiles raised, and the Th2 increment over Th1 is itself significant. The response is not purely Th2 - both arms are up - and the entry says so rather than simplifying to a Th2 disease.</div>
 
@@ -5802,6 +5846,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-peripheral-eosinophilia" data-dismech-node="Peripheral Eosinophilia" data-dismech-type="pathophysiology">
                 <div class="item-name">Peripheral Eosinophilia</div>
 
+
                 <div class="item-desc">Marked peripheral eosinophilia is one of the two features that made the epidemic recognisable as a single disease, alongside incapacitating myalgia. Eosinophils are also found in the vessel wall infiltrate in some cases.</div>
 
 
@@ -5977,6 +6022,7 @@ This pathophysiological event involves increased eosinophil chemotaxis (GO:00482
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-perivascular-and-interstitial-inflammatory-infiltration" data-dismech-node="Perivascular and Interstitial Inflammatory Infiltration" data-dismech-type="pathophysiology">
                 <div class="item-name">Perivascular and Interstitial Inflammatory Infiltration</div>
+
 
                 <div class="item-desc">The mixed cellular infiltrate that follows endothelial injury, in the intima and sometimes the media and adventitia, and more widely in the interstitium of affected organs. It is the branch point of the entry: the vascular, neural, muscular and cutaneous arms all descend from it.</div>
 
@@ -6232,6 +6278,7 @@ This pathophysiological event occurs in tunica intima (UBERON:0002523). UBERON:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-myointimal-and-fibroblastic-proliferation" data-dismech-node="Myointimal and Fibroblastic Proliferation" data-dismech-type="pathophysiology">
                 <div class="item-name">Myointimal and Fibroblastic Proliferation</div>
 
+
                 <div class="item-desc">Proliferation of myointimal cells, joined in advanced lesions by fibroblasts. This is what converts an inflamed vessel into a narrowed one.</div>
 
 
@@ -6410,6 +6457,7 @@ This pathophysiological event involves increased smooth muscle cell proliferatio
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-vascular-luminal-narrowing-and-obliteration" data-dismech-node="Vascular Luminal Narrowing and Obliteration" data-dismech-type="pathophysiology">
                 <div class="item-name">Vascular Luminal Narrowing and Obliteration</div>
 
+
                 <div class="item-desc">The narrowed or obliterated lumen that the proliferative response leaves behind, and the substrate on which thrombosis forms.</div>
 
 
@@ -6512,6 +6560,7 @@ This pathophysiological event occurs in blood vessel (UBERON:0001981). UBERON:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-in-situ-thrombosis-on-the-damaged-vessel-wall" data-dismech-node="In Situ Thrombosis on the Damaged Vessel Wall" data-dismech-type="pathophysiology">
                 <div class="item-name">In Situ Thrombosis on the Damaged Vessel Wall</div>
+
 
                 <div class="item-desc">Thrombosis on the damaged and narrowed vessel wall. The pathology series is explicit that this feeds back on the vascular lesion rather than simply following it.</div>
 
@@ -6653,6 +6702,7 @@ This pathophysiological event involves increased blood coagulation (GO:0007596).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tissue-ischemia-and-parenchymal-atrophy" data-dismech-node="Tissue Ischemia and Parenchymal Atrophy" data-dismech-type="pathophysiology">
                 <div class="item-name">Tissue Ischemia and Parenchymal Atrophy</div>
 
+
                 <div class="item-desc">The downstream organ consequence of a progressively obliterated vascular bed, reported across several organs rather than confined to one.</div>
 
 
@@ -6678,6 +6728,7 @@ This pathophysiological event involves increased blood coagulation (GO:0007596).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pulmonary-vascular-remodelling-and-plexiform-lesion-formation" data-dismech-node="Pulmonary Vascular Remodelling and Plexiform Lesion Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Pulmonary Vascular Remodelling and Plexiform Lesion Formation</div>
+
 
                 <div class="item-desc">In the lung the same process produces plexiform lesions, thromboses and venous lesions - a pulmonary vasculopathy that autopsy studies found indistinguishable from primary pulmonary hypertension. Plexiform lesions appear late.</div>
 
@@ -6868,6 +6919,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lymphocytic-perineuritis" data-dismech-node="Lymphocytic Perineuritis" data-dismech-type="pathophysiology">
                 <div class="item-name">Lymphocytic Perineuritis</div>
 
+
                 <div class="item-desc">The nerve lesion begins as an inflammatory neuropathy with lymphocytic infiltration of the perineurium, and progresses to perineural fibrosis.</div>
 
 
@@ -6978,6 +7030,7 @@ This pathophysiological event involves T cell (CL:0000084). CL:0000084 is a cell
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-secondary-axonal-degeneration" data-dismech-node="Secondary Axonal Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Secondary Axonal Degeneration</div>
 
+
                 <div class="item-desc">Axonal loss following the perineural lesion rather than arising independently, which is what the pathology series means by calling it secondary.</div>
 
 
@@ -7022,6 +7075,7 @@ This pathophysiological event involves T cell (CL:0000084). CL:0000084 is a cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-interstitial-inflammatory-myopathy" data-dismech-node="Interstitial Inflammatory Myopathy" data-dismech-type="pathophysiology">
                 <div class="item-name">Interstitial Inflammatory Myopathy</div>
+
 
                 <div class="item-desc">The first muscle lesion, an interstitial inflammatory myopathy, which is later replaced by denervation atrophy rather than progressing as a primary myopathy.</div>
 
@@ -7086,6 +7140,7 @@ This pathophysiological event involves T cell (CL:0000084). CL:0000084 is a cell
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neurogenic-muscular-atrophy" data-dismech-node="Neurogenic Muscular Atrophy" data-dismech-type="pathophysiology">
                 <div class="item-name">Neurogenic Muscular Atrophy</div>
 
+
                 <div class="item-desc">Denervation atrophy following axonal degeneration. It is placed downstream of the nerve lesion, not of the myopathy, because the pathology series calls it neurogenic.</div>
 
 
@@ -7124,6 +7179,7 @@ This pathophysiological event involves T cell (CL:0000084). CL:0000084 is a cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dermal-and-fascial-fibrosis" data-dismech-node="Dermal and Fascial Fibrosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Dermal and Fascial Fibrosis</div>
+
 
                 <div class="item-desc">The fibrosis that gives the chronic phase its sclerodermiform appearance. What drives it is not established: the growth factors that drive the comparable lesion in eosinophilia-myalgia syndrome were absent from every TOS skin specimen examined.</div>
 
@@ -9568,6 +9624,9 @@ This disease-associated gene is HLA-DRB1 (hgnc:4948). hgnc:4948 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9665,6 +9724,9 @@ This disease-associated gene is HLA-A (hgnc:4931). hgnc:4931 is a gene from the 
 
 
                 </div>
+
+
+
 
 
 

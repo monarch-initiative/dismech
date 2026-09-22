@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4531,6 +4570,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-expanded-translated-cag-repeat-in-atxn2" data-dismech-node="Expanded Translated CAG Repeat in ATXN2" data-dismech-type="pathophysiology">
                 <div class="item-name">Expanded Translated CAG Repeat in ATXN2</div>
 
+
                 <div class="item-desc">The initiating lesion is a CAG repeat in exon 1 of ATXN2 expanded beyond the pathogenic threshold of approximately 35 copies, within the translated reading frame, so the tract is expressed as an elongated polyglutamine domain in ataxin-2. Normal alleles are 14-30 copies and carry CAA interruptions; pathogenic alleles are typically pure CAG, and loss of the interruption is itself part of the lesion rather than an incidental detail. Repeat length is inversely correlated with age of onset.</div>
 
 
@@ -4590,6 +4630,8 @@ This pathophysiological event involves ATXN2 (hgnc:10555). hgnc:10555 is a gene 
 
 
 
+
+
         <span class="tag tag-classification">allele_type: trinucleotide repeat expansion</span>
 
 
@@ -4603,6 +4645,9 @@ This pathophysiological event involves ATXN2 (hgnc:10555). hgnc:10555 is a gene 
         <span class="tag tag-classification">functional_impact_category: GAIN_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Germline expansion of the exon 1 CAG tract beyond ~35 copies. The consequence is a toxic gain of function of the expanded protein, with a concurrent partial loss of ataxin-2&#39;s normal translational-regulatory function.</div>
 
@@ -4683,6 +4728,7 @@ This pathophysiological event involves ATXN2 (hgnc:10555). hgnc:10555 is a gene 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cytoplasmic-polyq-ataxin-2-misfolding-and-microaggregation" data-dismech-node="Cytoplasmic PolyQ-Ataxin-2 Misfolding and Microaggregation" data-dismech-type="pathophysiology">
                 <div class="item-name">Cytoplasmic PolyQ-Ataxin-2 Misfolding and Microaggregation</div>
+
 
                 <div class="item-desc">PolyQ-expanded ataxin-2 misfolds and forms microaggregates. This is the node at which SCA2 departs from the polyglutamine stereotype set by Huntington disease and SCA3: in SCA2 brains the aggregates are cytoplasmic, not nuclear, and transgenic ataxin-2[Q58] remains cytoplasmic without detectable ubiquitination while still producing progressive Purkinje cell loss. Neither nuclear localization nor inclusion-body formation is necessary for pathogenesis. Curators extending this entry should not &#34;correct&#34; it toward the nuclear-inclusion pattern; the cytoplasmic localization is the experimentally supported claim and is what differentiates SCA2 within the Polyglutamine Disorders grouping.</div>
 
@@ -4861,6 +4907,7 @@ This pathophysiological event involves ATXN2 (hgnc:10555). hgnc:10555 is a gene 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-ataxin-2-rna-binding-and-translational-regulation" data-dismech-node="Loss of Ataxin-2 RNA-Binding and Translational Regulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Ataxin-2 RNA-Binding and Translational Regulation</div>
+
 
                 <div class="item-desc">Normal ataxin-2 is an RNA-binding translational regulator: it interacts with the DEAD/H-box helicase DDX6 and with poly(A)-binding protein, and its concentration governs assembly of stress granules and P-bodies. PolyQ expansion impairs selective mRNA binding - shown directly for RGS8 mRNA, whose protein product attenuates mGluR1 signalling. This node is curated as a disease-specific translational lesion rather than as conformance to the module&#39;s &#34;Transcriptional Dysregulation&#34; node, because ataxin-2 is an RNA and translation regulator, not a transcription factor; asserting transcriptional conformance here would import a claim from the HD/SCA17 pattern that SCA2&#39;s own evidence does not make.</div>
 
@@ -5063,6 +5110,7 @@ This pathophysiological event involves decreased regulation of translation (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-purkinje-cell-calcium-dysregulation-via-insp3r1-sensitization" data-dismech-node="Purkinje Cell Calcium Dysregulation via InsP3R1 Sensitization" data-dismech-type="pathophysiology">
                 <div class="item-name">Purkinje Cell Calcium Dysregulation via InsP3R1 Sensitization</div>
+
 
                 <div class="item-desc">Mutant ataxin-2 binds the cytosolic C-terminal region of the type 1 inositol 1,4,5-trisphosphate receptor and increases its sensitivity to activation, producing exaggerated calcium release in Purkinje cells and increased vulnerability to glutamate. The pharmacological arm of this claim is unusually strong for a mechanism node: the ryanodine-receptor inhibitor and calcium stabilizer dantrolene both attenuates glutamate-induced death in culture and reduces Purkinje cell loss in the SCA2-58Q mouse.</div>
 
@@ -5278,6 +5326,7 @@ This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-purkinje-cell-firing-frequency-decline" data-dismech-node="Purkinje Cell Firing Frequency Decline" data-dismech-type="pathophysiology">
                 <div class="item-name">Purkinje Cell Firing Frequency Decline</div>
 
+
                 <div class="item-desc">Purkinje cells lose intrinsic firing frequency well before they are lost. In the ATXN2-Q127 mouse, firing frequency falls from 6 weeks and tracks motor deterioration, while Purkinje cell number is preserved until after 12 weeks. This ordering is the mechanistic rationale for ATXN2-lowering therapy: the treatable lesion is an electrophysiological one that precedes irreversible cell loss, and ASO treatment restores firing even when started after motor onset.</div>
 
 
@@ -5428,6 +5477,7 @@ This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-olivopontocerebellar-neurodegeneration" data-dismech-node="Olivopontocerebellar Neurodegeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Olivopontocerebellar Neurodegeneration</div>
+
 
                 <div class="item-desc">SCA2 produces early and severe degeneration of the olivopontocerebellar system - cerebellar cortex, pontine nuclei and inferior olives - extending with progression to substantia nigra, striatum, pallidum and eventually neocortex, while the dentate nucleus is consistently spared. This distribution is broader than the purely cerebellar SCAs and overlaps regions affected in Huntington disease, and it accounts for the parkinsonian and cognitive features that appear later in the course.</div>
 
@@ -5602,6 +5652,7 @@ This pathophysiological event occurs in pons (UBERON:0000988). UBERON:0000988 is
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-repeat-length-dependent-onset-and-progressive-ataxia" data-dismech-node="Repeat-Length-Dependent Onset and Progressive Ataxia" data-dismech-type="pathophysiology">
                 <div class="item-name">Repeat-Length-Dependent Onset and Progressive Ataxia</div>
 
+
                 <div class="item-desc">Age of onset is inversely correlated with repeat length, and intergenerational instability produces anticipation. Progression is not linear: in a prospective cohort, SARA scores advanced 0.35 points per year before 10 years of disease duration and 2.45 points per year after it, which matters directly for trial design because disease duration, not baseline severity, sets the expected rate.</div>
 
 
@@ -5687,6 +5738,7 @@ This pathophysiological event occurs in pons (UBERON:0000988). UBERON:0000988 is
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-intermediate-length-atxn2-allele-as-an-als-risk-modifier" data-dismech-node="Intermediate-Length ATXN2 Allele as an ALS Risk Modifier" data-dismech-type="pathophysiology">
                 <div class="item-name">Intermediate-Length ATXN2 Allele as an ALS Risk Modifier</div>
+
 
                 <div class="item-desc">This node is deliberately kept off the main SCA2 chain. Intermediate-length ATXN2 polyglutamine expansions are an established risk factor for amyotrophic lateral sclerosis, acting by modifying TDP-43 toxicity rather than through the cytoplasmic polyQ aggregation route that drives SCA2 itself. It is a susceptibility claim about a different disease, not a step in SCA2 pathogenesis, and is curated here because the same locus carries both. Reported length bands differ by source and are not reconciled: Elden et al. report 27-33 glutamines for ALS association, while STRchive&#39;s intermediate band is 31-34. Note the boundary is not absolute - FTLD-ALS with TDP-43 pathology has been described in a family carrying a full ataxin-2 expansion - so full-expansion carriers should not be described as categorically free of motor neuron disease.</div>
 
@@ -6988,6 +7040,9 @@ This disease-associated gene is ATXN2 (hgnc:10555). hgnc:10555 is a gene from th
 
 
                 </div>
+
+
+
 
 
 

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4727,6 +4766,13 @@ What would resolve it is a genotype-first comparison of incident cardiovascular 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-apob-receptor-binding-region-missense-variant" data-dismech-node="APOB Receptor-Binding-Region Missense Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">APOB Receptor-Binding-Region Missense Variant</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The initiating lesion is a missense substitution in the LDL-receptor-binding region of APOB, most commonly at the arginine residue numbered 3500 in the mature apoB-100 protein (p.Arg3527Gln in current HGVS numbering; c.10580G&gt;A). The codon sits at a CpG mutational hot spot, which explains its recurrence. Critically, the variant is in the ligand, not the receptor: LDLR, PCSK9, and LDLRAP1 are wild type.
 </div>
 
@@ -4823,6 +4869,8 @@ This genetic context concerns APOB (hgnc:603). hgnc:603 is a gene from the HUGO 
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4835,6 +4883,9 @@ This genetic context concerns APOB (hgnc:603). hgnc:603 is a gene from the HUGO 
         <span class="tag tag-classification">functional_impact_category: PARTIAL_LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Scored as PARTIAL_LOSS_OF_FUNCTION rather than LOSS_OF_FUNCTION or DOMINANT_NEGATIVE. The protein is made and assembled normally into an LDL particle of normal chemical and physical composition; only the receptor-binding activity of that particle is reduced, and it is reduced partially rather than abolished - LDL from an FDB heterozygote retained about 32% of normal receptor binding activity in the original fibroblast binding study. DOMINANT_NEGATIVE would be the wrong call: the mutant apoB-100 does not interfere with the wild-type allele&#39;s product. Each LDL particle carries exactly one apoB-100 molecule, so mutant and wild-type particles are separate species that behave independently, and dominance is explained by preferential plasma accumulation of the poorly cleared mutant particles rather than by any trans effect on the normal protein. Supporting evidence for this call is carried on this node&#39;s evidence list, since GeneticContext has no evidence slot.
 </div>
@@ -4960,6 +5011,13 @@ This genetic context concerns APOB (hgnc:603). hgnc:603 is a gene from the HUGO 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-apob-100-binding-to-a-structurally-normal-ldl-receptor" data-dismech-node="Defective ApoB-100 Binding to a Structurally Normal LDL Receptor" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective ApoB-100 Binding to a Structurally Normal LDL Receptor</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The defining mechanistic step, and the point at which FDB diverges from LDLR-mediated familial hypercholesterolemia. The LDL receptor is normal; the ligand is defective. Arg3527 is not itself a contact residue of the receptor binding site - site B (residues 3359-3369) makes the contact. Instead Arg3527 interacts with the carboxyl terminus of apoB-100 (including Trp4396) to hold the belt of apoB-100 around the LDL particle in the conformation that exposes and stabilizes the basic-residue clusters of the binding site. Losing that arginine destabilizes the interaction and misconfigures the binding site, so the receptor cannot recognize the particle. Removing the carboxyl terminus of FDB LDL restores normal receptor binding, which shows the defect is conformational rather than a direct loss of a contact residue.
 </div>
@@ -5222,6 +5280,13 @@ This pathophysiological event involves low-density lipoprotein particle (GO:0034
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-small-dense-ldl-particle-formation" data-dismech-node="Small Dense LDL Particle Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Small Dense LDL Particle Formation</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">LDL isolated from p.Arg3527Gln heterozygotes is measurably smaller than wild-type LDL and shows an altered apoB-100 secondary structure, with reduced beta-strand content. This is a consequence of the prolonged plasma residence time and of the conformational change itself, and is a plausible atherogenic amplifier rather than the primary disease step. Curated as a supporting node, not as the driver of the cardiovascular risk.
 </div>
 
@@ -5345,6 +5410,13 @@ This pathophysiological event involves low-density lipoprotein particle (GO:0034
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-receptor-mediated-hepatic-ldl-clearance" data-dismech-node="Reduced Receptor-Mediated Hepatic LDL Clearance" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Receptor-Mediated Hepatic LDL Clearance</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Because the mutant LDL cannot engage the hepatic LDL receptor, it is not internalized or delivered to the lysosome, and its fractional catabolic rate falls. Uptake of the wild-type LDL pool and of apoE-containing precursors is unaffected, which is why hepatic receptor abundance remains a therapeutic lever. Downstream sterol sensing in the hepatocyte is also blunted, since mutant LDL is less effective at stimulating intracellular cholesteryl ester synthesis.
 </div>
@@ -5609,6 +5681,13 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-elevated-plasma-ldl-cholesterol" data-dismech-node="Elevated Plasma LDL Cholesterol" data-dismech-type="pathophysiology">
                 <div class="item-name">Elevated Plasma LDL Cholesterol</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The clinically measured consequence: lifelong elevation of plasma total and LDL cholesterol. In Danish general-population carriers of Arg3500Gln, total cholesterol was about 100 mg/dL higher than in noncarriers. Levels tend to fluctuate more within individuals than in LDLR-mediated FH and may not be clearly elevated in young carriers, which contributes to underdiagnosis.
 </div>
 
@@ -5774,6 +5853,13 @@ This pathophysiological event involves dysregulated cholesterol homeostasis (GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-subendothelial-retention-of-apob-containing-lipoproteins" data-dismech-node="Subendothelial Retention of ApoB-Containing Lipoproteins" data-dismech-type="pathophysiology">
                 <div class="item-name">Subendothelial Retention of ApoB-Containing Lipoproteins</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Chronically raised circulating LDL drives infiltration and retention of apoB-containing lipoproteins in the arterial intima, the shared initiating event of atherogenesis. FDB substitutes an elevated ligand-defective LDL burden at this trigger; the downstream plaque biology is the conserved pattern captured by the atherogenesis module and is not re-derived here.
 </div>
@@ -5966,6 +6052,13 @@ This pathophysiological event occurs in artery (UBERON:0001637). UBERON:0001637 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-premature-atherosclerotic-cardiovascular-disease" data-dismech-node="Premature Atherosclerotic Cardiovascular Disease" data-dismech-type="pathophysiology">
                 <div class="item-name">Premature Atherosclerotic Cardiovascular Disease</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The terminal clinical consequence: accelerated coronary atherosclerosis with premature ischemic heart disease. In the Danish general-population study the Arg3500Gln allele conferred a sevenfold odds of ischemic heart disease, and the effect was allele-specific - the neighbouring Arg3531Cys substitution raised neither cholesterol nor ischemic heart disease risk, an internal negative control for the mechanism. The endpoint this node carries is ischemic heart disease specifically: in a later and much larger Copenhagen general-population cohort, carriers of FH-causative mutations including APOB p.Arg3527Gln accumulated excess myocardial infarction but no excess incident ischemic stroke. That is a statement about stroke incidence, not about the extent of arterial disease - subclinical extracoronary atherosclerosis is reported in FDB and is curated as the Carotid Artery Stenosis phenotype.
 </div>
 
@@ -6123,7 +6216,7 @@ This pathophysiological event occurs in coronary artery (UBERON:0001621). UBERON
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"APOB\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"APOB\"], \"gene_terms\": [{\"label\": \"APOB\", \"id\": \"hgnc:603\"}], \"presence\": \"Positive\", \"association\": \"Causal\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 3}}, {\"id\": \"APOB Receptor-Binding-Region Missense Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion is a missense substitution in the LDL-receptor-binding region of APOB, most commonly at the arginine residue numbered 3500 in the mature apoB-100 protein (p.Arg3527Gln in current HGVS numbering; c.10580G\u003eA). The codon sits at a CpG mutational hot spot, which explains its recurrence. Critically, the variant is in the ligand, not the receptor: LDLR, PCSK9, and LDLRAP1 are wild type.\\n\", \"meta\": {\"evidence_count\": 5, \"genes\": [\"APOB\"], \"gene_terms\": [{\"label\": \"APOB\", \"id\": \"hgnc:603\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"PARTIAL_LOSS_OF_FUNCTION\", \"description\": \"Scored as PARTIAL_LOSS_OF_FUNCTION rather than LOSS_OF_FUNCTION or DOMINANT_NEGATIVE. The protein is made and assembled normally into an LDL particle of normal chemical and physical composition; only the receptor-binding activity of that particle is reduced, and it is reduced partially rather than abolished - LDL from an FDB heterozygote retained about 32% of normal receptor binding activity in the original fibroblast binding study. DOMINANT_NEGATIVE would be the wrong call: the mutant apoB-100 does not interfere with the wild-type allele\u0027s product. Each LDL particle carries exactly one apoB-100 molecule, so mutant and wild-type particles are separate species that behave independently, and dominance is explained by preferential plasma accumulation of the poorly cleared mutant particles rather than by any trans effect on the normal protein. Supporting evidence for this call is carried on this node\u0027s evidence list, since GeneticContext has no evidence slot.\\n\", \"gene_terms\": [{\"label\": \"APOB\", \"id\": \"hgnc:603\"}]}, \"role\": \"trigger\"}}, {\"id\": \"Defective ApoB-100 Binding to a Structurally Normal LDL Receptor\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The defining mechanistic step, and the point at which FDB diverges from LDLR-mediated familial hypercholesterolemia. The LDL receptor is normal; the ligand is defective. Arg3527 is not itself a contact residue of the receptor binding site - site B (residues 3359-3369) makes the contact. Instead Arg3527 interacts with the carboxyl terminus of apoB-100 (including Trp4396) to hold the belt of apoB-100 around the LDL particle in the conformation that exposes and stabilizes the basic-residue clusters of the binding site. Losing that arginine destabilizes the interaction and misconfigures the binding site, so the receptor cannot recognize the particle. Removing the carboxyl terminus of FDB LDL restores normal receptor binding, which shows the defect is conformational rather than a direct loss of a contact residue.\\n\", \"meta\": {\"evidence_count\": 7, \"molecular_functions\": [\"low-density lipoprotein particle receptor binding\"], \"genes\": [\"APOB\"], \"gene_terms\": [{\"label\": \"APOB\", \"id\": \"hgnc:603\"}], \"role\": \"central_effector\", \"animal_models\": [{\"name\": \"Human apoB-100 R3500Q transgenic mouse\", \"species\": \"Mouse\", \"genotype\": \"Transgenic for human APOB bearing the R3500Q substitution (p.Arg3527Gln in current numbering), studied alongside a site-directed allelic series of human apoB-100 mutants including W4369Y, K3363E, site B (3359-3369) substitutions, and carboxyl-terminal truncations.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Reproduces the defining molecular lesion in isolation: LDL carrying mutant human apoB-100 binds a normal LDL receptor defectively, and truncating the apoB-100 carboxyl terminus restores normal binding. The rescue arm is what makes this more than a correlation - it shows the defect is a carboxyl-terminus-dependent misconfiguration of the binding site rather than loss of a contact residue.\"}]}}, {\"id\": \"Elevated Plasma LDL Cholesterol\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinically measured consequence: lifelong elevation of plasma total and LDL cholesterol. In Danish general-population carriers of Arg3500Gln, total cholesterol was about 100 mg/dL higher than in noncarriers. Levels tend to fluctuate more within individuals than in LDLR-mediated FH and may not be clearly elevated in young carriers, which contributes to underdiagnosis.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"cholesterol homeostasis\"]}}, {\"id\": \"Human apoB-100 R3500Q transgenic mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The definitive mechanistic model for this disorder, and an unusual one: the mouse is a production vehicle rather than a disease model. Human apoB-100 carrying R3500Q is expressed transgenically, the recombinant human LDL the animals secrete is purified from plasma, and its binding behaviour is assayed directly. Because only the apoB-100 sequence varies while the receptor is normal, the design isolates the ligand side of the binding event that defines FDB - which is precisely the step no patient study can hold constant. It is what established that Arg3500 is not itself a receptor contact residue, that the carboxyl terminus is required for the mutation to have any effect, and that the lesion is therefore conformational.\"}, {\"id\": \"PCSK9 Monoclonal Antibody Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Anti-PCSK9 monoclonal antibodies (alirocumab, evolocumab) block PCSK9-mediated degradation of the hepatic LDL receptor, increasing receptor recycling and surface abundance. The mechanistic rationale in FDB is the same one that makes statins work and is arguably stronger: the receptor is structurally normal, so every additional receptor molecule is fully functional. In a pooled genotyped analysis of six alirocumab trials, the 46 heterozygous APOB-defective patients lowered LDL cholesterol comparably to LDLR-mutation carriers.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"alirocumab\", \"evolocumab\"]}}, {\"id\": \"Premature Atherosclerotic Cardiovascular Disease\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The terminal clinical consequence: accelerated coronary atherosclerosis with premature ischemic heart disease. In the Danish general-population study the Arg3500Gln allele conferred a sevenfold odds of ischemic heart disease, and the effect was allele-specific - the neighbouring Arg3531Cys substitution raised neither cholesterol nor ischemic heart disease risk, an internal negative control for the mechanism. The endpoint this node carries is ischemic heart disease specifically: in a later and much larger Copenhagen general-population cohort, carriers of FH-causative mutations including APOB p.Arg3527Gln accumulated excess myocardial infarction but no excess incident ischemic stroke. That is a statement about stroke incidence, not about the extent of arterial disease - subclinical extracoronary atherosclerosis is reported in FDB and is curated as the Carotid Artery Stenosis phenotype.\\n\", \"meta\": {\"evidence_count\": 4, \"role\": \"outcome\", \"locations\": [\"coronary artery\"]}}, {\"id\": \"Reduced Receptor-Mediated Hepatic LDL Clearance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Because the mutant LDL cannot engage the hepatic LDL receptor, it is not internalized or delivered to the lysosome, and its fractional catabolic rate falls. Uptake of the wild-type LDL pool and of apoE-containing precursors is unaffected, which is why hepatic receptor abundance remains a therapeutic lever. Downstream sterol sensing in the hepatocyte is also blunted, since mutant LDL is less effective at stimulating intracellular cholesteryl ester synthesis.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"low-density lipoprotein particle clearance\", \"receptor-mediated endocytosis\", \"cholesterol homeostasis\"], \"locations\": [\"liver\"]}}, {\"id\": \"Second-Line LDL-Lowering Therapy (Ezetimibe and Add-On Agents)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Where a statin alone does not bring LDL cholesterol to target, guidelines add further LDL-lowering agents, ezetimibe first among them. Ezetimibe inhibits intestinal NPC1L1-mediated cholesterol absorption, which lowers the hepatic cholesterol pool and, like a statin, drives compensatory hepatic LDL receptor upregulation - so its mechanistic rationale in FDB is the same receptor-side one, and it is likewise unaffected by the ligand defect.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"ezetimibe\"]}}, {\"id\": \"Small Dense LDL Particle Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"LDL isolated from p.Arg3527Gln heterozygotes is measurably smaller than wild-type LDL and shows an altered apoB-100 secondary structure, with reduced beta-strand content. This is a consequence of the prolonged plasma residence time and of the conformational change itself, and is a plausible atherogenic amplifier rather than the primary disease step. Curated as a supporting node, not as the driver of the cardiovascular risk.\\n\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Statin (HMG-CoA Reductase Inhibitor) Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"First-line LDL-lowering therapy. The mechanistic rationale is specific to FDB: because the LDL receptor is normal, statin-induced hepatic LDL receptor upregulation still works. The extra receptor capacity clears the wild-type LDL pool and apoE-containing LDL precursors more efficiently even though the mutant LDL particles remain poor ligands, so LDL cholesterol falls.\\n\", \"meta\": {\"evidence_count\": 4, \"therapeutic_agents\": [\"statin\"]}}, {\"id\": \"Subendothelial Retention of ApoB-Containing Lipoproteins\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronically raised circulating LDL drives infiltration and retention of apoB-containing lipoproteins in the arterial intima, the shared initiating event of atherogenesis. FDB substitutes an elevated ligand-defective LDL burden at this trigger; the downstream plaque biology is the conserved pattern captured by the atherogenesis module and is not re-derived here.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"endothelial cell of vascular tree\"], \"biological_processes\": [\"cholesterol homeostasis\"], \"locations\": [\"artery\"], \"animal_models\": [{\"name\": \"Human apoB-100 R3500Q transgenic mouse\", \"species\": \"Mouse\", \"genotype\": \"Transgenic for human APOB bearing the R3500Q substitution (p.Arg3527Gln in current numbering), studied alongside a site-directed allelic series of human apoB-100 mutants including W4369Y, K3363E, site B (3359-3369) substitutions, and carboxyl-terminal truncations.\", \"relationship\": \"MEASURES\", \"fidelity\": \"LOW\", \"description\": \"The same transgenic system was used to assay the lipoprotein-proteoglycan interaction that mediates arterial retention. R3500Q LDL bound proteoglycans normally while binding the receptor defectively, and the converse mutant (K3363E) separated the two activities in the other direction. The FDB particle therefore carries no intrinsic retention advantage: what feeds this node is the raised concentration and prolonged plasma residence of an otherwise normally retained particle, not a change in per-particle avidity for the arterial wall.\"}]}}, {\"id\": \"p.Arg3527Gln (R3500Q; c.10580G\u003eA)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The classic and by far the most common FDB allele. Numbering differs by convention: 3500 counts from the mature protein, 3527 includes the signal peptide and is the current HGVS form. The same 27-residue offset applies to its interaction partner, written Trp4369 in the mature-protein numbering the functional papers use and Trp4396 in current numbering. Arises at a CpG mutational hot spot. Carriers of Western European descent share a common haplotype, consistent with a founder allele.\\n\", \"meta\": {\"evidence_count\": 3, \"variant_type\": \"missense\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"p.Arg3527Trp (R3500W)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A distinct substitution at the same codon, reported in hyperlipidemic East Asian populations on its own founder haplotype. It is the APOB allele of note for FDB outside European-descent populations.\\n\", \"meta\": {\"evidence_count\": 3, \"variant_type\": \"missense\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"p.Arg3558Cys (R3531C)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A neighbouring APOB substitution that was screened alongside the FDB alleles but did not raise cholesterol or ischemic heart disease risk in the general population. Recorded here as an explicit negative, since it delimits which APOB substitutions produce the FDB phenotype.\\n\", \"meta\": {\"evidence_count\": 1, \"variant_type\": \"missense\", \"clinical_significance\": \"UNCERTAIN_SIGNIFICANCE\"}}], \"edges\": [{\"source\": \"APOB Receptor-Binding-Region Missense Variant\", \"target\": \"Defective ApoB-100 Binding to a Structurally Normal LDL Receptor\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The substitution directly produces the ligand-side binding defect.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Defective ApoB-100 Binding to a Structurally Normal LDL Receptor\", \"target\": \"Reduced Receptor-Mediated Hepatic LDL Clearance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A particle the LDL receptor cannot bind cannot be internalized, so receptor-mediated catabolism of the mutant LDL pool fails.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Defective ApoB-100 Binding to a Structurally Normal LDL Receptor\", \"target\": \"Small Dense LDL Particle Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Prolonged plasma residence of poorly cleared LDL exposes the particle to lipase and lipid-transfer remodeling, shifting the LDL population smaller.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Small Dense LDL Particle Formation\", \"target\": \"Subendothelial Retention of ApoB-Containing Lipoproteins\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Smaller, denser LDL particles are described as more atherogenic; treated here as a contributory rather than established route.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced Receptor-Mediated Hepatic LDL Clearance\", \"target\": \"Elevated Plasma LDL Cholesterol\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired clearance is the direct cause of plasma LDL accumulation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Elevated Plasma LDL Cholesterol\", \"target\": \"Subendothelial Retention of ApoB-Containing Lipoproteins\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained elevation of circulating apoB-containing LDL drives the initiating step of atherogenesis.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Subendothelial Retention of ApoB-Containing Lipoproteins\", \"target\": \"Premature Atherosclerotic Cardiovascular Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cumulative arterial lipoprotein retention over decades produces clinically manifest premature ischemic heart disease in FDB carriers.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Statin (HMG-CoA Reductase Inhibitor) Therapy\", \"target\": \"Reduced Receptor-Mediated Hepatic LDL Clearance\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"PCSK9 Monoclonal Antibody Therapy\", \"target\": \"Reduced Receptor-Mediated Hepatic LDL Clearance\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Second-Line LDL-Lowering Therapy (Ezetimibe and Add-On Agents)\", \"target\": \"Reduced Receptor-Mediated Hepatic LDL Clearance\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Human apoB-100 R3500Q transgenic mouse\", \"target\": \"Defective ApoB-100 Binding to a Structurally Normal LDL Receptor\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces the defining molecular lesion in isolation: LDL carrying mutant human apoB-100 binds a normal LDL receptor defectively, and truncating the apoB-100 carboxyl terminus restores normal binding. The rescue arm is what makes this more than a correlation - it shows the defect is a carboxyl-terminus-dependent misconfiguration of the binding site rather than loss of a contact residue.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"The transgenic animals are not a model of the human disease course. Murine lipoprotein metabolism is HDL-dominated and edits Apob mRNA differently from human, so these mice do not reproduce the human LDL distribution, tendon xanthomas, or coronary disease burden; the claim supported here is a property of the purified particle assayed ex vivo, not an in vivo phenotype.\"}, {\"source\": \"Human apoB-100 R3500Q transgenic mouse\", \"target\": \"Subendothelial Retention of ApoB-Containing Lipoproteins\", \"predicate\": \"measures\", \"is_orphan\": false, \"description\": \"The same transgenic system was used to assay the lipoprotein-proteoglycan interaction that mediates arterial retention. R3500Q LDL bound proteoglycans normally while binding the receptor defectively, and the converse mutant (K3363E) separated the two activities in the other direction. The FDB particle therefore carries no intrinsic retention advantage: what feeds this node is the raised concentration and prolonged plasma residence of an otherwise normally retained particle, not a change in per-particle avidity for the arterial wall.\", \"relationship\": \"MEASURES\", \"fidelity\": \"LOW\", \"limitations\": \"Proteoglycan binding was measured in vitro on purified recombinant LDL, not retention in an arterial wall, and no intimal lesion was assessed in these animals. The tissue-level node is therefore inferred from a molecular binding property, and a null result on that property does not by itself exclude a retention difference arising through endothelial permeability, particle size, or oxidative modification.\"}, {\"source\": \"APOB\", \"target\": \"APOB Receptor-Binding-Region Missense Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"APOB\", \"target\": \"Defective ApoB-100 Binding to a Structurally Normal LDL Receptor\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"p.Arg3527Gln (R3500Q; c.10580G\u003eA)\", \"target\": \"APOB\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Arg3527Trp (R3500W)\", \"target\": \"APOB\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Arg3558Cys (R3531C)\", \"target\": \"APOB\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"APOB\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"APOB\"], \"gene_terms\": [{\"label\": \"APOB\", \"id\": \"hgnc:603\"}], \"presence\": \"Positive\", \"association\": \"Causal\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 3}}, {\"id\": \"APOB Receptor-Binding-Region Missense Variant\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion is a missense substitution in the LDL-receptor-binding region of APOB, most commonly at the arginine residue numbered 3500 in the mature apoB-100 protein (p.Arg3527Gln in current HGVS numbering; c.10580G\u003eA). The codon sits at a CpG mutational hot spot, which explains its recurrence. Critically, the variant is in the ligand, not the receptor: LDLR, PCSK9, and LDLRAP1 are wild type.\\n\", \"meta\": {\"evidence_count\": 5, \"genes\": [\"APOB\"], \"gene_terms\": [{\"label\": \"APOB\", \"id\": \"hgnc:603\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"PARTIAL_LOSS_OF_FUNCTION\", \"description\": \"Scored as PARTIAL_LOSS_OF_FUNCTION rather than LOSS_OF_FUNCTION or DOMINANT_NEGATIVE. The protein is made and assembled normally into an LDL particle of normal chemical and physical composition; only the receptor-binding activity of that particle is reduced, and it is reduced partially rather than abolished - LDL from an FDB heterozygote retained about 32% of normal receptor binding activity in the original fibroblast binding study. DOMINANT_NEGATIVE would be the wrong call: the mutant apoB-100 does not interfere with the wild-type allele\u0027s product. Each LDL particle carries exactly one apoB-100 molecule, so mutant and wild-type particles are separate species that behave independently, and dominance is explained by preferential plasma accumulation of the poorly cleared mutant particles rather than by any trans effect on the normal protein. Supporting evidence for this call is carried on this node\u0027s evidence list, since GeneticContext has no evidence slot.\\n\", \"gene_terms\": [{\"label\": \"APOB\", \"id\": \"hgnc:603\"}]}, \"role\": \"trigger\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Defective ApoB-100 Binding to a Structurally Normal LDL Receptor\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The defining mechanistic step, and the point at which FDB diverges from LDLR-mediated familial hypercholesterolemia. The LDL receptor is normal; the ligand is defective. Arg3527 is not itself a contact residue of the receptor binding site - site B (residues 3359-3369) makes the contact. Instead Arg3527 interacts with the carboxyl terminus of apoB-100 (including Trp4396) to hold the belt of apoB-100 around the LDL particle in the conformation that exposes and stabilizes the basic-residue clusters of the binding site. Losing that arginine destabilizes the interaction and misconfigures the binding site, so the receptor cannot recognize the particle. Removing the carboxyl terminus of FDB LDL restores normal receptor binding, which shows the defect is conformational rather than a direct loss of a contact residue.\\n\", \"meta\": {\"evidence_count\": 7, \"molecular_functions\": [\"low-density lipoprotein particle receptor binding\"], \"genes\": [\"APOB\"], \"gene_terms\": [{\"label\": \"APOB\", \"id\": \"hgnc:603\"}], \"role\": \"central_effector\", \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Human apoB-100 R3500Q transgenic mouse\", \"species\": \"Mouse\", \"genotype\": \"Transgenic for human APOB bearing the R3500Q substitution (p.Arg3527Gln in current numbering), studied alongside a site-directed allelic series of human apoB-100 mutants including W4369Y, K3363E, site B (3359-3369) substitutions, and carboxyl-terminal truncations.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Reproduces the defining molecular lesion in isolation: LDL carrying mutant human apoB-100 binds a normal LDL receptor defectively, and truncating the apoB-100 carboxyl terminus restores normal binding. The rescue arm is what makes this more than a correlation - it shows the defect is a carboxyl-terminus-dependent misconfiguration of the binding site rather than loss of a contact residue.\"}]}}, {\"id\": \"Elevated Plasma LDL Cholesterol\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinically measured consequence: lifelong elevation of plasma total and LDL cholesterol. In Danish general-population carriers of Arg3500Gln, total cholesterol was about 100 mg/dL higher than in noncarriers. Levels tend to fluctuate more within individuals than in LDLR-mediated FH and may not be clearly elevated in young carriers, which contributes to underdiagnosis.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"cholesterol homeostasis\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Human apoB-100 R3500Q transgenic mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The definitive mechanistic model for this disorder, and an unusual one: the mouse is a production vehicle rather than a disease model. Human apoB-100 carrying R3500Q is expressed transgenically, the recombinant human LDL the animals secrete is purified from plasma, and its binding behaviour is assayed directly. Because only the apoB-100 sequence varies while the receptor is normal, the design isolates the ligand side of the binding event that defines FDB - which is precisely the step no patient study can hold constant. It is what established that Arg3500 is not itself a receptor contact residue, that the carboxyl terminus is required for the mutation to have any effect, and that the lesion is therefore conformational.\"}, {\"id\": \"PCSK9 Monoclonal Antibody Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Anti-PCSK9 monoclonal antibodies (alirocumab, evolocumab) block PCSK9-mediated degradation of the hepatic LDL receptor, increasing receptor recycling and surface abundance. The mechanistic rationale in FDB is the same one that makes statins work and is arguably stronger: the receptor is structurally normal, so every additional receptor molecule is fully functional. In a pooled genotyped analysis of six alirocumab trials, the 46 heterozygous APOB-defective patients lowered LDL cholesterol comparably to LDLR-mutation carriers.\\n\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"alirocumab\", \"evolocumab\"]}}, {\"id\": \"Premature Atherosclerotic Cardiovascular Disease\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The terminal clinical consequence: accelerated coronary atherosclerosis with premature ischemic heart disease. In the Danish general-population study the Arg3500Gln allele conferred a sevenfold odds of ischemic heart disease, and the effect was allele-specific - the neighbouring Arg3531Cys substitution raised neither cholesterol nor ischemic heart disease risk, an internal negative control for the mechanism. The endpoint this node carries is ischemic heart disease specifically: in a later and much larger Copenhagen general-population cohort, carriers of FH-causative mutations including APOB p.Arg3527Gln accumulated excess myocardial infarction but no excess incident ischemic stroke. That is a statement about stroke incidence, not about the extent of arterial disease - subclinical extracoronary atherosclerosis is reported in FDB and is curated as the Carotid Artery Stenosis phenotype.\\n\", \"meta\": {\"evidence_count\": 4, \"role\": \"outcome\", \"locations\": [\"coronary artery\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Reduced Receptor-Mediated Hepatic LDL Clearance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Because the mutant LDL cannot engage the hepatic LDL receptor, it is not internalized or delivered to the lysosome, and its fractional catabolic rate falls. Uptake of the wild-type LDL pool and of apoE-containing precursors is unaffected, which is why hepatic receptor abundance remains a therapeutic lever. Downstream sterol sensing in the hepatocyte is also blunted, since mutant LDL is less effective at stimulating intracellular cholesteryl ester synthesis.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hepatocyte\"], \"biological_processes\": [\"low-density lipoprotein particle clearance\", \"receptor-mediated endocytosis\", \"cholesterol homeostasis\"], \"locations\": [\"liver\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Second-Line LDL-Lowering Therapy (Ezetimibe and Add-On Agents)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Where a statin alone does not bring LDL cholesterol to target, guidelines add further LDL-lowering agents, ezetimibe first among them. Ezetimibe inhibits intestinal NPC1L1-mediated cholesterol absorption, which lowers the hepatic cholesterol pool and, like a statin, drives compensatory hepatic LDL receptor upregulation - so its mechanistic rationale in FDB is the same receptor-side one, and it is likewise unaffected by the ligand defect.\\n\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"ezetimibe\"]}}, {\"id\": \"Small Dense LDL Particle Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"LDL isolated from p.Arg3527Gln heterozygotes is measurably smaller than wild-type LDL and shows an altered apoB-100 secondary structure, with reduced beta-strand content. This is a consequence of the prolonged plasma residence time and of the conformational change itself, and is a plausible atherogenic amplifier rather than the primary disease step. Curated as a supporting node, not as the driver of the cardiovascular risk.\\n\", \"meta\": {\"evidence_count\": 2, \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Statin (HMG-CoA Reductase Inhibitor) Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"First-line LDL-lowering therapy. The mechanistic rationale is specific to FDB: because the LDL receptor is normal, statin-induced hepatic LDL receptor upregulation still works. The extra receptor capacity clears the wild-type LDL pool and apoE-containing LDL precursors more efficiently even though the mutant LDL particles remain poor ligands, so LDL cholesterol falls.\\n\", \"meta\": {\"evidence_count\": 4, \"therapeutic_agents\": [\"statin\"]}}, {\"id\": \"Subendothelial Retention of ApoB-Containing Lipoproteins\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronically raised circulating LDL drives infiltration and retention of apoB-containing lipoproteins in the arterial intima, the shared initiating event of atherogenesis. FDB substitutes an elevated ligand-defective LDL burden at this trigger; the downstream plaque biology is the conserved pattern captured by the atherogenesis module and is not re-derived here.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"endothelial cell of vascular tree\"], \"biological_processes\": [\"cholesterol homeostasis\"], \"locations\": [\"artery\"], \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Human apoB-100 R3500Q transgenic mouse\", \"species\": \"Mouse\", \"genotype\": \"Transgenic for human APOB bearing the R3500Q substitution (p.Arg3527Gln in current numbering), studied alongside a site-directed allelic series of human apoB-100 mutants including W4369Y, K3363E, site B (3359-3369) substitutions, and carboxyl-terminal truncations.\", \"relationship\": \"MEASURES\", \"fidelity\": \"LOW\", \"description\": \"The same transgenic system was used to assay the lipoprotein-proteoglycan interaction that mediates arterial retention. R3500Q LDL bound proteoglycans normally while binding the receptor defectively, and the converse mutant (K3363E) separated the two activities in the other direction. The FDB particle therefore carries no intrinsic retention advantage: what feeds this node is the raised concentration and prolonged plasma residence of an otherwise normally retained particle, not a change in per-particle avidity for the arterial wall.\"}]}}, {\"id\": \"p.Arg3527Gln (R3500Q; c.10580G\u003eA)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"The classic and by far the most common FDB allele. Numbering differs by convention: 3500 counts from the mature protein, 3527 includes the signal peptide and is the current HGVS form. The same 27-residue offset applies to its interaction partner, written Trp4369 in the mature-protein numbering the functional papers use and Trp4396 in current numbering. Arises at a CpG mutational hot spot. Carriers of Western European descent share a common haplotype, consistent with a founder allele.\\n\", \"meta\": {\"evidence_count\": 3, \"variant_type\": \"missense\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"p.Arg3527Trp (R3500W)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A distinct substitution at the same codon, reported in hyperlipidemic East Asian populations on its own founder haplotype. It is the APOB allele of note for FDB outside European-descent populations.\\n\", \"meta\": {\"evidence_count\": 3, \"variant_type\": \"missense\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"p.Arg3558Cys (R3531C)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A neighbouring APOB substitution that was screened alongside the FDB alleles but did not raise cholesterol or ischemic heart disease risk in the general population. Recorded here as an explicit negative, since it delimits which APOB substitutions produce the FDB phenotype.\\n\", \"meta\": {\"evidence_count\": 1, \"variant_type\": \"missense\", \"clinical_significance\": \"UNCERTAIN_SIGNIFICANCE\"}}], \"edges\": [{\"source\": \"APOB Receptor-Binding-Region Missense Variant\", \"target\": \"Defective ApoB-100 Binding to a Structurally Normal LDL Receptor\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The substitution directly produces the ligand-side binding defect.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Defective ApoB-100 Binding to a Structurally Normal LDL Receptor\", \"target\": \"Reduced Receptor-Mediated Hepatic LDL Clearance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A particle the LDL receptor cannot bind cannot be internalized, so receptor-mediated catabolism of the mutant LDL pool fails.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Defective ApoB-100 Binding to a Structurally Normal LDL Receptor\", \"target\": \"Small Dense LDL Particle Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Prolonged plasma residence of poorly cleared LDL exposes the particle to lipase and lipid-transfer remodeling, shifting the LDL population smaller.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Small Dense LDL Particle Formation\", \"target\": \"Subendothelial Retention of ApoB-Containing Lipoproteins\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Smaller, denser LDL particles are described as more atherogenic; treated here as a contributory rather than established route.\\n\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced Receptor-Mediated Hepatic LDL Clearance\", \"target\": \"Elevated Plasma LDL Cholesterol\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired clearance is the direct cause of plasma LDL accumulation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Elevated Plasma LDL Cholesterol\", \"target\": \"Subendothelial Retention of ApoB-Containing Lipoproteins\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained elevation of circulating apoB-containing LDL drives the initiating step of atherogenesis.\\n\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Subendothelial Retention of ApoB-Containing Lipoproteins\", \"target\": \"Premature Atherosclerotic Cardiovascular Disease\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cumulative arterial lipoprotein retention over decades produces clinically manifest premature ischemic heart disease in FDB carriers.\\n\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Statin (HMG-CoA Reductase Inhibitor) Therapy\", \"target\": \"Reduced Receptor-Mediated Hepatic LDL Clearance\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"PCSK9 Monoclonal Antibody Therapy\", \"target\": \"Reduced Receptor-Mediated Hepatic LDL Clearance\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Second-Line LDL-Lowering Therapy (Ezetimibe and Add-On Agents)\", \"target\": \"Reduced Receptor-Mediated Hepatic LDL Clearance\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Human apoB-100 R3500Q transgenic mouse\", \"target\": \"Defective ApoB-100 Binding to a Structurally Normal LDL Receptor\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces the defining molecular lesion in isolation: LDL carrying mutant human apoB-100 binds a normal LDL receptor defectively, and truncating the apoB-100 carboxyl terminus restores normal binding. The rescue arm is what makes this more than a correlation - it shows the defect is a carboxyl-terminus-dependent misconfiguration of the binding site rather than loss of a contact residue.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"The transgenic animals are not a model of the human disease course. Murine lipoprotein metabolism is HDL-dominated and edits Apob mRNA differently from human, so these mice do not reproduce the human LDL distribution, tendon xanthomas, or coronary disease burden; the claim supported here is a property of the purified particle assayed ex vivo, not an in vivo phenotype.\"}, {\"source\": \"Human apoB-100 R3500Q transgenic mouse\", \"target\": \"Subendothelial Retention of ApoB-Containing Lipoproteins\", \"predicate\": \"measures\", \"is_orphan\": false, \"description\": \"The same transgenic system was used to assay the lipoprotein-proteoglycan interaction that mediates arterial retention. R3500Q LDL bound proteoglycans normally while binding the receptor defectively, and the converse mutant (K3363E) separated the two activities in the other direction. The FDB particle therefore carries no intrinsic retention advantage: what feeds this node is the raised concentration and prolonged plasma residence of an otherwise normally retained particle, not a change in per-particle avidity for the arterial wall.\", \"relationship\": \"MEASURES\", \"fidelity\": \"LOW\", \"limitations\": \"Proteoglycan binding was measured in vitro on purified recombinant LDL, not retention in an arterial wall, and no intimal lesion was assessed in these animals. The tissue-level node is therefore inferred from a molecular binding property, and a null result on that property does not by itself exclude a retention difference arising through endothelial permeability, particle size, or oxidative modification.\"}, {\"source\": \"APOB\", \"target\": \"APOB Receptor-Binding-Region Missense Variant\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"APOB\", \"target\": \"Defective ApoB-100 Binding to a Structurally Normal LDL Receptor\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"p.Arg3527Gln (R3500Q; c.10580G\u003eA)\", \"target\": \"APOB\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Arg3527Trp (R3500W)\", \"target\": \"APOB\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Arg3558Cys (R3531C)\", \"target\": \"APOB\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -7110,6 +7203,9 @@ This disease-associated gene is APOB (hgnc:603). hgnc:603 is a gene from the HUG
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal Dominant</span>
@@ -7193,7 +7289,9 @@ This disease-associated gene is APOB (hgnc:603). hgnc:603 is a gene from the HUG
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
@@ -7201,6 +7299,11 @@ This disease-associated gene is APOB (hgnc:603). hgnc:603 is a gene from the HUG
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">The classic and by far the most common FDB allele. Numbering differs by convention: 3500 counts from the mature protein, 3527 includes the signal peptide and is the current HGVS form. The same 27-residue offset applies to its interaction partner, written Trp4369 in the mature-protein numbering the functional papers use and Trp4396 in current numbering. Arises at a CpG mutational hot spot. Carriers of Western European descent share a common haplotype, consistent with a founder allele.
@@ -7314,7 +7417,9 @@ This disease-associated gene is APOB (hgnc:603). hgnc:603 is a gene from the HUG
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
@@ -7322,6 +7427,11 @@ This disease-associated gene is APOB (hgnc:603). hgnc:603 is a gene from the HUG
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A distinct substitution at the same codon, reported in hyperlipidemic East Asian populations on its own founder haplotype. It is the APOB allele of note for FDB outside European-descent populations.
@@ -7435,7 +7545,9 @@ This disease-associated gene is APOB (hgnc:603). hgnc:603 is a gene from the HUG
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
@@ -7443,6 +7555,11 @@ This disease-associated gene is APOB (hgnc:603). hgnc:603 is a gene from the HUG
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A neighbouring APOB substitution that was screened alongside the FDB alleles but did not raise cholesterol or ischemic heart disease risk in the general population. Recorded here as an explicit negative, since it delimits which APOB substitutions produce the FDB phenotype.
@@ -7537,6 +7654,9 @@ This disease-associated gene is LDLR (hgnc:6547). hgnc:6547 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7609,6 +7729,9 @@ This disease-associated gene is PCSK9 (hgnc:20001). hgnc:20001 is a gene from th
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 

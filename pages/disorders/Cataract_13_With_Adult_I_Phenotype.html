@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4473,6 +4512,7 @@ This is marked CANONICAL rather than EMERGING because it has the strongest kind 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-i-branching-glycosyltransferase-activity" data-dismech-node="Loss of I-Branching Glycosyltransferase Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of I-Branching Glycosyltransferase Activity</div>
 
+
                 <div class="item-desc">Biallelic GCNT2 variants abolish or greatly reduce I-branching beta-1,6-N-acetylglucosaminyltransferase activity. Reported alleles include nonsense variants in shared exon 2 that truncate all three isoforms at once, frameshifts, and large Alu-mediated deletions removing whole exons. A missense allele in exon 1C has been shown by direct enzyme assay to reduce rather than abolish activity, which is the finer-grained version of the same lesion.</div>
 
 
@@ -4640,6 +4680,7 @@ This pathophysiological event involves I-branching beta-1,6-N-acetylglucosaminyl
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-persistence-of-linear-i-antigen-on-red-cells" data-dismech-node="Persistence of Linear i Antigen on Red Cells" data-dismech-type="pathophysiology">
                 <div class="item-name">Persistence of Linear i Antigen on Red Cells</div>
+
 
                 <div class="item-desc">Without I-branching activity the erythrocyte surface keeps the fetal linear i structure into adult life instead of converting to branched I. This is the serologically detectable adult i blood group, and it is benign: it causes no haemolysis and no clinical consequence on its own. Its value here is as a marker of the enzymatic lesion, which is how the gene was found in the first place.</div>
 
@@ -4812,6 +4853,13 @@ This pathophysiological event involves decreased branching of poly-N-acetyllacto
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-lens-glycan-branching" data-dismech-node="Disrupted Lens Glycan Branching" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Lens Glycan Branching</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">The I antigen is present on lens epithelium as well as on red cells, and loss of branching there is what produces the cataract. The isoform expression data put the lens-relevant transcripts and the erythroid transcript on different exon 1 variants, which is what makes the two consequences separable.
 How the loss of a glycan branch actually causes lens opacification is not established. The published work demonstrates that GCNT2 is expressed in lens epithelium and that its loss co-segregates with cataract; it does not demonstrate the intervening step, whether that is altered membrane protein trafficking, osmotic change, or protein aggregation. This node therefore states the association and stops there rather than supplying a mechanism the literature does not.</div>
 
@@ -4974,7 +5022,7 @@ This pathophysiological event involves lens epithelial cell (CL:0002224). CL:000
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Adult i blood group phenotype\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Persistence of the fetal linear i antigen on adult red cells with very low I expression. Serologically striking and clinically benign: it is a marker of the enzyme defect rather than a disease manifestation, and is recorded here because it is the trait that led to the gene.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0010970\"}}, {\"id\": \"Cataract Surgery\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Early lens extraction with subsequent refractive correction and amblyopia management. The treatment is the same as for congenital cataract of any cause, is not directed at the glycosylation defect, and the enzyme deficiency itself is untreated.\"}, {\"id\": \"Developmental cataract\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bilateral congenital cataract, of varying morphology across reported families.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000519\"}}, {\"id\": \"Disrupted Lens Glycan Branching\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The I antigen is present on lens epithelium as well as on red cells, and loss of branching there is what produces the cataract. The isoform expression data put the lens-relevant transcripts and the erythroid transcript on different exon 1 variants, which is what makes the two consequences separable.\\nHow the loss of a glycan branch actually causes lens opacification is not established. The published work demonstrates that GCNT2 is expressed in lens epithelium and that its loss co-segregates with cataract; it does not demonstrate the intervening step, whether that is altered membrane protein trafficking, osmotic change, or protein aggregation. This node therefore states the association and stops there rather than supplying a mechanism the literature does not.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"lens epithelial cell\"]}}, {\"id\": \"Loss of I-Branching Glycosyltransferase Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic GCNT2 variants abolish or greatly reduce I-branching beta-1,6-N-acetylglucosaminyltransferase activity. Reported alleles include nonsense variants in shared exon 2 that truncate all three isoforms at once, frameshifts, and large Alu-mediated deletions removing whole exons. A missense allele in exon 1C has been shown by direct enzyme assay to reduce rather than abolish activity, which is the finer-grained version of the same lesion.\", \"meta\": {\"evidence_count\": 3, \"molecular_functions\": [\"I-branching beta-1,6-N-acetylglucosaminyltransferase activity\"]}}, {\"id\": \"Persistence of Linear i Antigen on Red Cells\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Without I-branching activity the erythrocyte surface keeps the fetal linear i structure into adult life instead of converting to branched I. This is the serologically detectable adult i blood group, and it is benign: it causes no haemolysis and no clinical consequence on its own. Its value here is as a marker of the enzymatic lesion, which is how the gene was found in the first place.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"erythrocyte\"], \"biological_processes\": [\"branching of poly-N-acetyllactosamine chains\"]}}, {\"id\": \"Visual impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Consequent on the cataract. Congenital cataract is among the leading causes of childhood blindness, which is what makes the timing of surgery the whole of the management question here.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000505\"}}], \"edges\": [{\"source\": \"Loss of I-Branching Glycosyltransferase Activity\", \"target\": \"Persistence of Linear i Antigen on Red Cells\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of I-Branching Glycosyltransferase Activity\", \"target\": \"Disrupted Lens Glycan Branching\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Persistence of Linear i Antigen on Red Cells\", \"target\": \"Adult i blood group phenotype\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted Lens Glycan Branching\", \"target\": \"Developmental cataract\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted Lens Glycan Branching\", \"target\": \"Visual impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Cataract Surgery\", \"target\": \"Developmental cataract\", \"predicate\": \"treats\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Adult i blood group phenotype\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Persistence of the fetal linear i antigen on adult red cells with very low I expression. Serologically striking and clinically benign: it is a marker of the enzyme defect rather than a disease manifestation, and is recorded here because it is the trait that led to the gene.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0010970\"}}, {\"id\": \"Cataract Surgery\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Early lens extraction with subsequent refractive correction and amblyopia management. The treatment is the same as for congenital cataract of any cause, is not directed at the glycosylation defect, and the enzyme deficiency itself is untreated.\"}, {\"id\": \"Developmental cataract\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bilateral congenital cataract, of varying morphology across reported families.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000519\"}}, {\"id\": \"Disrupted Lens Glycan Branching\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The I antigen is present on lens epithelium as well as on red cells, and loss of branching there is what produces the cataract. The isoform expression data put the lens-relevant transcripts and the erythroid transcript on different exon 1 variants, which is what makes the two consequences separable.\\nHow the loss of a glycan branch actually causes lens opacification is not established. The published work demonstrates that GCNT2 is expressed in lens epithelium and that its loss co-segregates with cataract; it does not demonstrate the intervening step, whether that is altered membrane protein trafficking, osmotic change, or protein aggregation. This node therefore states the association and stops there rather than supplying a mechanism the literature does not.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"lens epithelial cell\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Loss of I-Branching Glycosyltransferase Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic GCNT2 variants abolish or greatly reduce I-branching beta-1,6-N-acetylglucosaminyltransferase activity. Reported alleles include nonsense variants in shared exon 2 that truncate all three isoforms at once, frameshifts, and large Alu-mediated deletions removing whole exons. A missense allele in exon 1C has been shown by direct enzyme assay to reduce rather than abolish activity, which is the finer-grained version of the same lesion.\", \"meta\": {\"evidence_count\": 3, \"molecular_functions\": [\"I-branching beta-1,6-N-acetylglucosaminyltransferase activity\"]}}, {\"id\": \"Persistence of Linear i Antigen on Red Cells\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Without I-branching activity the erythrocyte surface keeps the fetal linear i structure into adult life instead of converting to branched I. This is the serologically detectable adult i blood group, and it is benign: it causes no haemolysis and no clinical consequence on its own. Its value here is as a marker of the enzymatic lesion, which is how the gene was found in the first place.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"erythrocyte\"], \"biological_processes\": [\"branching of poly-N-acetyllactosamine chains\"]}}, {\"id\": \"Visual impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Consequent on the cataract. Congenital cataract is among the leading causes of childhood blindness, which is what makes the timing of surgery the whole of the management question here.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000505\"}}], \"edges\": [{\"source\": \"Loss of I-Branching Glycosyltransferase Activity\", \"target\": \"Persistence of Linear i Antigen on Red Cells\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of I-Branching Glycosyltransferase Activity\", \"target\": \"Disrupted Lens Glycan Branching\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Persistence of Linear i Antigen on Red Cells\", \"target\": \"Adult i blood group phenotype\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted Lens Glycan Branching\", \"target\": \"Developmental cataract\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted Lens Glycan Branching\", \"target\": \"Visual impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Cataract Surgery\", \"target\": \"Developmental cataract\", \"predicate\": \"treats\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5311,6 +5359,9 @@ This disease-associated gene is GCNT2 (hgnc:4204). hgnc:4204 is a gene from the 
 
 
                 </div>
+
+
+
 
 
 

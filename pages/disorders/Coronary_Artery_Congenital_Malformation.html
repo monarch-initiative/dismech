@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4428,6 +4467,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aberrant-coronary-artery-embryologic-development" data-dismech-node="Aberrant coronary artery embryologic development" data-dismech-type="pathophysiology">
                 <div class="item-name">Aberrant coronary artery embryologic development</div>
 
+
                 <div class="item-desc">Coronary arteries form during embryogenesis through coordinated contributions of the proepicardium, epicardial epithelial-to-mesenchymal transition (EMT), endothelial progenitor migration into the developing myocardium, and connection of the nascent coronary plexus to the aortic root at the sinuses of Valsalva. Aberrations in coronary vasculogenesis, coronary stem formation, or septation of the outflow tract can produce anomalous origin from the aorta or pulmonary trunk, ostial atresia or stenosis, single coronary artery, or fistulous persistence of intramural sinusoidal connections. Cardiac neural crest cells and second heart field derivatives shape the outflow-tract anatomy that determines the final position of coronary ostia.</div>
 
 
@@ -4730,6 +4770,7 @@ This pathophysiological event involves abnormal outflow tract morphogenesis (GO:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aaoca-interarterial-intramural-coronary-compression" data-dismech-node="AAOCA interarterial/intramural coronary compression" data-dismech-type="pathophysiology">
                 <div class="item-name">AAOCA interarterial/intramural coronary compression</div>
 
+
                 <div class="item-desc">Subtype-specific mechanism for AAOCA. The anomalous proximal segment may be compressed between the aorta and pulmonary trunk (interarterial course), tunnel through the aortic wall as an intramural segment with a slit-like ostium, kink at an acute take-off angle, or stretch on exertion when aortopulmonary distention increases. These mechanisms reduce coronary luminal area and flow reserve during exercise, producing dynamic ischemia that can trigger lethal ventricular arrhythmias.</div>
 
 
@@ -4895,6 +4936,7 @@ This pathophysiological event involves cardiac muscle cell (CL:0000746). CL:0000
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-alcapa-coronary-steal-and-low-pressure-perfusion" data-dismech-node="ALCAPA coronary steal and low-pressure perfusion" data-dismech-type="pathophysiology">
                 <div class="item-name">ALCAPA coronary steal and low-pressure perfusion</div>
 
+
                 <div class="item-desc">Subtype-specific mechanism for ALCAPA. The postnatal fall in pulmonary vascular resistance leaves the left coronary territory perfused at low pressure from the pulmonary trunk. Once intercoronary collaterals develop, blood is shunted retrograde from the right coronary into the pulmonary trunk (coronary steal), producing chronic subendocardial ischemia of the left ventricle and the classic infantile dilated cardiomyopathy with mitral regurgitation.</div>
 
 
@@ -5004,6 +5046,7 @@ This pathophysiological event involves cardiac muscle cell (CL:0000746). CL:0000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-congenital-ostial-obstruction" data-dismech-node="Congenital ostial obstruction" data-dismech-type="pathophysiology">
                 <div class="item-name">Congenital ostial obstruction</div>
+
 
                 <div class="item-desc">Subtype-specific mechanism for congenital coronary atresia/ostial stenosis. There is fixed structural obstruction to antegrade coronary flow from the aortic root. Unlike AAOCA (dynamic interference) and ALCAPA (perfusion mismatch), obstruction is anatomic and constant, producing neonatal/infantile ischemia, cardiomyopathy, and often early death.</div>
 
@@ -5152,6 +5195,7 @@ This pathophysiological event involves cardiac muscle cell (CL:0000746). CL:0000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-exertional-ischemia-and-arrhythmogenic-substrate" data-dismech-node="Exertional ischemia and arrhythmogenic substrate" data-dismech-type="pathophysiology">
                 <div class="item-name">Exertional ischemia and arrhythmogenic substrate</div>
+
 
                 <div class="item-desc">Demand-induced myocardial ischemia produced by AAOCA mechanical interference, ALCAPA coronary steal, or fixed ostial stenosis creates regional electrophysiological heterogeneity, fibrosis, and ventricular arrhythmias that can culminate in sudden cardiac death. In infants with ALCAPA and severe ostial obstruction, sustained ischemia leads to left ventricular dysfunction, mitral regurgitation, and dilated cardiomyopathy.</div>
 
@@ -6365,6 +6409,9 @@ This disease-associated gene is GDF1 (hgnc:4214). hgnc:4214 is a gene from the H
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-lrp6" data-dismech-node="LRP6" data-dismech-type="genetic">
@@ -6396,6 +6443,9 @@ This disease-associated gene is LRP6 (hgnc:6698). hgnc:6698 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -6439,6 +6489,9 @@ This disease-associated gene is MEF2A (hgnc:6993). hgnc:6993 is a gene from the 
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-kalrn" data-dismech-node="KALRN" data-dismech-type="genetic">
@@ -6470,6 +6523,9 @@ This disease-associated gene is KALRN (hgnc:4814). hgnc:4814 is a gene from the 
 
 
                 </div>
+
+
+
 
 
 
@@ -6513,6 +6569,9 @@ This disease-associated gene is RYR2 (hgnc:10484). hgnc:10484 is a gene from the
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-ldb3" data-dismech-node="LDB3" data-dismech-type="genetic">
@@ -6544,6 +6603,9 @@ This disease-associated gene is LDB3 (hgnc:15710). hgnc:15710 is a gene from the
 
 
                 </div>
+
+
+
 
 
 

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4573,6 +4612,7 @@ What distinguishes this entry from its siblings is the *allelic series*. LDLR is
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ldlr-loss-of-function-variant" data-dismech-node="LDLR Loss-of-Function Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">LDLR Loss-of-Function Variant</div>
 
+
                 <div class="item-desc">A germline pathogenic variant in LDLR at 19p13.2. The gene spans more than 45 kb in 18 exons whose boundaries map onto the receptor&#39;s functional modules - the cysteine-rich ligand-binding repeats, the EGF-precursor homology domain, the O-linked sugar domain, the transmembrane segment and the cytoplasmic tail - so the mutated exon largely predicts which step of the receptor&#39;s itinerary is broken. More than 2300 unique FH-associated LDLR variants have been catalogued, spanning missense, nonsense, frameshift, splice, promoter and exon-level copy-number changes. This node is the single lesion; the five nodes immediately downstream are the alternative steps at which it can act.</div>
 
 
@@ -4668,6 +4708,8 @@ This genetic context concerns LDLR (hgnc:6547). hgnc:6547 is a gene from the HUG
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4678,6 +4720,9 @@ This genetic context concerns LDLR (hgnc:6547). hgnc:6547 is a gene from the HUG
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">The variant consequence is loss of function - fewer functional LDL receptors reach or persist on the hepatocyte surface. Recorded on the genetic context rather than as a Descriptor modifier because the claim is about the consequence of an allele. The severity of that loss is allele-specific and is the subject of the class nodes downstream.</div>
 
@@ -4892,6 +4937,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-absent-ldl-receptor-synthesis" data-dismech-node="Absent LDL Receptor Synthesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Absent LDL Receptor Synthesis</div>
 
+
                 <div class="item-desc">The class 1 (null, receptor-negative) branch. No immunodetectable LDL receptor protein is made, because the allele deletes the promoter, produces no mRNA, or produces mRNA that yields no protein. This is the most severe branch and the one with the least therapeutic room: there is no receptor to upregulate. In clinical trials of homozygous disease it is operationalized as &#34;null-null&#34; or receptor-negative status.</div>
 
 
@@ -5064,6 +5110,7 @@ This pathophysiological event involves absent low-density lipoprotein particle r
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-er-to-golgi-transport-of-the-ldl-receptor" data-dismech-node="Impaired ER-to-Golgi Transport of the LDL Receptor" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired ER-to-Golgi Transport of the LDL Receptor</div>
+
 
                 <div class="item-desc">The class 2 (transport-defective) branch. The receptor is synthesized but misfolds and is retained in the endoplasmic reticulum rather than being further glycosylated in the Golgi and delivered to the surface. Retention may be complete (class 2a) or partial (class 2b), and partial retention leaves residual surface receptor - which matters therapeutically, because residual receptor is what receptor-directed drugs act on.</div>
 
@@ -5238,6 +5285,7 @@ This pathophysiological event involves decreased endoplasmic reticulum to Golgi 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-ldl-binding-at-the-hepatocyte-surface" data-dismech-node="Defective LDL Binding at the Hepatocyte Surface" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective LDL Binding at the Hepatocyte Surface</div>
 
+
                 <div class="item-desc">The class 3 (binding-defective) branch. Receptor reaches the surface in normal numbers but binds apoB-100-containing LDL with reduced affinity. Changes typically fall in the cysteine-rich ligand-binding repeats or in the EGF-precursor homology domain that holds them in a binding-competent conformation. This is the receptor-side mirror of the ligand-side defect curated in Familial_Defective_Apolipoprotein_B-100 - the same handshake fails, from the other side.</div>
 
 
@@ -5410,6 +5458,7 @@ This pathophysiological event involves decreased low-density lipoprotein particl
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-clustering-in-clathrin-coated-pits" data-dismech-node="Defective Clustering in Clathrin-Coated Pits" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective Clustering in Clathrin-Coated Pits</div>
+
 
                 <div class="item-desc">The class 4 (internalization-defective) branch. The cytoplasmic tail of the LDL receptor carries the signal that concentrates it in clathrin-coated pits; a change there leaves a receptor that is expressed and binds LDL normally but is distributed diffusely over the surface and enters the cell slowly. The founding example is patient J.D., whose receptor carries a tyrosine-to-cysteine substitution at residue 807. Because the LDLRAP1/ARH adaptor serves this same step, the recessive LDLRAP1 disease is the phenocopy of this branch acting in trans.</div>
 
@@ -5601,6 +5650,7 @@ This pathophysiological event involves decreased clathrin-dependent endocytosis 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-endosomal-ligand-release-and-receptor-recycling" data-dismech-node="Defective Endosomal Ligand Release and Receptor Recycling" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective Endosomal Ligand Release and Receptor Recycling</div>
 
+
                 <div class="item-desc">The class 5 (recycling-defective) branch. Binding and internalization are intact, but the receptor fails to release LDL when the endosome acidifies, so receptor and ligand traffic together to the lysosome and the receptor is consumed rather than returned to the surface. Each receptor therefore makes one round trip instead of many, and functional clearance capacity collapses even though synthesis is normal. This is also the step that PCSK9 subverts pharmacologically, which is why PCSK9-directed drugs raise receptor abundance in patients who still have recyclable receptor.</div>
 
 
@@ -5773,6 +5823,7 @@ This pathophysiological event involves decreased receptor recycling (GO:0001881)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-functional-hepatic-ldl-receptor-activity" data-dismech-node="Reduced Functional Hepatic LDL Receptor Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Functional Hepatic LDL Receptor Activity</div>
+
 
                 <div class="item-desc">The convergence node of the allelic series. Whichever step is broken - synthesis, ER export, ligand binding, internalization, or recycling - the measurable output is the same: fewer LDL particles cleared per unit time by the hepatocyte. Functional assays report this as a single quantity (percentage of wild-type LDL uptake), which is why class assignment and residual activity are recorded separately: the class says *where* the itinerary breaks, the residual activity says *how much* capacity survives. Null alleles are conventionally under about 2% of normal activity, though trial protocols have operationalized &#34;null&#34; at thresholds as high as 15%.</div>
 
@@ -6061,6 +6112,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-residual-receptor-activity-gates-receptor-dependent-ldl-lowering" data-dismech-node="Residual Receptor Activity Gates Receptor-Dependent LDL Lowering" data-dismech-type="pathophysiology">
                 <div class="item-name">Residual Receptor Activity Gates Receptor-Dependent LDL Lowering</div>
 
+
                 <div class="item-desc">The pharmacogenetic node, and the reason the allelic series is clinically actionable rather than merely descriptive. Statins lower intracellular cholesterol and thereby induce more LDL receptor; PCSK9 antibodies and inclisiran prevent or reduce PCSK9-mediated receptor degradation. Both families of drugs work by putting *more* receptor on the hepatocyte surface, so both require a receptor that can be made and can function. The genotype-stratified evidence below is for a PCSK9 antibody: in the two receptor-negative (null-null) homozygotes studied there was nothing to induce and the response was absent, while in receptor-defective homozygotes there was residual receptor and the response was preserved. Whether statins behave the same way in receptor-negative disease has not been tested here - the two null patients in that trial were already on stable statin therapy at enrolment - and the mechanisms differ (statins act transcriptionally on receptor synthesis, PCSK9-directed agents post-translationally on receptor degradation and recycling), so the statin/PCSK9 asymmetry is carried as an open question in the residual_ldlr_activity_response_threshold discussion rather than asserted. LDLR-independent agents - the MTP inhibitor lomitapide, the ANGPTL3 antibody evinacumab, and lipoprotein apheresis - bypass the receptor entirely and retain effect in null-null disease. This node is the target of the treatment entries curated below.</div>
 
 
@@ -6264,6 +6316,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-receptor-mediated-clearance-of-plasma-ldl" data-dismech-node="Impaired Receptor-Mediated Clearance of Plasma LDL" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Receptor-Mediated Clearance of Plasma LDL</div>
 
+
                 <div class="item-desc">Reduced hepatic receptor capacity lengthens the residence time of apoB-100-containing LDL and IDL in plasma. The defect is specific to the receptor&#39;s ligands: HDL clearance is unaffected, which is why the biochemical phenotype is an isolated elevation of LDL rather than a generalized dyslipidemia.</div>
 
 
@@ -6461,6 +6514,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lifelong-elevation-of-plasma-ldl-cholesterol" data-dismech-node="Lifelong Elevation of Plasma LDL Cholesterol" data-dismech-type="pathophysiology">
                 <div class="item-name">Lifelong Elevation of Plasma LDL Cholesterol</div>
 
+
                 <div class="item-desc">The defining biochemical phenotype. Because the receptor defect is constitutional, LDL cholesterol is elevated from birth, so the arterial tree accumulates cholesterol exposure over decades rather than from midlife onward. Untreated heterozygotes typically exceed 190 mg/dL; biallelic disease often exceeds 400-500 mg/dL.</div>
 
 
@@ -6569,6 +6623,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-endothelial-dysfunction-and-subendothelial-ldl-retention" data-dismech-node="Endothelial Dysfunction and Subendothelial LDL Retention" data-dismech-type="pathophysiology">
                 <div class="item-name">Endothelial Dysfunction and Subendothelial LDL Retention</div>
+
 
                 <div class="item-desc">Conformance node. The atherogenic cascade downstream of the LDL elevation is the conserved one modelled in the atherogenesis module and is not re-derived here; what is disease-specific is that the apoB-lipoprotein driver is present from birth and at several times the usual concentration, so the same programme runs decades earlier.</div>
 
@@ -6720,6 +6775,7 @@ This pathophysiological event occurs in artery (UBERON:0001637). UBERON:0001637 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-monocyte-recruitment-and-macrophage-foam-cell-formation" data-dismech-node="Monocyte Recruitment and Macrophage Foam Cell Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Monocyte Recruitment and Macrophage Foam Cell Formation</div>
+
 
                 <div class="item-desc">Conformance node. Recruited monocyte-derived macrophages take up modified LDL and become foam cells, the cellular substance of the early lesion.</div>
 
@@ -6882,6 +6938,7 @@ This pathophysiological event occurs in artery (UBERON:0001637). UBERON:0001637 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-premature-atherosclerotic-cardiovascular-events" data-dismech-node="Premature Atherosclerotic Cardiovascular Events" data-dismech-type="pathophysiology">
                 <div class="item-name">Premature Atherosclerotic Cardiovascular Events</div>
 
+
                 <div class="item-desc">Conformance node. Angina, myocardial infarction, and less often stroke, occurring decades earlier than in the general population. In biallelic disease events may occur in childhood or adolescence and are accompanied by calcific aortic valve and aortic root disease, which is a supravalvular rather than purely valvular lesion and is not prevented by LDL lowering as reliably as coronary events are.</div>
 
 
@@ -7005,6 +7062,7 @@ This pathophysiological event occurs in aortic valve (UBERON:0002137). UBERON:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-extravascular-cholesterol-deposition-in-tendon-skin-and-cornea" data-dismech-node="Extravascular Cholesterol Deposition in Tendon, Skin, and Cornea" data-dismech-type="pathophysiology">
                 <div class="item-name">Extravascular Cholesterol Deposition in Tendon, Skin, and Cornea</div>
+
 
                 <div class="item-desc">Macrophage-mediated deposition of LDL-derived cholesterol outside the arterial wall, producing tendon xanthoma (Achilles and extensor tendons of the hands), xanthelasma at the eyelids, and premature corneal arcus. These signs are highly specific for the untreated phenotype and are used in the Dutch Lipid Clinic Network and Simon Broome criteria, but they are insensitive - absence does not exclude the diagnosis, and early treatment both prevents and can reverse them.</div>
 
@@ -8158,6 +8216,9 @@ This disease-associated gene is LDLR (hgnc:6547). hgnc:6547 is a gene from the H
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal Dominant</span>
@@ -8268,7 +8329,9 @@ This disease-associated gene is LDLR (hgnc:6547). hgnc:6547 is a gene from the H
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">null</span>
@@ -8276,6 +8339,11 @@ This disease-associated gene is LDLR (hgnc:6547). hgnc:6547 is a gene from the H
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">No LDL receptor protein is synthesized. Large deletions removing the promoter, nonsense and frameshift changes, and alleles that make normal mRNA but no detectable protein. Homozygotes for two such alleles are receptor-negative and respond poorly or not at all to receptor-directed drugs.</div>
@@ -8303,7 +8371,9 @@ This disease-associated gene is LDLR (hgnc:6547). hgnc:6547 is a gene from the H
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
@@ -8311,6 +8381,11 @@ This disease-associated gene is LDLR (hgnc:6547). hgnc:6547 is a gene from the H
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">The receptor is synthesized but misfolds and is retained in the endoplasmic reticulum instead of maturing through the Golgi to the surface. Retention may be complete (2a) or partial (2b).</div>
@@ -8338,7 +8413,9 @@ This disease-associated gene is LDLR (hgnc:6547). hgnc:6547 is a gene from the H
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
@@ -8346,6 +8423,11 @@ This disease-associated gene is LDLR (hgnc:6547). hgnc:6547 is a gene from the H
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Receptor reaches the surface but binds apoB-100 poorly. Changes fall in the cysteine-rich ligand-binding repeats or in the EGF-precursor homology domain that orients them.</div>
@@ -8373,7 +8455,9 @@ This disease-associated gene is LDLR (hgnc:6547). hgnc:6547 is a gene from the H
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
@@ -8381,6 +8465,11 @@ This disease-associated gene is LDLR (hgnc:6547). hgnc:6547 is a gene from the H
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Receptor is expressed and binds LDL normally but fails to cluster in clathrin-coated pits, because the cytoplasmic internalization signal is disrupted. The founding allele is the J.D. mutation, a tyrosine-to-cysteine substitution at residue 807.</div>
@@ -8443,7 +8532,9 @@ This disease-associated gene is LDLR (hgnc:6547). hgnc:6547 is a gene from the H
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
@@ -8451,6 +8542,11 @@ This disease-associated gene is LDLR (hgnc:6547). hgnc:6547 is a gene from the H
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Receptor binds and internalizes LDL but fails to release it in the acidified endosome, so receptor and ligand are degraded together and the receptor is not returned to the surface.</div>

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4572,6 +4611,13 @@ It matters for two reasons. If the conductive component is real and part of DFNB
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-elmod3-biallelic-loss-of-function" data-dismech-node="ELMOD3 Biallelic Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">ELMOD3 Biallelic Loss of Function</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Two copies of the c.794T&gt;C (p.Leu265Ser) allele, which substitutes serine for a leucine that is conserved across species and that lies inside the ELMO/CED12 domain. The substitution is present in every ELMO-domain-containing isoform of ELMOD3, so it is not escaped by alternative splicing. The protein is still made - what is lost is what the ELMO domain does.</div>
 
 
@@ -4672,6 +4718,8 @@ This genetic context concerns ELMOD3 (hgnc:26158). hgnc:26158 is a gene from the
 
 
 
+
+
         <span class="tag tag-classification">allele_type: missense variant in the ELMO/CED12 domain</span>
 
 
@@ -4687,6 +4735,9 @@ This genetic context concerns ELMOD3 (hgnc:26158). hgnc:26158 is a gene from the
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4757,6 +4808,13 @@ This genetic context concerns ELMOD3 (hgnc:26158). hgnc:26158 is a gene from the
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-arl2-gtpase-activating-activity" data-dismech-node="Loss of ARL2 GTPase-Activating Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of ARL2 GTPase-Activating Activity</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">ELMOD3 is a GTPase-activating protein for ARL2, an ARF-family GTPase. The p.Leu265Ser protein retains no or almost no activity in vitro. In the mouse cochlea ARL2 protein itself is less abundant when Elmod3 is absent, from postnatal day 7 onwards, so the consequence in tissue is not only a slower GTP-hydrolysis cycle but a smaller ARL2 pool.</div>
 
@@ -4898,6 +4956,13 @@ This pathophysiological event involves ARL2 GTPase-activating protein activity, 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-elmod3-localisation-to-cochlear-hair-cell-stereocilia" data-dismech-node="ELMOD3 Localisation to Cochlear Hair Cell Stereocilia" data-dismech-type="pathophysiology">
                 <div class="item-name">ELMOD3 Localisation to Cochlear Hair Cell Stereocilia</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Where the protein is, in rodent inner ear, and the reason the disease is cochlear and not vestibular. ELMOD3 immunoreactivity is in the stereocilia, kinocilia and cuticular plate of developing cochlear hair cells, more intense in inner than in outer hair cells. In the saccule, utricle and ampulla the antibody labels hair cell and supporting cell bodies but not the hair bundles.</div>
 
@@ -5106,6 +5171,13 @@ This pathophysiological event occurs in spiral organ of Corti, annotated with sp
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disorganized-stereociliary-actin-cytoskeleton" data-dismech-node="Disorganized Stereociliary Actin Cytoskeleton" data-dismech-type="pathophysiology">
                 <div class="item-name">Disorganized Stereociliary Actin Cytoskeleton</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Hair bundle actin is not properly organised when ELMOD3 activity is absent. In the knockout mouse, phalloidin signal is markedly weaker across the cochlea and especially in hair cells, and stereocilia formation and maturation are already delayed at postnatal day 1. This is the node at which the molecular defect becomes a bundle defect.</div>
 
 
@@ -5309,6 +5381,13 @@ This pathophysiological event involves decreased auditory receptor cell stereoci
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-inner-hair-cell-stereocilia-shortening-and-fusion" data-dismech-node="Inner Hair Cell Stereocilia Shortening and Fusion" data-dismech-type="pathophysiology">
                 <div class="item-name">Inner Hair Cell Stereocilia Shortening and Fusion</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">In the knockout mouse, inner hair cell stereocilia are significantly shortened by two months - the age at which thresholds first shift - and by five months every inner hair cell shows bundle degeneration, some with no bundle at all. Hair cell bodies themselves are largely preserved, so this is a bundle lesion rather than hair cell death.</div>
 
 
@@ -5439,6 +5518,13 @@ This pathophysiological event involves cochlear inner hair cell (CL:0000589). CL
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-outer-hair-cell-stereocilia-degeneration-and-loss-of-cochlear-amplification" data-dismech-node="Outer Hair Cell Stereocilia Degeneration and Loss of Cochlear Amplification" data-dismech-type="pathophysiology">
                 <div class="item-name">Outer Hair Cell Stereocilia Degeneration and Loss of Cochlear Amplification</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Outer hair cell stereocilia are lost progressively in the knockout mouse, and the bundles that remain lose their tight inter-stereocilia connections. The functional read-out is a rise in distortion-product otoacoustic emission thresholds, which the authors read as a loss of the force the outer hair cells couple into the cochlear amplifier.</div>
 
 
@@ -5548,6 +5634,13 @@ This pathophysiological event involves cochlear outer hair cell (CL:0000601). CL
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cochlear-sensory-transduction-failure" data-dismech-node="Cochlear Sensory Transduction Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Cochlear Sensory Transduction Failure</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">The cochlea can no longer turn sound into a neural signal at normal levels. In the mouse this is progressive and measured as auditory brainstem response threshold shifts from two months of age; in the affected members of family PKDF468 it is already established before speech acquisition, and it is the sensorineural half of their mixed audiograms.</div>
 
@@ -5736,7 +5829,7 @@ This pathophysiological event occurs in cochlea (UBERON:0001844). UBERON:0001844
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Cochlear Sensory Transduction Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The cochlea can no longer turn sound into a neural signal at normal levels. In the mouse this is progressive and measured as auditory brainstem response threshold shifts from two months of age; in the affected members of family PKDF468 it is already established before speech acquisition, and it is the sensorineural half of their mixed audiograms.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"sensory perception of sound\"], \"role\": \"effector\", \"locations\": [\"cochlea\"], \"animal_models\": [{\"name\": \"Elmod3 constitutive knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Elmod3 exon 6 frameshift null allele, homozygous, on C57BL/6\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"The mouse goes deaf, which is the right outcome, but on a completely different schedule from the humans: thresholds are normal at one month, shift from two months, and worsen to five months.\"}]}}, {\"id\": \"Disorganized Stereociliary Actin Cytoskeleton\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hair bundle actin is not properly organised when ELMOD3 activity is absent. In the knockout mouse, phalloidin signal is markedly weaker across the cochlea and especially in hair cells, and stereocilia formation and maturation are already delayed at postnatal day 1. This is the node at which the molecular defect becomes a bundle defect.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"sensory hair cell\"], \"biological_processes\": [\"auditory receptor cell stereocilium organization\"], \"role\": \"mediator\", \"animal_models\": [{\"name\": \"Elmod3 constitutive knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Elmod3 exon 6 frameshift null allele, homozygous, on C57BL/6\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Phalloidin signal is much weaker throughout the knockout cochlea, most markedly in hair cells, and stereocilia formation and maturation are already delayed at postnatal day 1.\"}]}}, {\"id\": \"ELMOD3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"ELMOD3\"], \"gene_terms\": [{\"label\": \"ELMOD3\", \"id\": \"hgnc:26158\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"ELMOD3 Biallelic Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Two copies of the c.794T\u003eC (p.Leu265Ser) allele, which substitutes serine for a leucine that is conserved across species and that lies inside the ELMO/CED12 domain. The substitution is present in every ELMO-domain-containing isoform of ELMOD3, so it is not escaped by alternative splicing. The protein is still made - what is lost is what the ELMO domain does.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"ELMOD3\"], \"gene_terms\": [{\"label\": \"ELMOD3\", \"id\": \"hgnc:26158\"}], \"genetic_context\": {\"allele_type\": \"missense variant in the ELMO/CED12 domain\", \"variant_origin\": \"GERMLINE\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"gene_terms\": [{\"label\": \"ELMOD3\", \"id\": \"hgnc:26158\"}]}, \"role\": \"trigger\"}}, {\"id\": \"ELMOD3 Localisation to Cochlear Hair Cell Stereocilia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Where the protein is, in rodent inner ear, and the reason the disease is cochlear and not vestibular. ELMOD3 immunoreactivity is in the stereocilia, kinocilia and cuticular plate of developing cochlear hair cells, more intense in inner than in outer hair cells. In the saccule, utricle and ampulla the antibody labels hair cell and supporting cell bodies but not the hair bundles.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cochlear inner hair cell\", \"cochlear outer hair cell\"], \"role\": \"context\", \"locations\": [\"spiral organ of Corti\"]}}, {\"id\": \"Elmod3 constitutive knockout mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A CRISPR/Cas9 null generated by a 277 bp deletion at exon 6, producing a premature stop at residue 149; ELMOD3 protein is undetectable in the homozygous cochlea. This model carries essentially all of the mechanism downstream of the GAP defect in this entry. Heterozygotes have normal thresholds, so it models the recessive entity rather than the dominant one.\"}, {\"id\": \"Hearing Amplification and Audiological Rehabilitation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"No treatment is reported for any member of family PKDF468 and nothing gene-directed exists. Amplification and audiological rehabilitation are curated as the management that the severity and prelingual onset indicate; they substitute external gain for a failing cochlea and do not act on the ELMOD3 mechanism.\"}, {\"id\": \"Inner Hair Cell Stereocilia Shortening and Fusion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the knockout mouse, inner hair cell stereocilia are significantly shortened by two months - the age at which thresholds first shift - and by five months every inner hair cell shows bundle degeneration, some with no bundle at all. Hair cell bodies themselves are largely preserved, so this is a bundle lesion rather than hair cell death.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cochlear inner hair cell\"], \"role\": \"effector\", \"animal_models\": [{\"name\": \"Elmod3 constitutive knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Elmod3 exon 6 frameshift null allele, homozygous, on C57BL/6\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Inner hair cell stereocilia are significantly shortened at two months and by five months show noticeable degeneration, with a few inner hair cells lacking bundles entirely.\"}]}}, {\"id\": \"Loss of ARL2 GTPase-Activating Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ELMOD3 is a GTPase-activating protein for ARL2, an ARF-family GTPase. The p.Leu265Ser protein retains no or almost no activity in vitro. In the mouse cochlea ARL2 protein itself is less abundant when Elmod3 is absent, from postnatal day 7 onwards, so the consequence in tissue is not only a slower GTP-hydrolysis cycle but a smaller ARL2 pool.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"ARL2 GTPase-activating protein activity\"], \"role\": \"mediator\"}}, {\"id\": \"Outer Hair Cell Stereocilia Degeneration and Loss of Cochlear Amplification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Outer hair cell stereocilia are lost progressively in the knockout mouse, and the bundles that remain lose their tight inter-stereocilia connections. The functional read-out is a rise in distortion-product otoacoustic emission thresholds, which the authors read as a loss of the force the outer hair cells couple into the cochlear amplifier.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cochlear outer hair cell\"], \"role\": \"effector\"}}, {\"id\": \"Prelingual Mixed Hearing Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The defining feature. Pure-tone audiometry in family PKDF468 shows severe-to-profound mixed loss - elevated bone conduction thresholds with an additional air-bone gap - present before speech acquisition. Individual V:5 had a large conductive component in both ears.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0000410\"}}, {\"id\": \"Sensorineural Hearing Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The bone-conduction component of the loss, which is what the hair-bundle mechanism explains. In individual V:2 bone conduction thresholds slope from mild down into the severe range on the right and are near-normal at low frequencies on the left.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0000407\"}}], \"edges\": [{\"source\": \"ELMOD3 Biallelic Loss of Function\", \"target\": \"Loss of ARL2 GTPase-Activating Activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The disease allele sits in the ELMO domain, which is the domain that carries the GAP activity, and recombinant protein bearing it has no measurable activity against ARL2.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of ARL2 GTPase-Activating Activity\", \"target\": \"Disorganized Stereociliary Actin Cytoskeleton\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The step from a lost GAP activity to a disordered actin cytoskeleton is the weakest link in this chain and is curated as such. What is measured is that ELMOD3 localises with actin and that the disease allele abolishes that localisation, and separately that the knockout cochlea has less F-actin. The intermediate - which ARF-family GTPase acts on which actin regulator - is the paper\u0027s own speculation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ELMOD3 Localisation to Cochlear Hair Cell Stereocilia\", \"target\": \"Disorganized Stereociliary Actin Cytoskeleton\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The node is a localisation rather than a lesion; the edge says the stereocilium is where the missing activity is missing from.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disorganized Stereociliary Actin Cytoskeleton\", \"target\": \"Inner Hair Cell Stereocilia Shortening and Fusion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The inner hair cell arm of the bundle phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disorganized Stereociliary Actin Cytoskeleton\", \"target\": \"Outer Hair Cell Stereocilia Degeneration and Loss of Cochlear Amplification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The outer hair cell arm of the bundle phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Inner Hair Cell Stereocilia Shortening and Fusion\", \"target\": \"Cochlear Sensory Transduction Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A shortened or fused inner hair cell bundle cannot transduce deflection into receptor potential normally, which is the step from structure to hearing.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Outer Hair Cell Stereocilia Degeneration and Loss of Cochlear Amplification\", \"target\": \"Cochlear Sensory Transduction Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the cochlear amplifier raises thresholds independently of the inner hair cell bundle lesion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cochlear Sensory Transduction Failure\", \"target\": \"Prelingual Mixed Hearing Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The sensorineural component of the audiogram. The conductive component is not explained by this node and is curated as an open question.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cochlear Sensory Transduction Failure\", \"target\": \"Sensorineural Hearing Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The bone-conduction component of the loss in the affected individuals, and the whole of the phenotype in the knockout mouse.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hearing Amplification and Audiological Rehabilitation\", \"target\": \"Cochlear Sensory Transduction Failure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Elmod3 constitutive knockout mouse\", \"target\": \"Disorganized Stereociliary Actin Cytoskeleton\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Phalloidin signal is much weaker throughout the knockout cochlea, most markedly in hair cells, and stereocilia formation and maturation are already delayed at postnatal day 1.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The mouse is a complete null and the human allele is a missense change that leaves the protein in place; a null and a catalytically dead protein need not have the same cellular consequence, particularly for a protein that also has a localisation function. No human cochlear tissue has been examined, so the actin phenotype is assumed rather than shown in the disease.\"}, {\"source\": \"Elmod3 constitutive knockout mouse\", \"target\": \"Inner Hair Cell Stereocilia Shortening and Fusion\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Inner hair cell stereocilia are significantly shortened at two months and by five months show noticeable degeneration, with a few inner hair cells lacking bundles entirely.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The human bundle has never been examined, so the correspondence is between a mouse structural phenotype and a human audiogram. The direction is also the opposite of the paralogue Elmod1 knockout, in which stereocilia elongate, so the bundle consequence of losing an ELMOD protein is not generic and should not be transferred between them.\"}, {\"source\": \"Elmod3 constitutive knockout mouse\", \"target\": \"Cochlear Sensory Transduction Failure\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"The mouse goes deaf, which is the right outcome, but on a completely different schedule from the humans: thresholds are normal at one month, shift from two months, and worsen to five months.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"The affected members of family PKDF468 are deaf before they learn to speak, to a severe-to-profound degree, while the knockout has normal hearing for its first two months and then develops a moderate loss. The mouse also has a purely sensorineural phenotype and the humans have mixed audiograms. Both are recorded as an open human-model mismatch.\"}, {\"source\": \"ELMOD3\", \"target\": \"ELMOD3 Biallelic Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Cochlear Sensory Transduction Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The cochlea can no longer turn sound into a neural signal at normal levels. In the mouse this is progressive and measured as auditory brainstem response threshold shifts from two months of age; in the affected members of family PKDF468 it is already established before speech acquisition, and it is the sensorineural half of their mixed audiograms.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"sensory perception of sound\"], \"role\": \"effector\", \"locations\": [\"cochlea\"], \"mechanism_confidence\": \"PROVISIONAL\", \"animal_models\": [{\"name\": \"Elmod3 constitutive knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Elmod3 exon 6 frameshift null allele, homozygous, on C57BL/6\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"description\": \"The mouse goes deaf, which is the right outcome, but on a completely different schedule from the humans: thresholds are normal at one month, shift from two months, and worsen to five months.\"}]}}, {\"id\": \"Disorganized Stereociliary Actin Cytoskeleton\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hair bundle actin is not properly organised when ELMOD3 activity is absent. In the knockout mouse, phalloidin signal is markedly weaker across the cochlea and especially in hair cells, and stereocilia formation and maturation are already delayed at postnatal day 1. This is the node at which the molecular defect becomes a bundle defect.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"sensory hair cell\"], \"biological_processes\": [\"auditory receptor cell stereocilium organization\"], \"role\": \"mediator\", \"mechanism_confidence\": \"PROVISIONAL\", \"animal_models\": [{\"name\": \"Elmod3 constitutive knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Elmod3 exon 6 frameshift null allele, homozygous, on C57BL/6\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Phalloidin signal is much weaker throughout the knockout cochlea, most markedly in hair cells, and stereocilia formation and maturation are already delayed at postnatal day 1.\"}]}}, {\"id\": \"ELMOD3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"ELMOD3\"], \"gene_terms\": [{\"label\": \"ELMOD3\", \"id\": \"hgnc:26158\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"ELMOD3 Biallelic Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Two copies of the c.794T\u003eC (p.Leu265Ser) allele, which substitutes serine for a leucine that is conserved across species and that lies inside the ELMO/CED12 domain. The substitution is present in every ELMO-domain-containing isoform of ELMOD3, so it is not escaped by alternative splicing. The protein is still made - what is lost is what the ELMO domain does.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"ELMOD3\"], \"gene_terms\": [{\"label\": \"ELMOD3\", \"id\": \"hgnc:26158\"}], \"genetic_context\": {\"allele_type\": \"missense variant in the ELMO/CED12 domain\", \"variant_origin\": \"GERMLINE\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"gene_terms\": [{\"label\": \"ELMOD3\", \"id\": \"hgnc:26158\"}]}, \"role\": \"trigger\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"ELMOD3 Localisation to Cochlear Hair Cell Stereocilia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Where the protein is, in rodent inner ear, and the reason the disease is cochlear and not vestibular. ELMOD3 immunoreactivity is in the stereocilia, kinocilia and cuticular plate of developing cochlear hair cells, more intense in inner than in outer hair cells. In the saccule, utricle and ampulla the antibody labels hair cell and supporting cell bodies but not the hair bundles.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cochlear inner hair cell\", \"cochlear outer hair cell\"], \"role\": \"context\", \"locations\": [\"spiral organ of Corti\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Elmod3 constitutive knockout mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A CRISPR/Cas9 null generated by a 277 bp deletion at exon 6, producing a premature stop at residue 149; ELMOD3 protein is undetectable in the homozygous cochlea. This model carries essentially all of the mechanism downstream of the GAP defect in this entry. Heterozygotes have normal thresholds, so it models the recessive entity rather than the dominant one.\"}, {\"id\": \"Hearing Amplification and Audiological Rehabilitation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"No treatment is reported for any member of family PKDF468 and nothing gene-directed exists. Amplification and audiological rehabilitation are curated as the management that the severity and prelingual onset indicate; they substitute external gain for a failing cochlea and do not act on the ELMOD3 mechanism.\"}, {\"id\": \"Inner Hair Cell Stereocilia Shortening and Fusion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In the knockout mouse, inner hair cell stereocilia are significantly shortened by two months - the age at which thresholds first shift - and by five months every inner hair cell shows bundle degeneration, some with no bundle at all. Hair cell bodies themselves are largely preserved, so this is a bundle lesion rather than hair cell death.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cochlear inner hair cell\"], \"role\": \"effector\", \"mechanism_confidence\": \"PROVISIONAL\", \"animal_models\": [{\"name\": \"Elmod3 constitutive knockout mouse\", \"species\": \"Mouse\", \"genotype\": \"Elmod3 exon 6 frameshift null allele, homozygous, on C57BL/6\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Inner hair cell stereocilia are significantly shortened at two months and by five months show noticeable degeneration, with a few inner hair cells lacking bundles entirely.\"}]}}, {\"id\": \"Loss of ARL2 GTPase-Activating Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ELMOD3 is a GTPase-activating protein for ARL2, an ARF-family GTPase. The p.Leu265Ser protein retains no or almost no activity in vitro. In the mouse cochlea ARL2 protein itself is less abundant when Elmod3 is absent, from postnatal day 7 onwards, so the consequence in tissue is not only a slower GTP-hydrolysis cycle but a smaller ARL2 pool.\", \"meta\": {\"evidence_count\": 2, \"molecular_functions\": [\"ARL2 GTPase-activating protein activity\"], \"role\": \"mediator\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Outer Hair Cell Stereocilia Degeneration and Loss of Cochlear Amplification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Outer hair cell stereocilia are lost progressively in the knockout mouse, and the bundles that remain lose their tight inter-stereocilia connections. The functional read-out is a rise in distortion-product otoacoustic emission thresholds, which the authors read as a loss of the force the outer hair cells couple into the cochlear amplifier.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cochlear outer hair cell\"], \"role\": \"effector\", \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Prelingual Mixed Hearing Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The defining feature. Pure-tone audiometry in family PKDF468 shows severe-to-profound mixed loss - elevated bone conduction thresholds with an additional air-bone gap - present before speech acquisition. Individual V:5 had a large conductive component in both ears.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0000410\"}}, {\"id\": \"Sensorineural Hearing Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The bone-conduction component of the loss, which is what the hair-bundle mechanism explains. In individual V:2 bone conduction thresholds slope from mild down into the severe range on the right and are near-normal at low frequencies on the left.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"term_id\": \"HP:0000407\"}}], \"edges\": [{\"source\": \"ELMOD3 Biallelic Loss of Function\", \"target\": \"Loss of ARL2 GTPase-Activating Activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The disease allele sits in the ELMO domain, which is the domain that carries the GAP activity, and recombinant protein bearing it has no measurable activity against ARL2.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of ARL2 GTPase-Activating Activity\", \"target\": \"Disorganized Stereociliary Actin Cytoskeleton\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The step from a lost GAP activity to a disordered actin cytoskeleton is the weakest link in this chain and is curated as such. What is measured is that ELMOD3 localises with actin and that the disease allele abolishes that localisation, and separately that the knockout cochlea has less F-actin. The intermediate - which ARF-family GTPase acts on which actin regulator - is the paper\u0027s own speculation.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"ELMOD3 Localisation to Cochlear Hair Cell Stereocilia\", \"target\": \"Disorganized Stereociliary Actin Cytoskeleton\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The node is a localisation rather than a lesion; the edge says the stereocilium is where the missing activity is missing from.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disorganized Stereociliary Actin Cytoskeleton\", \"target\": \"Inner Hair Cell Stereocilia Shortening and Fusion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The inner hair cell arm of the bundle phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disorganized Stereociliary Actin Cytoskeleton\", \"target\": \"Outer Hair Cell Stereocilia Degeneration and Loss of Cochlear Amplification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The outer hair cell arm of the bundle phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Inner Hair Cell Stereocilia Shortening and Fusion\", \"target\": \"Cochlear Sensory Transduction Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A shortened or fused inner hair cell bundle cannot transduce deflection into receptor potential normally, which is the step from structure to hearing.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Outer Hair Cell Stereocilia Degeneration and Loss of Cochlear Amplification\", \"target\": \"Cochlear Sensory Transduction Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the cochlear amplifier raises thresholds independently of the inner hair cell bundle lesion.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cochlear Sensory Transduction Failure\", \"target\": \"Prelingual Mixed Hearing Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The sensorineural component of the audiogram. The conductive component is not explained by this node and is curated as an open question.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cochlear Sensory Transduction Failure\", \"target\": \"Sensorineural Hearing Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The bone-conduction component of the loss in the affected individuals, and the whole of the phenotype in the knockout mouse.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hearing Amplification and Audiological Rehabilitation\", \"target\": \"Cochlear Sensory Transduction Failure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Elmod3 constitutive knockout mouse\", \"target\": \"Disorganized Stereociliary Actin Cytoskeleton\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Phalloidin signal is much weaker throughout the knockout cochlea, most markedly in hair cells, and stereocilia formation and maturation are already delayed at postnatal day 1.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The mouse is a complete null and the human allele is a missense change that leaves the protein in place; a null and a catalytically dead protein need not have the same cellular consequence, particularly for a protein that also has a localisation function. No human cochlear tissue has been examined, so the actin phenotype is assumed rather than shown in the disease.\"}, {\"source\": \"Elmod3 constitutive knockout mouse\", \"target\": \"Inner Hair Cell Stereocilia Shortening and Fusion\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Inner hair cell stereocilia are significantly shortened at two months and by five months show noticeable degeneration, with a few inner hair cells lacking bundles entirely.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The human bundle has never been examined, so the correspondence is between a mouse structural phenotype and a human audiogram. The direction is also the opposite of the paralogue Elmod1 knockout, in which stereocilia elongate, so the bundle consequence of losing an ELMOD protein is not generic and should not be transferred between them.\"}, {\"source\": \"Elmod3 constitutive knockout mouse\", \"target\": \"Cochlear Sensory Transduction Failure\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"The mouse goes deaf, which is the right outcome, but on a completely different schedule from the humans: thresholds are normal at one month, shift from two months, and worsen to five months.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"LOW\", \"limitations\": \"The affected members of family PKDF468 are deaf before they learn to speak, to a severe-to-profound degree, while the knockout has normal hearing for its first two months and then develops a moderate loss. The mouse also has a purely sensorineural phenotype and the humans have mixed audiograms. Both are recorded as an open human-model mismatch.\"}, {\"source\": \"ELMOD3\", \"target\": \"ELMOD3 Biallelic Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6051,6 +6144,9 @@ This disease-associated gene is ELMOD3 (hgnc:26158). hgnc:26158 is a gene from t
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 

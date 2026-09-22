@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -5426,6 +5465,7 @@ NAMED-ENTITY DISAMBIGUATION: MIC-CAP (MONDO:0013659, OMIM:614261, STAMBP) must n
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-stambp-amsh-k63-linked-deubiquitinase-activity" data-dismech-node="Loss of STAMBP/AMSH K63-Linked Deubiquitinase Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of STAMBP/AMSH K63-Linked Deubiquitinase Activity</div>
 
+
                 <div class="item-desc">Biallelic loss-of-function STAMBP variants abolish or severely reduce the activity of AMSH, a Zn(2+)-dependent JAMM/MPN+ metalloprotease deubiquitinase with strict specificity for Lys63-linked polyubiquitin chains. Two routes to loss of function are documented: (i) protein destabilization and near-absence of AMSH, the dominant route, seen with truncating alleles and with missense alleles in the SH3-binding motif (e.g. p.Ser236Phe) that block STAM binding and thereby destabilize the protein; and (ii) direct catalytic or substrate-binding impairment, exemplified by the JAMM-domain allele p.Thr313Ile. Enzyme regulation is itself relevant: the N-terminal MIT domain clamps the catalytic domain in an autoinhibited state that STAM1 binding relieves, which explains why MIT-domain and SH3-binding-motif missense variants - not just catalytic-site variants - are pathogenic.
 </div>
 
@@ -5743,6 +5783,7 @@ This pathophysiological event involves decreased cysteine-type deubiquitinase ac
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-escrt-dependent-endosomal-sorting-of-ubiquitinated-cargo" data-dismech-node="Failure of ESCRT-Dependent Endosomal Sorting of Ubiquitinated Cargo" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of ESCRT-Dependent Endosomal Sorting of Ubiquitinated Cargo</div>
 
+
                 <div class="item-desc">AMSH is recruited to the ESCRT-0 complex through the interaction of its SH3-binding motif with the SH3 domain of STAM, and to ESCRT-III through its MIT domain. There it removes K63-linked chains from internalized, ubiquitin-tagged cell-surface receptors as they are handed down the ESCRT chain into intraluminal vesicles of the multivesicular body. Loss of AMSH leaves K63-ubiquitinated cargo mis-sorted: receptors are neither properly committed to lysosomal degradation nor cleanly recycled, and ubiquitin is not recovered. This is the proximal convergence node from which the proteostasis, signaling, progenitor and inflammatory arms of the disease all branch.
 </div>
 
@@ -6058,6 +6099,7 @@ This pathophysiological event involves multivesicular body (GO:0005771). GO:0005
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ubiquitin-conjugate-aggregation-and-proteostatic-stress" data-dismech-node="Ubiquitin-Conjugate Aggregation and Proteostatic Stress" data-dismech-type="pathophysiology">
                 <div class="item-name">Ubiquitin-Conjugate Aggregation and Proteostatic Stress</div>
 
+
                 <div class="item-desc">Undegraded K63-ubiquitinated substrates accumulate as cytoplasmic ubiquitin-conjugate aggregates. Patient-derived lymphoblastoid cell lines show elevated conjugated-ubiquitin aggregates with increased autophagosome content, and lentiviral STAMBP re-expression reverses the phenotype. In the Amsh-null mouse the aggregates begin as early as embryonic day 10 and become severe in the postnatal brain, and the co-accumulating species have been identified as TDP-43, p62/SQSTM1 and glutamate receptors. Glutamate-receptor accumulation offers a direct, still-untested route from failed receptor downregulation to the excitation/inhibition imbalance underlying the epilepsy.
 </div>
 
@@ -6280,6 +6322,7 @@ This pathophysiological event involves increased inclusion body (GO:0016234). GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-region-selective-neuronal-apoptosis-and-progressive-neuronal-loss" data-dismech-node="Region-Selective Neuronal Apoptosis and Progressive Neuronal Loss" data-dismech-type="pathophysiology">
                 <div class="item-name">Region-Selective Neuronal Apoptosis and Progressive Neuronal Loss</div>
+
 
                 <div class="item-desc">Neurons of the hippocampus (particularly the CA1 field) and cerebral cortex die by apoptosis, while cerebellar neurons, thymocytes and fibroblasts are spared - a cell-autonomous, region-restricted survival requirement that is the most distinctive cellular phenotype of AMSH deficiency and matches the human neuropathology of disproportionately small cerebral hemispheres with a relatively preserved cerebellum. This postnatal degenerative arm explains the *progressive* component of the microcephaly and the cortical atrophy, in contrast with the prenatal proliferation arm that sets brain size at birth.
 </div>
@@ -6545,6 +6588,7 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-neural-stem-and-progenitor-cell-proliferation" data-dismech-node="Impaired Neural Stem and Progenitor Cell Proliferation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Neural Stem and Progenitor Cell Proliferation</div>
+
 
                 <div class="item-desc">A developmental arm that operates before birth and is distinct from the postnatal degenerative arm. Human STAMBP-knockout cortical organoids show significantly reduced neural stem cell proliferation and are smaller, with no detectable increase in apoptosis at early stages; re-expression of wild-type STAMBP rescues proliferation while the disease alleles p.Gly307Glu and p.Thr313Ile do not. Independently, neural progenitor cells derived from STAMBP-deficient human embryonic stem cells cannot be maintained long term, with downregulation of the anti-apoptotic protein CFLAR as the identified effector and CFLAR re-expression rescuing the defect. Together these explain why the brain is already small at birth.
 </div>
@@ -6879,6 +6923,7 @@ This pathophysiological event involves increased extrinsic apoptotic signaling p
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-constitutive-serum-insensitive-ras-mapk-and-pi3k-akt-mtor-signaling" data-dismech-node="Constitutive Serum-Insensitive RAS-MAPK and PI3K-AKT-mTOR Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Constitutive Serum-Insensitive RAS-MAPK and PI3K-AKT-mTOR Signaling</div>
 
+
                 <div class="item-desc">Because activated receptors are not committed to lysosomal degradation, they persist and continue to signal from the endosomal compartment. Patient lymphoblastoid cell lines show RAS-MAPK and PI3K-AKT-mTOR pathway activity that is maintained even under serum starvation - &#34;insensitive&#34; rather than merely elevated - and lentiviral STAMBP restores a normal serum response. This paradoxical growth-signalling activation in a loss-of-function deubiquitinase disorder is the most plausible mechanistic bridge to the cutaneous capillary malformations, since both pathways are established drivers of vascular and capillary malformations. The arm is not settled: one patient homozygous for p.Ser236Phe had multiple capillary malformations *without* constitutive PI3K-AKT-mTOR activation.
 </div>
 
@@ -7136,6 +7181,7 @@ This pathophysiological event involves increased TORC1 signaling (GO:0038202). G
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dermal-capillary-malformation" data-dismech-node="Dermal Capillary Malformation" data-dismech-type="pathophysiology">
                 <div class="item-name">Dermal Capillary Malformation</div>
 
+
                 <div class="item-desc">Multiple small, pink-to-red, blanchable, roughly oval or circular capillary malformations are distributed generally and randomly over the body - a few to hundreds, ranging from 1-2 mm to several centimetres. They are present at birth, are not segmental or dermatomal (distinguishing them from the V1 trigeminal port-wine stain of Sturge-Weber syndrome), and carry none of the leptomeningeal-angiomatosis or glaucoma risk of that disorder. Skin biopsy confirms their nature histologically - dilated small-caliber vessels in the papillary dermis - but the proposed signaling substrate, capillary endothelium responding to the dysregulated RAS-MAPK and PI3K-AKT-mTOR activity described above, has never been assayed in MIC-CAP lesional skin.
 </div>
 
@@ -7294,6 +7340,7 @@ This pathophysiological event involves abnormal angiogenesis (GO:0001525). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nlrp3-inflammasome-derepression-and-neuroinflammation" data-dismech-node="NLRP3 Inflammasome Derepression and Neuroinflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">NLRP3 Inflammasome Derepression and Neuroinflammation</div>
+
 
                 <div class="item-desc">A proposed inflammatory arm. STAMBP is a negative regulator of the NLRP3 inflammasome, restraining it by removing K63-linked (non-degradative) polyubiquitin from NLRP3; STAMBP depletion in monocytes increases NLRP3 K63 polyubiquitination, inflammasome activation and IL-1beta release. The CNS-conditional Stambp knockout mouse shows massive neuroinflammation accompanying neuronal death. No patient-level inflammasome or IL-1beta data exist, so this arm is hypothesized rather than established in human MIC-CAP - but it is the disease&#39;s most tractable drug-repurposing hypothesis.
 </div>
@@ -7606,6 +7653,7 @@ This pathophysiological event involves NLRP3 inflammasome complex (GO:0072559). 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-microcephaly-and-cortical-atrophy" data-dismech-node="Progressive Microcephaly and Cortical Atrophy" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Microcephaly and Cortical Atrophy</div>
+
 
                 <div class="item-desc">The organism-level convergence of the prenatal proliferation arm and the postnatal degenerative arm: a brain that is already small at birth and then falls further behind, with progressive cortical atrophy, a simplified gyral pattern, increased extra-axial cerebrospinal fluid space, hippocampal hypoplasia and, in a minority, thin immature white matter. This structural substrate drives the intractable epilepsy, spastic tetraparesis, optic atrophy and profound developmental delay.
 </div>
@@ -10903,6 +10951,9 @@ This disease-associated gene is STAMBP (hgnc:16950). hgnc:16950 is a gene from t
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 

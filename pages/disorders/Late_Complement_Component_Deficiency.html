@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4903,6 +4942,7 @@ This subtype is caused by variation in C9 (hgnc:1358). hgnc:1358 is a gene from 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-terminal-complement-component-loss-of-function" data-dismech-node="Terminal Complement Component Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Terminal Complement Component Loss of Function</div>
 
+
                 <div class="item-desc">Germline biallelic loss-of-function variants (nonsense, frameshift, missense disrupting folding, splice, or 3&#39;UTR variants causing mRNA instability) in C5, C6, C7, C8 (C8A/C8B), or C9 lead to absent or severely reduced serum levels of the affected terminal complement component. Inheritance is autosomal recessive; heterozygotes are typically asymptomatic carriers.</div>
 
 
@@ -5241,6 +5281,7 @@ This pathophysiological event involves C9 (hgnc:1358). hgnc:1358 is a gene from 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-membrane-attack-complex-assembly" data-dismech-node="Impaired Membrane Attack Complex Assembly" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Membrane Attack Complex Assembly</div>
+
 
                 <div class="item-desc">The terminal pathway is initiated when C5 convertase cleaves C5 into C5a and C5b; C5b sequentially binds C6 and C7, then C8, and finally multiple C9 molecules polymerize to form the lytic membrane attack complex (MAC; C5b-9) pore. Deficiency of any terminal component prevents MAC assembly, producing absent or markedly reduced classical (CH50) and alternative (AH50) pathway hemolytic activity.</div>
 
@@ -5661,6 +5702,7 @@ This pathophysiological event involves decreased Complement Activation (GO:00069
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-serum-bactericidal-activity-against-neisseria" data-dismech-node="Failure of Serum Bactericidal Activity Against Neisseria" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Serum Bactericidal Activity Against Neisseria</div>
 
+
                 <div class="item-desc">The membrane attack complex is the principal mechanism by which serum directly kills pathogenic Neisseria species. With MAC assembly impaired, serum bactericidal activity against Neisseria meningitidis and Neisseria gonorrhoeae is lost even though antibody production, opsonization, and phagocytosis are preserved. This is a selective defect in the terminal effector arm of innate immunity.</div>
 
 
@@ -5833,6 +5875,7 @@ This pathophysiological event involves decreased Innate Immune Response (GO:0045
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-recurrent-invasive-neisserial-infection" data-dismech-node="Recurrent Invasive Neisserial Infection" data-dismech-type="pathophysiology">
                 <div class="item-name">Recurrent Invasive Neisserial Infection</div>
+
 
                 <div class="item-desc">The clinical end of the causal chain: recurrent invasive neisserial infection, predominantly meningococcal sepsis and/or meningitis, and disseminated gonococcal infection. Disease often involves less common meningococcal serogroups (e.g., Y, W, E in addition to B), reflecting failure of MAC-dependent killing rather than serogroup-specific antibody failure. Manifestations include meningococcal septicemia, meningitis, arthritis, and chronic meningococcemia; some patients remain asymptomatic until first exposure and are identified by family screening.</div>
 
@@ -6669,6 +6712,9 @@ This disease-associated gene is C5 (hgnc:1331). hgnc:1331 is a gene from the HUG
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive</span>
@@ -6747,6 +6793,9 @@ This disease-associated gene is C6 (hgnc:1339). hgnc:1339 is a gene from the HUG
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive</span>
@@ -6823,6 +6872,9 @@ This disease-associated gene is C7 (hgnc:1346). hgnc:1346 is a gene from the HUG
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -6928,6 +6980,9 @@ This disease-associated gene is C8B (hgnc:1353). hgnc:1353 is a gene from the HU
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive</span>
@@ -7004,6 +7059,9 @@ This disease-associated gene is C8A (hgnc:1352). hgnc:1352 is a gene from the HU
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -7107,6 +7165,9 @@ This disease-associated gene is C9 (hgnc:1358). hgnc:1358 is a gene from the HUG
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -7565,6 +7626,165 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
         <!-- Biochemical Markers -->
 
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #d97706;">🔬</div>
+                <h2 class="card-title">Biochemical Markers</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box biochemical-box anchor-target" id="biochemical-serum-ch50-total-classical-pathway-haemolytic-activity" data-dismech-node="Serum CH50 (total classical pathway haemolytic activity)" data-dismech-type="biochemical">
+                <div class="item-name">
+                    Serum CH50 (total classical pathway haemolytic activity)
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(DECREASED)</span>
+
+                </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31440263" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31440263" target="_blank">PMID:31440263</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Terminal pathway deﬁciency (TPD) was deﬁned by undetectable CH50 and AP50 activities (below 10% of normal values)."</div>
+
+
+                <div class="evidence-explanation">The operative laboratory definition of terminal pathway deficiency, including the numeric threshold.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31440263" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31440263" target="_blank">PMID:31440263</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"TPD had undetectable CH50 and AP50, patients with sub-total deﬁciencies (SD) in C5, C6, or C7 had a low but detectable CH50 activity."</div>
+
+
+                <div class="evidence-explanation">Separates total from subtotal deficiency by residual CH50, which matters because a low-but-detectable result does not exclude the diagnosis. The quote begins mid-sentence because the PDF extraction splits the preceding word as &#34;tota l&#34;; it is cut before the corruption rather than repaired inside a quotation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box biochemical-box anchor-target" id="biochemical-serum-ap50-alternative-pathway-haemolytic-activity" data-dismech-node="Serum AP50 (alternative pathway haemolytic activity)" data-dismech-type="biochemical">
+                <div class="item-name">
+                    Serum AP50 (alternative pathway haemolytic activity)
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(DECREASED)</span>
+
+                </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31440263" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31440263" target="_blank">PMID:31440263</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Terminal pathway deﬁciency (TPD) was deﬁned by undetectable CH50 and AP50 activities (below 10% of normal values)."</div>
+
+
+                <div class="evidence-explanation">Establishes that AP50 is undetectable together with CH50, the paired result this record describes.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32064578" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32064578" target="_blank">PMID:32064578</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"If multiple pathways are low, the deficiency likely lies in the shared terminal pathway."</div>
+
+
+                <div class="evidence-explanation">The consensus guideline states the localisation rule this record is built on: it is the simultaneous fall of both assays, not either one alone, that places the lesion in the terminal components the two pathways share. Graded OTHER because the source is expert-consensus guidance rather than a primary study.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
 
         <!-- Diagnosis -->
 
@@ -7699,7 +7919,6 @@ classifications:
       evidence_source: OTHER
       snippet: &#34;Disseminated Neisseria infections result from terminal pathway defects (i.e., C5, C6, C7, C8, and C9).&#34;
       explanation: Defects of the terminal complement components C5-C9 place this disorder in the IUIS &#34;complement deficiencies&#34; table.
-
 inheritance:
 - name: Autosomal recessive inheritance
   description: &gt;-
@@ -8597,6 +8816,98 @@ treatments:
       Supports genetic testing to distinguish primary from secondary deficiency
       and the importance of sibling screening.
 
+biochemical:
+- name: Serum CH50 (total classical pathway haemolytic activity)
+  presence: DECREASED
+  notes: &gt;-
+    CH50 is the screening test that finds this disease. Because it measures
+    lysis — the whole classical cascade through to the membrane attack complex —
+    a terminal-component defect abolishes it even though every classical
+    component upstream of C5 is intact. That is the diagnostic signature of the
+    terminal arm and the reason CH50 is ordered after a first invasive
+    neisserial infection.
+
+    Two exceptions, and both matter at the bedside because each one lets a real
+    case slip past a normal-looking result. Subtotal deficiency of C5, C6 or C7
+    leaves a low but detectable CH50, as the cited cohort reports. And C9
+    deficiency is a partial exception in its own right: see the C9 subtype of
+    this entry, which records that some cases retain residual haemolytic
+    activity relative to the other terminal component defects, because C9 is
+    the last component to polymerise and C5b-8 has limited lytic capacity
+    without it. A detectable CH50 therefore does not exclude terminal
+    complement deficiency, and does not exclude C9 deficiency in particular.
+  evidence:
+  - reference: PMID:31440263
+    reference_title: &gt;-
+      Clinical and Genetic Spectrum of a Large Cohort With Total and Sub-total
+      Complement Deficiencies.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Terminal pathway deﬁciency (TPD) was deﬁned by undetectable CH50 and AP50
+      activities (below 10% of normal values).
+    explanation: &gt;-
+      The operative laboratory definition of terminal pathway deficiency,
+      including the numeric threshold.
+  - reference: PMID:31440263
+    reference_title: &gt;-
+      Clinical and Genetic Spectrum of a Large Cohort With Total and Sub-total
+      Complement Deficiencies.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      TPD had undetectable CH50 and AP50, patients with sub-total deﬁciencies
+      (SD) in C5, C6, or C7 had a low but detectable CH50 activity.
+    explanation: &gt;-
+      Separates total from subtotal deficiency by residual CH50, which matters
+      because a low-but-detectable result does not exclude the diagnosis. The
+      quote begins mid-sentence because the PDF extraction splits the preceding
+      word as &#34;tota l&#34;; it is cut before the corruption rather than repaired
+      inside a quotation.
+- name: Serum AP50 (alternative pathway haemolytic activity)
+  presence: DECREASED
+  notes: &gt;-
+    AP50 is abnormal alongside CH50 in terminal deficiency, and the pairing is
+    what localizes the lesion. The two assays share only the terminal
+    components, so simultaneous loss of both places the defect at or below C5,
+    whereas an isolated CH50 fall with preserved AP50 indicates an early
+    classical defect such as C2 deficiency.
+
+    Scope limit. The ESID guideline cited below notes that few standardized
+    complement tests are available beyond C3 and C4 levels, so a section built
+    on CH50 and AP50 covers the assays that localize the lesion rather than the
+    full diagnostic workup; component-level quantitation and genetic
+    confirmation follow, and are curated in this entry&#39;s `genetic:` section.
+  evidence:
+  - reference: PMID:31440263
+    reference_title: &gt;-
+      Clinical and Genetic Spectrum of a Large Cohort With Total and Sub-total
+      Complement Deficiencies.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Terminal pathway deﬁciency (TPD) was deﬁned by undetectable CH50 and AP50
+      activities (below 10% of normal values).
+    explanation: &gt;-
+      Establishes that AP50 is undetectable together with CH50, the paired
+      result this record describes.
+  - reference: PMID:32064578
+    reference_title: &gt;-
+      European Society for Immunodeficiencies (ESID) and European Reference
+      Network on Rare Primary Immunodeficiency, Autoinflammatory and Autoimmune
+      Diseases (ERN RITA) Complement Guideline: Deficiencies, Diagnosis, and
+      Management.
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &gt;-
+      If multiple pathways are low, the deficiency likely lies in the shared
+      terminal pathway.
+    explanation: &gt;-
+      The consensus guideline states the localisation rule this record is built
+      on: it is the simultaneous fall of both assays, not either one alone,
+      that places the lesion in the terminal components the two pathways share.
+      Graded OTHER because the source is expert-consensus guidance rather than
+      a primary study.
 notes: &gt;-
   Pharmacologic terminal complement inhibition (e.g., the C5 inhibitors
   eculizumab and ravulizumab) phenocopies terminal complement deficiency and
@@ -9508,7 +9819,7 @@ Not specifically reported for terminal complement deficiency modeling.</p>
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Late Complement Component Deficiency", "mondoId": "MONDO:0015700", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Late_Complement_Component_Deficiency", "yamlRevision": "4f8100baaaee"};
+        const OS_CONFIG = {"diseaseName": "Late Complement Component Deficiency", "mondoId": "MONDO:0015700", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Late_Complement_Component_Deficiency", "yamlRevision": "1f015be50dcc"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

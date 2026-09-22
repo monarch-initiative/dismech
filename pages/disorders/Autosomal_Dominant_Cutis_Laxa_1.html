@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4902,6 +4941,7 @@ A secondary layer of the mechanism explains why the internal organs are hit at a
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-heterozygous-3-prime-eln-frameshift-variant" data-dismech-node="Heterozygous 3-prime ELN Frameshift Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">Heterozygous 3-prime ELN Frameshift Variant</div>
 
+
                 <div class="item-desc">The initiating lesion. Most patients carry a single-nucleotide deletion or small duplication in exons 30 to 34 of ELN, the last exons of the gene, with a recurrent hotspot at c.2262delA in exon 32. Because the frameshift sits so close to the end of the coding sequence, it does not remove the protein; it replaces the normal carboxy terminus of tropoelastin with a missense peptide that reads through into the 3&#39; untranslated region. Exceptions exist, a splice-site allele and a partial tandem duplication, but they converge on the same abnormal C-terminal product. This is what distinguishes the disease from supravalvular aortic stenosis, where ELN alleles are null.</div>
 
 
@@ -4996,6 +5036,8 @@ This genetic context concerns ELN (hgnc:3327). hgnc:3327 is a gene from the HUGO
 
 
 
+
+
         <span class="tag tag-classification">allele_type: 3-prime frameshift in exons 30-34 (recurrent c.2262delA); rare splice-site and partial tandem duplication alleles</span>
 
 
@@ -5011,6 +5053,9 @@ This genetic context concerns ELN (hgnc:3327). hgnc:3327 is a gene from the HUGO
         <span class="tag tag-classification">functional_impact_category: DOMINANT_NEGATIVE</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Germline, frequently de novo. The variant does not abolish the allele but produces a stable, secreted protein with an altered carboxy terminus that interferes with wild-type tropoelastin during assembly, so the category is dominant negative rather than loss of function.</div>
 
@@ -5135,6 +5180,7 @@ This genetic context concerns ELN (hgnc:3327). hgnc:3327 is a gene from the HUGO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-stable-mutant-eln-transcript-escaping-nonsense-mediated-decay" data-dismech-node="Stable Mutant ELN Transcript Escaping Nonsense-Mediated Decay" data-dismech-type="pathophysiology">
                 <div class="item-name">Stable Mutant ELN Transcript Escaping Nonsense-Mediated Decay</div>
+
 
                 <div class="item-desc">The mutant message survives. Whether a given transcript is degraded depends on where the frameshift falls relative to alternative splicing: exon 32 is naturally skipped in about 70% of fibroblast transcripts, so a mutation inside it is spliced out of most messages and the phenotype is milder, while mutations in exons 30, 33 and 34 remain in the message whatever the splice pattern. Alternative splicing is therefore the best-understood modifier of severity in this disease, and the reason the same molecular class produces such a range of organ involvement.</div>
 
@@ -5362,6 +5408,7 @@ This pathophysiological event involves decreased nonsense-mediated decay of the 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-synthesis-and-secretion-of-c-terminally-altered-tropoelastin" data-dismech-node="Synthesis and Secretion of C-Terminally Altered Tropoelastin" data-dismech-type="pathophysiology">
                 <div class="item-name">Synthesis and Secretion of C-Terminally Altered Tropoelastin</div>
+
 
                 <div class="item-desc">Fibroblasts and other elastogenic cells make the mutant tropoelastin and export most of it. This is the step that makes the disease dominant negative rather than haploinsufficient: an abnormal protein reaches the extracellular space in quantity and is available to interfere with assembly. Part of it is retained intracellularly, and that fraction feeds the endoplasmic reticulum stress branch below. The carboxy terminus that is lost normally mediates binding to microfibril-associated glycoproteins and cell-surface glycosaminoglycans, both required for elastic fibre formation.</div>
 
@@ -5649,6 +5696,7 @@ This pathophysiological event involves abnormal tropoelastin structural elastici
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dominant-negative-disruption-of-elastic-fiber-assembly" data-dismech-node="Dominant-Negative Disruption of Elastic Fiber Assembly" data-dismech-type="pathophysiology">
                 <div class="item-name">Dominant-Negative Disruption of Elastic Fiber Assembly</div>
+
 
                 <div class="item-desc">The mechanistic core. Mutant tropoelastin self-associates more readily than normal, so its coacervation temperature is lower, and in an equimolar mixture with wild-type protein the mixture behaves like the mutant alone. That dominance at the level of coacervation is the molecular basis of the dominant inheritance. The mutant also binds fibrillin-1 and fibulin-5 poorly, so tropoelastin aggregates into elastin-only globules instead of being laid down on microfibrils and cross-linked by lysyl oxidase; the result is less mature, insoluble elastin. Both halves of the defect, increased aggregation and decreased microfibril binding, are needed to explain the poor integration of elastin into fibres.</div>
 
@@ -5968,6 +6016,7 @@ This pathophysiological event involves elastic fiber (GO:0071953). GO:0071953 is
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-endoplasmic-reticulum-stress-and-apoptosis-from-retained-mutant-tropoelastin" data-dismech-node="Endoplasmic Reticulum Stress and Apoptosis from Retained Mutant Tropoelastin" data-dismech-type="pathophysiology">
                 <div class="item-name">Endoplasmic Reticulum Stress and Apoptosis from Retained Mutant Tropoelastin</div>
 
+
                 <div class="item-desc">The retained fraction of mutant tropoelastin misfolds, recruits the chaperone BiP in the endoplasmic reticulum, and in the more severe alleles drives phosphorylation of eIF2-alpha and activation of caspase-3. The response is allele specific: an exon 30 frameshift with an 86-residue missense tail raised both early and late markers, an exon 32 allele raised only BiP, and an exon 33 +1 frameshift raised none, so both the length and the sequence of the missense peptide matter. The same unfolded protein response and apoptosis are seen in the lungs of the transgenic mouse. The authors are explicit that ER stress alone does not explain the clinical variability in aortic and pulmonary involvement, so this branch is a contributor rather than the determinant.</div>
 
 
@@ -6222,6 +6271,7 @@ This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fragmented-sparse-elastic-fibers-in-dermis-lung-and-arterial-media" data-dismech-node="Fragmented, Sparse Elastic Fibers in Dermis, Lung and Arterial Media" data-dismech-type="pathophysiology">
                 <div class="item-name">Fragmented, Sparse Elastic Fibers in Dermis, Lung and Arterial Media</div>
+
 
                 <div class="item-desc">The tissue lesion, and the point where the chain fans out to the organs. Skin biopsies show severe rarefaction of elastic tissue by light microscopy, and by electron microscopy fewer fibres, diminished amorphous elastin that is branched, fragmented and not properly associated with microfibrils, and separate elastin globules. Aortic aneurysm specimens show medial degeneration with paucity of elastic fibres and extracellular elastin deposits lacking microfibrillar elements, without inflammation or atheroma. In the humanised mouse the mutant protein is incorporated into skin and lung fibres but only at low levels into aortic elastin, which is offered as the reason the vasculature is comparatively spared.</div>
 
@@ -6523,6 +6573,7 @@ This pathophysiological event occurs in aortic tunica media, annotated with aort
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-tgf-beta-signaling-from-a-compliant-matrix" data-dismech-node="Increased TGF-beta Signaling from a Compliant Matrix" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased TGF-beta Signaling from a Compliant Matrix</div>
 
+
                 <div class="item-desc">The signalling amplifier. Fibroblasts from every patient studied show increased phospho-SMAD2, and the transgenic mouse lung shows elevated TGF-beta signalling markers alongside decreased stiffness and increased stretch at physiological pressure. The proposed logic is borrowed from Marfan syndrome: microfibrils sequester latent TGF-beta, a compliant matrix releases more of it under load, and excess TGF-beta drives the medial disorganisation and failed alveolar septation that show up as aortic root dilatation and emphysema. This is the node that makes ADCL1 a member of the heritable aortopathy family, and it is the only node with a proposed drug target, losartan, which has never been tried in this disease.</div>
 
 
@@ -6779,6 +6830,7 @@ This pathophysiological event involves increased transforming growth factor beta
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-elastic-recoil-in-skin-and-supporting-connective-tissue" data-dismech-node="Loss of Elastic Recoil in Skin and Supporting Connective Tissue" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Elastic Recoil in Skin and Supporting Connective Tissue</div>
 
+
                 <div class="item-desc">The consequence in the tissues whose job is to spring back. Skin stretched by growth, gravity and expression does not return, so it hangs in redundant folds and the face ages prematurely; the eyelid skin droops into ptosis and blepharochalasis; the abdominal wall and inguinal canal yield to hernias; the joints are hyperlax in infancy; the vocal folds lose tension and the voice is hoarse or husky; and the bladder wall gives way to diverticula. All of these are the same lesion read in different elastic-fibre-rich tissues.</div>
 
 
@@ -7003,6 +7055,7 @@ This pathophysiological event occurs in urinary bladder (UBERON:0001255). UBERON
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-emphysematous-airspace-enlargement" data-dismech-node="Emphysematous Airspace Enlargement" data-dismech-type="pathophysiology">
                 <div class="item-name">Emphysematous Airspace Enlargement</div>
 
+
                 <div class="item-desc">Destruction and enlargement of distal airspaces on a primary elastic-fibre assembly defect. This is not the protease-antiprotease emphysema of smoking or alpha-1 antitrypsin deficiency: alpha-1 antitrypsin deficiency was excluded in the two most severely affected patients of the Callewaert series, and in the transgenic mouse the airspace enlargement arises from mutant elastin in the fibres together with the unfolded protein response, altered mechanical signalling and TGF-beta release, with no inflammatory trigger. Clinically it can be early and severe, with a pre-adolescent obstructive pattern, and in at least one long follow-up it presented as progressive small-airway disease without CT-visible emphysema.</div>
 
 
@@ -7215,6 +7268,7 @@ This pathophysiological event occurs in pulmonary alveolus, annotated with alveo
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aortic-medial-degeneration-and-root-dilatation" data-dismech-node="Aortic Medial Degeneration and Root Dilatation" data-dismech-type="pathophysiology">
                 <div class="item-name">Aortic Medial Degeneration and Root Dilatation</div>
+
 
                 <div class="item-desc">Medial degeneration with paucity of elastic fibres and no inflammatory or atherosclerotic component weakens the aortic wall, and the root dilates. Dilatation is progressive and can begin in childhood; the spectrum in a single family ran from mild dilatation to aneurysm and fatal rupture, which is the finding that overturned the older view of the disease as benign. Bicuspid aortic valve is over-represented, and when present the dilatation extends past the sinotubular junction into the ascending aorta rather than stopping at the root. Involvement is less consistent than in skin, which the humanised mouse attributes to low incorporation of mutant protein into aortic elastin.</div>
 
@@ -8983,6 +9037,9 @@ This disease-associated gene is ELN (hgnc:3327). hgnc:3327 is a gene from the HU
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">

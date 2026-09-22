@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -5466,6 +5505,7 @@ This subtype is caused by variation in FNIP1 (hgnc:29418). hgnc:29418 is a gene 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-a-pre-b-cell-receptor-structural-or-signalling-component" data-dismech-node="Loss of a Pre-B-Cell Receptor Structural or Signalling Component" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of a Pre-B-Cell Receptor Structural or Signalling Component</div>
 
+
                 <div class="item-desc">Biallelic loss-of-function variants remove or inactivate one of the proteins that build or transduce the pre-B-cell receptor: the membrane form of the mu heavy chain (IGHM), the lambda5/14.1 surrogate light chain (IGLL1), the Igalpha/Igbeta signal-transduction heterodimer (CD79A, CD79B), or the receptor-proximal cytoplasmic adaptor BLNK that organises signalling immediately downstream of it. This is the proximal molecular lesion in the majority of autosomal agammaglobulinemia.</div>
 
 
@@ -5824,6 +5864,7 @@ This pathophysiological event involves decreased pre-B cell receptor expression 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-a-transcriptional-or-homeostatic-regulator-of-b-lymphopoiesis" data-dismech-node="Loss of a Transcriptional or Homeostatic Regulator of B Lymphopoiesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of a Transcriptional or Homeostatic Regulator of B Lymphopoiesis</div>
+
 
                 <div class="item-desc">A mechanistically distinct arm in which the pre-BCR proteins themselves are intact but the cellular program that permits their expression and signalling fails. For the transcriptional regulators (TCF3/E47, SPI1/PU.1) and PIK3R1 the lesion acts developmentally earlier than the pre-BCR structural defects; for SLC39A7/ZIP7 it acts on pre-BCR/BCR signal strength at the same checkpoint. TCF3/E47 is a lineage transcription factor (dominant-negative p.E555K); SPI1/PU.1 is a pioneer transcription factor whose haploinsufficiency constrains euchromatin accessibility; SLC39A7/ZIP7 maintains cytosolic Zn2+ needed to restrain phosphatases acting on receptor signalling; PIK3R1 supplies the p85-alpha regulatory subunit of PI3K; LRRC8A encodes the essential volume-regulated anion channel subunit; and FNIP1 governs the AMPK/mTOR metabolic program of the developing B cell.</div>
 
@@ -6218,6 +6259,7 @@ This pathophysiological event involves decreased B cell differentiation (GO:0030
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-pre-b-cell-receptor-assembly-and-signalling" data-dismech-node="Failure of Pre-B-Cell Receptor Assembly and Signalling" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Pre-B-Cell Receptor Assembly and Signalling</div>
 
+
                 <div class="item-desc">The pre-BCR normally serves as the quality-control checkpoint that confirms a productive heavy-chain rearrangement and licenses proliferation and light-chain rearrangement. When the receptor cannot be assembled at the surface or cannot transduce a signal, that positive-selection signal is never delivered.</div>
 
 
@@ -6399,6 +6441,7 @@ This pathophysiological event involves decreased pre-B cell differentiation (GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-developmental-arrest-at-the-pro-b-to-pre-b-transition" data-dismech-node="Developmental Arrest at the Pro-B to Pre-B Transition" data-dismech-type="pathophysiology">
                 <div class="item-name">Developmental Arrest at the Pro-B to Pre-B Transition</div>
+
 
                 <div class="item-desc">B-lineage development halts in the bone marrow at the pro-B stage. Pro-B cells are present in normal or even increased numbers and V-DJ rearrangement proceeds normally, but pre-B cells, immature B cells and all downstream B-lineage populations are absent. This is the defining cellular lesion shared by autosomal agammaglobulinemia and XLA.</div>
 
@@ -6634,6 +6677,7 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-absent-circulating-b-cells-and-plasma-cells" data-dismech-node="Absent Circulating B Cells and Plasma Cells" data-dismech-type="pathophysiology">
                 <div class="item-name">Absent Circulating B Cells and Plasma Cells</div>
 
+
                 <div class="item-desc">The peripheral blood contains essentially no CD19+ B cells (conventionally below 1-2% of lymphocytes), and no plasma cells are generated in lymphoid tissue. Germinal centres do not form, so tonsils and lymph nodes are small or absent on examination. T-cell numbers and function are preserved, which is what distinguishes this from severe combined immunodeficiency.</div>
 
 
@@ -6789,6 +6833,7 @@ This pathophysiological event involves decreased plasma cell (CL:0000786). CL:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-panhypogammaglobulinemia-and-loss-of-humoral-immunity" data-dismech-node="Panhypogammaglobulinemia and Loss of Humoral Immunity" data-dismech-type="pathophysiology">
                 <div class="item-name">Panhypogammaglobulinemia and Loss of Humoral Immunity</div>
+
 
                 <div class="item-desc">Serum IgG, IgA and IgM are all severely reduced or undetectable. Loss of antibody abolishes opsonisation of encapsulated bacteria, complement fixation, mucosal secretory IgA defence, and neutralisation of enteroviruses. Cellular immunity is intact, so the infection spectrum is characteristically bacterial and enteroviral rather than opportunistic or fungal.</div>
 
@@ -6970,6 +7015,7 @@ This pathophysiological event involves decreased humoral immune response (GO:000
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-waning-of-maternal-igg-unmasks-the-antibody-defect" data-dismech-node="Waning of Maternal IgG Unmasks the Antibody Defect" data-dismech-type="pathophysiology">
                 <div class="item-name">Waning of Maternal IgG Unmasks the Antibody Defect</div>
 
+
                 <div class="item-desc">Transplacentally acquired maternal IgG protects the infant for the first months of life. As it is catabolised (typically by around 6 months) the infant&#39;s own inability to make antibody becomes clinically apparent, which sets the characteristic age of first presentation. Maternal-IgG catabolism kinetics are the same regardless of genotype; the earlier presentation of the autosomal forms reflects the greater severity of the underlying block (see the &#34;Earlier and More Severe Presentation&#34; node), not faster IgG decay.</div>
 
 
@@ -7045,6 +7091,7 @@ This pathophysiological event involves decreased humoral immune response (GO:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-susceptibility-to-recurrent-and-invasive-bacterial-infection" data-dismech-node="Susceptibility to Recurrent and Invasive Bacterial Infection" data-dismech-type="pathophysiology">
                 <div class="item-name">Susceptibility to Recurrent and Invasive Bacterial Infection</div>
+
 
                 <div class="item-desc">Recurrent sinopulmonary infection (otitis media, sinusitis, pneumonia) with encapsulated organisms, punctuated by invasive disease — sepsis, meningitis, septic arthritis, cellulitis — and gastrointestinal infection with chronic diarrhea. Enteroviruses, normally neutralised by antibody, can establish chronic central nervous system infection.</div>
 
@@ -7218,6 +7265,7 @@ This pathophysiological event involves decreased humoral immune response (GO:000
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-airway-damage-and-bronchiectasis" data-dismech-node="Progressive Airway Damage and Bronchiectasis" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Airway Damage and Bronchiectasis</div>
 
+
                 <div class="item-desc">Repeated suppurative lower respiratory infection before diagnosis produces irreversible bronchial dilatation. This is the principal source of long-term morbidity and is the reason early diagnosis matters: the damage accrued before immunoglobulin replacement begins cannot be reversed by it.</div>
 
 
@@ -7316,6 +7364,7 @@ This pathophysiological event occurs in bronchus (UBERON:0002185). UBERON:000218
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-earlier-and-more-severe-presentation-than-x-linked-agammaglobulinemia" data-dismech-node="Earlier and More Severe Presentation than X-Linked Agammaglobulinemia" data-dismech-type="pathophysiology">
                 <div class="item-name">Earlier and More Severe Presentation than X-Linked Agammaglobulinemia</div>
+
 
                 <div class="item-desc">A genotype-severity gradient distinguishes the autosomal forms clinically. Because most autosomal defects remove an obligate structural component of the pre-BCR (rather than attenuating a kinase, as hypomorphic BTK alleles can), the developmental block is more often complete, and there is no possibility of the residual leaky B-cell output seen with some BTK alleles. Patients therefore present at younger ages, with more severe complications, and are diagnosed earlier. Mu heavy chain (IGHM) deficiency is the clearest example.</div>
 
@@ -7444,6 +7493,7 @@ This pathophysiological event occurs in bronchus (UBERON:0002185). UBERON:000218
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-vulnerability-to-live-attenuated-vaccine-strains" data-dismech-node="Vulnerability to Live Attenuated Vaccine Strains" data-dismech-type="pathophysiology">
                 <div class="item-name">Vulnerability to Live Attenuated Vaccine Strains</div>
+
 
                 <div class="item-desc">Because neutralising antibody is absent, a live attenuated vaccine strain is not cleared and can replicate, revert and cause vaccine-associated disease. Vaccine-associated paralytic poliomyelitis after oral poliovirus vaccine is the archetype, and is reported significantly more often in mu heavy chain (IGHM) deficiency than in BTK deficiency. This makes live vaccines — above all OPV — an absolute agent to avoid.</div>
 
@@ -9234,6 +9284,9 @@ This disease-associated gene is IGHM (hgnc:5541). hgnc:5541 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9335,6 +9388,9 @@ This disease-associated gene is IGLL1 (hgnc:5870). hgnc:5870 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9407,6 +9463,9 @@ This disease-associated gene is CD79A (hgnc:1698). hgnc:1698 is a gene from the 
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -9487,6 +9546,9 @@ This disease-associated gene is CD79B (hgnc:1699). hgnc:1699 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9559,6 +9621,9 @@ This disease-associated gene is BLNK (hgnc:14211). hgnc:14211 is a gene from the
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -9639,6 +9704,9 @@ This disease-associated gene is LRRC8A (hgnc:19027). hgnc:19027 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9715,6 +9783,9 @@ This disease-associated gene is PIK3R1 (hgnc:8979). hgnc:8979 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9787,6 +9858,9 @@ This disease-associated gene is TCF3 (hgnc:11633). hgnc:11633 is a gene from the
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -9892,6 +9966,9 @@ This disease-associated gene is SLC39A7 (hgnc:4927). hgnc:4927 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9993,6 +10070,9 @@ This disease-associated gene is SPI1 (hgnc:11241). hgnc:11241 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10065,6 +10145,9 @@ This disease-associated gene is FNIP1 (hgnc:29418). hgnc:29418 is a gene from th
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -13801,6 +13884,7 @@ pathophysiology:
       overt infection.
     causal_link_type: DIRECT
 - name: Susceptibility to Recurrent and Invasive Bacterial Infection
+  conforms_to: &#34;germinal_center_reaction#Clinical Susceptibility to Infection&#34;
   description: &gt;-
     Recurrent sinopulmonary infection (otitis media, sinusitis, pneumonia) with
     encapsulated organisms, punctuated by invasive disease — sepsis, meningitis,
@@ -16473,7 +16557,7 @@ Deep research: Edison/Falcon, 553 s. Its 17 citations resolved to only four dist
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Autosomal Agammaglobulinemia", "mondoId": "MONDO:0011096", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Autosomal_Agammaglobulinemia", "yamlRevision": "c85cde2aad21"};
+        const OS_CONFIG = {"diseaseName": "Autosomal Agammaglobulinemia", "mondoId": "MONDO:0011096", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Autosomal_Agammaglobulinemia", "yamlRevision": "548f41e5766a"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

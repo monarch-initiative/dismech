@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4312,6 +4351,7 @@ The classical triad is fulminant infectious mononucleosis/hemophagocytic lymphoh
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sap-adaptor-deficiency" data-dismech-node="SAP Adaptor Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">SAP Adaptor Deficiency</div>
 
+
                 <div class="item-desc">Hemizygous SH2D1A deletions, frameshifts, nonsense and missense variants abolish or destabilize SAP, a 128-amino-acid protein consisting almost entirely of a single SH2 domain. Affected males typically have absent or markedly reduced intracellular SAP protein by flow cytometry. This is the initiating molecular lesion of XLP1.</div>
 
 
@@ -4370,6 +4410,8 @@ This genetic context concerns SH2D1A (hgnc:10820). hgnc:10820 is a gene from the
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4382,6 +4424,9 @@ This genetic context concerns SH2D1A (hgnc:10820). hgnc:10820 is a gene from the
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Hemizygous germline SH2D1A variants in males, including large constitutional deletions, small intragenic deletions, nonsense and missense alleles. Missense alleles such as R55L may retain detectable protein while remaining functionally deficient.</div>
 
@@ -4542,6 +4587,7 @@ This pathophysiological event involves SAP signaling adaptor activity, annotated
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-slam-family-receptor-signaling-failure" data-dismech-node="SLAM-Family Receptor Signaling Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">SLAM-Family Receptor Signaling Failure</div>
+
 
                 <div class="item-desc">SAP binds immunoreceptor tyrosine-based switch motifs in the cytoplasmic tails of SLAM (CD150), 2B4 (CD244), NTB-A (SLAMF6), CD84 and Ly9, and normally recruits the kinase FynT while blocking docking of SH2-containing phosphatases. Without SAP, SHP-1/SHP-2 occupy those docking sites, so the receptors deliver inhibitory rather than activating signals. This inversion — rather than a simple absence of signal — is the defining molecular feature of XLP1 and explains why the immune failure is targeted at SLAM-ligand-bearing B lymphocytes.</div>
 
@@ -4732,6 +4778,7 @@ This pathophysiological event involves SAP SH2-domain binding to SLAM-family rec
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-2b4-ntb-a-inhibitory-switch-on-nk-cells" data-dismech-node="2B4/NTB-A Inhibitory Switch on NK Cells" data-dismech-type="pathophysiology">
                 <div class="item-name">2B4/NTB-A Inhibitory Switch on NK Cells</div>
+
 
                 <div class="item-desc">In XLP1 NK cells, 2B4 (CD244) not only fails to transduce a triggering signal but actively inhibits cytolysis, and the same inversion affects NTB-A. Because CD48 — the 2B4 ligand — is densely expressed on EBV-infected B cells, XLP1 NK cells engaging an EBV-positive target receive a dominant inhibitory signal and fail to kill it. Antibody-mediated masking of 2B4 and NTB-A restores lysis, demonstrating that inhibition rather than absent activation is the operative defect. Other NK triggering receptors (CD16, NKp46, NKp44, NKp30) are intrinsically normal but are overridden by 2B4 engagement.</div>
 
@@ -4941,6 +4988,7 @@ This pathophysiological event involves decreased NK-cell killing of EBV-infected
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-ebv-specific-cd8-t-cell-cytotoxicity" data-dismech-node="Defective EBV-Specific CD8+ T Cell Cytotoxicity" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective EBV-Specific CD8+ T Cell Cytotoxicity</div>
 
+
                 <div class="item-desc">XLP1 patients who survive primary EBV infection mount numerically normal EBV-specific CD8+ T-cell responses, but those T cells are selectively unable to recognize SLAM-ligand-positive targets. CD8+ clones kill EBV-antigen-expressing targets that lack SLAM ligands, yet fail against EBV-transformed lymphoblastoid cell lines; blocking CD244 and NTB-A restores recognition. This selectivity is the best available explanation for why XLP1 confers susceptibility to EBV specifically rather than to viruses in general — EBV&#39;s tropism is for the very B lymphocytes that carry the inhibitory ligands.</div>
 
 
@@ -5113,6 +5161,7 @@ This pathophysiological event involves decreased CD8+ T-cell killing of EBV-tran
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-absent-invariant-nkt-cell-development" data-dismech-node="Absent Invariant NKT Cell Development" data-dismech-type="pathophysiology">
                 <div class="item-name">Absent Invariant NKT Cell Development</div>
+
 
                 <div class="item-desc">SAP is required for the development of invariant (type I) NKT cells. Sh2d1a-null mice lack NKT cells in thymus and periphery through a hematopoietic-cell-autonomous defect that is rescued by restoring SAP expression in bone marrow, and seventeen genetically confirmed XLP1 patients likewise lacked NKT cells. Absent iNKT cells are a robust, near-universal cellular biomarker of SAP deficiency and are thought to contribute to defective antiviral and antitumor immunity and to hypogammaglobulinemia.</div>
 
@@ -5295,6 +5344,7 @@ This pathophysiological event involves decreased invariant NKT cell development,
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-uncontrolled-ebv-driven-b-cell-proliferation" data-dismech-node="Uncontrolled EBV-Driven B Cell Proliferation" data-dismech-type="pathophysiology">
                 <div class="item-name">Uncontrolled EBV-Driven B Cell Proliferation</div>
 
+
                 <div class="item-desc">With both NK- and CD8-mediated control of SLAM-ligand-positive targets lost, primary EBV infection produces an uncontained expansion of virus-carrying B cells accompanied by a massive reactive cytotoxic T-cell response. This is the pivotal cellular event of XLP1 and the branch point from which both the acute hyperinflammatory arm and the chronic lymphomagenesis arm descend.</div>
 
 
@@ -5475,6 +5525,7 @@ This pathophysiological event involves increased EBV-driven B cell proliferation
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-unterminated-hyperinflammatory-response-to-primary-ebv-infection" data-dismech-node="Unterminated Hyperinflammatory Response to Primary EBV Infection" data-dismech-type="pathophysiology">
                 <div class="item-name">Unterminated Hyperinflammatory Response to Primary EBV Infection</div>
+
 
                 <div class="item-desc">The acute arm of XLP1. Because the activating stimulus is never cleared, lymphocyte and macrophage activation continues without a termination signal, producing a hyperinflammatory cytokine state clinically indistinguishable from HLH: prolonged high fever, bi- or trilineage cytopenias, hepatosplenomegaly and hemophagocytosis, with death typically from liver failure or multiorgan dysfunction. This is the most severe feature of XLP1 and the principal determinant of outcome. The general HLH pathophysiology is modeled in the Hemophagocytic_Lymphohistiocytosis entry.</div>
 
@@ -5774,6 +5825,7 @@ This pathophysiological event involves increased systemic inflammatory response,
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-t-b-cell-help-and-germinal-center-formation" data-dismech-node="Defective T-B Cell Help and Germinal Center Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective T-B Cell Help and Germinal Center Formation</div>
 
+
                 <div class="item-desc">SAP-dependent SLAM-family signaling sustains stable cognate interactions between follicular helper T cells and antigen-engaged B cells, and is required for germinal-center development. XLP1 patients have normal B-cell development but markedly reduced memory B cells, and the few present are IgM-positive, indicating failed in vivo isotype switching. The block is B-cell extrinsic: XLP1 B cells proliferate and differentiate normally in vitro, while XLP1 CD4+ T cells fail to differentiate into IL-10-producing effectors, fail to upregulate ICOS, and provide poor B-cell help — a defect partially corrected by exogenous IL-10 or restored SAP expression.</div>
 
 
@@ -6004,6 +6056,7 @@ This pathophysiological event involves decreased germinal center formation (GO:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failed-class-switching-and-antibody-production" data-dismech-node="Failed Class Switching and Antibody Production" data-dismech-type="pathophysiology">
                 <div class="item-name">Failed Class Switching and Antibody Production</div>
 
+
                 <div class="item-desc">The humoral endpoint of XLP1. Serum immunoglobulins are abnormal, most often as hypogammaglobulinemia but historically spanning agammaglobulinemia to polyclonal hypergammaglobulinemia — hence &#34;dysgammaglobulinemia&#34; rather than a purely quantitative deficit. Untreated, it causes recurrent respiratory infection and bronchiectasis and can itself be fatal. It may be the presenting feature in a boy with no EBV history, and can be indistinguishable from common variable immunodeficiency.</div>
 
 
@@ -6192,6 +6245,7 @@ This pathophysiological event involves dysregulated immunoglobulin production (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-immune-surveillance-and-b-cell-lymphomagenesis" data-dismech-node="Impaired Immune Surveillance and B Cell Lymphomagenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Immune Surveillance and B Cell Lymphomagenesis</div>
+
 
                 <div class="item-desc">The chronic arm of XLP1. Sustained polyclonal B-cell proliferation, combined with loss of NK-, CD8- and iNKT-mediated surveillance of transformed cells, provides both the substrate and the permissive environment for conversion to monoclonal B-cell malignancy. Lymphoma is essentially confined to XLP1 among the X-linked lymphoproliferative syndromes and typically arises in childhood, usually after EBV exposure; extranodal ileocecal/ileal B-cell lymphoma is the classically described site, and the original Duncan kindred included lymphomas of the ileum.</div>
 
@@ -7933,6 +7987,9 @@ This disease-associated gene is SH2D1A (hgnc:10820). hgnc:10820 is a gene from t
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">

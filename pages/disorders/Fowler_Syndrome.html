@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -5116,6 +5155,7 @@ The disorder is almost invariably prenatally lethal and is usually detected on u
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-flvcr2-loss-of-function" data-dismech-node="Biallelic FLVCR2 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic FLVCR2 Loss of Function</div>
 
+
                 <div class="item-desc">Autozygosity mapping in three consanguineous families localised the disorder to chromosome 14q24.3, and direct sequencing of candidate genes in the interval found five different germline FLVCR2 mutations across five families. FLVCR2 is a transmembrane carrier of the major facilitator superfamily. Reported alleles are predominantly missense; structural analysis of the published set has been interpreted as stabilising an occluded conformation or causing misfolding, and one splice-region deletion has been shown by minigene assay to impair splicing of exon 5.
 </div>
 
@@ -5177,6 +5217,8 @@ This pathophysiological event involves FLVCR2 (hgnc:20105). hgnc:20105 is a gene
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -5187,6 +5229,9 @@ This pathophysiological event involves FLVCR2 (hgnc:20105). hgnc:20105 is a gene
         <span class="tag tag-classification">functional_impact_category: PARTIAL_LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Biallelic germline FLVCR2 variants, homozygous in consanguineous kindreds and compound heterozygous in others. Complete transport-null alleles are not required: a compound heterozygote carrying p.(Arg492Trp) retained roughly a quarter to a third of wild-type transport activity.
 </div>
@@ -5286,6 +5331,7 @@ This pathophysiological event involves FLVCR2 (hgnc:20105). hgnc:20105 is a gene
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-flvcr2-solute-transport-at-the-cns-endothelial-membrane" data-dismech-node="Impaired FLVCR2 Solute Transport at the CNS Endothelial Membrane" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired FLVCR2 Solute Transport at the CNS Endothelial Membrane</div>
+
 
                 <div class="item-desc">FLVCR2 is expressed in the endothelial cells of brain blood vessels, and the murine ortholog Mfsd7c is an endothelial transporter whose loss causes brain angiogenic growth deficiency and lethality. This node is the convergence point of the disease and is deliberately stated in substrate-neutral terms: what the carrier moves is contested, and the two candidate substrates are modelled as separate downstream arms opting into distinct hypothesis groups. Patient missense alleles have been shown directly to abolish or reduce transport activity, and a hypomorphic allele retaining a quarter to a third of activity was still sufficient for disease, so the lesion is graded rather than all-or-none.
 </div>
@@ -5515,6 +5561,7 @@ This pathophysiological event involves FLVCR2 (hgnc:20105). hgnc:20105 is a gene
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-brain-choline-supply" data-dismech-node="Failure of Brain Choline Supply" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Brain Choline Supply</div>
+
 
                 <div class="item-desc">Choline is required in large quantities for phosphatidylcholine synthesis, for betaine-dependent methylation and, in cholinergic neurons, for acetylcholine. The brain cannot synthesise it efficiently de novo and derives most of it from the circulation, so a blood-brain-barrier carrier defect constrains supply at its entry step. FLVCR1 and FLVCR2 select choline and ethanolamine through cation-pi interactions with conserved tryptophan and tyrosine residues, which is why the clinical missense alleles that line that pocket are transport-incompetent.
 </div>
@@ -5817,6 +5864,7 @@ This pathophysiological event involves decreased choline transmembrane transport
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-endothelial-heme-availability" data-dismech-node="Reduced Endothelial Heme Availability" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Endothelial Heme Availability</div>
 
+
                 <div class="item-desc">The original cellular function assigned to FLVCR2 was heme import: the protein binds hemin-conjugated agarose competitively, cells and oocytes expressing it take up more heme, siRNA knockdown reduces heme import, and overexpressing cells are more heme-toxicity-sensitive. That account was never shown in patient tissue and has been displaced as the physiological function by the 2024 choline work, but it has not been abandoned: endothelial heme content remains the measured variable in the retinal angiogenesis arm below.
 </div>
 
@@ -6056,6 +6104,7 @@ This pathophysiological event involves decreased heme transmembrane transporter 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cns-endothelial-angiogenic-dysfunction" data-dismech-node="CNS Endothelial Angiogenic Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">CNS Endothelial Angiogenic Dysfunction</div>
+
 
                 <div class="item-desc">The primary cellular lesion is in the endothelium of the developing CNS vasculature, which fails to build an orderly vascular bed. Endothelial-specific deletion of Flvcr2 in mouse, or chemical inhibition of heme synthesis, reduces vascular expansion of both retinal plexuses and in a subset produces frankly abnormal vascular glomeruloids - the same lesion seen in human CNS. Mechanistically the defect sits at tip/stalk specification, with loss of FLVCR2 attenuating the normal restraint on NOTCH1 and on VEGF-induced proliferation.
 </div>
@@ -6360,6 +6409,7 @@ This pathophysiological event involves dysregulated Notch signaling pathway (GO:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-deficient-pericyte-coverage-of-cns-vessels" data-dismech-node="Deficient Pericyte Coverage of CNS Vessels" data-dismech-type="pathophysiology">
                 <div class="item-name">Deficient Pericyte Coverage of CNS Vessels</div>
 
+
                 <div class="item-desc">Pericyte marker expression is drastically reduced in affected CNS vessels. The authors of the sixteen-fetus series propose that the pathogenesis of the vasculopathy is related to abnormal pericyte-dependent remodelling of the CNS vasculature during angiogenesis. This is a proposal from histology, not a demonstrated step, and is curated as such.
 </div>
 
@@ -6471,6 +6521,7 @@ This pathophysiological event involves pericyte (CL:0000669). CL:0000669 is a ce
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-glomeruloid-vascular-proliferation-of-cns-and-retinal-vessels" data-dismech-node="Glomeruloid Vascular Proliferation of CNS and Retinal Vessels" data-dismech-type="pathophysiology">
                 <div class="item-name">Glomeruloid Vascular Proliferation of CNS and Retinal Vessels</div>
+
 
                 <div class="item-desc">The pathognomonic lesion. Perforating vessels become abnormally thickened and aberrant, forming glomeruloid tufts of poorly organised endothelium with inclusion-bearing endothelial cells, throughout the central nervous system and the retinal vasculature. It was present in all fourteen fetuses of one autopsy series, though with variable extent of CNS involvement, and a focal form confined to restricted CNS territories exists alongside the classical diffuse form. Its confinement to the CNS is diagnostically decisive: the typical proliferative vasculopathy has never been observed outside the central nervous system.
 </div>
@@ -6680,6 +6731,7 @@ This pathophysiological event involves abnormal angiogenesis (GO:0001525). GO:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-diffuse-clastic-ischemic-injury-of-the-developing-cns" data-dismech-node="Diffuse Clastic Ischemic Injury of the Developing CNS" data-dismech-type="pathophysiology">
                 <div class="item-name">Diffuse Clastic Ischemic Injury of the Developing CNS</div>
 
+
                 <div class="item-desc">Brain tissue that formed is destroyed. Diffuse clastic ischaemic lesions with calcification involve the brainstem, basal ganglia and spinal cord; dystrophic calcification and necrosis were present in every case of the fourteen-fetus autopsy series. This is an encephaloclastic process secondary to the vasculopathy, not a primary failure of neural patterning, which is what distinguishes the entity from the malformative causes of hydranencephaly.
 </div>
 
@@ -6871,6 +6923,7 @@ This pathophysiological event involves abnormal brain development (GO:0007420). 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-spinal-cord-and-brainstem-clastic-lesions-with-neurogenic-muscular-atrophy" data-dismech-node="Spinal Cord and Brainstem Clastic Lesions with Neurogenic Muscular Atrophy" data-dismech-type="pathophysiology">
                 <div class="item-name">Spinal Cord and Brainstem Clastic Lesions with Neurogenic Muscular Atrophy</div>
 
+
                 <div class="item-desc">Involvement of the spinal cord and brainstem by the same clastic ischaemic process denervates fetal muscle, giving the muscular neurogenic atrophy that is part of the original phenotype definition. This is the node that converts a cerebrovascular disease into a fetal akinesia syndrome, and it is why Fowler syndrome belongs in the differential of lethal multiple pterygium syndrome rather than only in that of hydranencephaly.
 </div>
 
@@ -6982,6 +7035,7 @@ This pathophysiological event involves motor neuron (CL:0000100). CL:0000100 is 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fetal-akinesia-deformation-sequence" data-dismech-node="Fetal Akinesia Deformation Sequence" data-dismech-type="pathophysiology">
                 <div class="item-name">Fetal Akinesia Deformation Sequence</div>
+
 
                 <div class="item-desc">Absent or reduced fetal movement produces a stereotyped deformation sequence: joint contractures, pterygia, micrognathia and postural abnormalities. In the fourteen-fetus series, joint contractures were present in twelve and pterygia in eleven, against micrognathia in ten. These are secondary mechanical consequences of immobility, not independent malformations, which is why they cluster so tightly with each other and so loosely with the severity of the cerebral lesion.
 </div>
@@ -8301,6 +8355,9 @@ This disease-associated gene is FLVCR2 (hgnc:20105). hgnc:20105 is a gene from t
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive</span>
@@ -8383,6 +8440,12 @@ This disease-associated gene is FLVCR2 (hgnc:20105). hgnc:20105 is a gene from t
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">The allele in the first reported patients to survive beyond infancy, a brother and sister homozygous for it, identified by whole-exome sequencing.
 </div>
 
@@ -8443,6 +8506,12 @@ This disease-associated gene is FLVCR2 (hgnc:20105). hgnc:20105 is a gene from t
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Shared by three siblings who survived into adulthood, two with the cerebral features seen in affected fetuses and one considerably milder - the clearest published demonstration that genotype does not fix phenotype in this disease.
 </div>
 
@@ -8501,6 +8570,12 @@ This disease-associated gene is FLVCR2 (hgnc:20105). hgnc:20105 is a gene from t
         Compound heterozygous c.1124+3_1124+6del and p.(Arg492Trp)
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">A fetal case in which both alleles were functionally characterised: the splice variant impairs exon 5 splicing on minigene assay, and p.(Arg492Trp) was modelled as highly destabilising and shown to cut transport activity by half, leaving net activity of a quarter to a third.

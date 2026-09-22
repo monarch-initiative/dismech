@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -5182,6 +5221,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cbx2-loss-of-function" data-dismech-node="CBX2 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">CBX2 Loss of Function</div>
 
+
                 <div class="item-desc">Loss-of-function variants remove the activity of CBX2, the chromodomain subunit through which Polycomb repressive complex 1 is recruited to its target loci. CBX2 is expressed in the human gonad from around week 7 of gestation, before testis determination, and continues to be detected in both male and female gonads from week 9 to week 25. Because the protein acts both as a chromatin modifier and as a direct transactivator, its loss removes two separable activities at once, which is why downstream male genes fall and female genes rise from the same lesion. The node is named for the loss, not for a zygosity: the CBX2.1 index patient carried two variants, but the two CBX2.2 patients are each reported with a single variant, so calling the node biallelic would assert what the zygosity knowledge gap says is unresolved.</div>
 
 
@@ -5400,6 +5440,7 @@ This pathophysiological event involves chromatin binding (GO:0003682), qualified
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-cbx2-transactivation-of-nr5a1-and-sox9" data-dismech-node="Failure of CBX2 Transactivation of NR5A1 and SOX9" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of CBX2 Transactivation of NR5A1 and SOX9</div>
 
+
                 <div class="item-desc">CBX2 does not merely silence chromatin; it positively drives the male programme, stimulating NR5A1 (SF1) and SOX9. In the mouse, PRC1 containing M33 binds the Ad4BP/SF1 locus directly and M33-null animals have significantly low Ad4BP/SF-1 expression, establishing CBX2 as an upstream activator rather than a repressor of this gene. The index patient&#39;s mutant CBX2.1 failed to transactivate NR5A1/SF1 in vitro, which is the specific molecular defect the human disorder is built on.</div>
 
 
@@ -5583,6 +5624,7 @@ This pathophysiological event involves decreased positive regulation of transcri
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-cbx2-repression-of-the-ovarian-programme" data-dismech-node="Loss of CBX2 Repression of the Ovarian Programme" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of CBX2 Repression of the Ovarian Programme</div>
+
 
                 <div class="item-desc">The mirror image of the transactivation defect. CBX2.1 directly represses WNT4 and PBX1 and indirectly represses FOXL2; genome-wide target mapping in Sertoli-like cells identified close to 1600 direct CBX2 targets and concluded that the protein concurrently inhibits the female pathway. Loss of this repression allows ovarian determinants to run unopposed in an XY gonad, which is the most likely explanation for the index patient&#39;s histologically normal ovarian tissue — a finding that plain failure of testis determination would not by itself produce.</div>
 
@@ -5809,6 +5851,7 @@ This pathophysiological event involves decreased negative regulation of transcri
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-cbx2-2-dependent-emx2-regulation" data-dismech-node="Failure of CBX2.2-Dependent EMX2 Regulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of CBX2.2-Dependent EMX2 Regulation</div>
 
+
                 <div class="item-desc">A separate molecular arm specific to the short CBX2.2 isoform. Both reported CBX2.2 variants failed to regulate their target genes in transactivation assays, with defective EMX2 expression proposed as the proximate cause of the severe 46,XY phenotype in those patients. EMX2 is required for urogenital ridge development, so this arm converges on the same gonadal endpoint as the CBX2.1 arm by a non-overlapping target route. Independent support for a CBX2-EMX2 axis comes from a different disease gene: a PBX1 variant causing 46,XY gonadal dysgenesis was shown to abolish PBX1&#39;s physical interaction with both CBX2 and EMX2, placing the three proteins in one testis-determining module.</div>
 
 
@@ -5947,6 +5990,7 @@ This pathophysiological event involves decreased regulation of transcription by 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-sry-expression-in-the-bipotential-gonad" data-dismech-node="Reduced SRY Expression in the Bipotential Gonad" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced SRY Expression in the Bipotential Gonad</div>
+
 
                 <div class="item-desc">CBX2 lies upstream of SRY. In mice, gonadal growth defects appear at the time Sry is normally expressed and Cbx2-null gonads have reduced Sry, and the sex reversal is rescued by forced expression of Sry or Sox9 — the strongest available evidence that the sex-determination arm of the phenotype is specifically an Sry-expression failure rather than a general developmental collapse. The human index patient&#39;s variants were interpreted the same way, placing CBX2 upstream of SRY in the human cascade.</div>
 
@@ -6130,6 +6174,7 @@ This pathophysiological event involves decreased male sex determination (GO:0030
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-genital-ridge-growth" data-dismech-node="Impaired Genital Ridge Growth" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Genital Ridge Growth</div>
 
+
                 <div class="item-desc">A growth arm that is separable from the sex-determination arm. In M33-null mice the genital ridge forms late in both XX and XY embryos, and when sex reversal is genetically rescued by forced Sry or Sox9 expression the resulting testes are still hypoplastic. Gonadal size and gonadal sex are therefore controlled by different sets of CBX2-dependent genes, and this node carries the size component. It is the mechanistic reason a CBX2 gonad can be small or non-visualized independently of which way it differentiates.</div>
 
 
@@ -6300,6 +6345,7 @@ This pathophysiological event involves decreased gonad development (GO:0008406).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-sertoli-cell-differentiation" data-dismech-node="Failure of Sertoli Cell Differentiation" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Sertoli Cell Differentiation</div>
 
+
                 <div class="item-desc">Without an adequate SRY/SOX9 pulse, and with ovarian determinants de-repressed, the supporting-cell precursors of the XY gonad do not commit to the Sertoli lineage, or commit incompletely. In the CBX2.2 patient in whom gonadal tissue was recovered, the testes were dysgenetic with immature tubules containing Sertoli cells only and no identifiable Leydig cells; in the mouse, XY knockouts develop ovaries rather than testes.</div>
 
 
@@ -6461,6 +6507,7 @@ This pathophysiological event involves decreased Sertoli cell differentiation (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysgenetic-gonad" data-dismech-node="Dysgenetic Gonad" data-dismech-type="pathophysiology">
                 <div class="item-name">Dysgenetic Gonad</div>
+
 
                 <div class="item-desc">The convergence point of the entry: an XY gonad that is hypoplastic, dysgenetic, or has followed the ovarian route. What is found at operation varies strikingly across the three published patients — histologically normal ovarian tissue in the CBX2.1 index girl, Sertoli-cell-only dysgenetic testes in one CBX2.2 patient, and no identifiable gonadal tissue at all in the other. All three lack a functioning fetal testis, which is what the downstream endocrine consequences follow from.</div>
 
@@ -6673,6 +6720,7 @@ This pathophysiological event involves decreased male gonad development (GO:0008
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-absent-fetal-testicular-androgen-output" data-dismech-node="Absent Fetal Testicular Androgen Output" data-dismech-type="pathophysiology">
                 <div class="item-name">Absent Fetal Testicular Androgen Output</div>
 
+
                 <div class="item-desc">With no functional Leydig compartment, testosterone is not produced in the fetal window during which the external genitalia are masculinized, nor later. In one CBX2.2 patient an hCG stimulation test at two years produced neither a testosterone rise nor accumulation of steroid precursors, which is the pattern expected from absent steroidogenic tissue rather than from an enzymatic block within the androgen synthesis pathway. It is a single stimulation test in one patient, so it is consistent with that reading rather than decisive for it.</div>
 
 
@@ -6791,6 +6839,7 @@ This pathophysiological event involves decreased testosterone secretion (GO:0035
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-negative-feedback-on-the-gonadotropic-axis" data-dismech-node="Loss of Negative Feedback on the Gonadotropic Axis" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Negative Feedback on the Gonadotropic Axis</div>
 
+
                 <div class="item-desc">Absent gonadal steroid and inhibin output releases the pituitary from negative feedback, so LH and FSH rise. Both CBX2.2 patients were hypergonadotropic, one with an FSH of 78 U/L against a stated upper limit of 12 U/L. This is the endocrine signature that identifies the lesion as primary gonadal rather than central.</div>
 
 
@@ -6879,6 +6928,7 @@ This pathophysiological event involves increased gonadotropin secretion (GO:0032
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-undervirilization-of-the-external-genitalia" data-dismech-node="Undervirilization of the External Genitalia" data-dismech-type="pathophysiology">
                 <div class="item-name">Undervirilization of the External Genitalia</div>
+
 
                 <div class="item-desc">In the absence of fetal androgen, the external genitalia develop along the default route. The degree is not uniform across the three reported patients: the CBX2.1 index girl had entirely normal female external genitalia, whereas the CBX2.2 patients had partial masculinization with microphallus, perineal hypospadias, bifid scrotum and non-palpable gonads. This variance is the main reason the entry carries two subtypes.</div>
 
@@ -7040,6 +7090,7 @@ This pathophysiological event involves decreased development of primary male sex
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-incomplete-mullerian-duct-regression" data-dismech-node="Incomplete Mullerian Duct Regression" data-dismech-type="pathophysiology">
                 <div class="item-name">Incomplete Mullerian Duct Regression</div>
+
 
                 <div class="item-desc">Anti-Mullerian hormone is a fetal Sertoli cell product, so a gonad that fails to make Sertoli cells does not regress the Mullerian ducts. Mullerian structures were present in two of the three reported patients — a normal uterus in the CBX2.1 index girl and a hypoplastic uterus found unexpectedly at gonadectomy in one CBX2.2 patient — while the other CBX2.2 patient had no Mullerian derivatives on imaging. The inconsistency tracks the gonadal findings: a partially functional fetal Sertoli compartment regresses the ducts partially.</div>
 
@@ -8493,6 +8544,9 @@ This disease-associated gene is CBX2 (hgnc:1552). hgnc:1552 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 

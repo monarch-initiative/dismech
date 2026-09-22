@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -5515,6 +5554,7 @@ This subtype is caused by variation in KCNJ11 (hgnc:6257). hgnc:6257 is a gene f
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-k-atp-channel-loss-of-function" data-dismech-node="K-ATP Channel Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">K-ATP Channel Loss of Function</div>
 
+
                 <div class="item-desc">Inactivating variants in ABCC8 (SUR1) or KCNJ11 (Kir6.2), the two subunits of the beta-cell ATP-sensitive potassium channel, remove the channel that normally holds the beta-cell membrane hyperpolarized when glucose is low. Because the channel is the switch that couples fuel metabolism to secretion, its loss uncouples insulin release from the glucose signal entirely. This is the single most common molecular cause of hyperinsulinemic hypoglycemia and underlies both diffuse and focal histological disease. It is also why the first-line drug fails in this group: diazoxide works by holding a functional channel open, so a broken channel is pharmacologically unreachable.
 </div>
 
@@ -5826,6 +5866,7 @@ This pathophysiological event occurs in islet of Langerhans (UBERON:0000006). UB
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-glutamate-dehydrogenase-amino-acid-amplifier-activation" data-dismech-node="Glutamate Dehydrogenase Amino-Acid Amplifier Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Glutamate Dehydrogenase Amino-Acid Amplifier Activation</div>
 
+
                 <div class="item-desc">The protein/leucine-sensitive arm. Dominant activating GLUD1 variants escape GTP inhibition of glutamate dehydrogenase, and recessive HADH (SCHAD) deficiency removes an inhibitory SCHAD-GDH protein-protein interaction; both leave glutamate dehydrogenase inappropriately active, so leucine-driven glutamate oxidation feeds the TCA cycle, raises the beta-cell ATP/ADP ratio and closes a structurally intact K-ATP channel. This is the only arm that also produces hyperammonemia, because the same unrestrained GDH activity in liver and kidney generates ammonia — which is why an elevated plasma ammonia in hyperinsulinemic hypoglycemia is close to specific for the GLUD1 (HI/HA) subtype and not a general feature of the disorder.
 </div>
 
@@ -6090,6 +6131,7 @@ This pathophysiological event involves dysregulated regulation of insulin secret
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lowered-beta-cell-glucose-set-point" data-dismech-node="Lowered Beta-Cell Glucose Set-Point" data-dismech-type="pathophysiology">
                 <div class="item-name">Lowered Beta-Cell Glucose Set-Point</div>
 
+
                 <div class="item-desc">The glucose-sensing arm. Glucokinase is the beta cell&#39;s glucose sensor, the step that sets the plasma glucose concentration at which secretion begins. Activating GCK variants (and, rarely, GCK duplication) shift that threshold downward, so the whole homeostatic system defends an inappropriately low glucose rather than failing to switch off. A non-coding HK1 variant that fails to silence hexokinase 1 in the beta cell does the same thing by a different route, installing a low-Km hexokinase that phosphorylates glucose at concentrations far below the normal threshold. Because a reset set-point is not the same as an absent brake, GCK disease can uniquely show a ketotic response on prolonged fasting.
 </div>
 
@@ -6345,6 +6387,7 @@ This pathophysiological event involves dysregulated regulation of insulin secret
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-alternative-secretagogue-import-and-loss-of-mitochondrial-uncoupling" data-dismech-node="Alternative Secretagogue Import and Loss of Mitochondrial Uncoupling" data-dismech-type="pathophysiology">
                 <div class="item-name">Alternative Secretagogue Import and Loss of Mitochondrial Uncoupling</div>
+
 
                 <div class="item-desc">Two lesions that let fuels which should be invisible to the beta cell drive secretion. SLC16A1 (MCT1) is normally silenced in beta cells precisely so that pyruvate and lactate cannot act as secretagogues; dominant promoter variants de-silence it, so monocarboxylates generated during anaerobic exercise enter the cell and trigger insulin release — giving hypoglycemia specifically after strenuous exercise. UCP2 normally leaks protons across the inner mitochondrial membrane, damping ATP generation and thereby restraining glucose-stimulated secretion; inactivating variants remove that brake, though the UCP2 association remains disputed.
 </div>
@@ -6602,6 +6645,7 @@ This pathophysiological event involves dysregulated regulation of insulin secret
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-transcription-factor-dysregulation-of-the-beta-cell-secretory-program" data-dismech-node="Transcription Factor Dysregulation of the Beta-Cell Secretory Program" data-dismech-type="pathophysiology">
                 <div class="item-name">Transcription Factor Dysregulation of the Beta-Cell Secretory Program</div>
 
+
                 <div class="item-desc">A developmental/transcriptional rather than metabolic route. HNF4A and HNF1A are nuclear transcription factors expressed in the beta cell that regulate glucose-dependent insulin secretion. Heterozygous loss of function produces a biphasic phenotype that is diagnostically distinctive: macrosomia with diazoxide-responsive neonatal hyperinsulinism, then maturity-onset diabetes of the young decades later. The mechanism is neither an amino-acid amplifier nor a shifted glucose set-point, which is why it is modelled as its own node.
 </div>
 
@@ -6857,6 +6901,7 @@ This pathophysiological event involves dysregulated regulation of insulin secret
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-focal-lesion-formation-by-paternal-k-atp-variant-and-somatic-11p15-maternal-loss" data-dismech-node="Focal Lesion Formation by Paternal K-ATP Variant and Somatic 11p15 Maternal Loss" data-dismech-type="pathophysiology">
                 <div class="item-name">Focal Lesion Formation by Paternal K-ATP Variant and Somatic 11p15 Maternal Loss</div>
+
 
                 <div class="item-desc">Focal hyperinsulinism is generated by two hits at the same locus. A paternally inherited recessive ABCC8 or KCNJ11 variant (both genes sit at 11p15.1) is clinically silent while the maternal allele is present. In a single pancreatic progenitor a post-zygotic mitotic recombination event replaces the maternal 11p15 region with a second copy of the paternal one (segmental paternal isodisomy), rendering the K-ATP variant homozygous in that clone while parental heterozygosity is preserved everywhere else. The same event leaves the neighbouring 11p15 imprinted domain paternal-only — doubling active IGF2 and removing the growth-suppressing maternal H19 and CDKN1C (p57) contributions — so the affected clone also proliferates, producing a discrete nodule of hyperfunctional, hypersecreting beta cells embedded in a normal pancreas. Every clinically decisive feature of focal disease follows from this architecture: it is anatomically bounded, so 18F-DOPA PET can localise it and resecting it is curative; and it is sporadic in inheritance terms, because the somatic hit is not transmitted.
 </div>
@@ -7199,6 +7244,7 @@ This pathophysiological event occurs in islet of Langerhans (UBERON:0000006). UB
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-perinatal-stress-lowering-of-the-beta-cell-glucose-threshold" data-dismech-node="Perinatal Stress Lowering of the Beta-Cell Glucose Threshold" data-dismech-type="pathophysiology">
                 <div class="item-name">Perinatal Stress Lowering of the Beta-Cell Glucose Threshold</div>
 
+
                 <div class="item-desc">In acquired perinatal-stress hyperinsulinism there is no germline lesion. Instead, maternal diabetes, birth asphyxia/hypoxia, intrauterine growth restriction or intrapartum maternal dextrose appear to reset the beta-cell glucose threshold for suppressing insulin downward, so that secretion continues at plasma glucose values that would normally silence it. In the infant of a diabetic mother the fetal islet has additionally been chronically over-stimulated in utero by transplacental maternal glucose. The same downstream chain follows as in genetic disease, but the trigger is self-limited: most cases remit within days to two weeks as the stress resolves.
 </div>
 
@@ -7393,6 +7439,7 @@ This pathophysiological event occurs in islet of Langerhans (UBERON:0000006). UB
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysregulated-beta-cell-insulin-secretion" data-dismech-node="Dysregulated Beta-Cell Insulin Secretion" data-dismech-type="pathophysiology">
                 <div class="item-name">Dysregulated Beta-Cell Insulin Secretion</div>
+
 
                 <div class="item-desc">The convergent core of the disorder, reached from every etiology above: insulin is secreted at plasma glucose concentrations at which secretion should be fully suppressed. In health serum insulin becomes undetectable once plasma glucose falls below about 3 mmol/L; in hyperinsulinemic hypoglycemia it remains detectable, and it is this failure of suppression — rather than an absolute insulin concentration — that defines the disease. Everything clinically distinctive about hyperinsulinemic hypoglycemia flows from this single node, because insulin is not merely a glucose-lowering hormone but a simultaneous suppressor of every counter-regulatory fuel pathway.
 </div>
@@ -7654,6 +7701,7 @@ This pathophysiological event occurs in islet of Langerhans (UBERON:0000006). UB
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-insulin-driven-glucose-disposal-and-suppressed-hepatic-glucose-output" data-dismech-node="Insulin-Driven Glucose Disposal and Suppressed Hepatic Glucose Output" data-dismech-type="pathophysiology">
                 <div class="item-name">Insulin-Driven Glucose Disposal and Suppressed Hepatic Glucose Output</div>
+
 
                 <div class="item-desc">Insulin acts on the two arms of glucose homeostasis at once: it accelerates glucose uptake into muscle, liver and adipose tissue and it shuts down the liver&#39;s ability to release glucose by inhibiting glycogenolysis and gluconeogenesis while stimulating glycogen synthesis. The result is hypoglycemia that cannot be defended endogenously, and that clinically requires glucose infusion rates far above normal — a requirement above about 8 mg/kg/min in a neonate is itself close to diagnostic. Hepatic glycogen accumulation from this same signal contributes to the hepatomegaly seen in some patients.
 </div>
@@ -7950,6 +7998,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-suppression-of-lipolysis-and-ketogenesis" data-dismech-node="Suppression of Lipolysis and Ketogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Suppression of Lipolysis and Ketogenesis</div>
 
+
                 <div class="item-desc">This is the arm that makes hyperinsulinemic hypoglycemia different from every other hypoglycemia. Insulin is anabolic on adipose tissue: it stimulates lipogenesis, blocks hormone-sensitive-lipase-mediated free fatty acid release, and therefore removes the substrate for hepatic beta-oxidation and ketone body synthesis. In any other fasting hypoglycemia the falling glucose would unleash lipolysis and ketogenesis, and the resulting beta-hydroxybutyrate would partially rescue the brain. Here that rescue is disabled by the same hormone that caused the hypoglycemia. The biochemical signature — low glucose with simultaneously LOW beta-hydroxybutyrate AND LOW free fatty acids — is both the diagnostic fingerprint of the disorder and the reason its neurological toll is so high.
 </div>
 
@@ -8225,6 +8274,7 @@ This pathophysiological event occurs in adipose tissue (UBERON:0001013). UBERON:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dual-glucose-and-ketone-substrate-deprivation-of-the-brain" data-dismech-node="Dual Glucose and Ketone Substrate Deprivation of the Brain" data-dismech-type="pathophysiology">
                 <div class="item-name">Dual Glucose and Ketone Substrate Deprivation of the Brain</div>
 
+
                 <div class="item-desc">The mechanistic keystone of the disorder, and the explicit reason hyperinsulinemic hypoglycemia injures the brain more than other hypoglycemias of equivalent glucose depth. The neonatal and infant brain has a disproportionately high obligate glucose requirement, and its physiological safeguard against a falling glucose is to switch to ketone bodies. In hyperinsulinemic hypoglycemia both fuels fail simultaneously and for the same reason: the excess insulin that lowers glucose also abolishes the ketone supply. Cerebral energy failure therefore begins earlier, deepens faster, and is less forgiving of diagnostic delay than in ketotic hypoglycemias, where a partial ketone rescue buffers the brain. This node is also the therapeutic rationale for the (still experimental) strategy of supplying exogenous beta-hydroxybutyrate, and the rationale for proposals to screen newborns by measuring ketones rather than glucose alone.
 </div>
 
@@ -8484,6 +8534,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neuroglycopenic-brain-injury" data-dismech-node="Neuroglycopenic Brain Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Neuroglycopenic Brain Injury</div>
+
 
                 <div class="item-desc">Recurrent or prolonged dual-fuel deprivation causes permanent injury to the developing brain, with a predilection for the parieto-occipital cortex and white matter. This is the outcome that defines the clinical stakes of the disorder and it is substantially preventable: the international consensus guideline states its own purpose as reducing the prevalence of hypoglycemia-caused brain injury through earlier recognition and treatment. Neurological sequelae were reported in about half of probands in a nationwide cohort, which is a direct measure of how often recognition currently comes too late.
 </div>
@@ -10266,6 +10317,9 @@ This disease-associated gene is ABCC8 (hgnc:59). hgnc:59 is a gene from the HUGO
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -10361,6 +10415,9 @@ This disease-associated gene is KCNJ11 (hgnc:6257). hgnc:6257 is a gene from the
 
 
                 </div>
+
+
+
 
 
 
@@ -10464,6 +10521,9 @@ This disease-associated gene is GLUD1 (hgnc:4335). hgnc:4335 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10534,6 +10594,9 @@ This disease-associated gene is GCK (hgnc:4195). hgnc:4195 is a gene from the HU
 
 
                 </div>
+
+
+
 
 
 
@@ -10637,6 +10700,9 @@ This disease-associated gene is HADH (hgnc:4799). hgnc:4799 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10707,6 +10773,9 @@ This disease-associated gene is HNF4A (hgnc:5024). hgnc:5024 is a gene from the 
 
 
                 </div>
+
+
+
 
 
 
@@ -10810,6 +10879,9 @@ This disease-associated gene is HNF1A (hgnc:11621). hgnc:11621 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -10909,6 +10981,9 @@ This disease-associated gene is SLC16A1 (hgnc:10922). hgnc:10922 is a gene from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10979,6 +11054,9 @@ This disease-associated gene is UCP2 (hgnc:12518). hgnc:12518 is a gene from the
 
 
                 </div>
+
+
+
 
 
 
@@ -11055,6 +11133,9 @@ This disease-associated gene is HK1 (hgnc:4922). hgnc:4922 is a gene from the HU
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 

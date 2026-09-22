@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4613,6 +4652,7 @@ What this does not establish is how much it matters in a diet. The experiments a
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ergot-alkaloid-entry-into-the-circulation" data-dismech-node="Ergot Alkaloid Entry into the Circulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Ergot Alkaloid Entry into the Circulation</div>
 
+
                 <div class="item-desc">The exposure event, reached by two routes that differ in everything except what arrives in the blood. Contaminated grain delivers a mixture of the alkaloids a particular Claviceps strain happens to make; a prescription delivers one purified alkaloid at a known dose. The alkaloid composition of the mixture is not constant, which matters because it is what decided whether a historical epidemic was gangrenous or convulsive.</div>
 
 
@@ -4717,6 +4757,7 @@ What this does not establish is how much it matters in a diet. The experiments a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cyp3a4-inhibition-raising-systemic-ergotamine-concentration" data-dismech-node="CYP3A4 Inhibition Raising Systemic Ergotamine Concentration" data-dismech-type="pathophysiology">
                 <div class="item-name">CYP3A4 Inhibition Raising Systemic Ergotamine Concentration</div>
+
 
                 <div class="item-desc">The step that makes ergotism a live problem in countries with clean grain. Ergotamine is destroyed on first pass through the liver by CYP3A4, leaving under 5% oral bioavailability - which is why an ordinary migraine dose is tolerated at all. A strong CYP3A4 inhibitor removes that first-pass barrier, and the same tablet delivers a toxic plasma concentration. The inhibitors implicated are the HIV protease inhibitors, the pharmacokinetic booster cobicistat, and the macrolide antibiotics.</div>
 
@@ -4845,6 +4886,7 @@ What this does not establish is how much it matters in a diet. The experiments a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ergoline-agonism-at-vascular-5-ht-and-alpha-adrenergic-receptors" data-dismech-node="Ergoline Agonism at Vascular 5-HT and Alpha-Adrenergic Receptors" data-dismech-type="pathophysiology">
                 <div class="item-name">Ergoline Agonism at Vascular 5-HT and Alpha-Adrenergic Receptors</div>
+
 
                 <div class="item-desc">The pharmacological lesion. Ergot alkaloids bind serotonin and alpha-adrenergic receptors on vascular smooth muscle, acting as agonists and partial agonists rather than as the antagonists a drug designed for this target would be. Molecular docking puts ergocristinine at the 5-HT2A and alpha-2A adrenergic binding sites with hydrogen bonding to the site residues, and the pharmacological counterpart is that a non-competitive alpha-adrenergic antagonist attenuates the contraction the alkaloid produces.</div>
 
@@ -5125,6 +5167,7 @@ This pathophysiological event involves agonism of ergot alkaloids at G protein-c
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sustained-vascular-smooth-muscle-contraction" data-dismech-node="Sustained Vascular Smooth Muscle Contraction" data-dismech-type="pathophysiology">
                 <div class="item-name">Sustained Vascular Smooth Muscle Contraction</div>
 
+
                 <div class="item-desc">What separates ergot vasoconstriction from ordinary vasoconstriction is how long it lasts. In an arterial tissue bath a single dose of ergocristine produced contraction sustained across a three-hour incubation, and the response persists well beyond the point at which the alkaloid would have been cleared. That persistence is why the clinical syndrome is a spasm that resists reversal rather than a transient squeeze, and why case reports describe failure of first-line vasodilators.</div>
 
 
@@ -5345,6 +5388,7 @@ This pathophysiological event involves sustained smooth muscle contraction drive
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-central-serotonergic-overstimulation" data-dismech-node="Central Serotonergic Overstimulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Central Serotonergic Overstimulation</div>
 
+
                 <div class="item-desc">The parallel branch, and the one that produces the convulsive form. Dihydroergotamine binds serotonin receptors in the dorsal horn of the spinal cord, which is where the neuropathological changes of convulsive ergotism are found. The clinical picture - twitching, spasm, altered mental state, hallucination, sweating and fever over weeks - is the picture of serotonergic overstimulation, and dihydroergotamine given to people can produce serotonin syndrome outright.</div>
 
 
@@ -5546,6 +5590,7 @@ This pathophysiological event involves central serotonin receptor signaling driv
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-arterial-vasospasm-with-distal-hypoperfusion" data-dismech-node="Arterial Vasospasm with Distal Hypoperfusion" data-dismech-type="pathophysiology">
                 <div class="item-name">Arterial Vasospasm with Distal Hypoperfusion</div>
+
 
                 <div class="item-desc">The lesion as it appears on imaging: diffuse narrowing of arteries without atherosclerotic plaque or thrombus, with the distal extremities worst affected because prolonged spasm has the greatest effect where the arterial supply is least redundant. Angiography in a bilateral limb-ischaemia case showed diffuse spasm of the whole lower-limb arterial tree. Vasospasm also reaches the coronary, cerebral, renal and ocular circulations, which is where the severe non-limb outcomes come from.</div>
 
@@ -5755,6 +5800,7 @@ This pathophysiological event occurs in artery (UBERON:0001637). UBERON:0001637 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-distal-tissue-ischemia-and-dry-gangrene" data-dismech-node="Distal Tissue Ischemia and Dry Gangrene" data-dismech-type="pathophysiology">
                 <div class="item-name">Distal Tissue Ischemia and Dry Gangrene</div>
+
 
                 <div class="item-desc">Where the spasm is not relieved, the tissue it supplies dies. The sequence runs burning paresthesia, then coldness and pallor, then absent pulses, then dry gangrene - the lesion that gave the medieval disease its name. It is reversible up to a point: recognised early the vascular changes resolve completely, and in one seven-patient series prompt vasodilator therapy avoided amputation altogether. Recognised late it is not, and a poison-centre series records two partial foot amputations.</div>
 
@@ -5993,6 +6039,7 @@ This pathophysiological event occurs in limb (UBERON:0002101). UBERON:0002101 is
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-convulsive-and-neuropsychiatric-syndrome" data-dismech-node="Convulsive and Neuropsychiatric Syndrome" data-dismech-type="pathophysiology">
                 <div class="item-name">Convulsive and Neuropsychiatric Syndrome</div>
+
 
                 <div class="item-desc">The other historical form, dominant east of the Rhine while gangrenous ergotism dominated to the west. Muscle twitching and spasm, altered mental state, hallucination, sweating and fever, persisting for weeks rather than resolving in days. Modern outbreaks in Ethiopia and India are the reason this is not purely a historical category.</div>
 
