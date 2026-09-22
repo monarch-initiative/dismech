@@ -154,10 +154,39 @@ def test_agent_recovers_abandoned_code_prs_and_preserves_cache_and_history_guard
         in prompt
     )
     assert "Never force-push, rebase, reset, or rewrite PR history" in prompt
-    assert "Never modify human-authored PRs" in prompt
     assert "Never modify a PR that is assigned" in prompt
     assert "verify the remote head and assignment again" in prompt
     assert "reproduce\n  the failure" in prompt
+
+
+def test_agent_repairs_unassigned_prs_regardless_of_author():
+    job = workflow(SHEPHERD)["jobs"]["shepherd"]
+    prompt = step(job, "Run PR Shepherd")["with"]["prompt"]
+    assert "stuck unassigned pull requests by any author" in prompt
+    assert "Author identity does not affect eligibility" in prompt
+    assert "Author identity never excludes a PR from repair" in prompt
+    assert "Never modify human-authored PRs" not in prompt
+    assert "bot-author policy" not in prompt
+    assert "verified Bot identity" not in prompt
+    assert "duplicate an ongoing repair" in prompt
+    assert "fixed PR-age cutoff" in prompt
+    assert "Never modify a PR that is assigned" in prompt
+    assert "Separately managed automation PRs whose heads start with `auto/`" in prompt
+
+
+def test_agent_confirms_head_repository_before_executing_code_and_pushing():
+    job = workflow(SHEPHERD)["jobs"]["shepherd"]
+    prompt = step(job, "Run PR Shepherd")["with"]["prompt"]
+    assert "Fork heads and missing or" in prompt
+    assert "unknown head-repository metadata are ineligible" in prompt
+    checkout_guard = prompt.split("Before checking out a PR branch", 1)[1]
+    assert "or executing its code" in checkout_guard
+    assert "require `isCrossRepository == false`" in checkout_guard
+    assert "true, missing, or unknown, skip" in checkout_guard
+    push_guard = prompt.split("Before any push", 1)[1]
+    assert "Reconfirm `isCrossRepository == false`" in push_guard
+    assert "deterministic active-work hold" in prompt
+    assert "For unassigned PRs, assess ongoing work from recent activity" in prompt
 
 
 def test_scanner_no_longer_uses_draft_as_a_lifecycle_signal():
