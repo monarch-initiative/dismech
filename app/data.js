@@ -36684,6 +36684,76 @@ window.searchData = [
     "causal_graph_longest_path": "5"
   },
   {
+    "name": "Autosomal Recessive Nonsyndromic Hearing Loss 102",
+    "disease_id": "MONDO:0014428",
+    "category": "Mendelian",
+    "parents": [
+      "Autosomal Recessive Nonsyndromic Hearing Loss"
+    ],
+    "creation_date": "2026-09-22T13:20:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "DFNB102 is isolated, profound, congenital sensorineural hearing loss caused by biallelic loss of EPS8, the epidermal growth factor receptor pathway substrate 8. It was defined in two siblings of consanguineous Algerian parents who carried a homozygous nonsense allele, p.Gln30*, found by exome sequencing after the common DFNB genes had been excluded. It is very rare: by 2023 only five pathogenic EPS8 variants had been described, in Algerian, Chinese and Iranian families among others, and one of those required copy-number analysis to resolve - an apparently homozygous splice variant turned out to be a splice allele in trans with a 65.9 kb intragenic deletion.\n**The disease alleles remove the part of the protein that does the work.** EPS8's barbed-end capping activity resides in its conserved carboxy-terminal effector domain, and structural work separates the two activities within it: bundling through a compact four-helix bundle contacting three actin subunits along the filament, capping through an amphipathic helix that inserts into the hydrophobic pocket at the barbed end and blocks monomer addition. Point mutations can dissociate the two. The DFNB102 alleles are truncating or deleting, so both are lost together - which is why this entry has no capping-versus-bundling distinction to make at the level of patients, only at the level of the protein.\n**EPS8 sets stereocilia length.** Each stereocilium in a hair bundle is a bundle of tightly packed, uniformly polarized actin filaments whose growth is regulated at the barbed ends, at the stereociliary tip. EPS8 has actin binding, bundling and barbed-end capping activities, localizes predominantly to the stereocilia tip, and is required for normal elongation. Eps8 knockout mice are profoundly deaf and have abnormally short hair bundle stereocilia. The link from allele to phenotype is therefore a structural one: the sensory antenna is built too short to detect physiological sound pressures.\n**There is a second, non-structural arm, and it is confined to inner hair cells.** In Eps8-null mice, inner and outer hair cells both have short stereocilia, but only inner hair cells additionally fail to acquire their mature basolateral ion channel complement, so they do not complete the transition into functional sensory receptors. That is a maturation defect rather than a bundle defect, and it is the reason this entry carries two parallel downstream arms from one molecular lesion rather than one.\n**Why it is non-syndromic has a mechanistic answer.** EPS8 is expressed in vestibular hair cells too, and those cells also have significantly shorter stereocilia in the null mouse - yet the mice show no vestibular deficit. The difference is that vestibular hair cells keep a normal pattern of basolateral voltage-dependent channels and can still respond to a stimulus, where inner hair cells lose the ability to synchronize their responses. So the restriction of the phenotype to hearing is not \"EPS8 is only needed in the cochlea\"; it is that the same bundle abnormality is functionally tolerated in one organ and not the other.\n**EPS8 is one node of a tip complex, not a solo actor.** It works with MYO15A, whirlin and GPSM2-Gai in a tip-complex density that has been reconstituted in vitro and behaves as a phase-separated condensate promoting actin bundling; MYO15A delivers EPS8 to the tip as cargo, and EPS8 in turn is required to localize BAIAP2L2 there. Several of those partners are themselves deafness genes, which is the argument for reading DFNB102 as one lesion in a shared machine.",
+    "pathophysiology": [
+      "EPS8 Loss of Function",
+      "Loss of the C-Terminal Effector Domain",
+      "Failure of Stereocilia Elongation",
+      "Arrested Functional Maturation of Inner Hair Cells",
+      "Compromised Detection of Physiological Sound Pressures",
+      "EPS8 as a Node of the Stereocilia Tip Complex"
+    ],
+    "cell_types": [
+      "cochlear inner and outer hair cell",
+      "cochlear inner hair cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000202",
+      "CL:0000589"
+    ],
+    "biological_processes": [
+      "barbed-end actin filament capping",
+      "actin filament bundle assembly",
+      "auditory receptor cell stereocilium organization",
+      "inner ear receptor cell differentiation",
+      "sensory perception of sound"
+    ],
+    "phenotypes": [
+      "Profound congenital sensorineural hearing impairment",
+      "Delayed speech and language development"
+    ],
+    "phenotype_categories": [
+      "Auditory",
+      "Neurologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Ear",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0011476",
+      "HP:0000750"
+    ],
+    "frequencies": [],
+    "genes": [
+      "EPS8"
+    ],
+    "treatments": [
+      "Cochlear implantation",
+      "Hearing aid trial",
+      "Auditory-verbal and speech-language therapy"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Autosomal_Recessive_Nonsyndromic_Hearing_Loss_102.yaml",
+    "page_url": "../pages/disorders/Autosomal_Recessive_Nonsyndromic_Hearing_Loss_102.html",
+    "num_phenotypes": 2,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Autosomal Recessive Nonsyndromic Hearing Loss 103",
     "disease_id": "MONDO:0014469",
     "category": "Mendelian",
@@ -205913,6 +205983,81 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Mitochondrial Complex I Deficiency, Nuclear Type 22",
+    "disease_id": "MONDO:0032626",
+    "category": "Mendelian",
+    "parents": [
+      "Mitochondrial Complex I Deficiency",
+      "Mitochondrial Disease"
+    ],
+    "creation_date": "2026-09-04T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Mitochondrial complex I deficiency nuclear type 22 (MC1DN22, OMIM 618243) is the isolated complex I deficiency caused by biallelic variants in NDUFA10. NDUFA10 is an accessory - \"supernumerary\" - subunit of the complex I membrane arm rather than one of the fourteen catalytic core subunits, and the only function described for it is stabilising the assembled holoenzyme. A patient with two defective NDUFA10 alleles therefore loses assembled complex I rather than losing catalysis by an otherwise intact enzyme, which is what was measured in the index case: decreased amount, decreased activity, and a disturbed assembly of the complex in fibroblasts.\nThe entity was defined in 2011 in one child with Leigh syndrome carrying compound-heterozygous NDUFA10 variants, one of which destroyed the start codon. A second child, homozygous, was reported in 2017, and the entity has since appeared in a Russian Leigh-syndrome cohort. In 2026 a targeted screen of complex I genes in patients with optic atrophy added three further NDUFA10 families - and with them a second, far milder pole of the phenotype: two siblings homozygous for p.(R337C) had *isolated* optic atrophy, while a previously published patient with the same amino-acid change had multisystem disease. That contrast, within one allele, is the most informative genotype-phenotype observation available for this gene, and it is a discordance rather than a gradient.\nThis entry curates one gene-defined disease whose reported range runs from infantile Leigh syndrome to isolated childhood optic atrophy. It does not treat the optic-atrophy families as a separate disorder: the pathology of Leigh syndrome includes the optic nerves, and the same subunit is lost in both poles.\nTwo further properties of NDUFA10 have been characterised in non-disease systems and are curated here as explicitly hypothetical rather than omitted, because they are the features that distinguish this subunit from other complex I accessory subunits. NDUFA10 carries a deoxyribonucleoside-kinase domain that binds the large majority of the mitochondrial dGTP pool, making it a candidate link between respiration and mitochondrial DNA maintenance; and in Pink1-null mouse tissue the loss of phosphorylation at NdufA10 serine-250 is what uncouples ubiquinone reduction from the rest of the complex. Neither has been examined in a patient with an NDUFA10 variant, and neither is asserted here as part of the disease mechanism.",
+    "pathophysiology": [
+      "Biallelic NDUFA10 Variant",
+      "Loss of the NDUFA10 Accessory Subunit",
+      "Impaired Complex I Assembly and Stability",
+      "Loss of the NDUFA10 dGTP Reservoir",
+      "Loss of Serine-250 Control of Ubiquinone Reduction",
+      "Reduced Complex I Amount and Activity",
+      "Brainstem and Basal Ganglia Neurodegeneration",
+      "Optic Nerve Degeneration"
+    ],
+    "cell_types": [],
+    "cell_type_ids": [],
+    "biological_processes": [
+      "mitochondrial respiratory chain complex I assembly",
+      "mitochondrial electron transport, NADH to ubiquinone"
+    ],
+    "phenotypes": [
+      "Decreased Activity of Mitochondrial Complex I",
+      "Leigh Syndrome",
+      "Optic Atrophy",
+      "Ataxia",
+      "Hypotonia",
+      "Developmental Regression",
+      "Cerebellar Atrophy"
+    ],
+    "phenotype_categories": [
+      "Metabolic",
+      "Neurological",
+      "Ophthalmological"
+    ],
+    "phenotype_hpo_categories": [
+      "Cellular",
+      "Eye",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0011923",
+      "HP:0000648",
+      "HP:0001251",
+      "HP:0001252",
+      "HP:0002376",
+      "HP:0001272"
+    ],
+    "frequencies": [],
+    "genes": [
+      "NDUFA10"
+    ],
+    "treatments": [],
+    "environmental": [],
+    "biochemical": [
+      "Complex I Enzyme Activity, Assembled Amount and Assembly Pattern"
+    ],
+    "source_file": "Mitochondrial_Complex_I_Deficiency_Nuclear_Type_22.yaml",
+    "page_url": "../pages/disorders/Mitochondrial_Complex_I_Deficiency,_Nuclear_Type_22.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 8,
+    "num_genes": 1,
+    "num_treatments": 0,
+    "causal_graph_edges": "16",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "Mitochondrial Complex I Deficiency Nuclear Type 23",
     "disease_id": "MONDO:0032627",
     "category": "Mendelian",
@@ -310336,6 +310481,80 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Usmani-Riazuddin Syndrome, Autosomal Recessive",
+    "disease_id": "MONDO:0859196",
+    "category": "Mendelian",
+    "parents": [
+      "Neurodevelopmental Disorder"
+    ],
+    "creation_date": "2026-09-22T13:30:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "The autosomal recessive AP1G1-related neurodevelopmental disorder (USRISR, OMIM 619548), caused by biallelic missense variants in AP1G1, which encodes the gamma-1 adaptin subunit of the heterotetrameric clathrin adaptor protein complex 1 (AP-1). It was delineated in the same 2021 series that defined the dominant form, in two families carrying p.Pro246His and p.Met369Val, with mild to severe intellectual disability, developmental delay and epilepsy.\n**The recessive missense proteins still build the complex.** This is the finding that separates this entry from its dominant sibling rather than merely restating the inheritance pattern. Functional study of the recessively inherited missense variants found no apparent impact on the interaction of AP1-gamma-1 with the other AP-1 subunits, and instead showed an effect on the endosome recycling pathway. So the lesion is not failure to assemble AP-1; it is an assembled complex that mis-handles cargo on the recycling arm.\nContrast the dominant form, whose reported allele classes include frameshift, splice-site and whole-gene deletion alongside missense, and where the disease can therefore be reached by simply having less gamma-1 adaptin. A pure haploinsufficiency route is not available to a recessive missense genotype: both copies encode a protein that is made and incorporated.\n**The zebrafish rescue is the functional argument that these alleles are pathogenic.** Knocking out ap1g1 in zebrafish is severely deleterious and lethal, and the phenotype is significantly rescued by wild-type AP1G1 mRNA but not by transcripts encoding the missense variants. That is a loss-of-function readout for alleles whose defect is not loss of complex assembly.\n**Whether this should be one disease with the dominant form is genuinely open**, and is recorded in `discussions` rather than settled here. The founding cohort delineated both forms in one series, and the follow-up literature describes the dominant and recessive forms as having overlapping clinical features. What keeps them apart in this knowledge base is that MONDO carries them as siblings with distinct OMIM numbers, and that the molecular lesions reported for each are different in kind.",
+    "pathophysiology": [
+      "Biallelic AP1G1 Missense Substitution",
+      "Assembled AP-1 Complex With Perturbed Endosome Recycling",
+      "Impaired Polarized Delivery of Somatodendritic Membrane Proteins",
+      "Disrupted Neurodevelopment"
+    ],
+    "cell_types": [
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "protein folding",
+      "endocytic recycling",
+      "intracellular protein transport"
+    ],
+    "phenotypes": [
+      "Intellectual disability",
+      "Global developmental delay",
+      "Seizure",
+      "Delayed speech and language development",
+      "Hypotonia",
+      "Spasticity",
+      "Aggressive behavior"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Behavioral"
+    ],
+    "phenotype_hpo_categories": [
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001249",
+      "HP:0001263",
+      "HP:0001250",
+      "HP:0000750",
+      "HP:0001252",
+      "HP:0001257",
+      "HP:0000718"
+    ],
+    "frequencies": [],
+    "genes": [
+      "AP1G1"
+    ],
+    "treatments": [
+      "Antiseizure medication",
+      "Developmental and rehabilitative therapy",
+      "Behavioural management"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Usmani-Riazuddin_Syndrome_Autosomal_Recessive.yaml",
+    "page_url": "../pages/disorders/Usmani-Riazuddin_Syndrome,_Autosomal_Recessive.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Uterine Leiomyoma",
     "disease_id": "MONDO:0007886",
     "category": "Complex",
@@ -322058,17 +322277,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3072,
+  "total_disorder_pages": 3075,
   "total_subtypes": 3836,
-  "total_disorders_and_subtypes": 6908,
-  "total_unique_evidence_sources": 44330,
-  "total_unique_publications": 41707,
+  "total_disorders_and_subtypes": 6911,
+  "total_unique_evidence_sources": 44351,
+  "total_unique_publications": 41725,
   "total_unique_disease_categories": 62,
   "total_unique_phenotype_categories": 283,
-  "total_pathographs": 3067,
-  "total_unique_pathological_events": 19125,
+  "total_pathographs": 3070,
+  "total_unique_pathological_events": 19140,
   "total_modules": 178,
-  "total_research_reports": 3176,
+  "total_research_reports": 3179,
   "total_classifications": 20,
   "total_comorbidities": 46,
   "total_groupings": 103
