@@ -20,10 +20,12 @@ import logging
 import re
 import time
 from functools import wraps
+from urllib.parse import urlsplit, urlunsplit
 
 from bs4 import BeautifulSoup
 from ruamel.yaml import YAML
 
+from linkml_reference_validator.etl.acquire import ContentAcquirer
 from dismech.doi_cache_case import is_doi_reference, resolve_doi_cache_path
 from dismech.frontmatter import contains_frontmatter_delimiter, split_frontmatter
 
@@ -380,6 +382,74 @@ def _wrap_html_extractor(original):
     return wrapper
 
 
+def _jstage_article_url_for_pdf(pdf_url: str) -> str | None:
+    """Return J-STAGE's article landing page URL for a direct PDF URL."""
+    parts = urlsplit(pdf_url)
+    if parts.netloc != "www.jstage.jst.go.jp":
+        return None
+    if not parts.path.endswith("/_pdf"):
+        return None
+    return urlunsplit(
+        (
+            parts.scheme,
+            parts.netloc,
+            f"{parts.path.removesuffix('/_pdf')}/_article",
+            "",
+            "",
+        )
+    )
+
+
+def _extract_jstage_citation_title(html: bytes) -> str | None:
+    """Extract the Highwire citation title J-STAGE exposes on article pages."""
+    soup = BeautifulSoup(html.decode("utf-8", errors="replace"), "html.parser")
+    meta = soup.find("meta", attrs={"name": "citation_title"})
+    if meta is None:
+        return None
+    title = (meta.get("content") or "").strip()
+    return title or None
+
+
+def _fetch_jstage_pdf_title(pdf_url: str, config) -> str | None:
+    """Fetch a J-STAGE PDF's sibling article page and recover its citation title."""
+    article_url = _jstage_article_url_for_pdf(pdf_url)
+    if article_url is None:
+        return None
+
+    try:
+        data, _content_type = ContentAcquirer().fetch_bytes(article_url, config)
+    except Exception as exc:  # external URL fetch boundary
+        logger.warning(
+            "Could not fetch J-STAGE article metadata for %s: %s: %s",
+            pdf_url,
+            type(exc).__name__,
+            exc,
+        )
+        return None
+    if data is None:
+        return None
+    return _extract_jstage_citation_title(data)
+
+
+def _wrap_jstage_pdf_title(original):
+    """Recover J-STAGE PDF titles from the sibling ``_article`` metadata page."""
+
+    @wraps(original)
+    def wrapper(self, identifier, config, *args, **kwargs):
+        content = original(self, identifier, config, *args, **kwargs)
+        if (
+            content is not None
+            and content.content_type == "full_text_pdf"
+            and content.title == identifier.strip()
+        ):
+            title = _fetch_jstage_pdf_title(identifier.strip(), config)
+            if title:
+                content.title = title
+        return content
+
+    return wrapper
+
+
 def _jats_tables_as_text(soup) -> str:
     """Render JATS ``<table-wrap>`` elements as pipe-delimited quotable rows.
 
@@ -627,6 +697,7 @@ def apply_patch():
         from linkml_reference_validator.etl.fulltext.pmc import PMCFullTextProvider
         from linkml_reference_validator.etl.reference_fetcher import ReferenceFetcher
         from linkml_reference_validator.etl.sources.pmid import PMIDSource
+        from linkml_reference_validator.etl.sources.url import URLSource
     except ImportError:
         logger.debug("linkml-reference-validator not installed, skipping patch")
         return
@@ -695,6 +766,11 @@ def apply_patch():
         HTMLExtractor.extract = _wrap_html_extractor(HTMLExtractor.extract)
         HTMLExtractor._paragraph_whitespace_patch_applied = True  # type: ignore[attr-defined]
         logger.debug("Applied source-whitespace preservation patch to HTMLExtractor")
+
+    if not getattr(URLSource, "_jstage_pdf_title_patch_applied", False):
+        URLSource.fetch = _wrap_jstage_pdf_title(URLSource.fetch)
+        URLSource._jstage_pdf_title_patch_applied = True  # type: ignore[attr-defined]
+        logger.debug("Applied J-STAGE PDF title metadata patch to URLSource")
 
     if not getattr(ReferenceFetcher, "_clinicaltrials_cache_patch_applied", False):
         original_get_cache_path = ReferenceFetcher.get_cache_path

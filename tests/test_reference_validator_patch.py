@@ -173,6 +173,76 @@ def test_multiline_metadata_patch_preserves_single_line_quoting(tmp_path):
     assert fetcher._quote_yaml_value('A "quoted" title') == '"A \\"quoted\\" title"'
 
 
+def test_jstage_pdf_title_patch_reads_sibling_article_metadata(monkeypatch):
+    """Direct J-STAGE PDF URLs should not be cached with the URL as title."""
+    from linkml_reference_validator.etl.sources.url import URLSource
+    from linkml_reference_validator.models import ReferenceContent
+
+    import dismech.patch_reference_validator as patch
+
+    seen_urls = []
+
+    class _Acquirer:
+        def fetch_bytes(self, url, _config):
+            seen_urls.append(url)
+            return (
+                b'<meta name="citation_title" content="Recovered J-STAGE Title" />',
+                "text/html",
+            )
+
+    def _fetch_pdf(self, identifier, _config):
+        return ReferenceContent(
+            reference_id=f"url:{identifier}",
+            title=identifier,
+            content="Extracted PDF body",
+            content_type="full_text_pdf",
+            full_text_url=identifier,
+        )
+
+    monkeypatch.setattr(patch, "ContentAcquirer", _Acquirer)
+
+    content = patch._wrap_jstage_pdf_title(_fetch_pdf)(
+        URLSource(),
+        "https://www.jstage.jst.go.jp/article/jhs/52/3/52_3_259/_pdf",
+        ReferenceValidationConfig(),
+    )
+
+    assert content.title == "Recovered J-STAGE Title"
+    assert seen_urls == [
+        "https://www.jstage.jst.go.jp/article/jhs/52/3/52_3_259/_article"
+    ]
+
+
+def test_jstage_pdf_title_patch_leaves_unrelated_pdf_titles_alone(monkeypatch):
+    """The J-STAGE title lookup must stay scoped to J-STAGE direct PDFs."""
+    from linkml_reference_validator.etl.sources.url import URLSource
+    from linkml_reference_validator.models import ReferenceContent
+
+    import dismech.patch_reference_validator as patch
+
+    def _fetch_pdf(self, identifier, _config):
+        return ReferenceContent(
+            reference_id=f"url:{identifier}",
+            title=identifier,
+            content="Extracted PDF body",
+            content_type="full_text_pdf",
+            full_text_url=identifier,
+        )
+
+    def _forbidden_acquirer():
+        raise AssertionError("non-J-STAGE PDFs should not fetch an article page")
+
+    monkeypatch.setattr(patch, "ContentAcquirer", _forbidden_acquirer)
+
+    content = patch._wrap_jstage_pdf_title(_fetch_pdf)(
+        URLSource(),
+        "https://example.org/paper.pdf",
+        ReferenceValidationConfig(),
+    )
+
+    assert content.title == "https://example.org/paper.pdf"
+
+
 def test_clinicaltrials_cache_path_uses_repo_lowercase_naming(tmp_path):
     import dismech.patch_reference_validator  # noqa: F401  # side-effect: applies the cache-path patch
 

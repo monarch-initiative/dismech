@@ -1,11 +1,11 @@
 ---
 reference_id: url:https://www.jstage.jst.go.jp/article/jhs/52/3/52_3_259/_pdf
-title: "https://www.jstage.jst.go.jp/article/jhs/52/3/52_3_259/_pdf"
+title: Biochemical Analysis of Elastic Fiber Formation with a Frameshift-Mutated Tropoelastin (fmTE) at the C-Terminus of Tropoelastin
 content_type: full_text_pdf
 full_text_url: "https://www.jstage.jst.go.jp/article/jhs/52/3/52_3_259/_pdf"
 ---
 
-# https://www.jstage.jst.go.jp/article/jhs/52/3/52_3_259/_pdf
+# Biochemical Analysis of Elastic Fiber Formation with a Frameshift-Mutated Tropoelastin (fmTE) at the C-Terminus of Tropoelastin
 
 ## Content
 
