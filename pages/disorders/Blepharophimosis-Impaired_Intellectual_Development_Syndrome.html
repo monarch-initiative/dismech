@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -292,6 +293,20 @@
         .badge-mondo {
             background: #e0f2fe;
             color: #0369a1;
+        }
+
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
         }
 
         .badge-mondo a {
@@ -830,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1508,6 +1550,21 @@
         .experiment-subitem-name {
             font-weight: 700;
             color: #334155;
+            margin-bottom: 4px;
+        }
+
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
             margin-bottom: 4px;
         }
 
@@ -2369,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2863,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2871,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2911,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2926,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3035,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3048,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3252,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3262,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3298,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3319,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3690,6 +3810,29 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3718,7 +3861,7 @@
             <span>Blepharophimosis-Impaired Intellectual Development Syndrome</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Blepharophimosis-Impaired Intellectual Development Syndrome</h1>
             <div class="header-meta">
 
@@ -4111,7 +4254,7 @@ BIS is a distinct entity from Nicolaides-Baraitser syndrome (NCBRS, OMIM 601358,
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-dominant-inheritance">
                 <div class="item-name">
                     Autosomal dominant inheritance
 
@@ -4157,7 +4300,10 @@ BIS is a distinct entity from Nicolaides-Baraitser syndrome (NCBRS, OMIM 601358,
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32694869" target="_blank">PMID:32694869</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4215,7 +4361,7 @@ BIS is a distinct entity from Nicolaides-Baraitser syndrome (NCBRS, OMIM 601358,
                 <div class="hypothesis-evidence-balance">
                     <span class="hypothesis-evidence-balance-label">Evidence balance</span>
 
-                    <span class="evidence-support support-PARTIAL">3 partial</span>
+                    <span class="evidence-support support-SUPPORT">3 support</span>
 
                 </div>
 
@@ -4237,13 +4383,16 @@ BIS is a distinct entity from Nicolaides-Baraitser syndrome (NCBRS, OMIM 601358,
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:22366787" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:22366787" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22366787" target="_blank">PMID:22366787</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4261,13 +4410,16 @@ SWI/SNF complex assembly but may be associated with disrupted ATPase activity."<
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:37500730" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:37500730" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37500730" target="_blank">PMID:37500730</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
@@ -4287,13 +4439,16 @@ ARID-armadillo repeat (ARM) module insertion site, the Arp..."</div>
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:32694869" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:32694869" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32694869" target="_blank">PMID:32694869</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4395,6 +4550,12 @@ ARID-armadillo repeat (ARM) module insertion site, the Arp..."</div>
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4411,6 +4572,12 @@ ARID-armadillo repeat (ARM) module insertion site, the Arp..."</div>
         </div>
 
         <div class="item-desc" style="margin-top: 8px;">Perform ChIP-seq/CUT&amp;RUN for BAF subunits in isogenic cell lines carrying BIS-class versus NCBRS-class SMARCA2 variants to test whether the BIS lesion alters genomic targeting rather than catalytic activity.</div>
+
+
+
+
+
+
 
 
 
@@ -4463,6 +4630,12 @@ ARID-armadillo repeat (ARM) module insertion site, the Arp..."</div>
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4480,13 +4653,16 @@ ARID-armadillo repeat (ARM) module insertion site, the Arp..."</div>
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:32694869" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:32694869" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32694869" target="_blank">PMID:32694869</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4562,6 +4738,12 @@ ARID-armadillo repeat (ARM) module insertion site, the Arp..."</div>
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4578,6 +4760,12 @@ ARID-armadillo repeat (ARM) module insertion site, the Arp..."</div>
         </div>
 
         <div class="item-desc" style="margin-top: 8px;">Systematically assess visual axis obstruction, amblyopia risk, and surgical need in the blepharophimosis of BIS, to determine whether the eyelid surgery pathway used in other blepharophimosis syndromes applies here.</div>
+
+
+
+
+
+
 
 
 
@@ -4613,13 +4801,16 @@ ARID-armadillo repeat (ARM) module insertion site, the Arp..."</div>
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38884529" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:38884529" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38884529" target="_blank">PMID:38884529</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4709,6 +4900,12 @@ ARID-armadillo repeat (ARM) module insertion site, the Arp..."</div>
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4725,6 +4922,12 @@ ARID-armadillo repeat (ARM) module insertion site, the Arp..."</div>
         </div>
 
         <div class="item-desc" style="margin-top: 8px;">Determine whether SMARCA4/BRG1 upregulation can compensate for a BIS-class SMARCA2 allele as it does for a null allele, or whether the mutant BRM protein blocks compensation by occupying the complex.</div>
+
+
+
+
+
+
 
 
 
@@ -4766,7 +4969,10 @@ ARID-armadillo repeat (ARM) module insertion site, the Arp..."</div>
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9843504" target="_blank">PMID:9843504</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4806,6 +5012,7 @@ SWI-SNF complexes of mutant cells."</div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-non-helicase-domain-smarca2-variants-perturb-the-baf-chromatin-remodeling-complex" data-dismech-node="Non-Helicase-Domain SMARCA2 Variants Perturb the BAF Chromatin Remodeling Complex" data-dismech-type="pathophysiology">
                 <div class="item-name">Non-Helicase-Domain SMARCA2 Variants Perturb the BAF Chromatin Remodeling Complex</div>
+
 
                 <div class="item-desc">SMARCA2 (BRM) encodes a catalytic ATPase subunit of the BAF (SWI/SNF) chromatin remodeling complex, which uses ATP hydrolysis to reposition nucleosomes and thereby control transcription. BIS-causing variants cluster outside the helicase (ATPase) domains, a positionally distinct class from the helicase-domain variants that cause Nicolaides-Baraitser syndrome. Yeast growth-phenotype assays separate the two variant classes functionally, indicating that BIS variants do not simply reproduce the NCBRS lesion. The precise biochemical consequence of the BIS variant class (for example, altered subunit assembly, altered targeting, or altered non-catalytic regulatory function rather than loss of ATPase activity) has not been resolved.
 </div>
@@ -4960,7 +5167,10 @@ This pathophysiological event involves BAF (SWI/SNF) complex, annotated with SWI
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38884529" target="_blank">PMID:38884529</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4983,7 +5193,10 @@ This pathophysiological event involves BAF (SWI/SNF) complex, annotated with SWI
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32694869" target="_blank">PMID:32694869</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5006,7 +5219,10 @@ This pathophysiological event involves BAF (SWI/SNF) complex, annotated with SWI
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37500730" target="_blank">PMID:37500730</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
@@ -5035,6 +5251,7 @@ cause NCBRS, SMARCA2 mutations outside of this domain are"</div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-altered-transcriptional-and-dna-methylation-programs" data-dismech-node="Altered Transcriptional and DNA Methylation Programs" data-dismech-type="pathophysiology">
                 <div class="item-name">Altered Transcriptional and DNA Methylation Programs</div>
+
 
                 <div class="item-desc">Cells from individuals with BIS carry a reproducible, disease-specific transcriptomic profile and a genome-wide DNA methylation episignature that is detectable in peripheral blood leukocytes and that distinguishes BIS from NCBRS. Notably, the BIS episignature is shared with class II Helsmoortel-Van der Aa syndrome (truncating ADNP variants), consistent with known molecular interaction between ADNP and the BAF complex and with the overlapping narrow-palpebral-fissure craniofacial phenotype of the two conditions. This is the first reported instance of a phenotype-specific rather than gene-specific episignature.
 </div>
@@ -5122,7 +5339,10 @@ This pathophysiological event involves abnormal regulation of transcription by R
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38884529" target="_blank">PMID:38884529</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5145,7 +5365,10 @@ This pathophysiological event involves abnormal regulation of transcription by R
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38884529" target="_blank">PMID:38884529</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5162,13 +5385,16 @@ This pathophysiological event involves abnormal regulation of transcription by R
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38751117" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:38751117" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38751117" target="_blank">PMID:38751117</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5196,6 +5422,7 @@ proteins (SMARCA2 M856V and SMARCA4 M866V)"</div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-baf-subunit-switching-in-neural-development" data-dismech-node="BAF Subunit Switching in Neural Development" data-dismech-type="pathophysiology">
                 <div class="item-name">BAF Subunit Switching in Neural Development</div>
+
 
                 <div class="item-desc">The route from a BAF-complex lesion to a neurodevelopmental phenotype runs through the developmentally regulated subunit composition of neural BAF complexes. SMARCA2 (Brm) is one of the two ATPases found in the neural-progenitor BAF (npBAF) complex, and an obligatory switch in the accessory subunits of these complexes accompanies — and is required for — the transition from proliferating neural progenitors to postmitotic neurons. A SMARCA2 lesion therefore acts on a complex whose correct composition and activity are rate-limiting for neuronal differentiation.
 </div>
@@ -5332,13 +5559,16 @@ This pathophysiological event involves npBAF complex (GO:0071564). GO:0071564 is
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:17640523" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:17640523" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17640523" target="_blank">PMID:17640523</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5356,13 +5586,16 @@ SWI2/SNF2-like ATPases, Brg and Brm."</div>
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:17640523" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:17640523" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17640523" target="_blank">PMID:17640523</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5390,6 +5623,7 @@ stem/progenitors to postmitotic neurons."</div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-abnormal-craniofacial-and-neurodevelopmental-patterning" data-dismech-node="Abnormal Craniofacial and Neurodevelopmental Patterning" data-dismech-type="pathophysiology">
                 <div class="item-name">Abnormal Craniofacial and Neurodevelopmental Patterning</div>
+
 
                 <div class="item-desc">The downstream clinical expression of the altered BAF-dependent transcriptional program is a recognizable, reproducible combination of periocular and midfacial dysmorphism (blepharophimosis, epicanthal folds, downturned nasal tip) with global developmental delay and intellectual disability of variable severity. The specific developmental programs and cell populations that translate BAF dysfunction into this particular facial gestalt have not been identified.
 </div>
@@ -5462,7 +5696,10 @@ This pathophysiological event involves abnormal nervous system development (GO:0
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32694869" target="_blank">PMID:32694869</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5530,11 +5767,9 @@ This pathophysiological event involves abnormal nervous system development (GO:0
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Head and Neck<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Head and Neck<span class="pill-count">(4)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Nervous System<span class="pill-count">(2)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Other<span class="pill-count">(3)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5544,8 +5779,112 @@ This pathophysiological event involves abnormal nervous system development (GO:0
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">4</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-blepharophimosis" data-dismech-node="Blepharophimosis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Blepharophimosis
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000581" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0000581</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Blepharophimosis (HP:0000581). HP:0000581 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">Frequency band basis: blepharophimosis is definitional for the entity — both the founding delineation and the subsequent series describe BIS as presenting with blepharophimosis, and it is listed among the recurrent features of the recognizable phenotype. The HPO annotation of OMIM:619293 records blepharophimosis in 14/14 of the Cappuccio cohort, but that count is taken from the paper&#39;s full-text table (the article is not open access), so it cannot be quoted as a snippet here and is recorded only as provenance.
+</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32694869" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32694869" target="_blank">PMID:32694869</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"recurrent features including epicanthal folds, blepharophimosis, and downturned nasal tip"</div>
+
+
+                <div class="evidence-explanation">Blepharophimosis is named as one of the three recurrent facial features of the recognizable BIS phenotype.
+</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38884529" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38884529" target="_blank">PMID:38884529</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"presents with distinct facial features of blepharophimosis, developmental delay, and intellectual disability"</div>
+
+
+                <div class="evidence-explanation">Independent statement that blepharophimosis is part of the defining presentation of BIS.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-epicanthus" data-dismech-node="Epicanthus" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -5561,15 +5900,18 @@ This pathophysiological event involves abnormal nervous system development (GO:0
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000286" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0000286</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000286" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0000286</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Epicanthal folds, annotated with Epicanthus (HP:0000286). HP:0000286 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5587,7 +5929,10 @@ This clinical feature is Epicanthal folds, annotated with Epicanthus (HP:0000286
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32694869" target="_blank">PMID:32694869</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5598,6 +5943,158 @@ This clinical feature is Epicanthal folds, annotated with Epicanthus (HP:0000286
 
 
                 <div class="evidence-explanation">Epicanthal folds are explicitly listed as a recurrent BIS feature.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-nasal-tip-morphology" data-dismech-node="Abnormal nasal tip morphology" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Abnormal nasal tip morphology
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000436" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0000436</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Downturned nasal tip, annotated with Abnormal nasal tip morphology (HP:0000436). HP:0000436 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">Term-binding note: HPO was searched for a &#34;downturned nasal tip&#34; term (both via OAK and the HPO term-search API); no such term or synonym exists. HP:0000437 Depressed nasal tip is a different concept (decreased distance from nasal tip to nasal base), so the more general HP:0000436 was chosen rather than a semantically wrong specific term.
+</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32694869" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32694869" target="_blank">PMID:32694869</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"recurrent features including epicanthal folds, blepharophimosis, and downturned nasal tip"</div>
+
+
+                <div class="evidence-explanation">A downturned nasal tip is explicitly listed as a recurrent feature of the recognizable BIS phenotype.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-narrow-palpebral-fissure" data-dismech-node="Narrow palpebral fissure" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Narrow palpebral fissure
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0045025" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0045025</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Narrow palpebral fissure (HP:0045025). HP:0045025 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">Near-duplicate relationship with the Blepharophimosis entry above, recorded explicitly so downstream consumers do not double-count. HP:0000581 Blepharophimosis and HP:0045025 Narrow palpebral fissure are siblings under HP:0200007 Abnormal size of the palpebral fissures, and their definitions differ only in scope: HP:0045025 is reduction in the vertical eyelid distance alone, whereas HP:0000581 adds the short (horizontally reduced) fissure and the &#34;fixed&#34; qualifier. Both are retained here deliberately, for two reasons. First, the HPO annotation of OMIM:619293 itself carries both terms at different counts, blepharophimosis 14/14 and narrow palpebral fissure 10/14, both sourced to PMID:32694869 (checked against the HPO annotation API on 2026-08-01), so collapsing them would discard a distinction the source annotation makes. Second, HP:0045025 is the term that carries the BIS-versus-HVDAS shared-craniofacial-feature evidence from PMID:38884529, which is the observation that motivated the shared-episignature study; that argument is about the shared narrowing specifically, not about the full BIS facial gestalt. A consumer computing feature counts should treat HP:0045025 here as subsumed by HP:0000581 rather than as an additional independent feature.
+</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38884529" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38884529" target="_blank">PMID:38884529</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"an overlapping craniofacial phenotype with narrowing of the palpebral fissures in a subset of patients with HVDAS and BIS"</div>
+
+
+                <div class="evidence-explanation">Directly documents narrowing of the palpebral fissures in patients with BIS.
+</div>
 
 
 
@@ -5638,15 +6135,18 @@ This clinical feature is Epicanthal folds, annotated with Epicanthus (HP:0000286
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0001249</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001249</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Frequency band basis: intellectual disability is part of the definitional description of BIS in both published series. The HPO annotation of OMIM:619293 records intellectual disability in 14/14 of the Cappuccio cohort, but that count comes from the paper&#39;s full-text table rather than the quotable abstract and is recorded here only as provenance.
@@ -5667,7 +6167,10 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32694869" target="_blank">PMID:32694869</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5690,7 +6193,10 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38884529" target="_blank">PMID:38884529</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5732,15 +6238,18 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001263</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Frequency band basis: developmental delay is named in the definitional description of BIS. The HPO annotation of OMIM:619293 records global developmental delay in 14/14 of the Cappuccio cohort; that count is from the paper&#39;s full-text table, not the quotable abstract, and is given here as provenance only.
@@ -5761,7 +6270,10 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38884529" target="_blank">PMID:38884529</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5772,250 +6284,6 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                 <div class="evidence-explanation">Developmental delay is named as a defining presenting feature of BIS.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-3">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">3</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-blepharophimosis" data-dismech-node="Blepharophimosis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Blepharophimosis
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000581" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0000581</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Blepharophimosis (HP:0000581). HP:0000581 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">Frequency band basis: blepharophimosis is definitional for the entity — both the founding delineation and the subsequent series describe BIS as presenting with blepharophimosis, and it is listed among the recurrent features of the recognizable phenotype. The HPO annotation of OMIM:619293 records blepharophimosis in 14/14 of the Cappuccio cohort, but that count is taken from the paper&#39;s full-text table (the article is not open access), so it cannot be quoted as a snippet here and is recorded only as provenance.
-</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:32694869" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32694869" target="_blank">PMID:32694869</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"recurrent features including epicanthal folds, blepharophimosis, and downturned nasal tip"</div>
-
-
-                <div class="evidence-explanation">Blepharophimosis is named as one of the three recurrent facial features of the recognizable BIS phenotype.
-</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:38884529" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38884529" target="_blank">PMID:38884529</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"presents with distinct facial features of blepharophimosis, developmental delay, and intellectual disability"</div>
-
-
-                <div class="evidence-explanation">Independent statement that blepharophimosis is part of the defining presentation of BIS.
-</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-nasal-tip-morphology" data-dismech-node="Abnormal nasal tip morphology" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Abnormal nasal tip morphology
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000436" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0000436</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Downturned nasal tip, annotated with Abnormal nasal tip morphology (HP:0000436). HP:0000436 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">Term-binding note: HPO was searched for a &#34;downturned nasal tip&#34; term (both via OAK and the HPO term-search API); no such term or synonym exists. HP:0000437 Depressed nasal tip is a different concept (decreased distance from nasal tip to nasal base), so the more general HP:0000436 was chosen rather than a semantically wrong specific term.
-</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:32694869" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32694869" target="_blank">PMID:32694869</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"recurrent features including epicanthal folds, blepharophimosis, and downturned nasal tip"</div>
-
-
-                <div class="evidence-explanation">A downturned nasal tip is explicitly listed as a recurrent feature of the recognizable BIS phenotype.
-</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-narrow-palpebral-fissure" data-dismech-node="Narrow palpebral fissure" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Narrow palpebral fissure
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0045025" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0045025</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Narrow palpebral fissure (HP:0045025). HP:0045025 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">Near-duplicate relationship with the Blepharophimosis entry above, recorded explicitly so downstream consumers do not double-count. HP:0000581 Blepharophimosis and HP:0045025 Narrow palpebral fissure are siblings under HP:0200007 Abnormal size of the palpebral fissures, and their definitions differ only in scope: HP:0045025 is reduction in the vertical eyelid distance alone, whereas HP:0000581 adds the short (horizontally reduced) fissure and the &#34;fixed&#34; qualifier. Both are retained here deliberately, for two reasons. First, the HPO annotation of OMIM:619293 itself carries both terms at different counts, blepharophimosis 14/14 and narrow palpebral fissure 10/14, both sourced to PMID:32694869 (checked against the HPO annotation API on 2026-08-01), so collapsing them would discard a distinction the source annotation makes. Second, HP:0045025 is the term that carries the BIS-versus-HVDAS shared-craniofacial-feature evidence from PMID:38884529, which is the observation that motivated the shared-episignature study; that argument is about the shared narrowing specifically, not about the full BIS facial gestalt. A consumer computing feature counts should treat HP:0045025 here as subsumed by HP:0000581 rather than as an additional independent feature.
-</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:38884529" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38884529" target="_blank">PMID:38884529</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"an overlapping craniofacial phenotype with narrowing of the palpebral fissures in a subset of patients with HVDAS and BIS"</div>
-
-
-                <div class="evidence-explanation">Directly documents narrowing of the palpebral fissures in patients with BIS.
-</div>
 
 
 
@@ -6101,6 +6369,9 @@ This disease-associated gene is SMARCA2 (hgnc:11098). hgnc:11098 is a gene from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -6113,7 +6384,10 @@ This disease-associated gene is SMARCA2 (hgnc:11098). hgnc:11098 is a gene from 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32694869" target="_blank">PMID:32694869</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6136,7 +6410,10 @@ This disease-associated gene is SMARCA2 (hgnc:11098). hgnc:11098 is a gene from 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32694869" target="_blank">PMID:32694869</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6159,7 +6436,10 @@ This disease-associated gene is SMARCA2 (hgnc:11098). hgnc:11098 is a gene from 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38884529" target="_blank">PMID:38884529</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6187,6 +6467,9 @@ This disease-associated gene is SMARCA2 (hgnc:11098). hgnc:11098 is a gene from 
 
 
         <!-- Variants recorded at the disease level -->
+
+
+        <!-- Registry / external-database assertions recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -6241,6 +6524,20 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Counseling for an autosomal dominant condition in which all reported causal SMARCA2 variants have arisen de novo. Recurrence risk for siblings of a proband is correspondingly low, with the standard caveat that parental germline mosaicism cannot be excluded. Counseling should also cover the distinction from Nicolaides-Baraitser syndrome, since families may encounter NCBRS material when researching &#34;SMARCA2&#34;.
 </div>
 
@@ -6255,13 +6552,16 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:32694869" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:32694869" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32694869" target="_blank">PMID:32694869</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6294,6 +6594,329 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
         <!-- Biochemical Markers -->
 
 
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-molecular-genetic-testing-for-a-de-novo-non-helicase-domain-smarca2-variant">
+                <div class="item-name">
+                    Molecular genetic testing for a de novo non-helicase-domain SMARCA2 variant
+
+                </div>
+
+                <div class="item-desc">The diagnosis is established by identification of a heterozygous de novo SMARCA2 variant lying outside the helicase domains, in an individual with the BIS facial gestalt (blepharophimosis, epicanthal folds, downturned nasal tip) and developmental delay/intellectual disability. In the founding cohort the variants were found by next-generation (exome/genome) sequencing. Variant position within SMARCA2 is itself diagnostically informative because it separates BIS from Nicolaides-Baraitser syndrome.
+</div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32694869" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32694869" target="_blank">PMID:32694869</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"By next-generation sequencing, we identified candidate variants in SMARCA2 in 20 individuals from 18 families"</div>
+
+
+                <div class="evidence-explanation">Next-generation sequencing was the route by which the causal SMARCA2 variants were identified in the founding BIS cohort.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-dna-methylation-episignature-testing">
+                <div class="item-name">
+                    DNA methylation episignature testing
+
+                </div>
+
+                <div class="item-desc">Genome-wide DNA methylation profiling of blood leukocytes yields a reproducible BIS episignature that separates BIS from Nicolaides-Baraitser syndrome and from SMARCA2-variant carriers with nonspecific phenotypes, and can therefore be used to resolve SMARCA2 variants of uncertain significance. Note an important interpretive caveat: the BIS episignature is NOT unique to SMARCA2 — it is shared with class II Helsmoortel-Van der Aa syndrome caused by truncating ADNP variants, so a positive episignature must be read together with the sequencing result.
+</div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32694869" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32694869" target="_blank">PMID:32694869</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Transcriptomic and DNA methylation signatures differentiated NCBRS from BIS and those with nonspecific phenotype."</div>
+
+
+                <div class="evidence-explanation">Establishes that methylation (and transcriptomic) profiling discriminates BIS from NCBRS and from unclassified SMARCA2-variant carriers.
+</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38884529" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38884529" target="_blank">PMID:38884529</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A distinct episignature was shared by 15 individuals with BIS-causing SMARCA2 pathogenic variants and 12 individuals with class II HVDAS caused by truncating pathogenic ADNP variants."</div>
+
+
+                <div class="evidence-explanation">Supports the caveat rather than the assay&#39;s specificity: the BIS episignature is reproducible across 15 BIS individuals but is shared with ADNP-related class II HVDAS, so it is phenotype-specific rather than gene-specific. Recorded as PARTIAL because it qualifies, rather than simply endorses, the diagnostic claim.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-yeast-functional-assay-for-smarca2-variant-stratification">
+                <div class="item-name">
+                    Yeast functional assay for SMARCA2 variant stratification
+
+                </div>
+
+                <div class="item-desc">Heterologous expression of SMARCA2 variants in yeast produced growth phenotypes that separated NCBRS-causing from non-NCBRS SMARCA2 variants, providing an orthogonal functional readout used to stratify variant interpretation. This is a research assay, not a clinical test.
+</div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32694869" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32694869" target="_blank">PMID:32694869</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Yeast phenotype assays differentiated NCBRS from non-NCBRS SMARCA2 variants."</div>
+
+
+                <div class="evidence-explanation">Documents the yeast assay and exactly what it discriminates. Classified IN_VITRO because the readout is a heterologous yeast growth assay, not a human clinical observation.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-worldwide">
+                <div class="item-name">Worldwide</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Cases In Literature</span>
+
+
+
+                    <span class="tag">Ultra Rare</span>
+
+                </div>
+
+                <div class="item-notes">Ultra-rare and only recently delineated (2020). The founding report described 14 individuals meeting the BIS phenotype out of 20 SMARCA2-variant carriers ascertained from 18 families; a later episignature study analysed 15 individuals with BIS-causing SMARCA2 variants, drawn from a partly overlapping international referral network. The two counts are therefore NOT additive and no denominator-based population estimate exists. No population-based incidence or prevalence figure has been published.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32694869" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32694869" target="_blank">PMID:32694869</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Of 20 individuals, 14 showed a recognizable phenotype with recurrent features including epicanthal folds, blepharophimosis, and downturned nasal tip along with variable degree of intellectual disability (or blepharophimosis intellectual disability syndrome [BIS])."</div>
+
+
+                <div class="evidence-explanation">Documents the size of the founding BIS case series (14 individuals) at disease delineation, supporting a cases-in-literature measure rather than a population rate.
+</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38884529" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38884529" target="_blank">PMID:38884529</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A distinct episignature was shared by 15 individuals with BIS-causing SMARCA2 pathogenic variants"</div>
+
+
+                <div class="evidence-explanation">The largest subsequent BIS series comprised 15 individuals, confirming that the total reported population remains in the tens.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
         <div class="card" id="differentials">
@@ -6308,7 +6931,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-nicolaides-baraitser-syndrome">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Nicolaides-Baraitser_Syndrome.html">Nicolaides-Baraitser syndrome</a>
@@ -6366,7 +6989,10 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32694869" target="_blank">PMID:32694869</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6389,7 +7015,10 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32694869" target="_blank">PMID:32694869</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6412,7 +7041,10 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38884529" target="_blank">PMID:38884529</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6440,7 +7072,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-helsmoortel-van-der-aa-syndrome-adnp-syndrome-class-ii">
                 <div class="item-name">
 
                     <a class="item-name-link" href="ADNP-Related_Syndrome.html">Helsmoortel-Van der Aa syndrome (ADNP syndrome), class II</a>
@@ -6490,7 +7122,10 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38884529" target="_blank">PMID:38884529</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6513,7 +7148,10 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38884529" target="_blank">PMID:38884529</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6538,7 +7176,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-smarca2-variant-carriers-with-a-nonspecific-dysmorphic-phenotype">
                 <div class="item-name">
 
                     SMARCA2-variant carriers with a nonspecific dysmorphic phenotype
@@ -6582,7 +7220,10 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32694869" target="_blank">PMID:32694869</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6739,7 +7380,10 @@ This experimental model concerns SMARCA2 (hgnc:11098). hgnc:11098 is a gene from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9843504" target="_blank">PMID:9843504</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -6764,7 +7408,10 @@ SWI-SNF complexes of mutant cells."</div>
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9843504" target="_blank">PMID:9843504</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7016,7 +7663,7 @@ diagnosis:
       BIS from NCBRS and from unclassified SMARCA2-variant carriers.
   - reference: PMID:38884529
     reference_title: &#34;Blepharophimosis with intellectual disability and Helsmoortel-Van Der Aa Syndrome share episignature and phenotype.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;A distinct episignature was shared by 15 individuals with BIS-causing SMARCA2 pathogenic variants and 12 individuals with class II HVDAS caused by truncating pathogenic ADNP variants.&#34;
     explanation: &gt;
@@ -7097,7 +7744,7 @@ pathophysiology:
     evidence:
     - reference: PMID:17640523
       reference_title: &#34;An essential switch in subunit composition of a chromatin remodeling complex during neural development.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: IN_VITRO
       snippet: &#34;are quantitatively associated with the \nSWI2/SNF2-like ATPases, Brg and Brm.&#34;
       explanation: &gt;
@@ -7138,7 +7785,7 @@ pathophysiology:
       variant-aggregation analysis, not a wet-lab assay of BIS alleles.
   - reference: PMID:37500730
     reference_title: &#34;Landscape of mSWI/SNF chromatin remodeling complex perturbations in neurodevelopmental disorders.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: COMPUTATIONAL
     snippet: &#34;Non-truncating NDD-associated protein variants predominantly disrupt \nthe cBAF subcomplex and cluster in four key structural regions associated with \nhigh disease severity, including mSWI/SNF-nucleosome interfaces, the ATPase-core \nARID-armadillo repeat (ARM) module insertion site, the Arp module and \nDNA-binding domains.&#34;
     explanation: &gt;
@@ -7187,7 +7834,7 @@ pathophysiology:
     evidence:
     - reference: PMID:38884529
       reference_title: &#34;Blepharophimosis with intellectual disability and Helsmoortel-Van Der Aa Syndrome share episignature and phenotype.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;an overlapping craniofacial phenotype with narrowing of the palpebral fissures in a subset of patients with HVDAS and BIS&#34;
       explanation: &gt;
@@ -7215,7 +7862,7 @@ pathophysiology:
       ADNP disorder converge on the same methylation program.
   - reference: PMID:38751117
     reference_title: &#34;DNA methylation analysis in patients with neurodevelopmental disorders improves variant interpretation and reveals complexity.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;common \nepisignatures affecting homologous residues in highly conserved paralogous \nproteins (SMARCA2 M856V and SMARCA4 M866V)&#34;
     explanation: &gt;
@@ -7265,7 +7912,7 @@ pathophysiology:
   evidence:
   - reference: PMID:17640523
     reference_title: &#34;An essential switch in subunit composition of a chromatin remodeling complex during neural development.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &#34;are quantitatively associated with the \nSWI2/SNF2-like ATPases, Brg and Brm.&#34;
     explanation: &gt;
@@ -7276,7 +7923,7 @@ pathophysiology:
       cell complexes.
   - reference: PMID:17640523
     reference_title: &#34;An essential switch in subunit composition of a chromatin remodeling complex during neural development.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &#34;Preventing the subunit switch impairs neuronal differentiation, \nindicating that this molecular event is essential for the transition from neural \nstem/progenitors to postmitotic neurons.&#34;
     explanation: &gt;
@@ -7296,7 +7943,7 @@ pathophysiology:
     evidence:
     - reference: PMID:17640523
       reference_title: &#34;An essential switch in subunit composition of a chromatin remodeling complex during neural development.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: IN_VITRO
       snippet: &#34;Preventing the subunit switch impairs neuronal differentiation, \nindicating that this molecular event is essential for the transition from neural \nstem/progenitors to postmitotic neurons.&#34;
       explanation: &gt;
@@ -7642,7 +8289,7 @@ treatments:
   evidence:
   - reference: PMID:32694869
     reference_title: &#34;De novo SMARCA2 variants clustered outside the helicase domain cause a new recognizable syndrome with intellectual disability and blepharophimosis distinct from Nicolaides-Baraitser syndrome.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;clustered de novo SMARCA2 variants outside the helicase domains&#34;
     explanation: &gt;
@@ -7727,7 +8374,7 @@ mechanistic_hypotheses:
   evidence:
   - reference: PMID:22366787
     reference_title: &#34;Heterozygous missense mutations in SMARCA2 cause Nicolaides-Baraitser syndrome.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;These alterations likely do not impair \nSWI/SNF complex assembly but may be associated with disrupted ATPase activity.&#34;
     explanation: &gt;
@@ -7736,7 +8383,7 @@ mechanistic_hypotheses:
       — hence PARTIAL.
   - reference: PMID:37500730
     reference_title: &#34;Landscape of mSWI/SNF chromatin remodeling complex perturbations in neurodevelopmental disorders.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: COMPUTATIONAL
     snippet: &#34;Non-truncating NDD-associated protein variants predominantly disrupt \nthe cBAF subcomplex and cluster in four key structural regions associated with \nhigh disease severity, including mSWI/SNF-nucleosome interfaces, the ATPase-core \nARID-armadillo repeat (ARM) module insertion site, the Arp module and \nDNA-binding domains.&#34;
     explanation: &gt;
@@ -7745,7 +8392,7 @@ mechanistic_hypotheses:
       structural analysis across the complex, not a demonstration for BIS alleles.
   - reference: PMID:32694869
     reference_title: &#34;De novo SMARCA2 variants clustered outside the helicase domain cause a new recognizable syndrome with intellectual disability and blepharophimosis distinct from Nicolaides-Baraitser syndrome.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &#34;Yeast phenotype assays differentiated NCBRS from non-NCBRS SMARCA2 variants.&#34;
     explanation: &gt;
@@ -7791,7 +8438,7 @@ discussions:
   evidence:
   - reference: PMID:32694869
     reference_title: &#34;De novo SMARCA2 variants clustered outside the helicase domain cause a new recognizable syndrome with intellectual disability and blepharophimosis distinct from Nicolaides-Baraitser syndrome.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &#34;Yeast phenotype assays differentiated NCBRS from non-NCBRS SMARCA2 variants.&#34;
     explanation: &gt;
@@ -7830,7 +8477,7 @@ discussions:
   evidence:
   - reference: PMID:38884529
     reference_title: &#34;Blepharophimosis with intellectual disability and Helsmoortel-Van Der Aa Syndrome share episignature and phenotype.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Blepharophimosis with intellectual disability (BIS) is a recently recognized disorder&#34;
     explanation: &gt;
@@ -8127,6 +8774,67 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (3)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">NEC (named entity confusion) guardrail for future curators: SMARCA2 causes TWO distinct disorders. This entry is BIS (OMIM:619293, MONDO:0859139). The other is Nicolaides-Baraitser syndrome (OMIM:601358, MONDO:0011053 — MONDO labels it &#34;intellectual disability-sparse hair-brachydactyly syndrome&#34;), which accounts for the large majority of published SMARCA2 clinical literature. Before adding any SMARCA2 evidence to this file, confirm the individuals described are BIS and not NCBRS.
+Worked NEC exclusions from this curation round — these SMARCA2 papers were read and deliberately NOT used as BIS evidence: PMID:40513420 (Seizure 2025, genotype-phenotype in epilepsy patients with SMARCA2 variants) reports that 77.3 percent of variants across its combined cohort lie in the SNF2-ATPase domain, i.e. the NCBRS allele class, so its epilepsy and antiseizure-medication data describe NCBRS-type disease, not BIS. PMID:38877377 (Prenat Diagn 2024, caudal regression with a de novo SMARCA2 variant) is framed within the NCBRS spectrum. PMID:42528014, PMID:34906496, PMID:34706719 and PMID:38751117 are multi-gene BAFopathy or chromatin-remodeling cohort papers whose abstracts do not state which SMARCA2 disorder their patients have. (PMID:38751117 is cited once, but only for a residue-level paralog observation, with the BIS attribution flagged as inference — see the episignature pathophysiology node.) PMID:26468571 is the GeneReviews chapter for NCBRS and is not applicable here.
+Two general-biology papers that are NOT about BIS are cited on purpose, each clearly scoped: PMID:17640523 (npBAF/nBAF subunit switching in mouse neural progenitors) and PMID:9843504 (Brm-null mouse). Their evidence items are PARTIAL or explicitly labelled as background/model-mismatch, never as BIS clinical data. PMID:37500730 is a pan-mSWI/SNF structural analysis that does contain an explicit BIS-versus-NCBRS statement, quoted directly.
+Evidence-base limitation: both primary BIS papers are paywalled and are not in PMC or Europe PMC, so only their abstracts are cached and quotable. This caps the phenotype detail that can be evidenced here. The HPO annotation of OMIM:619293 (all sourced to PMID:32694869) records a much richer feature list with n/N counts drawn from the paper&#39;s full-text tables — including hypotonia, thin upper lip vermilion, sparse eyebrows and eyelashes, wide nasal bridge, tapered fingers, hypertelorism, frontal bossing, and flexion contractures — none of which can be quoted verbatim from the abstracts. Those features are deliberately NOT curated as phenotype entries rather than being asserted without evidence; they are the obvious enrichment target if full text becomes available.
+Orphanet (ORPHA:637013) also indexes this disorder and would supply frequency-banded HPO annotations, but the pinned Orphadata snapshot in data/orphadata/MANIFEST.yaml no longer matches the upstream files (checksum mismatch on download), and bumping that manifest is out of scope for a single-disorder PR. No ORPHA evidence is therefore cited. A ClinGen gene-disease validity or dosage record for SMARCA2 is likewise not cited: no SMARCA2 record exists in this repository&#39;s ClinGen cache, and refreshing it would require touching data/clingen*/MANIFEST.yaml.
+No GeneReviews chapter exists for BIS. This was checked with three PubMed queries (blepharophimosis GeneReviews, SMARCA2 GeneReviews, Nicolaides-Baraitser GeneReviews); the only SMARCA2 chapter returned is PMID:26468571, &#34;SMARCA2-Related Nicolaides-Baraitser Syndrome&#34;, which is the other disorder and is therefore not used as a phenotype baseline here.
+INVERSE-PHARMACOLOGY GUARDRAIL — SMARCA2-lowering oncology drugs are NOT a BIS therapy and must never be curated as one. A live clinical drug class targets SMARCA2 (BRM) for REMOVAL, as a synthetic-lethal strategy in SMARCA4 (BRG1)-deficient cancers. Verified against ClinicalTrials.gov on 2026-08-01: the SMARCA2 degraders PRT7732 (NCT06560645, terminated), PRT3789 (NCT05639751, completed; and PRT3789 plus pembrolizumab, NCT06682806, terminated) and PLX-61639 (NCT07284186, recruiting, officially titled a first-in-human study of &#34;the SMARCA2 Degrader, PLX-61639&#34;), together with the selective SMARCA2/BRM INHIBITOR LY4050784 (NCT06561685, recruiting). Note that LY4050784 is an inhibitor rather than a degrader; both modalities reduce SMARCA2 function and both are therefore inverse to a SMARCA2-opathy. BIS is caused by a heterozygous de novo SMARCA2 variant, so lowering SMARCA2 dose or activity further is the opposite of therapeutic intent. The trial protocols themselves point the same way: NCT07284186 excludes participants with &#34;Known SMARCA2 mutation or loss of expression&#34;, and NCT06561685 excludes participants with known or likely SMARCA2 loss-of-function alteration. None of these agents is curated as a BIS treatment and none should be. An automated pipeline mining &#34;SMARCA2 + drug&#34; or &#34;SMARCA2 + NCT&#34; will surface this entire class; it must be filtered out of BIS treatment curation. Recorded per the deep-research report&#39;s explicit critical-negative instruction (section 12.3).
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Address PR #7727 review: remove residual non-truncating assertions; add SMARCA2-degrader inverse-pharmacology guardrail</strong> · 2026-08-01T19:36:21Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Blepharophimosis-Impaired_Intellectual_Development_Syndrome/2026-08-01T193621Z-claude-code-eb4bf9.yaml">View source</a></p>
+                        <p class="research-review-text">Responds to the ai4c-reviewer REQUEST_CHANGES review on PR #7727 (two IMPORTANT items, five suggestions).
+
+IMPORTANT 1 - reconciled four residual &#39;non-truncating&#39; assertions with the deliberate under-assertion recorded in genetic[].notes. PMID:32694869&#39;s abstract applies &#39;nontruncating&#39; to the NCBRS variant class, not to the BIS class, so the entry declines to assert the BIS consequence class; but mechanistic_hypotheses[0].description, animal_models[0].description, and the HUMAN_MODEL_MISMATCH discussion prompt and rationale all still rested on that premise. All four were rewritten to lean only on what is directly evidenced: heterozygous, de novo, dominant, clustered outside the helicase domains as the founding paper partitions them, plus two positive arguments against simple haploinsufficiency (the phenotypically normal Brm-null mouse rescued by BRG1 compensation, and the reproducible BIS DNA methylation episignature). The word &#39;non-truncating&#39; now survives only where it quotes or paraphrases PMID:37500730&#39;s statement about the aggregate mSWI/SNF NDD variant class, in evidence explanations that are PARTIAL and explicitly scoped as not BIS-specific.
+
+IMPORTANT 2 - added an inverse-pharmacology guardrail paragraph to the disease-level notes block (extended the existing block; no new notes key). Records that SMARCA2-lowering oncology drugs developed for SMARCA4-deficient cancers are mechanistically inverse to a SMARCA2-opathy and must be excluded from BIS treatment curation. All five NCT records were verified live against the ClinicalTrials.gov v2 API on 2026-08-01 rather than copied from the deep-research report: NCT06560645 PRT7732 (terminated), NCT05639751 PRT3789 (completed), NCT06682806 PRT3789+pembrolizumab (terminated), NCT07284186 PLX-61639 (recruiting), NCT06561685 LY4050784 (recruiting). That verification corrected the review&#39;s framing: LY4050784 is a selective SMARCA2/BRM INHIBITOR, not a degrader, per its official title; the note now says so. Two of the protocols themselves exclude participants with SMARCA2 loss-of-function or loss of expression, which is recorded as corroboration.
+
+Suggestion b (taken) - the Blepharophimosis phenotype description said &#39;Horizontally narrowed palpebral fissures&#39;, contradicting the HPO definition of HP:0000581 (&#39;A fixed reduction in the vertical distance between the upper and lower eyelids with short palpebral fissures&#39;, confirmed via OAK). Reworded to state both axes.
+
+Suggestion a (declined, with a mitigation) - the reviewer suggested folding HP:0045025 Narrow palpebral fissure into the HP:0000581 Blepharophimosis entry as a near-duplicate. Declined: the HPO annotation of OMIM:619293 itself carries both terms at different counts (blepharophimosis 14/14, narrow palpebral fissure 10/14, both sourced to PMID:32694869), verified directly against the HPO annotation API on 2026-08-01, so collapsing them would discard a distinction the source annotation makes; and HP:0045025 is the term carrying the BIS-versus-HVDAS shared-craniofacial-feature evidence that motivated the episignature study. Added a notes block on the HP:0045025 entry recording the sibling relationship, the definitional difference, and an explicit instruction that consumers treat it as subsumed by HP:0000581 rather than additive, which addresses the reviewer&#39;s actual concern (downstream double-counting).
+
+Suggestion c (taken) - added a domain-boundary paragraph to genetic[].notes. UniProt P51531 annotates Helicase ATP-binding at residues 736-901 (feature table fetched from the UniProt REST API 2026-08-01), and the BIS alleles p.(Met856Val) and p.(Leu766Val) fall inside that span, so &#39;outside the helicase domains&#39; is the authors&#39; functional partition (ultra-conserved catalytic motifs), not UniProt&#39;s boundary. Flagged because the PMID:38751117 evidence item on the episignature node is about M856V.
+
+Suggestion e (declined) - PMID:17640523 evidence_source remains IN_VITRO. CLAUDE.md classifies cultured cells of animal origin as IN_VITRO, and both evidence explanations already state the assay basis (proteomic analysis of neural stem/progenitor cell complexes). The reviewer agreed this is a judgment call rather than an error.
+
+Suggestion d (not actionable in this PR) - the Wiley open-access fetcher improvement for PMID:38884529 is a change to the reference-fetching tooling, out of scope for a single-disorder content PR; raised in the PR comment instead.
+
+No new PMIDs were cited, so no new reference cache files were fetched. Validation after reverting the references_cache side-effect churn from &#39;just validate&#39;: schema validation passed, term validation passed, reference validation 52/52 snippets verified, scripts/check_snippets_verbatim.py 52 verified / 0 failed, check_folded_hyphens.py clean, validate-history-all passed.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: blepharophimosis-impaired intellectual development syndrome</strong> · 2026-08-01T16:49:35Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Blepharophimosis-Impaired_Intellectual_Development_Syndrome/2026-08-01T164935Z-claude-code-7ba895.yaml">View source</a></p>
+                        <p class="research-review-text">De-novo creation of the BIS (SMARCA2, MONDO:0859139, OMIM:619293) entry.
+
+NEC preflight, run before any research output was used: MONDO:0859139 was confirmed via OAK to carry RO:0004003 to HGNC:11098 (SMARCA2) and skos:exactMatch OMIM:619293. The confusable allelic sibling disorder Nicolaides-Baraitser syndrome (NCBRS) was resolved to MONDO:0011053 (OMIM:601358; MONDO label &#34;intellectual disability-sparse hair-brachydactyly syndrome&#34;). Note a correction to issue 7692: the MONDO ID it quotes for NCBRS (MONDO:0009543) is wrong -- that ID is prominent glabella-microcephaly-hypogenitalism syndrome. The entry uses the verified MONDO:0011053.
+
+Deep research: &#39;just research-disorder claude_code&#39; was run (report at research/Blepharophimosis-Impaired_Intellectual_Development_Syndrome-deep-research-claude_code.md, 20 min, 6 web searches, 74 turns, 23 citations). NEC gate applied to the report before use: SMARCA2 appears 98 times versus ADNP 15, SMARCA4 12, KAT6B 2, FOXL2 1, ARID1B 1; OMIM 619293 appears 12 times versus 601358 three times (each as an explicit NCBRS contrast). The report PASSED the gate and was used as a lead source only; every PMID and snippet it suggested was independently re-fetched with &#39;just fetch-reference&#39; and verified verbatim against the cache.
+
+Evidence base. BIS-specific: PMID:32694869 (Cappuccio 2020, founding delineation, 14 BIS individuals) and PMID:38884529 (Sarli 2024, shared BIS / class-II-HVDAS episignature, 15 BIS individuals). Independent BIS-versus-NCBRS confirmation: PMID:37500730 (Valencia 2023 pan-mSWI/SNF landscape; full text cached, contains an explicit statement that SMARCA2 mutations outside the helicase domain cause BIS). NCBRS comparator for the differential: PMID:22366787 (Van Houdt 2012). Scoped general BAF biology, all marked PARTIAL or background: PMID:17640523 (npBAF/nBAF subunit switch), PMID:9843504 (Brm-null mouse), PMID:38751117 (SMARCA2 M856V / SMARCA4 M866V paralog episignature convergence, with the BIS attribution explicitly flagged as inference because the Sarli variant table is not quotable).
+
+Deliberate NEC exclusions, recorded in the entry notes: PMID:40513420 (Seizure 2025 SMARCA2 epilepsy cohort -- 77.3 percent of variants in the SNF2-ATPase domain, i.e. the NCBRS allele class), PMID:38877377 (prenatal case framed within the NCBRS spectrum), PMID:42528014, PMID:34906496 and PMID:34706719 (multi-gene BAFopathy/chromatin-remodeling cohorts that do not state which SMARCA2 disorder their patients have), and PMID:26468571 (GeneReviews chapter for NCBRS).
+
+Known limitations, all documented in the entry notes rather than papered over. Both primary BIS papers are paywalled and absent from PMC and Europe PMC, so only their abstracts are quotable; this caps phenotype depth. The HPO annotation of OMIM:619293 (all sourced to PMID:32694869 full-text tables) records a much richer feature list with n/N counts -- hypotonia, thin upper lip vermilion, sparse eyebrows and eyelashes, wide nasal bridge, tapered fingers, hypertelorism, frontal bossing, flexion contractures -- which were deliberately NOT curated as phenotype entries rather than asserted without a quotable snippet. Frequency bands are set only on the three definitional features (blepharophimosis, intellectual disability, global developmental delay) and each carries a notes block stating the basis. The word &#34;non-truncating&#34; is deliberately not asserted of the BIS allele class, because the quotable abstract applies it to the NCBRS class only. No GeneReviews chapter exists for BIS (verified with three PubMed queries). Orphanet ORPHA:637013 was not cited because the pinned Orphadata snapshot no longer matches upstream (sha256 mismatch) and bumping data/orphadata/MANIFEST.yaml is out of PR scope; the downloaded XML was deleted and the manifest left untouched. No ClinGen record was cited for the same manifest-scope reason.
+
+Also curated: an EMERGING mechanistic_hypotheses entry (BIS = BAF inter-subunit interface lesion versus NCBRS = ATPase catalysis lesion) with its evidence marked PARTIAL because no BIS allele has been biochemically assayed; an animal_models entry for the Brm-null mouse; and three discussions -- two KNOWLEDGE_GAP (BIS allele biochemical consequence; natural history and management) and one HUMAN_MODEL_MISMATCH (Brm-null mouse develops normally via BRG1 compensation and so cannot model a dominant non-truncating allele).
+
+Validation: just validate (schema + terms + references) passes; just validate-terms passes; just validate-references reports 50/50 snippets verified; scripts/check_snippets_verbatim.py reports 50/50 verified verbatim; scripts/check_folded_hyphens.py --check OK; just validate-history-all passes over 2906 records; pytest tests/test_data.py passes for this file (the one suite failure, SETD5_Haploinsufficiency_Syndrome, is pre-existing on origin/main and unrelated). references_cache churn from &#39;just validate&#39; was discarded with git checkout and only the explicitly fetched PMID cache files were staged.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -10004,7 +10712,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Blepharophimosis-Impaired Intellectual Development Syndrome", "mondoId": "MONDO:0859139", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Blepharophimosis-Impaired_Intellectual_Development_Syndrome", "yamlRevision": "0724184c8489"};
+        const OS_CONFIG = {"diseaseName": "Blepharophimosis-Impaired Intellectual Development Syndrome", "mondoId": "MONDO:0859139", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Blepharophimosis-Impaired_Intellectual_Development_Syndrome", "yamlRevision": "b749ec69cf21"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

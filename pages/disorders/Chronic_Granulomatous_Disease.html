@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -292,6 +293,20 @@
         .badge-mondo {
             background: #e0f2fe;
             color: #0369a1;
+        }
+
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
         }
 
         .badge-mondo a {
@@ -830,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1508,6 +1550,21 @@
         .experiment-subitem-name {
             font-weight: 700;
             color: #334155;
+            margin-bottom: 4px;
+        }
+
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
             margin-bottom: 4px;
         }
 
@@ -2369,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2863,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2871,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2911,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2926,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3035,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3048,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3252,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3262,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3298,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3319,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3690,6 +3810,29 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3718,7 +3861,7 @@
             <span>Chronic Granulomatous Disease</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Chronic Granulomatous Disease</h1>
             <div class="header-meta">
 
@@ -3732,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 13</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 17</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Chronic%20Granulomatous%20Disease"
@@ -3900,7 +4043,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">13</div>
+                <div class="stat-value">17</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4087,7 +4230,8 @@
 
 
 
-                    <span class="tag tag-classification">phagocyte defect</span>
+                    <span class="tag tag-classification" title="IUIS 2022 phenotypic classification (Tangye et al., PMID:35748970), Table 5 &#34;Congenital defects of phagocyte number or function&#34;, section 3 (Defects of Respiratory Burst). This entry covers all six Table 5 respiratory-burst rows, one per NADPH oxidase component, and its has_subtypes list matches them exactly: CYBB (XL, MIM 306400), CYBA (AR, MIM 608508), CYBC1/EROS (AR, MIM 618334), NCF1 (AR, MIM 608512), NCF2 (AR, MIM 608515) and NCF4 (AR, MIM 613960). The affected function is killing through faulty O2- production, on the functional rather than the quantitative axis of the table: phagocytes are present in normal numbers and cannot kill.
+The seventh row of that section, G6PD deficiency class I (MIM 305900), is a separate disease and is not covered here.">phagocyte defect</span>
 
                 </div>
 
@@ -4112,7 +4256,7 @@
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-x-linked-cybb">
                 <div class="item-name">
                     X-linked (CYBB)
 
@@ -4139,7 +4283,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22876374" target="_blank">PMID:22876374</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4163,7 +4310,7 @@ inherited in an X-linked manner"</div>
 
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-recessive-cyba-cybc1-ncf1-ncf2-ncf4">
                 <div class="item-name">
                     Autosomal recessive (CYBA/CYBC1/NCF1/NCF2/NCF4)
 
@@ -4190,7 +4337,10 @@ inherited in an X-linked manner"</div>
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22876374" target="_blank">PMID:22876374</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4261,11 +4411,13 @@ recessive manner"</div>
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-x-linked-cybb">
 
                     <div class="item-name">
                         X-linked CGD (CYBB / gp91phox)
 
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0010600" target="_blank">MONDO:0010600</a>
+
 
 
                     </div>
@@ -4275,13 +4427,129 @@ recessive manner"</div>
 
 
 
+                            <span class="subtype-gene-tag">
+                                CYBB
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:2578" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:2578</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in CYBB (hgnc:2578). hgnc:2578 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+                            <span class="subtype-inheritance-tag">X-linked inheritance</span>
+
+
+
+
                     </div>
 
-                    <div class="item-desc">The most common form (about two-thirds of cases), caused by hemizygous pathogenic variants in CYBB encoding gp91phox (NOX2), the catalytic membrane subunit. Typically the most severe form with earliest onset. A contiguous-gene deletion at Xp21.1 can additionally produce McLeod neuroacanthocytosis syndrome. OMIM phenotype: 306400 (no distinct MONDO subtype term is available; MONDO models CGD only at the parent level).</div>
+                    <div class="item-desc">The most common form (about two-thirds of cases), caused by hemizygous pathogenic variants in CYBB at Xp21.1, encoding gp91phox (NOX2), the catalytic membrane subunit. Typically the most severe form with earliest onset. A larger deletion extending into the neighbouring XK/Kell locus can additionally produce McLeod neuroacanthocytosis syndrome, curated separately in kb/disorders/McLeod_Neuroacanthocytosis_Syndrome.yaml. OMIM phenotype: 306400 (MONDO:0010600).</div>
 
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (4 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22876374" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22876374" target="_blank">PMID:22876374</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"biallelic pathogenic variants in CYBA, CYBC1, NCF1, NCF2, and NCF4 cause autosomal recessive CGD; pathogenic variants in CYBB cause X-linked CGD."</div>
+
+
+                <div class="evidence-explanation">GeneReviews assigns each CGD form to its gene and inheritance mode, which is the basis for the gene bound to this subtype.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35748970" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35748970" target="_blank">PMID:35748970</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"McLeod phenotype in patients with deletions extending into the contiguous Kell locus"</div>
+
+
+                <div class="evidence-explanation">Sources the contiguous-deletion route to McLeod neuroacanthocytosis syndrome named in this subtype&#39;s description.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22111908" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22111908" target="_blank">PMID:22111908</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Deletions and missense, frameshift, or nonsense mutations in the gp91phox gene (also termed CYBB), located in the Xp21.1 region of the X chromosome, are associated with the most common form of CGD."</div>
+
+
+                <div class="evidence-explanation">Sources the Xp21.1 location given in this subtype&#39;s description. That band previously sat in the entry&#39;s prose with no reference behind it; this review, already cached for the McLeod entry, states it directly.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
+
+        </div>
+    </details>
 
 
                 </div>
@@ -4289,11 +4557,13 @@ recessive manner"</div>
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-ar-p47phox-ncf1">
 
                     <div class="item-name">
                         Autosomal recessive CGD (NCF1 / p47phox)
 
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0009309" target="_blank">MONDO:0009309</a>
+
 
 
                     </div>
@@ -4303,13 +4573,73 @@ recessive manner"</div>
 
 
 
+                            <span class="subtype-gene-tag">
+                                NCF1
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:7660" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:7660</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in NCF1 (hgnc:7660). hgnc:7660 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+                            <span class="subtype-inheritance-tag">Autosomal recessive inheritance</span>
+
+
+
+
                     </div>
 
-                    <div class="item-desc">The most common autosomal recessive form, caused by biallelic NCF1 variants (most often the recurrent GT deletion). Generally a milder clinical course with later presentation and better survival than X-linked CGD. OMIM phenotype: 233700 (no distinct MONDO subtype term is available).</div>
+                    <div class="item-desc">The most common autosomal recessive form, caused by biallelic NCF1 variants (most often the recurrent GT deletion). Generally a milder clinical course with later presentation and better survival than X-linked CGD. OMIM phenotype: 233700 (MONDO:0009309).</div>
 
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22876374" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22876374" target="_blank">PMID:22876374</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"biallelic pathogenic variants in CYBA, CYBC1, NCF1, NCF2, and NCF4 cause autosomal recessive CGD; pathogenic variants in CYBB cause X-linked CGD."</div>
+
+
+                <div class="evidence-explanation">GeneReviews assigns each CGD form to its gene and inheritance mode, which is the basis for the gene bound to this subtype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
                 </div>
@@ -4317,11 +4647,13 @@ recessive manner"</div>
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-ar-p22phox-cyba">
 
                     <div class="item-name">
                         Autosomal recessive CGD (CYBA / p22phox)
 
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0009308" target="_blank">MONDO:0009308</a>
+
 
 
                     </div>
@@ -4331,13 +4663,73 @@ recessive manner"</div>
 
 
 
+                            <span class="subtype-gene-tag">
+                                CYBA
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:2577" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:2577</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in CYBA (hgnc:2577). hgnc:2577 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+                            <span class="subtype-inheritance-tag">Autosomal recessive inheritance</span>
+
+
+
+
                     </div>
 
-                    <div class="item-desc">Autosomal recessive CGD from biallelic CYBA variants encoding p22phox, the membrane partner of gp91phox in flavocytochrome b558. OMIM phenotype: 233690 (no distinct MONDO subtype term is available).</div>
+                    <div class="item-desc">Autosomal recessive CGD from biallelic CYBA variants encoding p22phox, the membrane partner of gp91phox in flavocytochrome b558. OMIM phenotype: 233690 (MONDO:0009308).</div>
 
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22876374" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22876374" target="_blank">PMID:22876374</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"biallelic pathogenic variants in CYBA, CYBC1, NCF1, NCF2, and NCF4 cause autosomal recessive CGD; pathogenic variants in CYBB cause X-linked CGD."</div>
+
+
+                <div class="evidence-explanation">GeneReviews assigns each CGD form to its gene and inheritance mode, which is the basis for the gene bound to this subtype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
                 </div>
@@ -4345,11 +4737,13 @@ recessive manner"</div>
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-ar-p67phox-ncf2">
 
                     <div class="item-name">
                         Autosomal recessive CGD (NCF2 / p67phox)
 
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0009310" target="_blank">MONDO:0009310</a>
+
 
 
                     </div>
@@ -4359,13 +4753,73 @@ recessive manner"</div>
 
 
 
+                            <span class="subtype-gene-tag">
+                                NCF2
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:7661" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:7661</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in NCF2 (hgnc:7661). hgnc:7661 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+                            <span class="subtype-inheritance-tag">Autosomal recessive inheritance</span>
+
+
+
+
                     </div>
 
-                    <div class="item-desc">Autosomal recessive CGD from biallelic NCF2 variants encoding the p67phox cytosolic activator subunit. OMIM phenotype: 233710 (no distinct MONDO subtype term is available).</div>
+                    <div class="item-desc">Autosomal recessive CGD from biallelic NCF2 variants encoding the p67phox cytosolic activator subunit. OMIM phenotype: 233710 (MONDO:0009310).</div>
 
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22876374" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22876374" target="_blank">PMID:22876374</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"biallelic pathogenic variants in CYBA, CYBC1, NCF1, NCF2, and NCF4 cause autosomal recessive CGD; pathogenic variants in CYBB cause X-linked CGD."</div>
+
+
+                <div class="evidence-explanation">GeneReviews assigns each CGD form to its gene and inheritance mode, which is the basis for the gene bound to this subtype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
                 </div>
@@ -4373,11 +4827,13 @@ recessive manner"</div>
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-ar-p40phox-ncf4">
 
                     <div class="item-name">
                         Autosomal recessive CGD (NCF4 / p40phox)
 
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0013507" target="_blank">MONDO:0013507</a>
+
 
 
                     </div>
@@ -4387,13 +4843,73 @@ recessive manner"</div>
 
 
 
+                            <span class="subtype-gene-tag">
+                                NCF4
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:7662" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:7662</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in NCF4 (hgnc:7662). hgnc:7662 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+                            <span class="subtype-inheritance-tag">Autosomal recessive inheritance</span>
+
+
+
+
                     </div>
 
-                    <div class="item-desc">A rare autosomal recessive form from biallelic NCF4 variants encoding p40phox, often with a distinctive predominantly inflammatory/colitis phenotype and comparatively preserved antimicrobial oxidase activity. OMIM phenotype: 613960 (no distinct MONDO subtype term is available).</div>
+                    <div class="item-desc">A rare autosomal recessive form from biallelic NCF4 variants encoding p40phox, often with a distinctive predominantly inflammatory/colitis phenotype and comparatively preserved antimicrobial oxidase activity. OMIM phenotype: 613960 (MONDO:0013507).</div>
 
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22876374" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22876374" target="_blank">PMID:22876374</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"biallelic pathogenic variants in CYBA, CYBC1, NCF1, NCF2, and NCF4 cause autosomal recessive CGD; pathogenic variants in CYBB cause X-linked CGD."</div>
+
+
+                <div class="evidence-explanation">GeneReviews assigns each CGD form to its gene and inheritance mode, which is the basis for the gene bound to this subtype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
                 </div>
@@ -4401,10 +4917,12 @@ recessive manner"</div>
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-ar-cybc1-eros">
 
                     <div class="item-name">
                         Autosomal recessive CGD (CYBC1 / EROS)
+
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0030066" target="_blank">MONDO:0030066</a>
 
 
 
@@ -4415,13 +4933,73 @@ recessive manner"</div>
 
 
 
+                            <span class="subtype-gene-tag">
+                                CYBC1
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:28672" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:28672</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in CYBC1 (hgnc:28672). hgnc:28672 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+                            <span class="subtype-inheritance-tag">Autosomal recessive inheritance</span>
+
+
+
+
                     </div>
 
-                    <div class="item-desc">Autosomal recessive CGD from biallelic CYBC1 (EROS) variants; CYBC1 encodes an endoplasmic reticulum chaperone required for gp91phox-p22phox stability, so its loss produces a functional NADPH oxidase deficiency. OMIM phenotype: 618935 (no distinct MONDO subtype term is available).</div>
+                    <div class="item-desc">Autosomal recessive CGD from biallelic CYBC1 (EROS) variants; CYBC1 encodes an endoplasmic reticulum chaperone required for gp91phox-p22phox stability, so its loss produces a functional NADPH oxidase deficiency. OMIM phenotype: 618935 (MONDO:0030066).</div>
 
 
 
 
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22876374" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22876374" target="_blank">PMID:22876374</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"biallelic pathogenic variants in CYBA, CYBC1, NCF1, NCF2, and NCF4 cause autosomal recessive CGD; pathogenic variants in CYBB cause X-linked CGD."</div>
+
+
+                <div class="evidence-explanation">GeneReviews assigns each CGD form to its gene and inheritance mode, which is the basis for the gene bound to this subtype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
 
 
                 </div>
@@ -4451,6 +5029,7 @@ recessive manner"</div>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nadph-oxidase-nox2-complex-assembly-failure" data-dismech-node="NADPH oxidase (NOX2) complex assembly failure" data-dismech-type="pathophysiology">
                 <div class="item-name">NADPH oxidase (NOX2) complex assembly failure</div>
 
+
                 <div class="item-desc">Pathogenic variants in any one of the NOX2 complex subunits (membrane gp91phox/CYBB and p22phox/CYBA forming flavocytochrome b558; cytosolic p47phox/NCF1, p67phox/NCF2, and p40phox/NCF4; and the CYBC1/EROS chaperone that stabilizes gp91phox) prevent assembly of a functional phagocyte NADPH oxidase on the phagosomal and plasma membranes. Without a functional oxidase, electrons cannot be transferred from cytosolic NADPH across the membrane to molecular oxygen.</div>
 
 
@@ -4465,11 +5044,11 @@ recessive manner"</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000775</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000775</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4495,11 +5074,11 @@ This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000576" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-2">CL:0000576</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000576" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000576</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves monocyte (CL:0000576). CL:0000576 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4525,11 +5104,11 @@ This pathophysiological event involves monocyte (CL:0000576). CL:0000576 is a ce
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000235</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4555,11 +5134,11 @@ This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000771" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000771</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000771" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000771</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves eosinophil (CL:0000771). CL:0000771 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4597,11 +5176,11 @@ This pathophysiological event involves eosinophil (CL:0000771). CL:0000771 is a 
         CYBB
 
 
-    <a href="https://bioregistry.io/hgnc:2578" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:2578</a>
+    <a href="https://bioregistry.io/hgnc:2578" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-11">hgnc:2578</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-11">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves CYBB (hgnc:2578). hgnc:2578 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -4636,13 +5215,169 @@ This pathophysiological event involves CYBB (hgnc:2578). hgnc:2578 is a gene fro
         NCF1
 
 
-    <a href="https://bioregistry.io/hgnc:7660" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:7660</a>
+    <a href="https://bioregistry.io/hgnc:7660" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-12">hgnc:7660</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-12">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves NCF1 (hgnc:7660). hgnc:7660 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        CYBA
+
+
+    <a href="https://bioregistry.io/hgnc:2577" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-13">hgnc:2577</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-13">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CYBA (hgnc:2577). hgnc:2577 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        NCF2
+
+
+    <a href="https://bioregistry.io/hgnc:7661" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-14">hgnc:7661</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-14">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NCF2 (hgnc:7661). hgnc:7661 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        NCF4
+
+
+    <a href="https://bioregistry.io/hgnc:7662" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-15">hgnc:7662</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-15">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NCF4 (hgnc:7662). hgnc:7662 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        CYBC1
+
+
+    <a href="https://bioregistry.io/hgnc:28672" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-16">hgnc:28672</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-16">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves CYBC1 (hgnc:28672). hgnc:28672 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4678,11 +5413,11 @@ This pathophysiological event involves NCF1 (hgnc:7660). hgnc:7660 is a gene fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042554" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0042554</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042554" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0042554</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased superoxide anion generation (GO:0042554). GO:0042554 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4742,7 +5477,10 @@ This pathophysiological event involves decreased superoxide anion generation (GO
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22876374" target="_blank">PMID:22876374</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4769,6 +5507,7 @@ genes that encode or permit assembly of the subunits of phagocyte NADPH oxidase"
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failed-respiratory-burst-and-ros-deficiency" data-dismech-node="Failed respiratory burst and ROS deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Failed respiratory burst and ROS deficiency</div>
 
+
                 <div class="item-desc">The assembled NADPH oxidase normally catalyzes the respiratory (oxidative) burst, reducing molecular oxygen to superoxide, which is dismutated and converted to hydrogen peroxide, hypohalous acids, and other reactive oxygen species within the phagosome. In CGD this burst is absent or markedly reduced, so phagocytes ingest microbes but fail to generate the oxidants required for efficient microbicidal activity.</div>
 
 
@@ -4783,11 +5522,11 @@ genes that encode or permit assembly of the subunits of phagocyte NADPH oxidase"
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000775</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-18">CL:0000775</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4824,11 +5563,11 @@ This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045730" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0045730</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045730" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0045730</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased respiratory burst (GO:0045730). GO:0045730 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4858,11 +5597,11 @@ This pathophysiological event involves decreased respiratory burst (GO:0045730).
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0072593" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0072593</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0072593" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-20">GO:0072593</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased reactive oxygen species metabolic process (GO:0072593). GO:0072593 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4930,7 +5669,10 @@ This pathophysiological event involves decreased reactive oxygen species metabol
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22876374" target="_blank">PMID:22876374</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4956,6 +5698,7 @@ This pathophysiological event involves decreased reactive oxygen species metabol
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-microbial-killing-and-recurrent-infection" data-dismech-node="Impaired microbial killing and recurrent infection" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired microbial killing and recurrent infection</div>
 
+
                 <div class="item-desc">Because oxidant-dependent killing is lost, phagocytes cannot efficiently clear catalase-positive organisms (which detoxify their own hydrogen peroxide) such as Staphylococcus aureus, Serratia marcescens, Burkholderia cepacia, Nocardia, and Aspergillus, producing the characteristic recurrent and severe pneumonias, abscesses, lymphadenitis, and osteomyelitis.</div>
 
 
@@ -4970,11 +5713,11 @@ This pathophysiological event involves decreased reactive oxygen species metabol
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0000775</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000775" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-21">CL:0000775</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5011,11 +5754,11 @@ This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0042742" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0042742</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0042742" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-22">GO:0042742</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased defense response to bacterium (GO:0042742). GO:0042742 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5045,11 +5788,11 @@ This pathophysiological event involves decreased defense response to bacterium (
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0050832" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0050832</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0050832" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-23">GO:0050832</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased defense response to fungus (GO:0050832). GO:0050832 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5094,7 +5837,10 @@ This pathophysiological event involves decreased defense response to fungus (GO:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22876374" target="_blank">PMID:22876374</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5120,6 +5866,7 @@ This pathophysiological event involves decreased defense response to fungus (GO:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysregulated-inflammation-and-granuloma-formation" data-dismech-node="Dysregulated inflammation and granuloma formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Dysregulated inflammation and granuloma formation</div>
 
+
                 <div class="item-desc">Independent of infection, NADPH oxidase deficiency dysregulates innate immune signaling and impairs the resolution of inflammation, driving persistent macrophage activation, exuberant granuloma formation that can obstruct hollow viscera (gastrointestinal and genitourinary tracts), and an inflammatory-bowel-disease-like colitis.</div>
 
 
@@ -5134,11 +5881,11 @@ This pathophysiological event involves decreased defense response to fungus (GO:
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-24">CL:0000235</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5175,11 +5922,11 @@ This pathophysiological event involves macrophage (CL:0000235). CL:0000235 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002432" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0002432</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002432" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-25">GO:0002432</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased granuloma formation (GO:0002432). GO:0002432 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5209,11 +5956,11 @@ This pathophysiological event involves increased granuloma formation (GO:0002432
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-26">GO:0006954</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5258,7 +6005,10 @@ This pathophysiological event involves increased inflammatory response (GO:00069
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22876374" target="_blank">PMID:22876374</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5307,7 +6057,7 @@ inflammatory disorders such as colitis"</div>
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Allogeneic hematopoietic stem cell transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Allogeneic HSCT is the only known cure for CGD and is associated with excellent overall and event-free survival, especially with matched donors at a younger age.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Antibacterial prophylaxis (trimethoprim-sulfamethoxazole)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Lifelong daily antibacterial prophylaxis, standardly with trimethoprim-sulfamethoxazole, is recommended to prevent infections. Pregnancy caution: trimethoprim (a folic acid antagonist) is discontinued during pregnancy because of the high risk for birth defects.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"trimethoprim\", \"sulfamethoxazole\"]}}, {\"id\": \"Antifungal prophylaxis (itraconazole)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Lifelong daily antifungal prophylaxis, standardly with itraconazole, reduces invasive fungal infection; newer azoles (voriconazole, posaconazole, isavuconazole) have expanded therapeutic options for established fungal infection.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"itraconazole\"]}}, {\"id\": \"Autologous hematopoietic stem cell gene therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Ex vivo autologous CD34+ hematopoietic stem and progenitor cell lentiviral gene therapy (e.g., the self-inactivating G1XCGD vector for X-linked CGD) is an emerging curative approach for patients lacking a matched donor, restoring oxidase-positive neutrophils and functional superoxide production.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Avoidance of high-risk exposures (agents/circumstances to avoid)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Per GeneReviews, patients with CGD should avoid decayed organic matter (mulching, gardening, leaf raking, house demolition), because inhalation of fungal spores can cause fulminant pneumonitis, and should avoid live bacterial vaccines including bacille Calmette-Guerin (BCG) and Salmonella typhi vaccination.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"CYBB\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"CYBB\"], \"gene_terms\": [{\"label\": \"CYBB\", \"id\": \"hgnc:2578\"}], \"subtypes\": [\"X-linked CYBB\"], \"association\": \"Causative\"}}, {\"id\": \"Corticosteroids for inflammatory complications\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Simultaneous administration of antimicrobials and corticosteroids can help resolve the heightened inflammatory response, including colitis and obstructing granulomas.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"corticosteroid\"]}}, {\"id\": \"Dysregulated inflammation and granuloma formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Independent of infection, NADPH oxidase deficiency dysregulates innate immune signaling and impairs the resolution of inflammation, driving persistent macrophage activation, exuberant granuloma formation that can obstruct hollow viscera (gastrointestinal and genitourinary tracts), and an inflammatory-bowel-disease-like colitis.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"macrophage\"], \"biological_processes\": [\"granuloma formation\", \"inflammatory response\"]}}, {\"id\": \"Failed respiratory burst and ROS deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The assembled NADPH oxidase normally catalyzes the respiratory (oxidative) burst, reducing molecular oxygen to superoxide, which is dismutated and converted to hydrogen peroxide, hypohalous acids, and other reactive oxygen species within the phagosome. In CGD this burst is absent or markedly reduced, so phagocytes ingest microbes but fail to generate the oxidants required for efficient microbicidal activity.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neutrophil\"], \"biological_processes\": [\"respiratory burst\", \"reactive oxygen species metabolic process\"]}}, {\"id\": \"Impaired microbial killing and recurrent infection\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Because oxidant-dependent killing is lost, phagocytes cannot efficiently clear catalase-positive organisms (which detoxify their own hydrogen peroxide) such as Staphylococcus aureus, Serratia marcescens, Burkholderia cepacia, Nocardia, and Aspergillus, producing the characteristic recurrent and severe pneumonias, abscesses, lymphadenitis, and osteomyelitis.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neutrophil\"], \"biological_processes\": [\"defense response to bacterium\", \"defense response to fungus\"]}}, {\"id\": \"Interferon-gamma prophylaxis\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Immunomodulatory prophylaxis with interferon gamma (IFN-gamma) is part of the standard prophylactic regimen in many centers.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"interferon gamma-1b\"]}}, {\"id\": \"NADPH oxidase (NOX2) complex assembly failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic variants in any one of the NOX2 complex subunits (membrane gp91phox/CYBB and p22phox/CYBA forming flavocytochrome b558; cytosolic p47phox/NCF1, p67phox/NCF2, and p40phox/NCF4; and the CYBC1/EROS chaperone that stabilizes gp91phox) prevent assembly of a functional phagocyte NADPH oxidase on the phagosomal and plasma membranes. Without a functional oxidase, electrons cannot be transferred from cytosolic NADPH across the membrane to molecular oxygen.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neutrophil\", \"monocyte\", \"macrophage\", \"eosinophil\"], \"biological_processes\": [\"superoxide anion generation\"], \"genes\": [\"CYBB\", \"NCF1\"], \"gene_terms\": [{\"label\": \"CYBB\", \"id\": \"hgnc:2578\"}, {\"label\": \"NCF1\", \"id\": \"hgnc:7660\"}]}}, {\"id\": \"NCF1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NCF1\"], \"gene_terms\": [{\"label\": \"NCF1\", \"id\": \"hgnc:7660\"}], \"subtypes\": [\"AR p47phox NCF1\"], \"association\": \"Causative\"}}], \"edges\": [{\"source\": \"NADPH oxidase (NOX2) complex assembly failure\", \"target\": \"Failed respiratory burst and ROS deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A non-functional NADPH oxidase cannot generate superoxide, abolishing the respiratory burst and downstream reactive oxygen species.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failed respiratory burst and ROS deficiency\", \"target\": \"Impaired microbial killing and recurrent infection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of oxidant-dependent killing leaves phagocytes unable to clear catalase-positive bacteria and fungi, producing recurrent severe infection.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failed respiratory burst and ROS deficiency\", \"target\": \"Dysregulated inflammation and granuloma formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of ROS-dependent signaling impairs resolution of inflammation and drives exuberant granuloma formation and colitis.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"impaired resolution of inflammation\", \"persistent macrophage activation\"]}, {\"source\": \"Antibacterial prophylaxis (trimethoprim-sulfamethoxazole)\", \"target\": \"Impaired microbial killing and recurrent infection\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Antifungal prophylaxis (itraconazole)\", \"target\": \"Impaired microbial killing and recurrent infection\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Interferon-gamma prophylaxis\", \"target\": \"Impaired microbial killing and recurrent infection\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Corticosteroids for inflammatory complications\", \"target\": \"Dysregulated inflammation and granuloma formation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Allogeneic hematopoietic stem cell transplantation\", \"target\": \"NADPH oxidase (NOX2) complex assembly failure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Autologous hematopoietic stem cell gene therapy\", \"target\": \"NADPH oxidase (NOX2) complex assembly failure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Avoidance of high-risk exposures (agents/circumstances to avoid)\", \"target\": \"Impaired microbial killing and recurrent infection\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"CYBB\", \"target\": \"NADPH oxidase (NOX2) complex assembly failure\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NCF1\", \"target\": \"NADPH oxidase (NOX2) complex assembly failure\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Allogeneic hematopoietic stem cell transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Allogeneic HSCT is the only known cure for CGD and is associated with excellent overall and event-free survival, especially with matched donors at a younger age.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Antibacterial prophylaxis (trimethoprim-sulfamethoxazole)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Lifelong daily antibacterial prophylaxis, standardly with trimethoprim-sulfamethoxazole, is recommended to prevent infections. Pregnancy caution: trimethoprim (a folic acid antagonist) is discontinued during pregnancy because of the high risk for birth defects.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"trimethoprim\", \"sulfamethoxazole\"]}}, {\"id\": \"Antifungal prophylaxis (itraconazole)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Lifelong daily antifungal prophylaxis, standardly with itraconazole, reduces invasive fungal infection; newer azoles (voriconazole, posaconazole, isavuconazole) have expanded therapeutic options for established fungal infection.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"itraconazole\"]}}, {\"id\": \"Autologous hematopoietic stem cell gene therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Ex vivo autologous CD34+ hematopoietic stem and progenitor cell lentiviral gene therapy (e.g., the self-inactivating G1XCGD vector for X-linked CGD) is an emerging curative approach for patients lacking a matched donor, restoring oxidase-positive neutrophils and functional superoxide production.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Avoidance of high-risk exposures (agents/circumstances to avoid)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Per GeneReviews, patients with CGD should avoid decayed organic matter (mulching, gardening, leaf raking, house demolition), because inhalation of fungal spores can cause fulminant pneumonitis, and should avoid live bacterial vaccines including bacille Calmette-Guerin (BCG) and Salmonella typhi vaccination.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"CYBA\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CYBA\"], \"gene_terms\": [{\"label\": \"CYBA\", \"id\": \"hgnc:2577\"}], \"subtypes\": [\"AR p22phox CYBA\"], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"CYBB\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"CYBB\"], \"gene_terms\": [{\"label\": \"CYBB\", \"id\": \"hgnc:2578\"}], \"subtypes\": [\"X-linked CYBB\"], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"CYBC1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CYBC1\"], \"gene_terms\": [{\"label\": \"CYBC1\", \"id\": \"hgnc:28672\"}], \"subtypes\": [\"AR CYBC1 EROS\"], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Corticosteroids for inflammatory complications\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Simultaneous administration of antimicrobials and corticosteroids can help resolve the heightened inflammatory response, including colitis and obstructing granulomas.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"corticosteroid\"]}}, {\"id\": \"Dysregulated inflammation and granuloma formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Independent of infection, NADPH oxidase deficiency dysregulates innate immune signaling and impairs the resolution of inflammation, driving persistent macrophage activation, exuberant granuloma formation that can obstruct hollow viscera (gastrointestinal and genitourinary tracts), and an inflammatory-bowel-disease-like colitis.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"macrophage\"], \"biological_processes\": [\"granuloma formation\", \"inflammatory response\"]}}, {\"id\": \"Failed respiratory burst and ROS deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The assembled NADPH oxidase normally catalyzes the respiratory (oxidative) burst, reducing molecular oxygen to superoxide, which is dismutated and converted to hydrogen peroxide, hypohalous acids, and other reactive oxygen species within the phagosome. In CGD this burst is absent or markedly reduced, so phagocytes ingest microbes but fail to generate the oxidants required for efficient microbicidal activity.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neutrophil\"], \"biological_processes\": [\"respiratory burst\", \"reactive oxygen species metabolic process\"]}}, {\"id\": \"Impaired microbial killing and recurrent infection\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Because oxidant-dependent killing is lost, phagocytes cannot efficiently clear catalase-positive organisms (which detoxify their own hydrogen peroxide) such as Staphylococcus aureus, Serratia marcescens, Burkholderia cepacia, Nocardia, and Aspergillus, producing the characteristic recurrent and severe pneumonias, abscesses, lymphadenitis, and osteomyelitis.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neutrophil\"], \"biological_processes\": [\"defense response to bacterium\", \"defense response to fungus\"]}}, {\"id\": \"Interferon-gamma prophylaxis\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Immunomodulatory prophylaxis with interferon gamma (IFN-gamma) is part of the standard prophylactic regimen in many centers.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"interferon gamma-1b\"]}}, {\"id\": \"NADPH oxidase (NOX2) complex assembly failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic variants in any one of the NOX2 complex subunits (membrane gp91phox/CYBB and p22phox/CYBA forming flavocytochrome b558; cytosolic p47phox/NCF1, p67phox/NCF2, and p40phox/NCF4; and the CYBC1/EROS chaperone that stabilizes gp91phox) prevent assembly of a functional phagocyte NADPH oxidase on the phagosomal and plasma membranes. Without a functional oxidase, electrons cannot be transferred from cytosolic NADPH across the membrane to molecular oxygen.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neutrophil\", \"monocyte\", \"macrophage\", \"eosinophil\"], \"biological_processes\": [\"superoxide anion generation\"], \"genes\": [\"CYBB\", \"NCF1\", \"CYBA\", \"NCF2\", \"NCF4\", \"CYBC1\"], \"gene_terms\": [{\"label\": \"CYBB\", \"id\": \"hgnc:2578\"}, {\"label\": \"NCF1\", \"id\": \"hgnc:7660\"}, {\"label\": \"CYBA\", \"id\": \"hgnc:2577\"}, {\"label\": \"NCF2\", \"id\": \"hgnc:7661\"}, {\"label\": \"NCF4\", \"id\": \"hgnc:7662\"}, {\"label\": \"CYBC1\", \"id\": \"hgnc:28672\"}]}}, {\"id\": \"NCF1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NCF1\"], \"gene_terms\": [{\"label\": \"NCF1\", \"id\": \"hgnc:7660\"}], \"subtypes\": [\"AR p47phox NCF1\"], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"NCF2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NCF2\"], \"gene_terms\": [{\"label\": \"NCF2\", \"id\": \"hgnc:7661\"}], \"subtypes\": [\"AR p67phox NCF2\"], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"NCF4\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NCF4\"], \"gene_terms\": [{\"label\": \"NCF4\", \"id\": \"hgnc:7662\"}], \"subtypes\": [\"AR p40phox NCF4\"], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}], \"edges\": [{\"source\": \"NADPH oxidase (NOX2) complex assembly failure\", \"target\": \"Failed respiratory burst and ROS deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"A non-functional NADPH oxidase cannot generate superoxide, abolishing the respiratory burst and downstream reactive oxygen species.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failed respiratory burst and ROS deficiency\", \"target\": \"Impaired microbial killing and recurrent infection\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of oxidant-dependent killing leaves phagocytes unable to clear catalase-positive bacteria and fungi, producing recurrent severe infection.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failed respiratory burst and ROS deficiency\", \"target\": \"Dysregulated inflammation and granuloma formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of ROS-dependent signaling impairs resolution of inflammation and drives exuberant granuloma formation and colitis.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"impaired resolution of inflammation\", \"persistent macrophage activation\"]}, {\"source\": \"Antibacterial prophylaxis (trimethoprim-sulfamethoxazole)\", \"target\": \"Impaired microbial killing and recurrent infection\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Antifungal prophylaxis (itraconazole)\", \"target\": \"Impaired microbial killing and recurrent infection\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Interferon-gamma prophylaxis\", \"target\": \"Impaired microbial killing and recurrent infection\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Corticosteroids for inflammatory complications\", \"target\": \"Dysregulated inflammation and granuloma formation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Allogeneic hematopoietic stem cell transplantation\", \"target\": \"NADPH oxidase (NOX2) complex assembly failure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Autologous hematopoietic stem cell gene therapy\", \"target\": \"NADPH oxidase (NOX2) complex assembly failure\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Avoidance of high-risk exposures (agents/circumstances to avoid)\", \"target\": \"Impaired microbial killing and recurrent infection\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"CYBB\", \"target\": \"NADPH oxidase (NOX2) complex assembly failure\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CYBA\", \"target\": \"NADPH oxidase (NOX2) complex assembly failure\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NCF1\", \"target\": \"NADPH oxidase (NOX2) complex assembly failure\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NCF2\", \"target\": \"NADPH oxidase (NOX2) complex assembly failure\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NCF4\", \"target\": \"NADPH oxidase (NOX2) complex assembly failure\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CYBC1\", \"target\": \"NADPH oxidase (NOX2) complex assembly failure\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5328,11 +6078,11 @@ inflammatory disorders such as colitis"</div>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Digestive<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Cardiovascular<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Immune<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Digestive<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Immune<span class="pill-count">(6)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5363,15 +6113,18 @@ inflammatory disorders such as colitis"</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002955" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0002955</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002955" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0002955</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Granulomatosis (HP:0002955). HP:0002955 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5389,7 +6142,10 @@ This clinical feature is Granulomatosis (HP:0002955). HP:0002955 is a phenotype 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22876374" target="_blank">PMID:22876374</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5420,8 +6176,117 @@ This clinical feature is Granulomatosis (HP:0002955). HP:0002955 is a phenotype 
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Cardiovascular
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-lymphadenitis" data-dismech-node="Lymphadenitis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Lymphadenitis
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002840" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0002840</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Lymphadenitis (HP:0002840). HP:0002840 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22876374" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22876374" target="_blank">PMID:22876374</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"lymph nodes (lymphadenitis)"</div>
+
+
+                <div class="evidence-explanation">GeneReviews lists lymphadenitis as a typical infection site in CGD.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10844935" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10844935" target="_blank">PMID:10844935</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"suppurative adenitis (53% of patients; Staphylococcus most
+prevalent cause)"</div>
+
+
+                <div class="evidence-explanation">The US registry documents suppurative adenitis in 53% of patients, supporting the FREQUENT frequency band.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Digestive
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-liver-abscess" data-dismech-node="Liver abscess" data-dismech-type="phenotype">
@@ -5440,15 +6305,18 @@ This clinical feature is Granulomatosis (HP:0002955). HP:0002955 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100523" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0100523</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100523" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0100523</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Liver abscess (HP:0100523). HP:0100523 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5466,7 +6334,10 @@ This clinical feature is Liver abscess (HP:0100523). HP:0100523 is a phenotype f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22876374" target="_blank">PMID:22876374</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5488,7 +6359,10 @@ This clinical feature is Liver abscess (HP:0100523). HP:0100523 is a phenotype f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10844935" target="_blank">PMID:10844935</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5530,15 +6404,18 @@ This clinical feature is Liver abscess (HP:0100523). HP:0100523 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002583" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002583</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002583" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0002583</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Colitis (HP:0002583). HP:0002583 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Frequency band downgraded from FREQUENT to OCCASIONAL to match the only quantitative source curated here (US registry, 17% colitis/enteritis). Caveat for future curation: more recent CGD series report substantially higher rates of GI involvement, particularly in X-linked CGD and in NCF4 (p40phox) deficiency, where an inflammatory/colitis-predominant phenotype is typical. If a modern cohort figure is added, the band should be re-evaluated against it rather than against the 1980s registry.</div>
@@ -5558,7 +6435,10 @@ This clinical feature is Colitis (HP:0002583). HP:0002583 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22876374" target="_blank">PMID:22876374</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5581,7 +6461,10 @@ inflammatory disorders such as colitis"</div>
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10844935" target="_blank">PMID:10844935</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5607,14 +6490,238 @@ inflammatory disorders such as colitis"</div>
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-gastric-outlet-obstruction" data-dismech-node="Gastric outlet obstruction" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Gastric outlet obstruction
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Pyloric stenosis</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002021" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0002021</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Gastric outlet obstruction, annotated with Pyloric stenosis (HP:0002021). HP:0002021 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10844935" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10844935" target="_blank">PMID:10844935</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"patients had gastric outlet obstruction"</div>
+
+
+                <div class="evidence-explanation">The US registry documents gastric outlet obstruction in 15% of patients, supporting the OCCASIONAL frequency band.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-3">
+            <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Immune
-                    <span class="cat-count">4</span>
+                    <span class="cat-count">6</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-recurrent-bacterial-infections" data-dismech-node="Recurrent bacterial infections" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Recurrent bacterial infections
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002718" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0002718</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Recurrent bacterial infections (HP:0002718). HP:0002718 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22876374" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22876374" target="_blank">PMID:22876374</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"characterized by severe recurrent bacterial and fungal infections"</div>
+
+
+                <div class="evidence-explanation">GeneReviews establishes severe recurrent bacterial infection as a defining feature of CGD.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-recurrent-fungal-infections" data-dismech-node="Recurrent fungal infections" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Recurrent fungal infections
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002841" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0002841</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Recurrent fungal infections (HP:0002841). HP:0002841 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22876374" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22876374" target="_blank">PMID:22876374</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"characterized by severe recurrent bacterial and fungal infections"</div>
+
+
+                <div class="evidence-explanation">GeneReviews establishes severe recurrent fungal infection as a defining feature of CGD.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-pneumonia" data-dismech-node="Pneumonia" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -5632,15 +6739,18 @@ inflammatory disorders such as colitis"</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002090" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002090</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002090" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0002090</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Pneumonia (HP:0002090). HP:0002090 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5658,7 +6768,10 @@ This clinical feature is Pneumonia (HP:0002090). HP:0002090 is a phenotype from 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22876374" target="_blank">PMID:22876374</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5681,7 +6794,10 @@ This clinical feature is Pneumonia (HP:0002090). HP:0002090 is a phenotype from 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10844935" target="_blank">PMID:10844935</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5725,15 +6841,18 @@ cause)"</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002754" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0002754</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002754" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0002754</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Osteomyelitis (HP:0002754). HP:0002754 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5751,7 +6870,10 @@ This clinical feature is Osteomyelitis (HP:0002754). HP:0002754 is a phenotype f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22876374" target="_blank">PMID:22876374</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5773,7 +6895,10 @@ This clinical feature is Osteomyelitis (HP:0002754). HP:0002754 is a phenotype f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10844935" target="_blank">PMID:10844935</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5817,15 +6942,18 @@ This clinical feature is Osteomyelitis (HP:0002754). HP:0002754 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002722" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0002722</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002722" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0002722</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Recurrent skin abscesses, annotated with Recurrent abscess formation (HP:0002722). HP:0002722 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5843,7 +6971,10 @@ This clinical feature is Recurrent skin abscesses, annotated with Recurrent absc
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22876374" target="_blank">PMID:22876374</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5865,7 +6996,10 @@ This clinical feature is Recurrent skin abscesses, annotated with Recurrent absc
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10844935" target="_blank">PMID:10844935</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5908,10 +7042,10 @@ cause)"</div>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100806" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0100806</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100806" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0100806</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Sepsis (HP:0100806). HP:0100806 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5922,6 +7056,9 @@ This clinical feature is Sepsis (HP:0100806). HP:0100806 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5934,7 +7071,10 @@ This clinical feature is Sepsis (HP:0100806). HP:0100806 is a phenotype from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/10844935" target="_blank">PMID:10844935</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5945,312 +7085,6 @@ This clinical feature is Sepsis (HP:0100806). HP:0100806 is a phenotype from the
 
 
                 <div class="evidence-explanation">The US registry documents sepsis in 18% of patients, supporting the OCCASIONAL frequency band.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">4</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-recurrent-bacterial-infections" data-dismech-node="Recurrent bacterial infections" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Recurrent bacterial infections
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002718" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002718</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Recurrent bacterial infections (HP:0002718). HP:0002718 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:22876374" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22876374" target="_blank">PMID:22876374</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"characterized by severe recurrent bacterial and fungal infections"</div>
-
-
-                <div class="evidence-explanation">GeneReviews establishes severe recurrent bacterial infection as a defining feature of CGD.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-recurrent-fungal-infections" data-dismech-node="Recurrent fungal infections" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Recurrent fungal infections
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002841" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0002841</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Recurrent fungal infections (HP:0002841). HP:0002841 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:22876374" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22876374" target="_blank">PMID:22876374</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"characterized by severe recurrent bacterial and fungal infections"</div>
-
-
-                <div class="evidence-explanation">GeneReviews establishes severe recurrent fungal infection as a defining feature of CGD.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-lymphadenitis" data-dismech-node="Lymphadenitis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Lymphadenitis
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002840" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002840</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Lymphadenitis (HP:0002840). HP:0002840 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:22876374" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22876374" target="_blank">PMID:22876374</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"lymph nodes (lymphadenitis)"</div>
-
-
-                <div class="evidence-explanation">GeneReviews lists lymphadenitis as a typical infection site in CGD.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:10844935" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10844935" target="_blank">PMID:10844935</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"suppurative adenitis (53% of patients; Staphylococcus most
-prevalent cause)"</div>
-
-
-                <div class="evidence-explanation">The US registry documents suppurative adenitis in 53% of patients, supporting the FREQUENT frequency band.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-gastric-outlet-obstruction" data-dismech-node="Gastric outlet obstruction" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Gastric outlet obstruction
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Pyloric stenosis</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002021" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0002021</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Gastric outlet obstruction, annotated with Pyloric stenosis (HP:0002021). HP:0002021 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:10844935" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10844935" target="_blank">PMID:10844935</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"patients had gastric outlet obstruction"</div>
-
-
-                <div class="evidence-explanation">The US registry documents gastric outlet obstruction in 15% of patients, supporting the OCCASIONAL frequency band.</div>
 
 
 
@@ -6323,17 +7157,22 @@ This clinical feature is Gastric outlet obstruction, annotated with Pyloric sten
                         Gene: CYBB
 
 
-    <a href="https://bioregistry.io/hgnc:2578" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-28">hgnc:2578</a>
+    <a href="https://bioregistry.io/hgnc:2578" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-38">hgnc:2578</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is CYBB (hgnc:2578). hgnc:2578 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
 
                 </div>
+
+
+
 
 
 
@@ -6350,7 +7189,10 @@ This disease-associated gene is CYBB (hgnc:2578). hgnc:2578 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22876374" target="_blank">PMID:22876374</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6372,7 +7214,10 @@ This disease-associated gene is CYBB (hgnc:2578). hgnc:2578 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31988463" target="_blank">PMID:31988463</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6414,17 +7259,22 @@ This disease-associated gene is CYBB (hgnc:2578). hgnc:2578 is a gene from the H
                         Gene: CYBA
 
 
-    <a href="https://bioregistry.io/hgnc:2577" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-29">hgnc:2577</a>
+    <a href="https://bioregistry.io/hgnc:2577" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-39">hgnc:2577</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is CYBA (hgnc:2577). hgnc:2577 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
 
                 </div>
+
+
+
 
 
 
@@ -6441,7 +7291,10 @@ This disease-associated gene is CYBA (hgnc:2577). hgnc:2577 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22876374" target="_blank">PMID:22876374</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6484,17 +7337,22 @@ autosomal recessive CGD"</div>
                         Gene: NCF1
 
 
-    <a href="https://bioregistry.io/hgnc:7660" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-30">hgnc:7660</a>
+    <a href="https://bioregistry.io/hgnc:7660" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-40">hgnc:7660</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is NCF1 (hgnc:7660). hgnc:7660 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
 
                 </div>
+
+
+
 
 
 
@@ -6511,7 +7369,10 @@ This disease-associated gene is NCF1 (hgnc:7660). hgnc:7660 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22876374" target="_blank">PMID:22876374</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6554,17 +7415,22 @@ autosomal recessive CGD"</div>
                         Gene: NCF2
 
 
-    <a href="https://bioregistry.io/hgnc:7661" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-31">hgnc:7661</a>
+    <a href="https://bioregistry.io/hgnc:7661" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-41">hgnc:7661</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is NCF2 (hgnc:7661). hgnc:7661 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
 
                 </div>
+
+
+
 
 
 
@@ -6581,7 +7447,10 @@ This disease-associated gene is NCF2 (hgnc:7661). hgnc:7661 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22876374" target="_blank">PMID:22876374</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6624,17 +7493,22 @@ autosomal recessive CGD"</div>
                         Gene: NCF4
 
 
-    <a href="https://bioregistry.io/hgnc:7662" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-32">hgnc:7662</a>
+    <a href="https://bioregistry.io/hgnc:7662" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-42">hgnc:7662</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is NCF4 (hgnc:7662). hgnc:7662 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
 
                 </div>
+
+
+
 
 
 
@@ -6651,7 +7525,10 @@ This disease-associated gene is NCF4 (hgnc:7662). hgnc:7662 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22876374" target="_blank">PMID:22876374</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6694,17 +7571,22 @@ autosomal recessive CGD"</div>
                         Gene: CYBC1
 
 
-    <a href="https://bioregistry.io/hgnc:28672" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-33">hgnc:28672</a>
+    <a href="https://bioregistry.io/hgnc:28672" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-43">hgnc:28672</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is CYBC1 (hgnc:28672). hgnc:28672 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
 
                 </div>
+
+
+
 
 
 
@@ -6721,7 +7603,10 @@ This disease-associated gene is CYBC1 (hgnc:28672). hgnc:28672 is a gene from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22876374" target="_blank">PMID:22876374</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6752,6 +7637,9 @@ autosomal recessive CGD"</div>
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -6769,7 +7657,7 @@ autosomal recessive CGD"</div>
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-34">Antibiotic prophylaxis<span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-44">Antibiotic prophylaxis<span class="pill-tip" role="tooltip" id="pill-tip-44">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Antibiotic prophylaxis, annotated with Antibiotic Therapy (NCIT:C15620). NCIT:C15620 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6811,11 +7699,11 @@ This treatment is Antibiotic prophylaxis, annotated with Antibiotic Therapy (NCI
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_45924" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-35">CHEBI:45924</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_45924" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-45">CHEBI:45924</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses trimethoprim (CHEBI:45924). CHEBI:45924 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
@@ -6828,16 +7716,30 @@ This treatment uses trimethoprim (CHEBI:45924). CHEBI:45924 is a therapeutic age
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_9332" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-36">CHEBI:9332</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_9332" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-46">CHEBI:9332</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses sulfamethoxazole (CHEBI:9332). CHEBI:9332 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -6878,7 +7780,10 @@ This treatment uses sulfamethoxazole (CHEBI:9332). CHEBI:9332 is a therapeutic a
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22876374" target="_blank">PMID:22876374</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6901,7 +7806,10 @@ antifungal prophylaxis is recommended"</div>
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22876374" target="_blank">PMID:22876374</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6933,7 +7841,7 @@ discontinued during pregnancy because of the high risk for birth defects"</div>
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-37">Antifungal pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-47">Antifungal pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-47">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Antifungal pharmacotherapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6975,16 +7883,30 @@ This treatment is Antifungal pharmacotherapy, annotated with Pharmacotherapy (NC
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_6076" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-38">CHEBI:6076</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_6076" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-48">CHEBI:6076</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses itraconazole (CHEBI:6076). CHEBI:6076 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -7025,7 +7947,10 @@ This treatment uses itraconazole (CHEBI:6076). CHEBI:6076 is a therapeutic agent
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22876374" target="_blank">PMID:22876374</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7048,7 +7973,10 @@ antifungal prophylaxis is recommended"</div>
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22876374" target="_blank">PMID:22876374</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7081,7 +8009,7 @@ infections"</div>
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-39">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-49">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7122,16 +8050,30 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_5939" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-40">CHEBI:5939</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_5939" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-50">CHEBI:5939</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses interferon gamma-1b (CHEBI:5939). CHEBI:5939 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -7172,7 +8114,10 @@ This treatment uses interferon gamma-1b (CHEBI:5939). CHEBI:5939 is a therapeuti
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22876374" target="_blank">PMID:22876374</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7204,7 +8149,7 @@ gamma (IFN-gamma) is part of the prophylactic regimen in many centers"</div>
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-41">Corticosteroid therapy<span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-51">Corticosteroid therapy<span class="pill-tip" role="tooltip" id="pill-tip-51">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Corticosteroid therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7246,16 +8191,30 @@ This treatment is Corticosteroid therapy, annotated with Pharmacotherapy (NCIT:C
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_50858" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-42">CHEBI:50858</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_50858" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-52">CHEBI:50858</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses corticosteroid (CHEBI:50858). CHEBI:50858 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -7296,7 +8255,10 @@ This treatment uses corticosteroid (CHEBI:50858). CHEBI:50858 is a therapeutic a
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22876374" target="_blank">PMID:22876374</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7328,7 +8290,7 @@ resolve the associated heightened inflammatory response, including colitis"</div
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-43">allogeneic hematopoietic stem cell transplantation<span class="pill-tip" role="tooltip" id="pill-tip-43">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-53">allogeneic hematopoietic stem cell transplantation<span class="pill-tip" role="tooltip" id="pill-tip-53">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is allogeneic hematopoietic stem cell transplantation (NCIT:C46089). NCIT:C46089 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7356,6 +8318,20 @@ This treatment is allogeneic hematopoietic stem cell transplantation (NCIT:C4608
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -7398,7 +8374,10 @@ This treatment is allogeneic hematopoietic stem cell transplantation (NCIT:C4608
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22876374" target="_blank">PMID:22876374</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7430,7 +8409,7 @@ for CGD"</div>
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-44">Gene therapy<span class="pill-tip" role="tooltip" id="pill-tip-44">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-54">Gene therapy<span class="pill-tip" role="tooltip" id="pill-tip-54">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Gene therapy (NCIT:C15238). NCIT:C15238 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7458,6 +8437,31 @@ This treatment is Gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Gene therapy</span>
+
+
+
+
+
+    </div>
+
+
+
+
 
 
 
@@ -7500,7 +8504,10 @@ This treatment is Gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31988463" target="_blank">PMID:31988463</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7524,7 +8531,10 @@ of 16-46% oxidase-positive neutrophils"</div>
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31988463" target="_blank">PMID:31988463</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7556,7 +8566,7 @@ promising approach for CGD patients"</div>
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-45">Supportive care<span class="pill-tip" role="tooltip" id="pill-tip-45">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-55">Supportive care<span class="pill-tip" role="tooltip" id="pill-tip-55">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7584,6 +8594,20 @@ This treatment is Supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -7626,7 +8650,10 @@ This treatment is Supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22876374" target="_blank">PMID:22876374</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7650,7 +8677,10 @@ inhalation of fungal spores can result in fulminant pneumonitis"</div>
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22876374" target="_blank">PMID:22876374</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7683,7 +8713,7 @@ Salmonella typhi vaccination"</div>
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-46">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-46">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-56">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-56">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7715,6 +8745,20 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Genetic counseling addresses the mixed inheritance of CGD (X-linked for CYBB; autosomal recessive for CYBA, CYBC1, NCF1, NCF2, NCF4) and the availability of carrier, prenatal, and preimplantation genetic testing once the familial variant(s) are known.</div>
 
 
@@ -7734,7 +8778,10 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22876374" target="_blank">PMID:22876374</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7768,6 +8815,319 @@ prenatal and preimplantation genetic testing are possible"</div>
         <!-- Biochemical Markers -->
 
 
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-neutrophil-oxidative-burst-testing-dhr-nbt">
+                <div class="item-name">
+                    Neutrophil oxidative burst testing (DHR / NBT)
+
+                </div>
+
+                <div class="item-desc">The functional hallmark of CGD is an absent or markedly reduced phagocyte oxidative burst, demonstrated by dihydrorhodamine (DHR) flow cytometry (preferred) or the older nitroblue tetrazolium (NBT) slide test. Molecular genetic testing then confirms the specific subunit defect.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        flow cytometry procedure
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C16585" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-57">NCIT:C16585</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-57">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Absent or markedly reduced neutrophil oxidative burst</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39836849" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39836849" target="_blank">PMID:39836849</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"1,2,3-dihydrorhodamine oxidation technique, with phorbol-12-myristate-13-acetate
+as a stimulus, is performed to diagnose the classic chronic granulomatous
+disease"</div>
+
+
+                <div class="evidence-explanation">Establishes the dihydrorhodamine (DHR) oxidative-burst assay as the diagnostic test for classic CGD.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-molecular-genetic-testing">
+                <div class="item-name">
+                    Molecular genetic testing
+
+                </div>
+
+                <div class="item-desc">Definitive diagnosis is established by identifying pathogenic variant(s) in one of the six NADPH oxidase genes (CYBB, CYBA, CYBC1, NCF1, NCF2, NCF4).</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        molecular genetic testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C19770" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-58">NCIT:C19770</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-58">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Pathogenic variant(s) in a NADPH oxidase subunit/assembly gene</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22876374" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22876374" target="_blank">PMID:22876374</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The diagnosis of CGD is established in a proband with
+suggestive findings by identification of pathogenic variant(s) in one of six
+genes"</div>
+
+
+                <div class="evidence-explanation">GeneReviews states molecular identification of a pathogenic variant in one of the six genes establishes the diagnosis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-united-states">
+                <div class="item-name">United States</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Birth Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">0.4&ndash;0.5 per 100,000
+                    </span>
+
+                    <span class="tag">1–9 per 1,000,000 (births)</span>
+
+                </div>
+
+                <div class="item-notes">A US national registry estimated a minimum birth incidence of roughly 1/200,000 to 1/250,000 live births (0.4-0.5 per 100,000) for the period 1980-1989; of 368 registered patients, the majority (259) had the X-linked form. Because the registry figure is explicitly a MINIMUM estimate from voluntary registration, the true birth prevalence is likely higher.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10844935" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10844935" target="_blank">PMID:10844935</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"minimum estimate of birth rate is
+between 1/200,000 and 1/250,000 live births for the period 1980-1989"</div>
+
+
+                <div class="evidence-explanation">The US CGD registry provides the minimum birth-incidence estimate.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10844935" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10844935" target="_blank">PMID:10844935</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"259 have the
+X-linked recessive form of CGD, 81 have 1 of the autosomal recessive forms"</div>
+
+
+                <div class="evidence-explanation">The registry documents the predominance of the X-linked form (259 of 368 patients).</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
         <div class="card" id="differentials">
@@ -7782,7 +9142,7 @@ prenatal and preimplantation genetic testing are possible"</div>
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-other-primary-immunodeficiencies">
                 <div class="item-name">
 
                     Other primary immunodeficiencies
@@ -7810,7 +9170,10 @@ prenatal and preimplantation genetic testing are possible"</div>
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22876374" target="_blank">PMID:22876374</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7836,7 +9199,7 @@ immunodeficiency disorder of phagocytes"</div>
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-inflammatory-bowel-disease">
                 <div class="item-name">
 
                     Inflammatory bowel disease
@@ -7864,7 +9227,10 @@ immunodeficiency disorder of phagocytes"</div>
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22876374" target="_blank">PMID:22876374</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7900,7 +9266,7 @@ inflammatory disorders such as colitis"</div>
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-ega-egas00001005463">
                 <div class="item-name">
                     Bruno et al.: Interferon gamma rebalances immunopathological signatures in Chronic Granulomatous Disease through metabolic rewiring
 
@@ -8021,6 +9387,20 @@ classifications:
       explanation: CGD is a Mendelian single-gene (NADPH oxidase subunit) disorder, supporting placement in Harrison&#39;s genetics Part.
   iuis_category:
     classification_value: phagocyte defect
+    notes: &gt;-
+      IUIS 2022 phenotypic classification (Tangye et al., PMID:35748970),
+      Table 5 &#34;Congenital defects of phagocyte number or function&#34;, section 3
+      (Defects of Respiratory Burst). This entry covers all six Table 5
+      respiratory-burst rows, one per NADPH oxidase component, and its
+      has_subtypes list matches them exactly: CYBB (XL, MIM 306400), CYBA (AR,
+      MIM 608508), CYBC1/EROS (AR, MIM 618334), NCF1 (AR, MIM 608512), NCF2
+      (AR, MIM 608515) and NCF4 (AR, MIM 613960). The affected function is
+      killing through faulty O2- production, on the functional rather than the
+      quantitative axis of the table: phagocytes are present in normal numbers
+      and cannot kill.
+
+      The seventh row of that section, G6PD deficiency class I (MIM 305900),
+      is a separate disease and is not covered here.
     evidence:
     - reference: PMID:22876374
       reference_title: &#34;Chronic Granulomatous Disease.&#34;
@@ -8028,6 +9408,16 @@ classifications:
       evidence_source: OTHER
       snippet: &#34;Chronic granulomatous disease (CGD) is a primary \nimmunodeficiency disorder of phagocytes&#34;
       explanation: As a congenital defect of phagocyte function, CGD is classified in the IUIS &#34;phagocyte defect&#34; category (Table 5 lists CGD explicitly).
+    - reference: PMID:35748970
+      reference_title: &#34;Human Inborn Errors of Immunity: 2022 Update on the Classification from the International Union of Immunological Societies Expert Committee.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;X-linked chronic granulomatous disease (CGD), gp91phox CYBB XL 306400&#34;
+      explanation: &gt;-
+        The Table 5 row for X-linked CGD, quoted verbatim from the IUIS
+        classification itself with its gene, inheritance and OMIM number. Cites
+        the source that makes the classification rather than a review that
+        describes the disease.
 prevalence:
 - population: United States
   measure_type: BIRTH_PREVALENCE
@@ -8056,48 +9446,264 @@ prevalence:
 has_subtypes:
 - name: X-linked CYBB
   display_name: X-linked CGD (CYBB / gp91phox)
+  subtype_term:
+    preferred_term: granulomatous disease, chronic, X-linked
+    term:
+      id: MONDO:0010600
+      label: granulomatous disease, chronic, X-linked
   description: &gt;-
     The most common form (about two-thirds of cases), caused by hemizygous
-    pathogenic variants in CYBB encoding gp91phox (NOX2), the catalytic
-    membrane subunit. Typically the most severe form with earliest onset. A
-    contiguous-gene deletion at Xp21.1 can additionally produce McLeod
-    neuroacanthocytosis syndrome. OMIM phenotype: 306400 (no distinct MONDO
-    subtype term is available; MONDO models CGD only at the parent level).
+    pathogenic variants in CYBB at Xp21.1, encoding gp91phox (NOX2), the
+    catalytic membrane subunit. Typically the most severe form with earliest
+    onset. A larger deletion extending into the neighbouring XK/Kell locus can
+    additionally produce McLeod neuroacanthocytosis syndrome, curated separately
+    in kb/disorders/McLeod_Neuroacanthocytosis_Syndrome.yaml. OMIM phenotype:
+    306400 (MONDO:0010600).
+  genes:
+  - preferred_term: CYBB
+    term:
+      id: hgnc:2578
+      label: CYBB
+  inheritance:
+  - name: X-linked
+    inheritance_term:
+      preferred_term: X-linked inheritance
+      term:
+        id: HP:0001417
+        label: X-linked inheritance
+  evidence:
+  - reference: PMID:22876374
+    reference_title: &#34;Chronic Granulomatous Disease.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    quote_role: REVIEW_SYNTHESIS
+    snippet: &gt;-
+      biallelic pathogenic variants in CYBA, CYBC1, NCF1, NCF2, and NCF4 cause
+      autosomal recessive CGD; pathogenic variants in CYBB cause X-linked CGD.
+    explanation: &gt;-
+      GeneReviews assigns each CGD form to its gene and inheritance mode, which is
+      the basis for the gene bound to this subtype.
+  - reference: PMID:35748970
+    reference_title: &gt;-
+      Human Inborn Errors of Immunity: 2022 Update on the Classification from the
+      International Union of Immunological Societies Expert Committee.
+    supports: SUPPORT
+    evidence_source: OTHER
+    quote_role: REVIEW_SYNTHESIS
+    snippet: &gt;-
+      McLeod phenotype in patients with deletions extending into the contiguous
+      Kell locus
+    explanation: &gt;-
+      Sources the contiguous-deletion route to McLeod neuroacanthocytosis
+      syndrome named in this subtype&#39;s description.
+  - reference: PMID:22111908
+    reference_title: &gt;-
+      Chronic granulomatous disease, the McLeod phenotype and the contiguous
+      gene deletion syndrome-a review.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: REVIEW_SYNTHESIS
+    snippet: &gt;-
+      Deletions and missense, frameshift, or nonsense mutations in the gp91phox
+      gene (also termed CYBB), located in the Xp21.1 region of the X chromosome,
+      are associated with the most common form of CGD.
+    explanation: &gt;-
+      Sources the Xp21.1 location given in this subtype&#39;s description. That band
+      previously sat in the entry&#39;s prose with no reference behind it; this
+      review, already cached for the McLeod entry, states it directly.
+  - reference: PMID:22111908
+    reference_title: &gt;-
+      Chronic granulomatous disease, the McLeod phenotype and the contiguous
+      gene deletion syndrome-a review.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: REVIEW_SYNTHESIS
+    snippet: &gt;-
+      When larger X-chromosomal deletions occur, including the XK gene deletion,
+      a so-called &#34;Contiguous Gene Deletion Syndrome&#34; may result.
+    explanation: &gt;-
+      Names the XK locus that the contiguous deletion extends into, which is the
+      route from X-linked CGD to the McLeod phenotype.
 - name: AR p47phox NCF1
   display_name: Autosomal recessive CGD (NCF1 / p47phox)
+  subtype_term:
+    preferred_term: granulomatous disease, chronic, autosomal recessive, cytochrome b-positive, type 1
+    term:
+      id: MONDO:0009309
+      label: granulomatous disease, chronic, autosomal recessive, cytochrome b-positive, type 1
   description: &gt;-
     The most common autosomal recessive form, caused by biallelic NCF1
     variants (most often the recurrent GT deletion). Generally a milder
     clinical course with later presentation and better survival than X-linked
-    CGD. OMIM phenotype: 233700 (no distinct MONDO subtype term is available).
+    CGD. OMIM phenotype: 233700 (MONDO:0009309).
+  genes:
+  - preferred_term: NCF1
+    term:
+      id: hgnc:7660
+      label: NCF1
+  inheritance:
+  - name: Autosomal recessive
+    inheritance_term:
+      preferred_term: Autosomal recessive inheritance
+      term:
+        id: HP:0000007
+        label: Autosomal recessive inheritance
+  evidence:
+  - reference: PMID:22876374
+    reference_title: &#34;Chronic Granulomatous Disease.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    quote_role: REVIEW_SYNTHESIS
+    snippet: &gt;-
+      biallelic pathogenic variants in CYBA, CYBC1, NCF1, NCF2, and NCF4 cause
+      autosomal recessive CGD; pathogenic variants in CYBB cause X-linked CGD.
+    explanation: &gt;-
+      GeneReviews assigns each CGD form to its gene and inheritance mode, which is
+      the basis for the gene bound to this subtype.
 - name: AR p22phox CYBA
   display_name: Autosomal recessive CGD (CYBA / p22phox)
+  subtype_term:
+    preferred_term: granulomatous disease, chronic, autosomal recessive, cytochrome b-negative
+    term:
+      id: MONDO:0009308
+      label: granulomatous disease, chronic, autosomal recessive, cytochrome b-negative
   description: &gt;-
     Autosomal recessive CGD from biallelic CYBA variants encoding p22phox, the
     membrane partner of gp91phox in flavocytochrome b558. OMIM phenotype:
-    233690 (no distinct MONDO subtype term is available).
+    233690 (MONDO:0009308).
+  genes:
+  - preferred_term: CYBA
+    term:
+      id: hgnc:2577
+      label: CYBA
+  inheritance:
+  - name: Autosomal recessive
+    inheritance_term:
+      preferred_term: Autosomal recessive inheritance
+      term:
+        id: HP:0000007
+        label: Autosomal recessive inheritance
+  evidence:
+  - reference: PMID:22876374
+    reference_title: &#34;Chronic Granulomatous Disease.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    quote_role: REVIEW_SYNTHESIS
+    snippet: &gt;-
+      biallelic pathogenic variants in CYBA, CYBC1, NCF1, NCF2, and NCF4 cause
+      autosomal recessive CGD; pathogenic variants in CYBB cause X-linked CGD.
+    explanation: &gt;-
+      GeneReviews assigns each CGD form to its gene and inheritance mode, which is
+      the basis for the gene bound to this subtype.
 - name: AR p67phox NCF2
   display_name: Autosomal recessive CGD (NCF2 / p67phox)
+  subtype_term:
+    preferred_term: granulomatous disease, chronic, autosomal recessive, cytochrome b-positive, type 2
+    term:
+      id: MONDO:0009310
+      label: granulomatous disease, chronic, autosomal recessive, cytochrome b-positive, type 2
   description: &gt;-
     Autosomal recessive CGD from biallelic NCF2 variants encoding the p67phox
-    cytosolic activator subunit. OMIM phenotype: 233710 (no distinct MONDO
-    subtype term is available).
+    cytosolic activator subunit. OMIM phenotype: 233710 (MONDO:0009310).
+  genes:
+  - preferred_term: NCF2
+    term:
+      id: hgnc:7661
+      label: NCF2
+  inheritance:
+  - name: Autosomal recessive
+    inheritance_term:
+      preferred_term: Autosomal recessive inheritance
+      term:
+        id: HP:0000007
+        label: Autosomal recessive inheritance
+  evidence:
+  - reference: PMID:22876374
+    reference_title: &#34;Chronic Granulomatous Disease.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    quote_role: REVIEW_SYNTHESIS
+    snippet: &gt;-
+      biallelic pathogenic variants in CYBA, CYBC1, NCF1, NCF2, and NCF4 cause
+      autosomal recessive CGD; pathogenic variants in CYBB cause X-linked CGD.
+    explanation: &gt;-
+      GeneReviews assigns each CGD form to its gene and inheritance mode, which is
+      the basis for the gene bound to this subtype.
 - name: AR p40phox NCF4
   display_name: Autosomal recessive CGD (NCF4 / p40phox)
+  subtype_term:
+    preferred_term: granulomatous disease, chronic, autosomal recessive, cytochrome b-positive, type 3
+    term:
+      id: MONDO:0013507
+      label: granulomatous disease, chronic, autosomal recessive, cytochrome b-positive, type 3
   description: &gt;-
     A rare autosomal recessive form from biallelic NCF4 variants encoding
     p40phox, often with a distinctive predominantly inflammatory/colitis
     phenotype and comparatively preserved antimicrobial oxidase activity. OMIM
-    phenotype: 613960 (no distinct MONDO subtype term is available).
+    phenotype: 613960 (MONDO:0013507).
+  genes:
+  - preferred_term: NCF4
+    term:
+      id: hgnc:7662
+      label: NCF4
+  inheritance:
+  - name: Autosomal recessive
+    inheritance_term:
+      preferred_term: Autosomal recessive inheritance
+      term:
+        id: HP:0000007
+        label: Autosomal recessive inheritance
+  evidence:
+  - reference: PMID:22876374
+    reference_title: &#34;Chronic Granulomatous Disease.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    quote_role: REVIEW_SYNTHESIS
+    snippet: &gt;-
+      biallelic pathogenic variants in CYBA, CYBC1, NCF1, NCF2, and NCF4 cause
+      autosomal recessive CGD; pathogenic variants in CYBB cause X-linked CGD.
+    explanation: &gt;-
+      GeneReviews assigns each CGD form to its gene and inheritance mode, which is
+      the basis for the gene bound to this subtype.
 - name: AR CYBC1 EROS
   display_name: Autosomal recessive CGD (CYBC1 / EROS)
+  subtype_term:
+    preferred_term: granulomatous disease, chronic, autosomal recessive, 5
+    term:
+      id: MONDO:0030066
+      label: granulomatous disease, chronic, autosomal recessive, 5
   description: &gt;-
     Autosomal recessive CGD from biallelic CYBC1 (EROS) variants; CYBC1
     encodes an endoplasmic reticulum chaperone required for gp91phox-p22phox
     stability, so its loss produces a functional NADPH oxidase deficiency. OMIM
-    phenotype: 618935 (no distinct MONDO subtype term is available).
+    phenotype: 618935 (MONDO:0030066).
+  genes:
+  - preferred_term: CYBC1
+    term:
+      id: hgnc:28672
+      label: CYBC1
+  inheritance:
+  - name: Autosomal recessive
+    inheritance_term:
+      preferred_term: Autosomal recessive inheritance
+      term:
+        id: HP:0000007
+        label: Autosomal recessive inheritance
+  evidence:
+  - reference: PMID:22876374
+    reference_title: &#34;Chronic Granulomatous Disease.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    quote_role: REVIEW_SYNTHESIS
+    snippet: &gt;-
+      biallelic pathogenic variants in CYBA, CYBC1, NCF1, NCF2, and NCF4 cause
+      autosomal recessive CGD; pathogenic variants in CYBB cause X-linked CGD.
+    explanation: &gt;-
+      GeneReviews assigns each CGD form to its gene and inheritance mode, which is
+      the basis for the gene bound to this subtype.
 pathophysiology:
 - name: NADPH oxidase (NOX2) complex assembly failure
+  conforms_to: &#34;phagocyte_oxidative_burst_failure#Phagocyte NADPH Oxidase Assembly or Activation Failure&#34;
   description: &gt;-
     Pathogenic variants in any one of the NOX2 complex subunits (membrane
     gp91phox/CYBB and p22phox/CYBA forming flavocytochrome b558; cytosolic
@@ -8115,6 +9721,22 @@ pathophysiology:
     term:
       id: hgnc:7660
       label: NCF1
+  - preferred_term: CYBA
+    term:
+      id: hgnc:2577
+      label: CYBA
+  - preferred_term: NCF2
+    term:
+      id: hgnc:7661
+      label: NCF2
+  - preferred_term: NCF4
+    term:
+      id: hgnc:7662
+      label: NCF4
+  - preferred_term: CYBC1
+    term:
+      id: hgnc:28672
+      label: CYBC1
   cell_types:
   - preferred_term: neutrophil
     term:
@@ -8150,6 +9772,7 @@ pathophysiology:
     causal_link_type: DIRECT
     description: A non-functional NADPH oxidase cannot generate superoxide, abolishing the respiratory burst and downstream reactive oxygen species.
 - name: Failed respiratory burst and ROS deficiency
+  conforms_to: &#34;phagocyte_oxidative_burst_failure#Failed Respiratory Burst and Phagosomal ROS Deficiency&#34;
   description: &gt;-
     The assembled NADPH oxidase normally catalyzes the respiratory (oxidative)
     burst, reducing molecular oxygen to superoxide, which is dismutated and
@@ -8520,6 +10143,7 @@ genetic:
 - name: CYBB
   subtype: X-linked CYBB
   association: Causative
+  relationship_type: CAUSATIVE
   gene_term:
     preferred_term: CYBB
     term:
@@ -8546,6 +10170,7 @@ genetic:
 - name: CYBA
   subtype: AR p22phox CYBA
   association: Causative
+  relationship_type: CAUSATIVE
   gene_term:
     preferred_term: CYBA
     term:
@@ -8562,6 +10187,7 @@ genetic:
 - name: NCF1
   subtype: AR p47phox NCF1
   association: Causative
+  relationship_type: CAUSATIVE
   gene_term:
     preferred_term: NCF1
     term:
@@ -8580,6 +10206,7 @@ genetic:
 - name: NCF2
   subtype: AR p67phox NCF2
   association: Causative
+  relationship_type: CAUSATIVE
   gene_term:
     preferred_term: NCF2
     term:
@@ -8596,6 +10223,7 @@ genetic:
 - name: NCF4
   subtype: AR p40phox NCF4
   association: Causative
+  relationship_type: CAUSATIVE
   gene_term:
     preferred_term: NCF4
     term:
@@ -8614,6 +10242,7 @@ genetic:
 - name: CYBC1
   subtype: AR CYBC1 EROS
   association: Causative
+  relationship_type: CAUSATIVE
   gene_term:
     preferred_term: CYBC1
     term:
@@ -8969,6 +10598,8 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -9387,7 +11018,7 @@ datasets:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Chronic Granulomatous Disease", "mondoId": "MONDO:0018305", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Chronic_Granulomatous_Disease", "yamlRevision": "4741402e08a9"};
+        const OS_CONFIG = {"diseaseName": "Chronic Granulomatous Disease", "mondoId": "MONDO:0018305", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Chronic_Granulomatous_Disease", "yamlRevision": "6817f3c0d967"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

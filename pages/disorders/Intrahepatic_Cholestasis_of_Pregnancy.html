@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -292,6 +293,20 @@
         .badge-mondo {
             background: #e0f2fe;
             color: #0369a1;
+        }
+
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
         }
 
         .badge-mondo a {
@@ -830,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1508,6 +1550,21 @@
         .experiment-subitem-name {
             font-weight: 700;
             color: #334155;
+            margin-bottom: 4px;
+        }
+
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
             margin-bottom: 4px;
         }
 
@@ -2369,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2863,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2871,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2911,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2926,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3035,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3048,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3252,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3262,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3298,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3319,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3690,6 +3810,29 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3718,7 +3861,7 @@
             <span>Intrahepatic Cholestasis of Pregnancy</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Intrahepatic Cholestasis of Pregnancy</h1>
             <div class="header-meta">
 
@@ -4181,7 +4324,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30773280" target="_blank">PMID:30773280</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4203,7 +4349,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26777584" target="_blank">PMID:26777584</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4273,7 +4422,7 @@
 
 
 
-    <span class="entity-ref-chip">phenotype#Stillbirth</span>
+    <a class="entity-ref-chip" href="#phenotype-stillbirth">phenotypes#Stillbirth</a>
 
 
 
@@ -4371,6 +4520,12 @@ This experiment is of type prospective mechanistic cohort study with human cardi
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4439,6 +4594,7 @@ This experiment is of type prospective mechanistic cohort study with human cardi
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-genetic-and-hormonal-susceptibility-of-hepatobiliary-transport" data-dismech-node="Genetic and Hormonal Susceptibility of Hepatobiliary Transport" data-dismech-type="pathophysiology">
                 <div class="item-name">Genetic and Hormonal Susceptibility of Hepatobiliary Transport</div>
+
 
                 <div class="item-desc">Heterozygous variants in canalicular transporter genes - ABCB4 (phospholipid floppase MDR3), ABCB11 (bile salt export pump BSEP) and ATP8B1 - reduce the reserve capacity of hepatocellular bile export without causing disease outside pregnancy. Genome-wide meta-analysis implicates a broader set of loci acting through bile acid synthesis and lipid metabolism. In the third trimester, sulfated progesterone metabolites and estrogen glucuronides inhibit BSEP and antagonise the bile acid sensor FXR (NR1H4), converting this latent reserve deficit into overt cholestasis. The strictly gestational timing of ICP, and its resolution after delivery, follow from this gene-by-hormone interaction.</div>
 
@@ -4753,7 +4909,10 @@ This pathophysiological event involves dysregulated bile acid metabolic process 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42178310" target="_blank">PMID:42178310</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4769,13 +4928,16 @@ This pathophysiological event involves dysregulated bile acid metabolic process 
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:42178310" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:42178310" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42178310" target="_blank">PMID:42178310</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4797,7 +4959,10 @@ This pathophysiological event involves dysregulated bile acid metabolic process 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42486596" target="_blank">PMID:42486596</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4822,6 +4987,7 @@ This pathophysiological event involves dysregulated bile acid metabolic process 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-hepatocellular-bile-acid-export" data-dismech-node="Impaired Hepatocellular Bile Acid Export" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Hepatocellular Bile Acid Export</div>
+
 
                 <div class="item-desc">Canalicular export of bile salts and phospholipid falls below the load presented to the hepatocyte, producing intrahepatic cholestasis with retention of bile acids inside the hepatocyte and a modest hepatocellular injury signature (raised aminotransferases). Unlike the biliary-obstruction cholestases, jaundice is uncommon and hepatic architecture is preserved, and the process reverses within days to weeks of delivery.</div>
 
@@ -4942,7 +5108,10 @@ This pathophysiological event involves decreased bile acid and bile salt transpo
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42486596" target="_blank">PMID:42486596</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4967,6 +5136,7 @@ This pathophysiological event involves decreased bile acid and bile salt transpo
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-maternal-bile-acid-accumulation" data-dismech-node="Maternal Bile Acid Accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Maternal Bile Acid Accumulation</div>
+
 
                 <div class="item-desc">Total serum bile acids rise, typically from the end of the second trimester. This is simultaneously the diagnostic biochemical abnormality, the driver of maternal pruritus, and - critically - the quantitative determinant of fetal risk. Because symptom intensity correlates poorly with concentration, serial quantitative bile acid measurement rather than clinical severity governs management.</div>
 
@@ -5083,7 +5253,10 @@ This pathophysiological event involves dysregulated bile acid metabolic process 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31378395" target="_blank">PMID:31378395</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5108,6 +5281,7 @@ This pathophysiological event involves dysregulated bile acid metabolic process 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-transplacental-bile-acid-transfer-and-fetal-accumulation" data-dismech-node="Transplacental Bile Acid Transfer and Fetal Accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Transplacental Bile Acid Transfer and Fetal Accumulation</div>
+
 
                 <div class="item-desc">The fetus normally exports bile acids to the maternal circulation across the placenta. When the maternal compartment is loaded, this gradient flattens or reverses and bile acids accumulate in fetal serum, amniotic fluid and meconium. Fetal accumulation is the necessary link between a maternal hepatic disorder and a fetal cardiac event, and accounts for the meconium-stained liquor that accompanies severe disease.</div>
 
@@ -5244,13 +5418,16 @@ This pathophysiological event involves dysregulated bile acid and bile salt tran
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:26777584" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:26777584" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26777584" target="_blank">PMID:26777584</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5275,6 +5452,7 @@ This pathophysiological event involves dysregulated bile acid and bile salt tran
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fetal-cardiomyocyte-electrophysiological-disturbance" data-dismech-node="Fetal Cardiomyocyte Electrophysiological Disturbance" data-dismech-type="pathophysiology">
                 <div class="item-name">Fetal Cardiomyocyte Electrophysiological Disturbance</div>
+
 
                 <div class="item-desc">Taurocholic acid produces abnormal calcium dynamics and impaired contraction in cardiomyocytes, slows ventricular conduction, and promotes arrhythmia. Cardiac fibroblast-cardiomyocyte coupling contributes: bile acids and hypoxia promote fibroblast-to-myofibroblast transition and gap-junctional depolarisation of cardiomyocytes, and ursodeoxycholic acid acts partly by hyperpolarising these myofibroblasts. This node is the mechanistic core of the stillbirth model and is where the human-translation uncertainty is concentrated.</div>
 
@@ -5417,7 +5595,10 @@ This pathophysiological event involves abnormal cardiac muscle cell action poten
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26777584" target="_blank">PMID:26777584</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5439,7 +5620,10 @@ This pathophysiological event involves abnormal cardiac muscle cell action poten
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26777584" target="_blank">PMID:26777584</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5508,11 +5692,11 @@ This pathophysiological event involves abnormal cardiac muscle cell action poten
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Integument<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Metabolism<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Metabolism<span class="pill-count">(2)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Prenatal and Birth<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5555,6 +5739,9 @@ This clinical feature is Pruritus (HP:0000989). HP:0000989 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5567,7 +5754,10 @@ This clinical feature is Pruritus (HP:0000989). HP:0000989 is a phenotype from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42486596" target="_blank">PMID:42486596</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5599,8 +5789,82 @@ This clinical feature is Pruritus (HP:0000989). HP:0000989 is a phenotype from t
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Metabolism
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-increased-serum-bile-acid-concentration" data-dismech-node="Increased serum bile acid concentration" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Increased serum bile acid concentration
+
+                        <span class="phenotype-freq">OBLIGATE</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012202" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0012202</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Increased serum bile acid concentration (HP:0012202). HP:0012202 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42178310" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42178310" target="_blank">PMID:42178310</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Intrahepatic cholestasis of pregnancy, which affects 0.2-2% of pregnancies, is characterized by pruritus, increased aminotransferase activity and elevated serum bile acids."</div>
+
+
+                <div class="evidence-explanation">Establishes elevated serum bile acids as a defining biochemical feature.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-elevated-hepatic-transaminases" data-dismech-node="Elevated hepatic transaminases" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -5620,15 +5884,18 @@ This clinical feature is Pruritus (HP:0000989). HP:0000989 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002910" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0002910</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002910" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0002910</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Elevated circulating hepatic transaminase concentration (HP:0002910). HP:0002910 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5640,13 +5907,16 @@ This clinical feature is Elevated circulating hepatic transaminase concentration
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:42178310" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:42178310" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42178310" target="_blank">PMID:42178310</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5697,15 +5967,18 @@ This clinical feature is Elevated circulating hepatic transaminase concentration
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001622" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001622</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001622" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001622</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Premature birth (HP:0001622). HP:0001622 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5723,7 +5996,10 @@ This clinical feature is Premature birth (HP:0001622). HP:0001622 is a phenotype
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31378395" target="_blank">PMID:31378395</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5755,76 +6031,8 @@ This clinical feature is Premature birth (HP:0001622). HP:0001622 is a phenotype
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">1</span>
                 </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-increased-serum-bile-acid-concentration" data-dismech-node="Increased serum bile acid concentration" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Increased serum bile acid concentration
-
-                        <span class="phenotype-freq">OBLIGATE</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012202" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0012202</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Increased serum bile acid concentration (HP:0012202). HP:0012202 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:42178310" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42178310" target="_blank">PMID:42178310</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Intrahepatic cholestasis of pregnancy, which affects 0.2-2% of pregnancies, is characterized by pruritus, increased aminotransferase activity and elevated serum bile acids."</div>
-
-
-                <div class="evidence-explanation">Establishes elevated serum bile acids as a defining biochemical feature.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-stillbirth" data-dismech-node="Stillbirth" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -5832,6 +6040,9 @@ This clinical feature is Increased serum bile acid concentration (HP:0012202). H
 
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">No phenotype_term is asserted. HP:0003826 Stillbirth is a real HPO term but sits under Mortality/Aging and Prenatal death rather than under the HP:0000118 phenotypic-abnormality root, so it is outside the PhenotypeTerm dynamic enum, and MONDO has no stillbirth class. Binding to a coarser available parent would misrepresent the single most important outcome of this disorder, so the phenotype is left unbound and the ontology gap recorded here.</div>
@@ -5851,7 +6062,10 @@ This clinical feature is Increased serum bile acid concentration (HP:0012202). H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30773280" target="_blank">PMID:30773280</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5873,7 +6087,10 @@ This clinical feature is Increased serum bile acid concentration (HP:0012202). H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30773280" target="_blank">PMID:30773280</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5975,6 +6192,9 @@ This disease-associated gene is ABCB4 (hgnc:45). hgnc:45 is a gene from the HUGO
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5987,7 +6207,10 @@ This disease-associated gene is ABCB4 (hgnc:45). hgnc:45 is a gene from the HUGO
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42178310" target="_blank">PMID:42178310</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6048,6 +6271,9 @@ This disease-associated gene is ABCB11 (hgnc:42). hgnc:42 is a gene from the HUG
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6060,7 +6286,10 @@ This disease-associated gene is ABCB11 (hgnc:42). hgnc:42 is a gene from the HUG
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42178310" target="_blank">PMID:42178310</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6123,6 +6352,9 @@ This disease-associated gene is ATP8B1 (hgnc:3706). hgnc:3706 is a gene from the
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-abcg5" data-dismech-node="ABCG5" data-dismech-type="genetic">
@@ -6162,6 +6394,9 @@ This disease-associated gene is ABCG5 (hgnc:13886). hgnc:13886 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6174,7 +6409,10 @@ This disease-associated gene is ABCG5 (hgnc:13886). hgnc:13886 is a gene from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42178310" target="_blank">PMID:42178310</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6237,6 +6475,9 @@ This disease-associated gene is ABCG8 (hgnc:13887). hgnc:13887 is a gene from th
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-cyp8b1" data-dismech-node="CYP8B1" data-dismech-type="genetic">
@@ -6276,6 +6517,9 @@ This disease-associated gene is CYP8B1 (hgnc:2653). hgnc:2653 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6288,7 +6532,10 @@ This disease-associated gene is CYP8B1 (hgnc:2653). hgnc:2653 is a gene from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/42178310" target="_blank">PMID:42178310</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6316,6 +6563,9 @@ This disease-associated gene is CYP8B1 (hgnc:2653). hgnc:2653 is a gene from the
 
 
         <!-- Variants recorded at the disease level -->
+
+
+        <!-- Registry / external-database assertions recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -6389,6 +6639,31 @@ This treatment uses ursodeoxycholic acid (CHEBI:9907). CHEBI:9907 is a therapeut
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">A hydrophilic bile acid, historically the mainstay of ICP treatment. It reliably improves maternal pruritus and lowers biochemical markers, and is antiarrhythmic in fetal cardiac model systems. However the PITCHES randomised placebo-controlled trial found no reduction in the composite perinatal outcome of perinatal death, preterm birth or neonatal unit admission. UDCA is therefore best curated as a maternal symptomatic therapy with a mechanistically attractive but clinically unproven fetal-protective rationale.</div>
 
 
@@ -6426,7 +6701,10 @@ This treatment uses ursodeoxycholic acid (CHEBI:9907). CHEBI:9907 is a therapeut
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31378395" target="_blank">PMID:31378395</a>
                     </span>
 
+
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6448,7 +6726,10 @@ This treatment uses ursodeoxycholic acid (CHEBI:9907). CHEBI:9907 is a therapeut
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31378395" target="_blank">PMID:31378395</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6464,13 +6745,16 @@ This treatment uses ursodeoxycholic acid (CHEBI:9907). CHEBI:9907 is a therapeut
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:26777584" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:26777584" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26777584" target="_blank">PMID:26777584</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -6534,6 +6818,31 @@ This treatment is labor induction, annotated with Induction of Labor (NCIT:C9281
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Because the stillbirth hazard is concentrated late in gestation and rises with bile acid concentration, planned early-term or preterm delivery timed to the maximum measured bile acid concentration is the principal intervention that plausibly reduces fetal death. This trades an iatrogenic prematurity cost against stillbirth risk, and the balance is explicitly concentration-dependent.</div>
 
 
@@ -6547,13 +6856,16 @@ This treatment is labor induction, annotated with Induction of Labor (NCIT:C9281
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:30773280" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:30773280" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30773280" target="_blank">PMID:30773280</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6617,7 +6929,10 @@ This treatment is labor induction, annotated with Induction of Labor (NCIT:C9281
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30773280" target="_blank">PMID:30773280</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6641,6 +6956,99 @@ This treatment is labor induction, annotated with Induction of Labor (NCIT:C9281
             </div>
 
         </div>
+
+
+        <!-- Diagnosis -->
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-pregnancies-finnish-icelandic-estonian-and-danish-biobank-cohorts">
+                <div class="item-name">Pregnancies (Finnish, Icelandic, Estonian and Danish biobank cohorts)</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Period Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">200.0&ndash;2000.0 per 100,000
+                    </span>
+
+                    <span class="tag">&gt;1 in 1,000</span>
+
+                </div>
+
+                <div class="item-notes">0.2-2% of pregnancies (200-2,000 per 100,000). Modeled as a period prevalence across the pregnancy episode. Incidence varies substantially by ancestry and geography, being notably higher in Chile and in South Asian populations.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42178310" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42178310" target="_blank">PMID:42178310</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Intrahepatic cholestasis of pregnancy, which affects 0.2-2% of pregnancies, is characterized by pruritus, increased aminotransferase activity and elevated serum bile acids."</div>
+
+
+                <div class="evidence-explanation">Provides the per-pregnancy occurrence range used for this record.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -6820,7 +7228,7 @@ pathophysiology:
       in bile acid synthesis and lipid metabolism pathways.
   - reference: PMID:42178310
     reference_title: &#34;Genome-wide meta-analysis identifies genetic drivers of bile acid metabolism in intrahepatic cholestasis of pregnancy.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Previous studies have implicated liver-enriched genes in intrahepatic cholestasis of pregnancy.&#34;
     explanation: &gt;-
@@ -6845,6 +7253,7 @@ pathophysiology:
     - sulfated progesterone metabolite inhibition of BSEP
     - FXR antagonism reducing transporter transcription
 - name: Impaired Hepatocellular Bile Acid Export
+  conforms_to: &#34;cholestatic_liver_injury#Impaired Bile Formation and Secretion&#34;
   biological_scale: CELLULAR
   description: &gt;-
     Canalicular export of bile salts and phospholipid falls below the load presented
@@ -6876,6 +7285,7 @@ pathophysiology:
     description: Failure of hepatic clearance raises circulating total bile acid concentration.
     causal_link_type: DIRECT
 - name: Maternal Bile Acid Accumulation
+  conforms_to: &#34;cholestatic_liver_injury#Hepatocellular and Biliary Bile Acid Retention&#34;
   biological_scale: ORGANISM
   description: &gt;-
     Total serum bile acids rise, typically from the end of the second trimester.
@@ -6935,7 +7345,7 @@ pathophysiology:
   evidence:
   - reference: PMID:26777584
     reference_title: &#34;The protective effect of ursodeoxycholic acid in an in vitro model of the human fetal heart occurs via targeting cardiac fibroblasts.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &#34;Bile acids are elevated in the blood of women with intrahepatic cholestasis of pregnancy (ICP) and this may lead to fetal arrhythmia, fetal hypoxia and potentially fetal death in utero.&#34;
     explanation: &gt;-
@@ -7060,7 +7470,7 @@ phenotypes:
   evidence:
   - reference: PMID:42178310
     reference_title: &#34;Genome-wide meta-analysis identifies genetic drivers of bile acid metabolism in intrahepatic cholestasis of pregnancy.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Intrahepatic cholestasis of pregnancy, which affects 0.2-2% of pregnancies, is characterized by pruritus, increased aminotransferase activity and elevated serum bile acids.&#34;
     explanation: &gt;-
@@ -7325,7 +7735,7 @@ treatments:
       outcome evidence.
   - reference: PMID:26777584
     reference_title: &#34;The protective effect of ursodeoxycholic acid in an in vitro model of the human fetal heart occurs via targeting cardiac fibroblasts.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &#34;Ursodeoxycholic acid (UDCA), a drug clinically used to treat ICP, prevents adverse effects of TC.&#34;
     explanation: &gt;-
@@ -7347,7 +7757,7 @@ treatments:
   evidence:
   - reference: PMID:30773280
     reference_title: &#34;Association of adverse perinatal outcomes of intrahepatic cholestasis of pregnancy with biochemical markers: results of aggregate and individual patient data meta-analyses.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The risk of stillbirth is increased in women with intrahepatic cholestasis of pregnancy and singleton pregnancies when serum bile acids concentrations are of 100 μmol/L or more.&#34;
     explanation: &gt;-
@@ -7368,7 +7778,7 @@ discussions:
   attaches_to:
   - pathophysiology#Fetal Cardiomyocyte Electrophysiological Disturbance
   - pathophysiology#Transplacental Bile Acid Transfer and Fetal Accumulation
-  - phenotype#Stillbirth
+  - phenotypes#Stillbirth
   rationale: &gt;-
     This is not an absence of evidence but a translational-validity question: positive
     mechanistic evidence exists in model systems, and the human epidemiology is
@@ -7605,7 +8015,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Intrahepatic Cholestasis of Pregnancy", "mondoId": "MONDO:0100429", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Intrahepatic_Cholestasis_of_Pregnancy", "yamlRevision": "17b6b14086db"};
+        const OS_CONFIG = {"diseaseName": "Intrahepatic Cholestasis of Pregnancy", "mondoId": "MONDO:0100429", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Intrahepatic_Cholestasis_of_Pregnancy", "yamlRevision": "0736585b0d33"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

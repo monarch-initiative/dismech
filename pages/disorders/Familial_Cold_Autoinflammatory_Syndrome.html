@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -292,6 +293,20 @@
         .badge-mondo {
             background: #e0f2fe;
             color: #0369a1;
+        }
+
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
         }
 
         .badge-mondo a {
@@ -830,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1508,6 +1550,21 @@
         .experiment-subitem-name {
             font-weight: 700;
             color: #334155;
+            margin-bottom: 4px;
+        }
+
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
             margin-bottom: 4px;
         }
 
@@ -2369,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2863,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2871,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2911,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2926,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3035,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3048,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3252,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3262,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3298,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3319,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3690,6 +3810,29 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3718,7 +3861,7 @@
             <span>Familial Cold Autoinflammatory Syndrome</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Familial Cold Autoinflammatory Syndrome</h1>
             <div class="header-meta">
 
@@ -3765,7 +3908,7 @@
             </div>
 
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
-                Familial cold autoinflammatory syndrome (FCAS) is a dominantly inherited autoinflammatory disorder characterized by recurrent, cold-triggered episodes of urticaria-like skin rash, low-grade fever, arthralgia/myalgia, and conjunctivitis. FCAS1 (NLRP3/cryopyrin) is the mildest disorder on the cryopyrin-associated periodic syndrome (CAPS) spectrum, which also includes Muckle-Wells syndrome and CINCA/NOMID. The shared mechanism is inappropriate activation of the NLRP3 inflammasome with caspase-1-dependent overproduction of IL-1beta. Genetically distinct FCAS-like cold-triggered syndromes are caused by mutations in NLRP12 (FCAS2), PLCG2 (FCAS3), and NLRP1 (FCAS4).
+                Familial cold autoinflammatory syndrome (FCAS) is a dominantly inherited autoinflammatory disorder characterized by recurrent, cold-triggered episodes of urticaria-like skin rash, low-grade fever, arthralgia/myalgia, and conjunctivitis. FCAS1 (NLRP3/cryopyrin) is the mildest disorder on the cryopyrin-associated periodic syndrome (CAPS) spectrum, which also includes Muckle-Wells syndrome and CINCA/NOMID. The shared mechanism is inappropriate activation of the NLRP3 inflammasome with caspase-1-dependent overproduction of IL-1beta. Genetically distinct FCAS-like syndromes are caused by mutations in NLRP12 (FCAS2) and PLCG2 (FCAS3/PLAID), and this entry also covers the related NLRP1 inflammasomopathy NAIAD. Note that the FCAS4 designation belongs to an NLRC4 disorder that is not curated here.
 
             </p>
 
@@ -4052,6 +4195,23 @@
 
             </div>
 
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">IUIS Category</div>
+
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="IUIS 2022 phenotypic classification (Tangye et al., PMID:35748970), Table 7 &#34;Autoinflammatory disorders&#34;, section 2 &#34;Defects Affecting the Inflammasome&#34;. The numbered FCAS series occupies three rows there: FCAS1 (NLRP3, OMIM 120100), FCAS2 (NLRP12, OMIM 611762) and FCAS3/PLAID (PLCG2, OMIM 614468). The fourth row IUIS labels &#34;Familial cold autoinflammatory syndrome 4&#34; is NLRC4 (OMIM 616115), a disorder this entry does not curate; see the review_notes on the NAIAD subtype.">autoinflammatory syndrome</span>
+
+                </div>
+
+            </div>
+
         </div>
 
 
@@ -4100,15 +4260,36 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-fcas1">
 
                     <div class="item-name">
                         FCAS1 (NLRP3 / cryopyrin)
+
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0007349" target="_blank">MONDO:0007349</a>
 
 
 
                     </div>
                     <div class="subtype-meta">
+
+
+
+
+
+                            <span class="subtype-gene-tag">
+                                NLRP3
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:16400" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:16400</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in NLRP3 (hgnc:16400). hgnc:16400 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
 
 
 
@@ -4135,7 +4316,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11687797" target="_blank">PMID:11687797</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4161,10 +4345,12 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-fcas2">
 
                     <div class="item-name">
                         FCAS2 (NLRP12)
+
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0012724" target="_blank">MONDO:0012724</a>
 
 
 
@@ -4175,9 +4361,28 @@
 
 
 
+                            <span class="subtype-gene-tag">
+                                NLRP12
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:22938" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:22938</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in NLRP12 (hgnc:22938). hgnc:22938 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
                     </div>
 
-                    <div class="item-desc">A cold-induced hereditary periodic fever syndrome caused by heterozygous NLRP12 (NALP12/Monarch-1) mutations, clinically resembling FCAS1 but genetically distinct. NLRP12 mutations impair NF-kappaB regulation.
+                    <div class="item-desc">A cold-induced hereditary periodic fever syndrome caused by heterozygous NLRP12 (NALP12/Monarch-1) mutations, clinically resembling FCAS1 but genetically distinct. NLRP12 mutations impair NF-kappaB regulation. &#34;FCAS2&#34; names the cold-triggered presentation of what is more broadly called NLRP12-associated autoinflammatory disease (NLRP12-AID). In a 17-patient paediatric NLRP12-AID series, described by its authors as one of the largest such cohorts, a cold trigger was present in only three patients, and the authors conclude that the disease affects various tissues, especially the musculoskeletal and gastrointestinal systems, apart from FCAS symptoms.
 </div>
 
 
@@ -4186,9 +4391,34 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37877365" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37877365" target="_blank">PMID:37877365</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Clinical manifestations were triggered by cold exposure in three patients (17.6%)."</div>
+
+
+                <div class="evidence-explanation">Only three of the seventeen patients in this paediatric NLRP12-AID series had cold-triggered attacks, so the FCAS2 label names a minority presentation of NLRP12 disease rather than its usual form.</div>
+
+
+
+            </div>
 
             <div class="evidence-item" data-dismech-evidence="PMID:18230725" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
@@ -4196,7 +4426,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18230725" target="_blank">PMID:18230725</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4222,15 +4455,36 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-fcas3">
 
                     <div class="item-name">
                         FCAS3 (PLCG2)
+
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0013766" target="_blank">MONDO:0013766</a>
 
 
 
                     </div>
                     <div class="subtype-meta">
+
+
+
+
+
+                            <span class="subtype-gene-tag">
+                                PLCG2
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:9066" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:9066</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in PLCG2 (hgnc:9066). hgnc:9066 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
 
 
 
@@ -4257,7 +4511,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22236196" target="_blank">PMID:22236196</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4283,15 +4540,36 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-naiad">
 
                     <div class="item-name">
-                        FCAS4 (NLRP1)
+                        NAIAD / AIADK (NLRP1)
+
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0060457" target="_blank">MONDO:0060457</a>
 
 
 
                     </div>
                     <div class="subtype-meta">
+
+
+
+
+
+                            <span class="subtype-gene-tag">
+                                NLRP1
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:14374" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:14374</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in NLRP1 (hgnc:14374). hgnc:14374 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
 
 
 
@@ -4308,7 +4586,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
@@ -4318,7 +4596,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27965258" target="_blank">PMID:27965258</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4328,7 +4609,32 @@
                 <div class="evidence-snippet">"We demonstrate the responsibility of human NLRP1 in a novel autoinflammatory disorder that we propose to call NAIAD for NLRP1-associated autoinflammation with arthritis and dyskeratosis."</div>
 
 
-                <div class="evidence-explanation">Original identification of NLRP1 mutations causing an autoinflammatory disorder, the basis of the FCAS4/NAIAD subtype.</div>
+                <div class="evidence-explanation">Original identification of NLRP1 mutations causing an autoinflammatory disorder, the basis of the NAIAD subtype.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35748970" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35748970" target="_blank">PMID:35748970</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"NLRP1 deficiency NLRP1 AR 617388"</div>
+
+
+                <div class="evidence-explanation">IUIS Table 7 gives recessive NLRP1 disease its own row at OMIM 617388, the same OMIM record MONDO:0060457 cross-references, which is what identifies this subtype as NAIAD.</div>
 
 
 
@@ -4366,6 +4672,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nlrp3-gain-of-function-mutation" data-dismech-node="NLRP3 gain-of-function mutation" data-dismech-type="pathophysiology">
                 <div class="item-name">NLRP3 gain-of-function mutation</div>
 
+
                 <div class="item-desc">Heterozygous gain-of-function mutations in NLRP3 (CIAS1, encoding cryopyrin) lower the activation threshold of the NLRP3 inflammasome. NLRP3 is an intracellular NOD-like receptor sensor with a pyrin domain, a NACHT nucleotide-binding domain, and a leucine-rich repeat region. In FCAS1, generalized cold exposure triggers inappropriate inflammasome activation in myeloid cells.
 </div>
 
@@ -4381,11 +4688,11 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000576" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000576</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000576" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000576</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Monocyte (CL:0000576). CL:0000576 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4411,11 +4718,11 @@ This pathophysiological event involves Monocyte (CL:0000576). CL:0000576 is a ce
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-2">CL:0000235</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000235" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000235</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Macrophage (CL:0000235). CL:0000235 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4451,11 +4758,11 @@ This pathophysiological event involves Macrophage (CL:0000235). CL:0000235 is a 
         NLRP3
 
 
-    <a href="https://bioregistry.io/hgnc:16400" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:16400</a>
+    <a href="https://bioregistry.io/hgnc:16400" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-7">hgnc:16400</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-7">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves NLRP3 (hgnc:16400). hgnc:16400 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -4517,7 +4824,10 @@ This pathophysiological event involves NLRP3 (hgnc:16400). hgnc:16400 is a gene 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11687797" target="_blank">PMID:11687797</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4539,7 +4849,10 @@ This pathophysiological event involves NLRP3 (hgnc:16400). hgnc:16400 is a gene 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36275641" target="_blank">PMID:36275641</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4565,6 +4878,7 @@ This pathophysiological event involves NLRP3 (hgnc:16400). hgnc:16400 is a gene 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-constitutive-nlrp3-inflammasome-activation" data-dismech-node="Constitutive NLRP3 inflammasome activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Constitutive NLRP3 inflammasome activation</div>
 
+
                 <div class="item-desc">Mutant NLRP3 assembles the inflammasome complex with reduced/absent requirement for a second activating signal, especially following the environmental cold trigger characteristic of FCAS. Assembly recruits the adaptor ASC and pro-caspase-1.
 </div>
 
@@ -4580,11 +4894,11 @@ This pathophysiological event involves NLRP3 (hgnc:16400). hgnc:16400 is a gene 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000576" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000576</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000576" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000576</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Monocyte (CL:0000576). CL:0000576 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4606,6 +4920,49 @@ This pathophysiological event involves Monocyte (CL:0000576). CL:0000576 is a ce
 
 
 
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        NLRP3
+
+
+    <a href="https://bioregistry.io/hgnc:16400" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-9">hgnc:16400</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-9">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NLRP3 (hgnc:16400). hgnc:16400 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
 
 
 
@@ -4621,11 +4978,11 @@ This pathophysiological event involves Monocyte (CL:0000576). CL:0000576 is a ce
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0044546" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0044546</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0044546" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0044546</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased NLRP3 inflammasome complex assembly (GO:0044546). GO:0044546 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4683,7 +5040,10 @@ This pathophysiological event involves increased NLRP3 inflammasome complex asse
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38146057" target="_blank">PMID:38146057</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4709,6 +5069,7 @@ This pathophysiological event involves increased NLRP3 inflammasome complex asse
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-caspase-1-activation-and-il-1beta-overproduction" data-dismech-node="Caspase-1 activation and IL-1beta overproduction" data-dismech-type="pathophysiology">
                 <div class="item-name">Caspase-1 activation and IL-1beta overproduction</div>
 
+
                 <div class="item-desc">The assembled NLRP3 inflammasome activates caspase-1, which cleaves pro-IL-1beta and pro-IL-18 into their mature, secreted forms and triggers gasdermin-D-dependent pyroptosis. Excess IL-1beta is the principal driver of the systemic inflammatory phenotype.
 </div>
 
@@ -4731,11 +5092,11 @@ This pathophysiological event involves increased NLRP3 inflammasome complex asse
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0032611" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0032611</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0032611" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0032611</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased Interleukin-1 beta production (GO:0032611). GO:0032611 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4765,11 +5126,11 @@ This pathophysiological event involves increased Interleukin-1 beta production (
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0070269" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0070269</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0070269" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0070269</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased Pyroptotic inflammatory response (GO:0070269). GO:0070269 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4827,7 +5188,10 @@ This pathophysiological event involves increased Pyroptotic inflammatory respons
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36275641" target="_blank">PMID:36275641</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4849,7 +5213,10 @@ This pathophysiological event involves increased Pyroptotic inflammatory respons
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39334417" target="_blank">PMID:39334417</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4871,7 +5238,10 @@ This pathophysiological event involves increased Pyroptotic inflammatory respons
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32983099" target="_blank">PMID:32983099</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4897,6 +5267,7 @@ This pathophysiological event involves increased Pyroptotic inflammatory respons
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-systemic-cold-triggered-sterile-inflammation" data-dismech-node="Systemic cold-triggered sterile inflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">Systemic cold-triggered sterile inflammation</div>
 
+
                 <div class="item-desc">The shared downstream phenotype on which all FCAS etiologies converge: episodic, cold-triggered systemic sterile inflammation. In NLRP3-driven FCAS1 this is principally IL-1-driven, whereas the NLRP12 (NF-kappaB dysregulation) and PLCG2 (cold-dependent leukocyte/mast-cell activation) etiologies act through parallel inflammatory pathways that are not strictly IL-1-dependent. Clinically it manifests as cold-triggered urticarial rash, low-grade fever, arthralgia/myalgia, and conjunctivitis; across the broader CAPS spectrum it can extend to sensorineural hearing loss, CNS inflammation, and AA amyloidosis.
 </div>
 
@@ -4919,11 +5290,11 @@ This pathophysiological event involves increased Pyroptotic inflammatory respons
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0006954</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006954" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0006954</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased Inflammatory response (GO:0006954). GO:0006954 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5007,7 +5378,10 @@ This pathophysiological event involves increased Inflammatory response (GO:00069
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11687797" target="_blank">PMID:11687797</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5033,6 +5407,7 @@ This pathophysiological event involves increased Inflammatory response (GO:00069
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nlrp12-associated-nf-kappab-dysregulation" data-dismech-node="NLRP12-associated NF-kappaB dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">NLRP12-associated NF-kappaB dysregulation</div>
 
+
                 <div class="item-desc">In FCAS2, nonsense and splice-site mutations in NLRP12 (NALP12) have a deleterious effect on NF-kappaB signaling, producing a cold-associated hereditary periodic fever phenotype distinct from NLRP3-driven disease.
 </div>
 
@@ -5054,11 +5429,11 @@ This pathophysiological event involves increased Inflammatory response (GO:00069
         NLRP12
 
 
-    <a href="https://bioregistry.io/hgnc:22938" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-9">hgnc:22938</a>
+    <a href="https://bioregistry.io/hgnc:22938" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-14">hgnc:22938</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-9">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-14">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves NLRP12 (hgnc:22938). hgnc:22938 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -5122,7 +5497,10 @@ This pathophysiological event involves NLRP12 (hgnc:22938). hgnc:22938 is a gene
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18230725" target="_blank">PMID:18230725</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5148,6 +5526,7 @@ This pathophysiological event involves NLRP12 (hgnc:22938). hgnc:22938 is a gene
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-plcg2-cold-dependent-gain-of-function" data-dismech-node="PLCG2 cold-dependent gain of function" data-dismech-type="pathophysiology">
                 <div class="item-name">PLCG2 cold-dependent gain of function</div>
 
+
                 <div class="item-desc">In FCAS3 (PLAID), in-frame genomic deletions in the PLCG2 autoinhibitory domain produce constitutively active phospholipase C-gamma-2. Affected cells show diminished signaling at 37C but enhanced signaling at subphysiologic temperatures, explaining cold-induced leukocyte activation and urticaria.
 </div>
 
@@ -5163,11 +5542,11 @@ This pathophysiological event involves NLRP12 (hgnc:22938). hgnc:22938 is a gene
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000097" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000097</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000097" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0000097</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Mast cell (CL:0000097). CL:0000097 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5203,11 +5582,11 @@ This pathophysiological event involves Mast cell (CL:0000097). CL:0000097 is a c
         PLCG2
 
 
-    <a href="https://bioregistry.io/hgnc:9066" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-11">hgnc:9066</a>
+    <a href="https://bioregistry.io/hgnc:9066" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-16">hgnc:9066</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-11">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-16">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves PLCG2 (hgnc:9066). hgnc:9066 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -5271,7 +5650,10 @@ This pathophysiological event involves PLCG2 (hgnc:9066). hgnc:9066 is a gene fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22236196" target="_blank">PMID:22236196</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5293,7 +5675,10 @@ This pathophysiological event involves PLCG2 (hgnc:9066). hgnc:9066 is a gene fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22236196" target="_blank">PMID:22236196</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5319,7 +5704,8 @@ This pathophysiological event involves PLCG2 (hgnc:9066). hgnc:9066 is a gene fr
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nlrp1-inflammasome-activation" data-dismech-node="NLRP1 inflammasome activation" data-dismech-type="pathophysiology">
                 <div class="item-name">NLRP1 inflammasome activation</div>
 
-                <div class="item-desc">In FCAS4 (NAIAD), NLRP1 mutations activate the NLRP1 inflammasome, with elevated systemic caspase-1 and IL-18, producing autoinflammation with arthritis and skin dyskeratosis.
+
+                <div class="item-desc">In NAIAD, NLRP1 mutations activate the NLRP1 inflammasome, with elevated systemic caspase-1 and IL-18, producing autoinflammation with arthritis and skin dyskeratosis.
 </div>
 
 
@@ -5340,11 +5726,11 @@ This pathophysiological event involves PLCG2 (hgnc:9066). hgnc:9066 is a gene fr
         NLRP1
 
 
-    <a href="https://bioregistry.io/hgnc:14374" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-12">hgnc:14374</a>
+    <a href="https://bioregistry.io/hgnc:14374" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-17">hgnc:14374</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-12">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-17">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves NLRP1 (hgnc:14374). hgnc:14374 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -5382,11 +5768,11 @@ This pathophysiological event involves NLRP1 (hgnc:14374). hgnc:14374 is a gene 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0032621" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0032621</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0032621" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0032621</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased Interleukin-18 production (GO:0032621). GO:0032621 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5446,7 +5832,10 @@ This pathophysiological event involves increased Interleukin-18 production (GO:0
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27965258" target="_blank">PMID:27965258</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5456,7 +5845,7 @@ This pathophysiological event involves increased Interleukin-18 production (GO:0
                 <div class="evidence-snippet">"The three patients showed elevated systemic levels of caspase-1 and interleukin 18, which suggested involvement of NLRP1 inflammasome."</div>
 
 
-                <div class="evidence-explanation">Evidence that NLRP1 mutations in FCAS4/NAIAD drive caspase-1 and IL-18 elevation via the NLRP1 inflammasome.</div>
+                <div class="evidence-explanation">Evidence that NLRP1 mutations in NAIAD drive caspase-1 and IL-18 elevation via the NLRP1 inflammasome.</div>
 
 
 
@@ -5494,7 +5883,7 @@ This pathophysiological event involves increased Interleukin-18 production (GO:0
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Arthralgia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Joint pain and transient joint stiffness during attacks.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002829\"}}, {\"id\": \"Caspase-1 activation and IL-1beta overproduction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The assembled NLRP3 inflammasome activates caspase-1, which cleaves pro-IL-1beta and pro-IL-18 into their mature, secreted forms and triggers gasdermin-D-dependent pyroptosis. Excess IL-1beta is the principal driver of the systemic inflammatory phenotype.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"Interleukin-1 beta production\", \"Pyroptotic inflammatory response\"], \"subtypes\": [\"FCAS1\"]}}, {\"id\": \"Conjunctivitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ocular inflammation (conjunctivitis / red eye) is a common feature of FCAS and the broader CAPS spectrum.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000509\"}}, {\"id\": \"Constitutive NLRP3 inflammasome activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutant NLRP3 assembles the inflammasome complex with reduced/absent requirement for a second activating signal, especially following the environmental cold trigger characteristic of FCAS. Assembly recruits the adaptor ASC and pro-caspase-1.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Monocyte\"], \"biological_processes\": [\"NLRP3 inflammasome complex assembly\"], \"subtypes\": [\"FCAS1\"]}}, {\"id\": \"Elevated C-reactive protein\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated acute-phase reactants (CRP and serum amyloid A) accompany attacks and are used for diagnosis and treat-to-target monitoring.\\n\", \"meta\": {\"evidence_count\": 1, \"reports_on\": [{\"target\": \"Systemic cold-triggered sterile inflammation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Serum CRP reflects the systemic sterile inflammatory activity of a flare.\"}], \"term_id\": \"HP:0011227\"}}, {\"id\": \"NLRP1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NLRP1\"], \"gene_terms\": [{\"label\": \"NLRP1\", \"id\": \"hgnc:14374\"}], \"subtypes\": [\"FCAS4\"], \"presence\": \"PRESENT\", \"association\": \"Causative\"}}, {\"id\": \"NLRP1 inflammasome activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In FCAS4 (NAIAD), NLRP1 mutations activate the NLRP1 inflammasome, with elevated systemic caspase-1 and IL-18, producing autoinflammation with arthritis and skin dyskeratosis.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Interleukin-18 production\"], \"genes\": [\"NLRP1\"], \"gene_terms\": [{\"label\": \"NLRP1\", \"id\": \"hgnc:14374\"}], \"subtypes\": [\"FCAS4\"]}}, {\"id\": \"NLRP12\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NLRP12\"], \"gene_terms\": [{\"label\": \"NLRP12\", \"id\": \"hgnc:22938\"}], \"subtypes\": [\"FCAS2\"], \"presence\": \"PRESENT\", \"association\": \"Causative\"}}, {\"id\": \"NLRP12-associated NF-kappaB dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In FCAS2, nonsense and splice-site mutations in NLRP12 (NALP12) have a deleterious effect on NF-kappaB signaling, producing a cold-associated hereditary periodic fever phenotype distinct from NLRP3-driven disease.\\n\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"NLRP12\"], \"gene_terms\": [{\"label\": \"NLRP12\", \"id\": \"hgnc:22938\"}], \"subtypes\": [\"FCAS2\"]}}, {\"id\": \"NLRP3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NLRP3\"], \"gene_terms\": [{\"label\": \"NLRP3\", \"id\": \"hgnc:16400\"}], \"subtypes\": [\"FCAS1\"], \"presence\": \"PRESENT\", \"association\": \"Causative\"}}, {\"id\": \"NLRP3 gain-of-function mutation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous gain-of-function mutations in NLRP3 (CIAS1, encoding cryopyrin) lower the activation threshold of the NLRP3 inflammasome. NLRP3 is an intracellular NOD-like receptor sensor with a pyrin domain, a NACHT nucleotide-binding domain, and a leucine-rich repeat region. In FCAS1, generalized cold exposure triggers inappropriate inflammasome activation in myeloid cells.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Monocyte\", \"Macrophage\"], \"genes\": [\"NLRP3\"], \"gene_terms\": [{\"label\": \"NLRP3\", \"id\": \"hgnc:16400\"}], \"subtypes\": [\"FCAS1\"]}}, {\"id\": \"PLCG2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PLCG2\"], \"gene_terms\": [{\"label\": \"PLCG2\", \"id\": \"hgnc:9066\"}], \"subtypes\": [\"FCAS3\"], \"presence\": \"PRESENT\", \"association\": \"Causative\"}}, {\"id\": \"PLCG2 cold-dependent gain of function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In FCAS3 (PLAID), in-frame genomic deletions in the PLCG2 autoinhibitory domain produce constitutively active phospholipase C-gamma-2. Affected cells show diminished signaling at 37C but enhanced signaling at subphysiologic temperatures, explaining cold-induced leukocyte activation and urticaria.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Mast cell\"], \"genes\": [\"PLCG2\"], \"gene_terms\": [{\"label\": \"PLCG2\", \"id\": \"hgnc:9066\"}], \"subtypes\": [\"FCAS3\"]}}, {\"id\": \"Recurrent fever\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Low-grade fever during cold-triggered inflammatory attacks.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001954\"}}, {\"id\": \"Systemic cold-triggered sterile inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The shared downstream phenotype on which all FCAS etiologies converge: episodic, cold-triggered systemic sterile inflammation. In NLRP3-driven FCAS1 this is principally IL-1-driven, whereas the NLRP12 (NF-kappaB dysregulation) and PLCG2 (cold-dependent leukocyte/mast-cell activation) etiologies act through parallel inflammatory pathways that are not strictly IL-1-dependent. Clinically it manifests as cold-triggered urticarial rash, low-grade fever, arthralgia/myalgia, and conjunctivitis; across the broader CAPS spectrum it can extend to sensorineural hearing loss, CNS inflammation, and AA amyloidosis.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Inflammatory response\"], \"subtypes\": [\"FCAS1\"]}}, {\"id\": \"Urticarial rash\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cold-triggered urticaria-like (often neutrophilic) skin rash is the cardinal cutaneous manifestation of FCAS.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001025\"}}], \"edges\": [{\"source\": \"NLRP3 gain-of-function mutation\", \"target\": \"Constitutive NLRP3 inflammasome activation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Constitutive NLRP3 inflammasome activation\", \"target\": \"Caspase-1 activation and IL-1beta overproduction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Caspase-1 activation and IL-1beta overproduction\", \"target\": \"Systemic cold-triggered sterile inflammation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic cold-triggered sterile inflammation\", \"target\": \"Urticarial rash\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cold-triggered sterile inflammation produces intermittent urticarial rash.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic cold-triggered sterile inflammation\", \"target\": \"Recurrent fever\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cold-triggered systemic inflammation produces recurrent fever episodes.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic cold-triggered sterile inflammation\", \"target\": \"Arthralgia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cold-triggered systemic inflammation produces episodic arthralgia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic cold-triggered sterile inflammation\", \"target\": \"Conjunctivitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cold-triggered systemic inflammation produces conjunctivitis episodes.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"NLRP12-associated NF-kappaB dysregulation\", \"target\": \"Systemic cold-triggered sterile inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"NLRP12-driven NF-kappaB dysregulation converges on the same cold-associated systemic autoinflammatory phenotype that characterizes the CAPS/FCAS spectrum, via NF-kappaB-regulated cytokines rather than strictly IL-1 alone.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"PLCG2 cold-dependent gain of function\", \"target\": \"Systemic cold-triggered sterile inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cold-dependent PLCG2 gain of function drives mast-cell and leukocyte activation that feeds into the shared cold-triggered systemic inflammatory phenotype of the FCAS spectrum through a PLCgamma2-dependent pathway rather than IL-1beta overproduction.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"NLRP1 inflammasome activation\", \"target\": \"Caspase-1 activation and IL-1beta overproduction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Activation of the NLRP1 inflammasome raises systemic caspase-1 and IL-18, converging on the caspase-1/IL-1 axis that drives FCAS-spectrum autoinflammation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic cold-triggered sterile inflammation\", \"target\": \"Elevated C-reactive protein\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Serum CRP reflects the systemic sterile inflammatory activity of a flare.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"NLRP3\", \"target\": \"NLRP3 gain-of-function mutation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NLRP12\", \"target\": \"NLRP12-associated NF-kappaB dysregulation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PLCG2\", \"target\": \"PLCG2 cold-dependent gain of function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NLRP1\", \"target\": \"NLRP1 inflammasome activation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Arthralgia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Joint pain and transient joint stiffness during attacks.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002829\"}}, {\"id\": \"Caspase-1 activation and IL-1beta overproduction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The assembled NLRP3 inflammasome activates caspase-1, which cleaves pro-IL-1beta and pro-IL-18 into their mature, secreted forms and triggers gasdermin-D-dependent pyroptosis. Excess IL-1beta is the principal driver of the systemic inflammatory phenotype.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"Interleukin-1 beta production\", \"Pyroptotic inflammatory response\"], \"subtypes\": [\"FCAS1\"]}}, {\"id\": \"Conjunctivitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ocular inflammation (conjunctivitis / red eye) is a common feature of FCAS and the broader CAPS spectrum.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000509\"}}, {\"id\": \"Constitutive NLRP3 inflammasome activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutant NLRP3 assembles the inflammasome complex with reduced/absent requirement for a second activating signal, especially following the environmental cold trigger characteristic of FCAS. Assembly recruits the adaptor ASC and pro-caspase-1.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Monocyte\"], \"biological_processes\": [\"NLRP3 inflammasome complex assembly\"], \"genes\": [\"NLRP3\"], \"gene_terms\": [{\"label\": \"NLRP3\", \"id\": \"hgnc:16400\"}], \"subtypes\": [\"FCAS1\"]}}, {\"id\": \"Elevated C-reactive protein\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Elevated acute-phase reactants (CRP and serum amyloid A) accompany attacks and are used for diagnosis and treat-to-target monitoring.\\n\", \"meta\": {\"evidence_count\": 1, \"reports_on\": [{\"target\": \"Systemic cold-triggered sterile inflammation\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Serum CRP reflects the systemic sterile inflammatory activity of a flare.\"}], \"term_id\": \"HP:0011227\"}}, {\"id\": \"NLRP1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NLRP1\"], \"gene_terms\": [{\"label\": \"NLRP1\", \"id\": \"hgnc:14374\"}], \"subtypes\": [\"NAIAD\"], \"presence\": \"PRESENT\", \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"NLRP1 inflammasome activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In NAIAD, NLRP1 mutations activate the NLRP1 inflammasome, with elevated systemic caspase-1 and IL-18, producing autoinflammation with arthritis and skin dyskeratosis.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Interleukin-18 production\"], \"genes\": [\"NLRP1\"], \"gene_terms\": [{\"label\": \"NLRP1\", \"id\": \"hgnc:14374\"}], \"subtypes\": [\"NAIAD\"]}}, {\"id\": \"NLRP12\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"NLRP12\"], \"gene_terms\": [{\"label\": \"NLRP12\", \"id\": \"hgnc:22938\"}], \"subtypes\": [\"FCAS2\"], \"presence\": \"PRESENT\", \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"NLRP12-associated NF-kappaB dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In FCAS2, nonsense and splice-site mutations in NLRP12 (NALP12) have a deleterious effect on NF-kappaB signaling, producing a cold-associated hereditary periodic fever phenotype distinct from NLRP3-driven disease.\\n\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"NLRP12\"], \"gene_terms\": [{\"label\": \"NLRP12\", \"id\": \"hgnc:22938\"}], \"subtypes\": [\"FCAS2\"]}}, {\"id\": \"NLRP3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NLRP3\"], \"gene_terms\": [{\"label\": \"NLRP3\", \"id\": \"hgnc:16400\"}], \"subtypes\": [\"FCAS1\"], \"presence\": \"PRESENT\", \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"NLRP3 gain-of-function mutation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous gain-of-function mutations in NLRP3 (CIAS1, encoding cryopyrin) lower the activation threshold of the NLRP3 inflammasome. NLRP3 is an intracellular NOD-like receptor sensor with a pyrin domain, a NACHT nucleotide-binding domain, and a leucine-rich repeat region. In FCAS1, generalized cold exposure triggers inappropriate inflammasome activation in myeloid cells.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Monocyte\", \"Macrophage\"], \"genes\": [\"NLRP3\"], \"gene_terms\": [{\"label\": \"NLRP3\", \"id\": \"hgnc:16400\"}], \"subtypes\": [\"FCAS1\"]}}, {\"id\": \"PLCG2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PLCG2\"], \"gene_terms\": [{\"label\": \"PLCG2\", \"id\": \"hgnc:9066\"}], \"subtypes\": [\"FCAS3\"], \"presence\": \"PRESENT\", \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"PLCG2 cold-dependent gain of function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In FCAS3 (PLAID), in-frame genomic deletions in the PLCG2 autoinhibitory domain produce constitutively active phospholipase C-gamma-2. Affected cells show diminished signaling at 37C but enhanced signaling at subphysiologic temperatures, explaining cold-induced leukocyte activation and urticaria.\\n\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Mast cell\"], \"genes\": [\"PLCG2\"], \"gene_terms\": [{\"label\": \"PLCG2\", \"id\": \"hgnc:9066\"}], \"subtypes\": [\"FCAS3\"]}}, {\"id\": \"Recurrent fever\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Low-grade fever during cold-triggered inflammatory attacks.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001954\"}}, {\"id\": \"Systemic cold-triggered sterile inflammation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The shared downstream phenotype on which all FCAS etiologies converge: episodic, cold-triggered systemic sterile inflammation. In NLRP3-driven FCAS1 this is principally IL-1-driven, whereas the NLRP12 (NF-kappaB dysregulation) and PLCG2 (cold-dependent leukocyte/mast-cell activation) etiologies act through parallel inflammatory pathways that are not strictly IL-1-dependent. Clinically it manifests as cold-triggered urticarial rash, low-grade fever, arthralgia/myalgia, and conjunctivitis; across the broader CAPS spectrum it can extend to sensorineural hearing loss, CNS inflammation, and AA amyloidosis.\\n\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Inflammatory response\"], \"subtypes\": [\"FCAS1\"]}}, {\"id\": \"Urticarial rash\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cold-triggered urticaria-like (often neutrophilic) skin rash is the cardinal cutaneous manifestation of FCAS.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001025\"}}], \"edges\": [{\"source\": \"NLRP3 gain-of-function mutation\", \"target\": \"Constitutive NLRP3 inflammasome activation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Constitutive NLRP3 inflammasome activation\", \"target\": \"Caspase-1 activation and IL-1beta overproduction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Caspase-1 activation and IL-1beta overproduction\", \"target\": \"Systemic cold-triggered sterile inflammation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Systemic cold-triggered sterile inflammation\", \"target\": \"Urticarial rash\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cold-triggered sterile inflammation produces intermittent urticarial rash.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic cold-triggered sterile inflammation\", \"target\": \"Recurrent fever\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cold-triggered systemic inflammation produces recurrent fever episodes.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic cold-triggered sterile inflammation\", \"target\": \"Arthralgia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cold-triggered systemic inflammation produces episodic arthralgia.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic cold-triggered sterile inflammation\", \"target\": \"Conjunctivitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cold-triggered systemic inflammation produces conjunctivitis episodes.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"NLRP12-associated NF-kappaB dysregulation\", \"target\": \"Systemic cold-triggered sterile inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"NLRP12-driven NF-kappaB dysregulation converges on the same cold-associated systemic autoinflammatory phenotype that characterizes the CAPS/FCAS spectrum, via NF-kappaB-regulated cytokines rather than strictly IL-1 alone.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"PLCG2 cold-dependent gain of function\", \"target\": \"Systemic cold-triggered sterile inflammation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cold-dependent PLCG2 gain of function drives mast-cell and leukocyte activation that feeds into the shared cold-triggered systemic inflammatory phenotype of the FCAS spectrum through a PLCgamma2-dependent pathway rather than IL-1beta overproduction.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"NLRP1 inflammasome activation\", \"target\": \"Caspase-1 activation and IL-1beta overproduction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Activation of the NLRP1 inflammasome raises systemic caspase-1 and IL-18, converging on the caspase-1/IL-1 axis that drives FCAS-spectrum autoinflammation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Systemic cold-triggered sterile inflammation\", \"target\": \"Elevated C-reactive protein\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Serum CRP reflects the systemic sterile inflammatory activity of a flare.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"NLRP3\", \"target\": \"Constitutive NLRP3 inflammasome activation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NLRP3\", \"target\": \"NLRP3 gain-of-function mutation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NLRP12\", \"target\": \"NLRP12-associated NF-kappaB dysregulation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PLCG2\", \"target\": \"PLCG2 cold-dependent gain of function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NLRP1\", \"target\": \"NLRP1 inflammasome activation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5517,11 +5906,11 @@ This pathophysiological event involves increased Interleukin-18 production (GO:0
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Ear<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Metabolism<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Genitourinary<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Constitutional<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Metabolism<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Other<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Constitutional<span class="pill-count">(2)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5548,10 +5937,10 @@ This pathophysiological event involves increased Interleukin-18 production (GO:0
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001025" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001025</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001025" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001025</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Urticaria (HP:0001025), qualified as temporality recurrent. HP:0001025 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5580,6 +5969,9 @@ This clinical feature is Urticaria (HP:0001025), qualified as temporality recurr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5592,7 +5984,10 @@ This clinical feature is Urticaria (HP:0001025), qualified as temporality recurr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11687797" target="_blank">PMID:11687797</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5614,7 +6009,10 @@ This clinical feature is Urticaria (HP:0001025), qualified as temporality recurr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36275641" target="_blank">PMID:36275641</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5654,15 +6052,18 @@ This clinical feature is Urticaria (HP:0001025), qualified as temporality recurr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000509" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000509</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000509" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000509</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Conjunctivitis (HP:0000509). HP:0000509 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5680,7 +6081,10 @@ This clinical feature is Conjunctivitis (HP:0000509). HP:0000509 is a phenotype 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11687797" target="_blank">PMID:11687797</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5702,7 +6106,10 @@ This clinical feature is Conjunctivitis (HP:0000509). HP:0000509 is a phenotype 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32983099" target="_blank">PMID:32983099</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5753,10 +6160,10 @@ This clinical feature is Conjunctivitis (HP:0000509). HP:0000509 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000407</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000407</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Sensorineural hearing impairment (HP:0000407), qualified as course progressive. HP:0000407 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5785,6 +6192,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407), qualifie
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5797,7 +6207,10 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407), qualifie
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11687797" target="_blank">PMID:11687797</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5828,8 +6241,89 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407), qualifie
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Metabolism
+                    Genitourinary
                     <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-renal-amyloidosis" data-dismech-node="Renal amyloidosis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Renal amyloidosis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001917" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001917</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Renal amyloidosis (HP:0001917). HP:0001917 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36275641" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36275641" target="_blank">PMID:36275641</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"progressive sensorineural hearing loss and the tendency to develop renal amyloidosis, with the increase of serum levels of amyloid A protein (SAA)"</div>
+
+
+                <div class="evidence-explanation">Renal amyloidosis driven by sustained serum amyloid A elevation is the most serious long-term CAPS complication (classically Muckle-Wells syndrome); it is rare in mild FCAS but defines the disease spectrum.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Metabolism
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-recurrent-fever" data-dismech-node="Recurrent fever" data-dismech-type="phenotype">
@@ -5846,15 +6340,18 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407), qualifie
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001954" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001954</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001954" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001954</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Recurrent fever (HP:0001954). HP:0001954 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5872,7 +6369,10 @@ This clinical feature is Recurrent fever (HP:0001954). HP:0001954 is a phenotype
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11687797" target="_blank">PMID:11687797</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5898,9 +6398,83 @@ This clinical feature is Recurrent fever (HP:0001954). HP:0001954 is a phenotype
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-elevated-c-reactive-protein" data-dismech-node="Elevated C-reactive protein" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Elevated C-reactive protein
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Elevated circulating C-reactive protein concentration</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011227" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0011227</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Elevated circulating C-reactive protein concentration (HP:0011227). HP:0011227 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39334417" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39334417" target="_blank">PMID:39334417</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Treatment response was evaluated by CAPS disease activity score, C-reactive protein (CRP), and/or serum amyloid A (SAA) levels."</div>
+
+
+                <div class="evidence-explanation">CRP and SAA are the acute-phase reactants used to assess CAPS inflammatory activity and treatment response.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-4">
+            <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Constitutional
@@ -5921,15 +6495,18 @@ This clinical feature is Recurrent fever (HP:0001954). HP:0001954 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002829" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0002829</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002829" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0002829</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Arthralgia (HP:0002829). HP:0002829 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5947,7 +6524,10 @@ This clinical feature is Arthralgia (HP:0002829). HP:0002829 is a phenotype from
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11687797" target="_blank">PMID:11687797</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5987,10 +6567,10 @@ This clinical feature is Arthralgia (HP:0002829). HP:0002829 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0003326</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0003326</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Myalgia (HP:0003326). HP:0003326 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6001,6 +6581,9 @@ This clinical feature is Myalgia (HP:0003326). HP:0003326 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6013,7 +6596,10 @@ This clinical feature is Myalgia (HP:0003326). HP:0003326 is a phenotype from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39334417" target="_blank">PMID:39334417</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6024,149 +6610,6 @@ This clinical feature is Myalgia (HP:0003326). HP:0003326 is a phenotype from th
 
 
                 <div class="evidence-explanation">Myalgia is one of the core inflammatory symptoms captured in the CAPS disease-activity global assessment in a clinical CAPS cohort.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-5">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-elevated-c-reactive-protein" data-dismech-node="Elevated C-reactive protein" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Elevated C-reactive protein
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Elevated circulating C-reactive protein concentration</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011227" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0011227</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Elevated circulating C-reactive protein concentration (HP:0011227). HP:0011227 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:39334417" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39334417" target="_blank">PMID:39334417</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Treatment response was evaluated by CAPS disease activity score, C-reactive protein (CRP), and/or serum amyloid A (SAA) levels."</div>
-
-
-                <div class="evidence-explanation">CRP and SAA are the acute-phase reactants used to assess CAPS inflammatory activity and treatment response.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-renal-amyloidosis" data-dismech-node="Renal amyloidosis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Renal amyloidosis
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001917" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001917</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Renal amyloidosis (HP:0001917). HP:0001917 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:36275641" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36275641" target="_blank">PMID:36275641</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"progressive sensorineural hearing loss and the tendency to develop renal amyloidosis, with the increase of serum levels of amyloid A protein (SAA)"</div>
-
-
-                <div class="evidence-explanation">Renal amyloidosis driven by sustained serum amyloid A elevation is the most serious long-term CAPS complication (classically Muckle-Wells syndrome); it is rare in mild FCAS but defines the disease spectrum.</div>
 
 
 
@@ -6239,17 +6682,24 @@ This clinical feature is Renal amyloidosis (HP:0001917). HP:0001917 is a phenoty
                         Gene: NLRP3
 
 
-    <a href="https://bioregistry.io/hgnc:16400" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-22">hgnc:16400</a>
+    <a href="https://bioregistry.io/hgnc:16400" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-27">hgnc:16400</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is NLRP3 (hgnc:16400). hgnc:16400 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
+
+                    <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -6272,7 +6722,10 @@ This disease-associated gene is NLRP3 (hgnc:16400). hgnc:16400 is a gene from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11687797" target="_blank">PMID:11687797</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6314,17 +6767,24 @@ This disease-associated gene is NLRP3 (hgnc:16400). hgnc:16400 is a gene from th
                         Gene: NLRP12
 
 
-    <a href="https://bioregistry.io/hgnc:22938" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-23">hgnc:22938</a>
+    <a href="https://bioregistry.io/hgnc:22938" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-28">hgnc:22938</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is NLRP12 (hgnc:22938). hgnc:22938 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
+
+                    <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -6337,9 +6797,63 @@ This disease-associated gene is NLRP12 (hgnc:22938). hgnc:22938 is a gene from t
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (3 references)
         </summary>
         <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40556386" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40556386" target="_blank">PMID:40556386</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"All 60 variants in the NLRP12 coding gene were identified, including 49 classified as variants of uncertain significance (VUS), pathogenic, and likely pathogenic."</div>
+
+
+                <div class="evidence-explanation">A systematic review of every reported NLRP12 patient reports 60 coding variants of which 49 fall in a combined VUS/pathogenic/likely-pathogenic group, so variants of uncertain significance are part of the evidence base for this relationship. The sentence does not resolve how many are VUS.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40556386" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40556386" target="_blank">PMID:40556386</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+                    <span class="evidence-quote-role" title="Where this quote sits in the cited paper&#39;s argument. The quoted text is the cited publication&#39;s synthesis of work it did not itself perform: a review, commentary, editorial, or consensus or guideline statement summarizing a literature.">REVIEW SYNTHESIS</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Owing to its variable expression and incomplete penetrance, NLRP12-AID is often misdiagnosed."</div>
+
+
+                <div class="evidence-explanation">Records the incomplete penetrance and variable expression that make the NLRP12 genotype-phenotype relationship weaker than the NLRP3 one curated alongside it.</div>
+
+
+
+            </div>
 
             <div class="evidence-item" data-dismech-evidence="PMID:18230725" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
@@ -6347,7 +6861,10 @@ This disease-associated gene is NLRP12 (hgnc:22938). hgnc:22938 is a gene from t
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18230725" target="_blank">PMID:18230725</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6389,17 +6906,24 @@ This disease-associated gene is NLRP12 (hgnc:22938). hgnc:22938 is a gene from t
                         Gene: PLCG2
 
 
-    <a href="https://bioregistry.io/hgnc:9066" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-24">hgnc:9066</a>
+    <a href="https://bioregistry.io/hgnc:9066" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-29">hgnc:9066</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is PLCG2 (hgnc:9066). hgnc:9066 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
+
+                    <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -6422,7 +6946,10 @@ This disease-associated gene is PLCG2 (hgnc:9066). hgnc:9066 is a gene from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22236196" target="_blank">PMID:22236196</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6464,17 +6991,24 @@ This disease-associated gene is PLCG2 (hgnc:9066). hgnc:9066 is a gene from the 
                         Gene: NLRP1
 
 
-    <a href="https://bioregistry.io/hgnc:14374" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-25">hgnc:14374</a>
+    <a href="https://bioregistry.io/hgnc:14374" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-30">hgnc:14374</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is NLRP1 (hgnc:14374). hgnc:14374 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
+
+                    <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -6499,7 +7033,10 @@ This disease-associated gene is NLRP1 (hgnc:14374). hgnc:14374 is a gene from th
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27965258" target="_blank">PMID:27965258</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6509,7 +7046,7 @@ This disease-associated gene is NLRP1 (hgnc:14374). hgnc:14374 is a gene from th
                 <div class="evidence-snippet">"Molecular screening revealed a non-synonymous homozygous mutation in NLRP1 (c.2176C&gt;T; p.Arg726Trp) in two cousins born of related parents originating from Algeria and a de novo heterozygous mutation (c.3641C&gt;G, p.Pro1214Arg) in a girl of Dutch origin."</div>
 
 
-                <div class="evidence-explanation">Identification of causative NLRP1 mutations in FCAS4/NAIAD.</div>
+                <div class="evidence-explanation">Identification of causative NLRP1 mutations in NAIAD.</div>
 
 
 
@@ -6529,6 +7066,9 @@ This disease-associated gene is NLRP1 (hgnc:14374). hgnc:14374 is a gene from th
         <!-- Variants recorded at the disease level -->
 
 
+        <!-- Registry / external-database assertions recorded at the disease level -->
+
+
         <!-- Medical actions -->
 
         <div class="card" id="treatments">
@@ -6546,7 +7086,7 @@ This disease-associated gene is NLRP1 (hgnc:14374). hgnc:14374 is a gene from th
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-26">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-26">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-31">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6587,16 +7127,41 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_231683" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-27">CHEBI:231683</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_231683" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-32">CHEBI:231683</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses anakinra (CHEBI:231683). CHEBI:231683 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
 
 
 
@@ -6620,7 +7185,10 @@ This treatment uses anakinra (CHEBI:231683). CHEBI:231683 is a therapeutic agent
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38146057" target="_blank">PMID:38146057</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6642,7 +7210,10 @@ This treatment uses anakinra (CHEBI:231683). CHEBI:231683 is a therapeutic agent
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32983099" target="_blank">PMID:32983099</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6673,7 +7244,7 @@ This treatment uses anakinra (CHEBI:231683). CHEBI:231683 is a therapeutic agent
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-28">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-28">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-33">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6714,16 +7285,41 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C80971" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-29">NCIT:C80971</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C80971" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-34">NCIT:C80971</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)
 Relation: this treatment uses this therapeutic agent
 This treatment uses canakinumab (NCIT:C80971). NCIT:C80971 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Monoclonal antibody</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
 
 
 
@@ -6747,7 +7343,10 @@ This treatment uses canakinumab (NCIT:C80971). NCIT:C80971 is a therapeutic agen
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39334417" target="_blank">PMID:39334417</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6769,7 +7368,10 @@ This treatment uses canakinumab (NCIT:C80971). NCIT:C80971 is a therapeutic agen
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32983099" target="_blank">PMID:32983099</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6800,7 +7402,7 @@ This treatment uses canakinumab (NCIT:C80971). NCIT:C80971 is a therapeutic agen
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-30">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-35">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6841,16 +7443,41 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C84137" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-31">NCIT:C84137</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C84137" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-36">NCIT:C84137</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)
 Relation: this treatment uses this therapeutic agent
 This treatment uses rilonacept (NCIT:C84137). NCIT:C84137 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
 
 
 
@@ -6874,7 +7501,10 @@ This treatment uses rilonacept (NCIT:C84137). NCIT:C84137 is a therapeutic agent
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38146057" target="_blank">PMID:38146057</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6896,7 +7526,10 @@ This treatment uses rilonacept (NCIT:C84137). NCIT:C84137 is a therapeutic agent
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32983099" target="_blank">PMID:32983099</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6927,7 +7560,7 @@ This treatment uses rilonacept (NCIT:C84137). NCIT:C84137 is a therapeutic agent
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-32">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-37">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6959,6 +7592,20 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Autosomal dominant inheritance warrants genetic counseling for affected families across all FCAS subtypes.
 </div>
 
@@ -6979,7 +7626,10 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38343435" target="_blank">PMID:38343435</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7010,7 +7660,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-33">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-38">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7043,6 +7693,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Avoidance of generalized cold exposure reduces the frequency of cold-triggered FCAS attacks as a non-pharmacological supportive measure.
 </div>
 
@@ -7063,7 +7727,10 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/11687797" target="_blank">PMID:11687797</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7111,11 +7778,11 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/ECTO_0001057" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-34">ECTO:0001057</a>
+    <a href="http://purl.obolibrary.org/obo/ECTO_0001057" target="_blank" class="curie-chip curie-chip-ecto" aria-describedby="pill-tip-39">ECTO:0001057</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Environmental Conditions, Treatments and Exposures Ontology (ECTO)
 Relation: this environmental factor is this exposure
 This environmental factor is exposure to decreased temperature (ECTO:0001057). ECTO:0001057 is an exposure from the Environmental Conditions, Treatments and Exposures Ontology.</span>
                     </span>
@@ -7147,7 +7814,10 @@ This environmental factor is exposure to decreased temperature (ECTO:0001057). E
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/22236196" target="_blank">PMID:22236196</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7207,7 +7877,10 @@ This environmental factor is exposure to decreased temperature (ECTO:0001057). E
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39334417" target="_blank">PMID:39334417</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7254,7 +7927,10 @@ This environmental factor is exposure to decreased temperature (ECTO:0001057). E
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39334417" target="_blank">PMID:39334417</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7278,6 +7954,33 @@ This environmental factor is exposure to decreased temperature (ECTO:0001057). E
             </div>
 
         </div>
+
+
+        <!-- Diagnosis -->
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -7336,6 +8039,35 @@ classifications:
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Systemic autoinflammatory diseases are a heterogeneous family of disorders characterized by a dysregulation of the innate immune system, in which sterile inflammation primarily develops through antigen-independent hyperactivation of immune pathways.&#34;
       explanation: FCAS is a monogenic systemic autoinflammatory disease driven by innate immune dysregulation, placing it in Harrison&#39;s immune-mediated and inflammatory disorders chapter.
+  iuis_category:
+    classification_value: autoinflammatory syndrome
+    notes: &gt;-
+      IUIS 2022 phenotypic classification (Tangye et al., PMID:35748970), Table 7
+      &#34;Autoinflammatory disorders&#34;, section 2 &#34;Defects Affecting the
+      Inflammasome&#34;. The numbered FCAS series occupies three rows there: FCAS1
+      (NLRP3, OMIM 120100), FCAS2 (NLRP12, OMIM 611762) and FCAS3/PLAID (PLCG2,
+      OMIM 614468). The fourth row IUIS labels &#34;Familial cold autoinflammatory
+      syndrome 4&#34; is NLRC4 (OMIM 616115), a disorder this entry does not curate;
+      see the review_notes on the NAIAD subtype.
+    evidence:
+    - reference: PMID:35748970
+      reference_title: &#34;Human Inborn Errors of Immunity: 2022 Update on the Classification from the International Union of Immunological Societies Expert Committee.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;Familial cold autoinflammatory syndrome 1 AD GOF 120100&#34;
+      explanation: &gt;-
+        The IUIS Table 7 inflammasome-section row for FCAS1, giving autosomal
+        dominant gain-of-function inheritance and OMIM 120100, places the
+        disorder among the autoinflammatory disorders.
+    - reference: PMID:35748970
+      reference_title: &#34;Human Inborn Errors of Immunity: 2022 Update on the Classification from the International Union of Immunological Societies Expert Committee.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;Familial cold autoinflammatory syndrome 2 NLRP12 AD GOF 611762&#34;
+      explanation: &gt;-
+        The adjacent IUIS Table 7 row covers the genetically distinct NLRP12
+        FCAS2 subtype curated in this entry, confirming that the whole numbered
+        FCAS series sits in the autoinflammatory table.
 description: &gt;
   Familial cold autoinflammatory syndrome (FCAS) is a dominantly inherited
   autoinflammatory disorder characterized by recurrent, cold-triggered episodes
@@ -7344,8 +8076,10 @@ description: &gt;
   cryopyrin-associated periodic syndrome (CAPS) spectrum, which also includes
   Muckle-Wells syndrome and CINCA/NOMID. The shared mechanism is inappropriate
   activation of the NLRP3 inflammasome with caspase-1-dependent overproduction of
-  IL-1beta. Genetically distinct FCAS-like cold-triggered syndromes are caused by
-  mutations in NLRP12 (FCAS2), PLCG2 (FCAS3), and NLRP1 (FCAS4).
+  IL-1beta. Genetically distinct FCAS-like syndromes are caused by mutations in
+  NLRP12 (FCAS2) and PLCG2 (FCAS3/PLAID), and this entry also covers the related
+  NLRP1 inflammasomopathy NAIAD. Note that the FCAS4 designation belongs to an
+  NLRC4 disorder that is not curated here.
 references:
 - reference: PMID:11687797
   title: &#34;Mutation of a new gene encoding a putative pyrin-like protein causes familial cold autoinflammatory syndrome and Muckle-Wells syndrome.&#34;
@@ -7375,6 +8109,16 @@ references:
 has_subtypes:
 - name: FCAS1
   display_name: FCAS1 (NLRP3 / cryopyrin)
+  subtype_term:
+    preferred_term: familial cold autoinflammatory syndrome 1
+    term:
+      id: MONDO:0007349
+      label: familial cold autoinflammatory syndrome 1
+  genes:
+  - preferred_term: NLRP3
+    term:
+      id: hgnc:16400
+      label: NLRP3
   description: &gt;
     The classic and most common form of FCAS, caused by heterozygous
     gain-of-function mutations in NLRP3 (CIAS1, encoding cryopyrin). FCAS1 is the
@@ -7389,11 +8133,37 @@ has_subtypes:
     explanation: Original identification of CIAS1/NLRP3 mutations as the cause of FCAS, establishing the genetic basis of the classic FCAS1 subtype.
 - name: FCAS2
   display_name: FCAS2 (NLRP12)
+  subtype_term:
+    preferred_term: familial cold autoinflammatory syndrome 2
+    term:
+      id: MONDO:0012724
+      label: familial cold autoinflammatory syndrome 2
+  genes:
+  - preferred_term: NLRP12
+    term:
+      id: hgnc:22938
+      label: NLRP12
   description: &gt;
     A cold-induced hereditary periodic fever syndrome caused by heterozygous
     NLRP12 (NALP12/Monarch-1) mutations, clinically resembling FCAS1 but
     genetically distinct. NLRP12 mutations impair NF-kappaB regulation.
+    &#34;FCAS2&#34; names the cold-triggered presentation of what is more broadly
+    called NLRP12-associated autoinflammatory disease (NLRP12-AID). In a
+    17-patient paediatric NLRP12-AID series, described by its authors as one of
+    the largest such cohorts, a cold trigger was present in only three patients,
+    and the authors conclude that the disease affects various tissues,
+    especially the musculoskeletal and gastrointestinal systems, apart from
+    FCAS symptoms.
   evidence:
+  - reference: PMID:37877365
+    reference_title: &#34;NLRP12-associated autoinflammatory disease: much more than the FCAS phenotype.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Clinical manifestations were triggered by cold exposure in three patients (17.6%).&#34;
+    explanation: &gt;-
+      Only three of the seventeen patients in this paediatric NLRP12-AID series
+      had cold-triggered attacks, so the FCAS2 label names a minority
+      presentation of NLRP12 disease rather than its usual form.
   - reference: PMID:18230725
     reference_title: &#34;Mutations in NALP12 cause hereditary periodic fever syndromes.&#34;
     supports: SUPPORT
@@ -7402,6 +8172,16 @@ has_subtypes:
     explanation: Original identification of NALP12 (NLRP12) mutations causing hereditary periodic fever syndromes (FCAS2).
 - name: FCAS3
   display_name: FCAS3 (PLCG2)
+  subtype_term:
+    preferred_term: familial cold autoinflammatory syndrome 3
+    term:
+      id: MONDO:0013766
+      label: familial cold autoinflammatory syndrome 3
+  genes:
+  - preferred_term: PLCG2
+    term:
+      id: hgnc:9066
+      label: PLCG2
   description: &gt;
     A dominantly inherited syndrome caused by heterozygous PLCG2 deletions/mutations
     (PLCG2-associated antibody deficiency and immune dysregulation, PLAID), in
@@ -7414,20 +8194,55 @@ has_subtypes:
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Cold urticaria occurred in all affected subjects.&#34;
     explanation: NEJM description of cold-induced urticaria in families with PLCG2 deletions, the basis of the FCAS3/PLAID subtype.
-- name: FCAS4
-  display_name: FCAS4 (NLRP1)
+- name: NAIAD
+  display_name: NAIAD / AIADK (NLRP1)
+  subtype_term:
+    preferred_term: NLRP1-associated autoinflammation with arthritis and dyskeratosis
+    term:
+      id: MONDO:0060457
+      label: autoinflammation with arthritis and dyskeratosis
+  genes:
+  - preferred_term: NLRP1
+    term:
+      id: hgnc:14374
+      label: NLRP1
   description: &gt;
     A rare autoinflammatory and autoimmune syndrome associated with NLRP1
     mutations (NAIAD, NLRP1-associated autoinflammation with arthritis and
     dyskeratosis). NLRP1 mutations activate the NLRP1 inflammasome with elevated
     caspase-1 and IL-18.
+  review_notes: &gt;-
+    Corrected 2026-09-13. This subtype was keyed FCAS4 and bound to
+    MONDO:0014498, but its own description, evidence and downstream
+    pathophysiology all describe NLRP1/NAIAD. MONDO:0014498 is &#34;familial cold
+    autoinflammatory syndrome 4&#34;, whose causal gene is NLRC4 (hgnc:16412, via
+    RO:0004003), whose OMIM cross-reference is 616115, and which carries the
+    exact synonym &#34;NLRC4 familial cold autoinflammatory syndrome&#34;. That is a
+    different disorder, and this entry does not curate it. IUIS 2022 Table 7
+    agrees, giving NLRC4 the FCAS4 designation in its own row and listing NLRP1
+    separately in both a recessive and a dominant gain-of-function row. The
+    binding was moved to MONDO:0060457 &#34;autoinflammation with arthritis and
+    dyskeratosis&#34; (AIADK), whose causal gene is NLRP1 (hgnc:14374) and whose OMIM
+    cross-reference is 617388, matching the recessive NLRP1 row. The subtype key
+    was renamed from FCAS4 to NAIAD at the same time and the two internal
+    `subtype:` references were repointed, so the entry no longer asserts the
+    FCAS4 designation for an NLRP1 disorder.
   evidence:
   - reference: PMID:27965258
     reference_title: &#34;A new autoinflammatory and autoimmune syndrome associated with NLRP1 mutations: NAIAD (NLRP1-associated autoinflammation with arthritis and dyskeratosis).&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;We demonstrate the responsibility of human NLRP1 in a novel autoinflammatory disorder that we propose to call NAIAD for NLRP1-associated autoinflammation with arthritis and dyskeratosis.&#34;
-    explanation: Original identification of NLRP1 mutations causing an autoinflammatory disorder, the basis of the FCAS4/NAIAD subtype.
+    explanation: Original identification of NLRP1 mutations causing an autoinflammatory disorder, the basis of the NAIAD subtype.
+  - reference: PMID:35748970
+    reference_title: &#34;Human Inborn Errors of Immunity: 2022 Update on the Classification from the International Union of Immunological Societies Expert Committee.&#34;
+    supports: SUPPORT
+    evidence_source: OTHER
+    snippet: &#34;NLRP1 deficiency NLRP1 AR 617388&#34;
+    explanation: &gt;-
+      IUIS Table 7 gives recessive NLRP1 disease its own row at OMIM 617388, the
+      same OMIM record MONDO:0060457 cross-references, which is what identifies
+      this subtype as NAIAD.
 pathophysiology:
 - name: NLRP3 gain-of-function mutation
   description: &gt;
@@ -7474,8 +8289,14 @@ pathophysiology:
     requirement for a second activating signal, especially following the
     environmental cold trigger characteristic of FCAS. Assembly recruits the
     adaptor ASC and pro-caspase-1.
+  conforms_to: &#34;nlrp3_inflammasome_activation#NLRP3 Inflammasome Assembly and Caspase-1 Activation&#34;
   subtypes:
   - FCAS1
+  genes:
+  - preferred_term: NLRP3
+    term:
+      id: hgnc:16400
+      label: NLRP3
   cell_types:
   - preferred_term: Monocyte
     term:
@@ -7502,6 +8323,7 @@ pathophysiology:
     pro-IL-1beta and pro-IL-18 into their mature, secreted forms and triggers
     gasdermin-D-dependent pyroptosis. Excess IL-1beta is the principal driver of
     the systemic inflammatory phenotype.
+  conforms_to: &#34;nlrp3_inflammasome_activation#IL-1 Family Cytokine Maturation and Gasdermin D-Mediated Pyroptosis&#34;
   subtypes:
   - FCAS1
   biological_processes:
@@ -7663,11 +8485,11 @@ pathophysiology:
     description: Cold-dependent PLCG2 gain of function drives mast-cell and leukocyte activation that feeds into the shared cold-triggered systemic inflammatory phenotype of the FCAS spectrum through a PLCgamma2-dependent pathway rather than IL-1beta overproduction.
 - name: NLRP1 inflammasome activation
   description: &gt;
-    In FCAS4 (NAIAD), NLRP1 mutations activate the NLRP1 inflammasome, with
-    elevated systemic caspase-1 and IL-18, producing autoinflammation with
-    arthritis and skin dyskeratosis.
+    In NAIAD, NLRP1 mutations activate the NLRP1 inflammasome, with elevated
+    systemic caspase-1 and IL-18, producing autoinflammation with arthritis and
+    skin dyskeratosis.
   subtypes:
-  - FCAS4
+  - NAIAD
   gene:
     preferred_term: NLRP1
     term:
@@ -7685,7 +8507,7 @@ pathophysiology:
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The three patients showed elevated systemic levels of caspase-1 and interleukin 18, which suggested involvement of NLRP1 inflammasome.&#34;
-    explanation: Evidence that NLRP1 mutations in FCAS4/NAIAD drive caspase-1 and IL-18 elevation via the NLRP1 inflammasome.
+    explanation: Evidence that NLRP1 mutations in NAIAD drive caspase-1 and IL-18 elevation via the NLRP1 inflammasome.
   downstream:
   - target: Caspase-1 activation and IL-1beta overproduction
     causal_link_type: DIRECT
@@ -7844,6 +8666,8 @@ genetic:
       id: hgnc:16400
       label: NLRP3
   association: Causative
+  relationship_type: CAUSATIVE
+  variant_origin: GERMLINE
   presence: PRESENT
   subtype: FCAS1
   inheritance:
@@ -7865,14 +8689,50 @@ genetic:
       id: hgnc:22938
       label: NLRP12
   association: Causative
+  relationship_type: CAUSATIVE
+  variant_origin: GERMLINE
   presence: PRESENT
   subtype: FCAS2
   inheritance:
   - name: Autosomal dominant
   notes: &gt;
     Heterozygous NLRP12 (NALP12) nonsense and splice-site mutations cause FCAS2,
-    impairing NF-kappaB regulation.
+    impairing NF-kappaB regulation. The gene-disease relationship is accepted
+    (IUIS 2022 Table 7 lists FCAS2/NLRP12 as an autosomal dominant
+    gain-of-function inflammasome defect), but variant interpretation is not
+    settled: a 2025 systematic review of the reported NLRP12 literature
+    assigned 49 of the 60 reported coding variants to the combined
+    VUS/pathogenic/likely-pathogenic group without separating those categories,
+    and reports incomplete penetrance and variable expression. Note that the
+    review&#39;s sentence does not say how many of the 49 are VUS, so no share is
+    claimed here.
+    ClinGen has no gene-disease validity curation for NLRP12: the
+    gene-disease validity table committed in this repository
+    (cache/clingen/gene_validity.csv, header &#34;FILE CREATED: 2026-01-24&#34;)
+    contains no NLRP12 row, so no ClinGen classification can be cited for or
+    against this relationship.
   evidence:
+  - reference: PMID:40556386
+    reference_title: &#34;Association Between Pathogenic Variants in NLRP12 and Autoinflammatory Disease: A Comprehensive Systematic Review.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: REVIEW_SYNTHESIS
+    snippet: &#34;All 60 variants in the NLRP12 coding gene were identified, including 49 classified as variants of uncertain significance (VUS), pathogenic, and likely pathogenic.&#34;
+    explanation: &gt;-
+      A systematic review of every reported NLRP12 patient reports 60 coding
+      variants of which 49 fall in a combined VUS/pathogenic/likely-pathogenic
+      group, so variants of uncertain significance are part of the evidence base
+      for this relationship. The sentence does not resolve how many are VUS.
+  - reference: PMID:40556386
+    reference_title: &#34;Association Between Pathogenic Variants in NLRP12 and Autoinflammatory Disease: A Comprehensive Systematic Review.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    quote_role: REVIEW_SYNTHESIS
+    snippet: &#34;Owing to its variable expression and incomplete penetrance, NLRP12-AID is often misdiagnosed.&#34;
+    explanation: &gt;-
+      Records the incomplete penetrance and variable expression that make the
+      NLRP12 genotype-phenotype relationship weaker than the NLRP3 one curated
+      alongside it.
   - reference: PMID:18230725
     reference_title: &#34;Mutations in NALP12 cause hereditary periodic fever syndromes.&#34;
     supports: SUPPORT
@@ -7886,6 +8746,8 @@ genetic:
       id: hgnc:9066
       label: PLCG2
   association: Causative
+  relationship_type: CAUSATIVE
+  variant_origin: GERMLINE
   presence: PRESENT
   subtype: FCAS3
   inheritance:
@@ -7907,13 +8769,15 @@ genetic:
       id: hgnc:14374
       label: NLRP1
   association: Causative
+  relationship_type: CAUSATIVE
+  variant_origin: GERMLINE
   presence: PRESENT
-  subtype: FCAS4
+  subtype: NAIAD
   inheritance:
   - name: Autosomal dominant
   - name: Autosomal recessive
   notes: &gt;
-    NLRP1 mutations cause FCAS4 (NAIAD), activating the NLRP1 inflammasome.
+    NLRP1 mutations cause NAIAD, activating the NLRP1 inflammasome.
     Reported families include both homozygous (recessive, consanguineous) and de
     novo heterozygous mutations.
   evidence:
@@ -7922,7 +8786,7 @@ genetic:
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Molecular screening revealed a non-synonymous homozygous mutation in NLRP1 (c.2176C&gt;T; p.Arg726Trp) in two cousins born of related parents originating from Algeria and a de novo heterozygous mutation (c.3641C&gt;G, p.Pro1214Arg) in a girl of Dutch origin.&#34;
-    explanation: Identification of causative NLRP1 mutations in FCAS4/NAIAD.
+    explanation: Identification of causative NLRP1 mutations in NAIAD.
 environmental:
 - name: Generalized cold exposure
   exposure_term:
@@ -8177,7 +9041,10 @@ treatments:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36275641" target="_blank">PMID:36275641</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8221,7 +9088,10 @@ treatments:
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36275641" target="_blank">PMID:36275641</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8258,6 +9128,8 @@ treatments:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -9254,7 +10126,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Familial Cold Autoinflammatory Syndrome", "mondoId": "MONDO:0018768", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Familial_Cold_Autoinflammatory_Syndrome", "yamlRevision": "25b0a72c2b86"};
+        const OS_CONFIG = {"diseaseName": "Familial Cold Autoinflammatory Syndrome", "mondoId": "MONDO:0018768", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Familial_Cold_Autoinflammatory_Syndrome", "yamlRevision": "b0cdce6660a3"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

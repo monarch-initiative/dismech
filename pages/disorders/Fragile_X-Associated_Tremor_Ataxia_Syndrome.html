@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -292,6 +293,20 @@
         .badge-mondo {
             background: #e0f2fe;
             color: #0369a1;
+        }
+
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
         }
 
         .badge-mondo a {
@@ -830,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1508,6 +1550,21 @@
         .experiment-subitem-name {
             font-weight: 700;
             color: #334155;
+            margin-bottom: 4px;
+        }
+
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
             margin-bottom: 4px;
         }
 
@@ -2369,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2863,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2871,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2911,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2926,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3035,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3048,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3252,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3262,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3298,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3319,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3690,6 +3810,29 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3718,7 +3861,7 @@
             <span>Fragile X-Associated Tremor Ataxia Syndrome</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Fragile X-Associated Tremor Ataxia Syndrome</h1>
             <div class="header-meta">
 
@@ -4003,7 +4146,7 @@
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-x-linked-inheritance">
                 <div class="item-name">
                     X-linked inheritance
 
@@ -4048,7 +4191,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301558" target="_blank">PMID:20301558</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4070,7 +4216,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301558" target="_blank">PMID:20301558</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4151,7 +4300,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17618523" target="_blank">PMID:17618523</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4173,7 +4325,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25954027" target="_blank">PMID:25954027</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4213,6 +4368,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fmr1-premutation-cgg-expansion-and-elevated-fmr1-mrna" data-dismech-node="FMR1 premutation CGG expansion and elevated FMR1 mRNA" data-dismech-type="pathophysiology">
                 <div class="item-name">FMR1 premutation CGG expansion and elevated FMR1 mRNA</div>
+
 
                 <div class="item-desc">The initiating lesion is a premutation-range (55-200 CGG) trinucleotide repeat expansion in the FMR1 5&#39; UTR. In contrast to the full mutation, the premutation allele is not silenced; it is transcribed at elevated levels, producing an expanded CGG-repeat FMR1 mRNA that is the substrate for downstream RNA toxicity and RAN translation. Human postmortem single-nucleus RNA-seq shows the magnitude of FMR1 upregulation in brain is more modest (~1.3-fold in some glia) than the 4-8-fold reported in peripheral blood, implicating tissue- and cell-type-specific toxicity.</div>
 
@@ -4424,7 +4580,10 @@ This pathophysiological event involves increased gene expression (GO:0010467). G
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17618523" target="_blank">PMID:17618523</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4446,7 +4605,10 @@ This pathophysiological event involves increased gene expression (GO:0010467). G
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37252957" target="_blank">PMID:37252957</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4471,6 +4633,7 @@ This pathophysiological event involves increased gene expression (GO:0010467). G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-rna-toxic-gain-of-function-and-protein-sequestration" data-dismech-node="RNA toxic gain-of-function and protein sequestration" data-dismech-type="pathophysiology">
                 <div class="item-name">RNA toxic gain-of-function and protein sequestration</div>
+
 
                 <div class="item-desc">The expanded CGG-repeat FMR1 mRNA forms nuclear RNA foci that bind and sequester specific RNA-binding proteins, including Pur alpha and hnRNP A2/B1, away from their normal functions. In a Drosophila model, transcribed premutation repeats alone are sufficient to cause neurodegeneration, and Pur alpha overexpression suppresses this toxicity, supporting a sequestration mechanism. Pur alpha is also found within the intranuclear inclusions of FXTAS patient brains.</div>
 
@@ -4607,7 +4770,10 @@ This pathophysiological event involves increased protein-RNA complex assembly (R
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17698009" target="_blank">PMID:17698009</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4629,7 +4795,10 @@ This pathophysiological event involves increased protein-RNA complex assembly (R
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17698009" target="_blank">PMID:17698009</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4654,6 +4823,7 @@ This pathophysiological event involves increased protein-RNA complex assembly (R
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ran-translation-and-fmrpolyg-production" data-dismech-node="RAN translation and FMRpolyG production" data-dismech-type="pathophysiology">
                 <div class="item-name">RAN translation and FMRpolyG production</div>
+
 
                 <div class="item-desc">The expanded CGG repeat undergoes repeat-associated non-AUG (RAN) translation, generating a toxic polyglycine-containing protein, FMRpolyG. FMRpolyG accumulates within the characteristic intranuclear inclusions and impairs the ubiquitin-proteasome system. In cell models, driving FMRpolyG expression enhances UPS impairment, whereas preventing RAN translation attenuates it.</div>
 
@@ -4782,7 +4952,10 @@ This pathophysiological event involves increased translation (GO:0006412). GO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25954027" target="_blank">PMID:25954027</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4804,7 +4977,10 @@ This pathophysiological event involves increased translation (GO:0006412). GO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25954027" target="_blank">PMID:25954027</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4826,7 +5002,10 @@ This pathophysiological event involves increased translation (GO:0006412). GO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26060190" target="_blank">PMID:26060190</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4851,6 +5030,7 @@ This pathophysiological event involves increased translation (GO:0006412). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ubiquitin-proteasome-system-and-autophagy-impairment" data-dismech-node="Ubiquitin-proteasome system and autophagy impairment" data-dismech-type="pathophysiology">
                 <div class="item-name">Ubiquitin-proteasome system and autophagy impairment</div>
+
 
                 <div class="item-desc">FXTAS inclusions are enriched for components of the protein-degradation machinery. Nearly 200 proteins have been identified in FXTAS inclusions, with SUMO2, ubiquitin, and p62/SQSTM1 among the most abundant. Postmortem FXTAS brains are positive for SUMO2/3 conjugates and show transcriptional upregulation of SUMOylation, while patient fibroblasts accumulate p62 and autophagosomes with downregulation of autophagy-related gene-ontology terms, indicating impaired autophagic flux.</div>
 
@@ -5069,7 +5249,10 @@ This pathophysiological event involves decreased autophagy (GO:0006914). GO:0006
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37830578" target="_blank">PMID:37830578</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5091,7 +5274,10 @@ This pathophysiological event involves decreased autophagy (GO:0006914). GO:0006
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37830578" target="_blank">PMID:37830578</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5116,6 +5302,7 @@ This pathophysiological event involves decreased autophagy (GO:0006914). GO:0006
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mitochondrial-dysfunction-and-oxidative-stress" data-dismech-node="Mitochondrial dysfunction and oxidative stress" data-dismech-type="pathophysiology">
                 <div class="item-name">Mitochondrial dysfunction and oxidative stress</div>
+
 
                 <div class="item-desc">Mitochondrial dysfunction is a convergent downstream mechanism in FXTAS, including impaired mitochondrial protein import, altered morphology, disrupted calcium handling, reduced respiratory-chain activity, and elevated reactive oxygen species with lipid peroxidation and protein carbonylation. These changes amplify neuronal injury and have motivated antioxidant and mitochondrial-nutrient therapeutic strategies.</div>
 
@@ -5300,7 +5487,10 @@ This pathophysiological event involves abnormal mitochondrion organization (GO:0
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38578387" target="_blank">PMID:38578387</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5325,6 +5515,7 @@ This pathophysiological event involves abnormal mitochondrion organization (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-glial-and-oligodendrocyte-dysregulation" data-dismech-node="Glial and oligodendrocyte dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Glial and oligodendrocyte dysregulation</div>
+
 
                 <div class="item-desc">Human postmortem single-nucleus RNA-seq of frontal cortex and cerebellum implicates glial dysregulation as a critical, upstream facet of premutation pathophysiology, with cell-type- and region-specific dysregulation of FMR1 protein-target gene networks, decreased cortical astrocyte proportions, and notable perturbation of the cortical oligodendrocyte lineage, consistent with the white-matter pathology seen radiologically.</div>
 
@@ -5509,7 +5700,10 @@ This pathophysiological event involves abnormal myelination (GO:0042552). GO:004
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37252957" target="_blank">PMID:37252957</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5534,6 +5728,7 @@ This pathophysiological event involves abnormal myelination (GO:0042552). GO:004
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ubiquitin-positive-intranuclear-inclusion-formation" data-dismech-node="Ubiquitin-positive intranuclear inclusion formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Ubiquitin-positive intranuclear inclusion formation</div>
+
 
                 <div class="item-desc">The defining neuropathological feature of FXTAS is the presence of ubiquitin-positive intranuclear inclusions in neurons and astrocytes in broad distribution throughout the brain and brainstem. Inclusions contain ubiquitin, SUMO2, p62, FMRpolyG, and sequestered RNA-binding proteins, representing the convergence of RNA toxicity, RAN translation, and proteostasis failure.</div>
 
@@ -5684,7 +5879,10 @@ This pathophysiological event involves increased inclusion body assembly (GO:007
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17618523" target="_blank">PMID:17618523</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5709,6 +5907,7 @@ This pathophysiological event involves increased inclusion body assembly (GO:007
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-white-matter-disease-and-middle-cerebellar-peduncle-pathology" data-dismech-node="White matter disease and middle cerebellar peduncle pathology" data-dismech-type="pathophysiology">
                 <div class="item-name">White matter disease and middle cerebellar peduncle pathology</div>
+
 
                 <div class="item-desc">FXTAS produces progressive cerebral and cerebellar white-matter disease. The radiologic hallmark is increased T2 signal in the middle cerebellar peduncles (the MCP sign), with similar signal change in deep and subependymal cerebral white matter and general cortical and subcortical atrophy.</div>
 
@@ -5829,7 +6028,10 @@ This pathophysiological event involves decreased myelination (GO:0042552). GO:00
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17618523" target="_blank">PMID:17618523</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5854,6 +6056,7 @@ This pathophysiological event involves decreased myelination (GO:0042552). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neurodegeneration-and-neuronal-cell-death" data-dismech-node="Neurodegeneration and neuronal cell death" data-dismech-type="pathophysiology">
                 <div class="item-name">Neurodegeneration and neuronal cell death</div>
+
 
                 <div class="item-desc">The convergent mechanisms of RNA toxicity, RAN-translated FMRpolyG, proteostasis and autophagy failure, mitochondrial dysfunction, and glial/white-matter disruption culminate in cerebellar and fronto-subcortical neurodegeneration that produces the clinical syndrome of progressive tremor, ataxia, parkinsonism, cognitive decline, neuropathy, and dysautonomia.</div>
 
@@ -6020,7 +6223,10 @@ This pathophysiological event involves increased positive regulation of neuron a
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26060190" target="_blank">PMID:26060190</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -6085,36 +6291,18 @@ This pathophysiological event involves increased positive regulation of neuron a
             </div>
 
 
-            <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Nervous System<span class="pill-count">(8)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Other<span class="pill-count">(2)</span></button>
-
-                <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
-            </div>
+            <div class="item-box phenotype-box anchor-target" id="phenotype-intention-action-tremor" data-dismech-node="Intention/Action Tremor" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Intention/Action Tremor
 
 
-            <details class="phenotype-category-group" id="pheno-cat-1">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Nervous System
-                    <span class="cat-count">8</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-intention-action-tremor" data-dismech-node="Intention/Action Tremor" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Intention/Action Tremor
-
-
+                    <span class="phenotype-category">Neurological</span>
 
 
 
 
                     <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Intention tremor</span>
-
 
 
 
@@ -6126,9 +6314,9 @@ Relation: this clinical feature is this phenotype
 This clinical feature is Intention tremor (HP:0002080), qualified as course progressive. HP:0002080 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
 
-                    <div class="item-meta">
+                <div class="item-meta">
 
 
 
@@ -6144,7 +6332,10 @@ This clinical feature is Intention tremor (HP:0002080), qualified as course prog
 
 
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -6162,7 +6353,10 @@ This clinical feature is Intention tremor (HP:0002080), qualified as course prog
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17618523" target="_blank">PMID:17618523</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6184,7 +6378,10 @@ This clinical feature is Intention tremor (HP:0002080), qualified as course prog
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17133502" target="_blank">PMID:17133502</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6208,19 +6405,19 @@ This clinical feature is Intention tremor (HP:0002080), qualified as course prog
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-cerebellar-gait-ataxia" data-dismech-node="Cerebellar Gait Ataxia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Cerebellar Gait Ataxia
+            <div class="item-box phenotype-box anchor-target" id="phenotype-cerebellar-gait-ataxia" data-dismech-node="Cerebellar Gait Ataxia" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Cerebellar Gait Ataxia
 
 
+                    <span class="phenotype-category">Neurological</span>
 
 
 
 
                     <span class="phenotype-id">
-
 
 
 
@@ -6232,9 +6429,9 @@ Relation: this clinical feature is this phenotype
 This clinical feature is Gait ataxia (HP:0002066), qualified as course progressive. HP:0002066 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
 
-                    <div class="item-meta">
+                <div class="item-meta">
 
 
 
@@ -6250,7 +6447,10 @@ This clinical feature is Gait ataxia (HP:0002066), qualified as course progressi
 
 
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -6268,7 +6468,10 @@ This clinical feature is Gait ataxia (HP:0002066), qualified as course progressi
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17618523" target="_blank">PMID:17618523</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6290,7 +6493,10 @@ This clinical feature is Gait ataxia (HP:0002066), qualified as course progressi
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17133502" target="_blank">PMID:17133502</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6314,19 +6520,19 @@ This clinical feature is Gait ataxia (HP:0002066), qualified as course progressi
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-parkinsonism" data-dismech-node="Parkinsonism" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Parkinsonism
+            <div class="item-box phenotype-box anchor-target" id="phenotype-parkinsonism" data-dismech-node="Parkinsonism" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Parkinsonism
 
 
+                    <span class="phenotype-category">Neurological</span>
 
 
 
 
                     <span class="phenotype-id">
-
 
 
 
@@ -6338,7 +6544,10 @@ Relation: this clinical feature is this phenotype
 This clinical feature is Parkinsonism (HP:0001300). HP:0001300 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -6356,7 +6565,10 @@ This clinical feature is Parkinsonism (HP:0001300). HP:0001300 is a phenotype fr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17618523" target="_blank">PMID:17618523</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6380,19 +6592,19 @@ This clinical feature is Parkinsonism (HP:0001300). HP:0001300 is a phenotype fr
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-cognitive-decline-and-dementia" data-dismech-node="Cognitive Decline and Dementia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Cognitive Decline and Dementia
+            <div class="item-box phenotype-box anchor-target" id="phenotype-cognitive-decline-and-dementia" data-dismech-node="Cognitive Decline and Dementia" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Cognitive Decline and Dementia
 
 
+                    <span class="phenotype-category">Neurological</span>
 
 
 
 
                     <span class="phenotype-id">
-
 
 
 
@@ -6404,9 +6616,9 @@ Relation: this clinical feature is this phenotype
 This clinical feature is Dementia (HP:0000726), qualified as course progressive. HP:0000726 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
 
-                    <div class="item-meta">
+                <div class="item-meta">
 
 
 
@@ -6422,7 +6634,10 @@ This clinical feature is Dementia (HP:0000726), qualified as course progressive.
 
 
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -6440,7 +6655,10 @@ This clinical feature is Dementia (HP:0000726), qualified as course progressive.
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301558" target="_blank">PMID:20301558</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6462,7 +6680,10 @@ This clinical feature is Dementia (HP:0000726), qualified as course progressive.
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41940304" target="_blank">PMID:41940304</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6486,13 +6707,14 @@ This clinical feature is Dementia (HP:0000726), qualified as course progressive.
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-peripheral-neuropathy" data-dismech-node="Peripheral Neuropathy" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Peripheral Neuropathy
+            <div class="item-box phenotype-box anchor-target" id="phenotype-executive-dysfunction" data-dismech-node="Executive Dysfunction" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Executive Dysfunction
 
 
+                    <span class="phenotype-category">Neurological</span>
 
 
 
@@ -6501,315 +6723,18 @@ This clinical feature is Dementia (HP:0000726), qualified as course progressive.
 
 
 
-
-    <a href="http://purl.obolibrary.org/obo/HP_0009830" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0009830</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0033051" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0033051</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:17618523" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17618523" target="_blank">PMID:17618523</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Frequent associated findings include parkinsonism, executive function deficits and dementia, neuropathy, and dysautonomia."</div>
-
-
-                <div class="evidence-explanation">Lists neuropathy as a frequent associated finding in FXTAS.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-dysautonomia" data-dismech-node="Dysautonomia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Dysautonomia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Abnormal autonomic nervous system physiology</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012332" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0012332</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal autonomic nervous system physiology (HP:0012332). HP:0012332 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:17618523" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17618523" target="_blank">PMID:17618523</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Frequent associated findings include parkinsonism, executive function deficits and dementia, neuropathy, and dysautonomia."</div>
-
-
-                <div class="evidence-explanation">Lists dysautonomia as a frequent associated finding in FXTAS; manifestations include orthostatic hypotension, erectile dysfunction, and bowel/bladder dysfunction.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-psychiatric-symptoms" data-dismech-node="Psychiatric Symptoms" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Psychiatric Symptoms
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Depression</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0000716</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Depression (HP:0000716). HP:0000716 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:20301558" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301558" target="_blank">PMID:20301558</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Psychiatric disorders are common."</div>
-
-
-                <div class="evidence-explanation">GeneReviews documents psychiatric disorders as common in FXTAS.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-white-matter-hyperintensities-mcp-sign" data-dismech-node="White Matter Hyperintensities (MCP Sign)" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        White Matter Hyperintensities (MCP Sign)
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Hyperintensity of cerebral white matter on MRI</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0030890" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0030890</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Middle cerebellar peduncle and cerebral white matter T2/FLAIR hyperintensity (MCP sign), annotated with Hyperintensity of cerebral white matter on MRI (HP:0030890), qualified as course progressive. HP:0030890 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">Course: PROGRESSIVE</span>
-
-
-
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:17618523" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17618523" target="_blank">PMID:17618523</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Similar signal alterations are seen in deep and subependymal cerebral white matter, as is general cortical and subcortical atrophy."</div>
-
-
-                <div class="evidence-explanation">Documents the cerebral white-matter signal hyperintensity (alongside the MCP sign) that is the radiologic hallmark of FXTAS.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-2">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-executive-dysfunction" data-dismech-node="Executive Dysfunction" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Executive Dysfunction
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Impaired executive functioning</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0033051" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0033051</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
 This clinical feature is Impaired executive functioning (HP:0033051). HP:0033051 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -6827,7 +6752,10 @@ This clinical feature is Impaired executive functioning (HP:0033051). HP:0033051
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17618523" target="_blank">PMID:17618523</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6851,13 +6779,14 @@ This clinical feature is Impaired executive functioning (HP:0033051). HP:0033051
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-impaired-vibratory-sensation" data-dismech-node="Impaired Vibratory Sensation" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Impaired Vibratory Sensation
+            <div class="item-box phenotype-box anchor-target" id="phenotype-peripheral-neuropathy" data-dismech-node="Peripheral Neuropathy" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Peripheral Neuropathy
 
 
+                    <span class="phenotype-category">Neurological</span>
 
 
 
@@ -6866,16 +6795,18 @@ This clinical feature is Impaired executive functioning (HP:0033051). HP:0033051
 
 
 
+    <a href="http://purl.obolibrary.org/obo/HP_0009830" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0009830</a>
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002495" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0002495</a>
 
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Impaired vibratory sensation (HP:0002495). HP:0002495 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -6893,7 +6824,82 @@ This clinical feature is Impaired vibratory sensation (HP:0002495). HP:0002495 i
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17618523" target="_blank">PMID:17618523</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Frequent associated findings include parkinsonism, executive function deficits and dementia, neuropathy, and dysautonomia."</div>
+
+
+                <div class="evidence-explanation">Lists neuropathy as a frequent associated finding in FXTAS.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-impaired-vibratory-sensation" data-dismech-node="Impaired Vibratory Sensation" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Impaired Vibratory Sensation
+
+
+                    <span class="phenotype-category">Neurological</span>
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002495" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0002495</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Impaired vibratory sensation (HP:0002495). HP:0002495 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17618523" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17618523" target="_blank">PMID:17618523</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6917,34 +6923,242 @@ This clinical feature is Impaired vibratory sensation (HP:0002495). HP:0002495 i
 
 
 
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-dysautonomia" data-dismech-node="Dysautonomia" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Dysautonomia
+
+
+                    <span class="phenotype-category">Neurological</span>
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012332" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0012332</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal autonomic nervous system physiology (HP:0012332). HP:0012332 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
                 </div>
 
-            </details>
 
-            <script>
-            (function() {
-                // TOC pill click: expand target group and scroll to it
-                document.querySelectorAll('.pheno-toc-pill').forEach(function(pill) {
-                    pill.addEventListener('click', function() {
-                        var target = document.getElementById(pill.dataset.target);
-                        if (target) {
-                            target.open = true;
-                            target.scrollIntoView({behavior: 'smooth', block: 'start'});
-                        }
-                    });
-                });
-                // Expand/collapse all toggle
-                var btn = document.getElementById('phenoToggleAll');
-                if (btn) {
-                    btn.addEventListener('click', function() {
-                        var groups = document.querySelectorAll('.phenotype-category-group');
-                        var anyOpen = Array.from(groups).some(function(g) { return g.open; });
-                        groups.forEach(function(g) { g.open = !anyOpen; });
-                        btn.textContent = anyOpen ? 'Expand all' : 'Collapse all';
-                    });
-                }
-            })();
-            </script>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17618523" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17618523" target="_blank">PMID:17618523</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Frequent associated findings include parkinsonism, executive function deficits and dementia, neuropathy, and dysautonomia."</div>
+
+
+                <div class="evidence-explanation">Lists dysautonomia as a frequent associated finding in FXTAS; manifestations include orthostatic hypotension, erectile dysfunction, and bowel/bladder dysfunction.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-psychiatric-symptoms" data-dismech-node="Psychiatric Symptoms" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Psychiatric Symptoms
+
+
+                    <span class="phenotype-category">Behavioral</span>
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0000716</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Depression (HP:0000716). HP:0000716 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301558" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301558" target="_blank">PMID:20301558</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Psychiatric disorders are common."</div>
+
+
+                <div class="evidence-explanation">GeneReviews documents psychiatric disorders as common in FXTAS.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-white-matter-hyperintensities-mcp-sign" data-dismech-node="White Matter Hyperintensities (MCP Sign)" data-dismech-type="phenotype">
+                <div class="item-name">
+                    White Matter Hyperintensities (MCP Sign)
+
+
+                    <span class="phenotype-category">Neurological</span>
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030890" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0030890</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Middle cerebellar peduncle and cerebral white matter T2/FLAIR hyperintensity (MCP sign), annotated with Hyperintensity of cerebral white matter on MRI (HP:0030890), qualified as course progressive. HP:0030890 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                </div>
+
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Course: PROGRESSIVE</span>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17618523" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17618523" target="_blank">PMID:17618523</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Similar signal alterations are seen in deep and subependymal cerebral white matter, as is general cortical and subcortical atrophy."</div>
+
+
+                <div class="evidence-explanation">Documents the cerebral white-matter signal hyperintensity (alongside the MCP sign) that is the radiologic hallmark of FXTAS.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+            </div>
+
 
         </div>
 
@@ -6995,6 +7209,9 @@ This disease-associated gene is FMR1 (hgnc:3775). hgnc:3775 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7007,7 +7224,10 @@ This disease-associated gene is FMR1 (hgnc:3775). hgnc:3775 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17618523" target="_blank">PMID:17618523</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7029,7 +7249,10 @@ This disease-associated gene is FMR1 (hgnc:3775). hgnc:3775 is a gene from the H
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301558" target="_blank">PMID:20301558</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7064,6 +7287,7 @@ This disease-associated gene is FMR1 (hgnc:3775). hgnc:3775 is a gene from the H
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -7083,6 +7307,7 @@ This variant is in FMR1 (hgnc:3775). hgnc:3775 is a gene from the HUGO Gene Nome
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">trinucleotide repeat expansion</span>
 
 
@@ -7090,7 +7315,14 @@ This variant is in FMR1 (hgnc:3775). hgnc:3775 is a gene from the HUGO Gene Nome
     </div>
 
 
+
+
+
+
+
     <div class="item-desc">Premutation-range expansion of the FMR1 5&#39; UTR CGG repeat to 55-200 repeats, producing elevated expanded-repeat FMR1 mRNA with toxic gain-of-function and RAN translation rather than gene silencing.</div>
+
+
 
 
 
@@ -7111,6 +7343,9 @@ This variant is in FMR1 (hgnc:3775). hgnc:3775 is a gene from the HUGO Gene Nome
 
 
         <!-- Variants recorded at the disease level -->
+
+
+        <!-- Registry / external-database assertions recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -7163,6 +7398,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">There is no disease-modifying therapy for FXTAS; management is symptomatic and supportive, tailored to the individual, and ideally delivered through coordinated multidisciplinary care.</div>
 
 
@@ -7182,7 +7431,10 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301558" target="_blank">PMID:20301558</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7245,6 +7497,31 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Pharmacologic management of FXTAS tremor commonly uses agents such as primidone, beta-blockers, and gabapentin/pregabalin.</div>
 
 
@@ -7264,7 +7541,10 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41940304" target="_blank">PMID:41940304</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7328,6 +7608,31 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Rehabilitation (physical, occupational, and speech-language therapy) supports mobility, function, fall prevention, and communication as the disorder progresses.</div>
 
 
@@ -7347,7 +7652,10 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41940304" target="_blank">PMID:41940304</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7410,6 +7718,20 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Genetic counseling and cascade testing are recommended once an FMR1 premutation or other fragile X-associated condition is identified in a family.</div>
 
 
@@ -7429,7 +7751,10 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301558" target="_blank">PMID:20301558</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7493,6 +7818,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">GeneReviews lists agents/circumstances to avoid in FXTAS: typical and atypical antipsychotics with significant anti-dopaminergic effects and metoclopramide (can exacerbate parkinsonism); anticholinergic agents (can exacerbate cognitive complaints); excessive alcohol (can enhance cerebellar dysfunction and postural instability); and agents with known cerebellar toxicity.</div>
 
 
@@ -7512,7 +7851,10 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301558" target="_blank">PMID:20301558</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7544,6 +7886,286 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
         <!-- Biochemical Markers -->
 
 
+        <!-- Diagnosis -->
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-onset">
+                <div class="item-name">Onset</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Typically age 60-65 (after age 50)</span>
+
+
+
+                </div>
+
+                <div class="item-notes">FXTAS is a late-onset disorder; tremor usually appears first, with median onset around age 60 in male carriers.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301558" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301558" target="_blank">PMID:20301558</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Age of onset is typically between 60 and 65 years"</div>
+
+
+                <div class="evidence-explanation">GeneReviews documents the late-adult typical age of onset of FXTAS.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17133502" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17133502" target="_blank">PMID:17133502</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"tremor usually occurs first, with median onset at approximately 60 years of age."</div>
+
+
+                <div class="evidence-explanation">Cohort natural-history data support tremor as the first motor sign at median age ~60.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-progression-and-survival">
+                <div class="item-name">Progression and survival</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">Median intervals from first motor sign: ataxia 2 years, falls 6 years, walking-aid dependence 15 years, and death 21 years; reported survival after onset is variable (5-25 years).</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17133502" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17133502" target="_blank">PMID:17133502</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"From the onset of the initial motor sign, median delay of onset of ataxia was 2 years; onset of falls, 6 years; dependence on a walking aid, 15 years; and death, 21 years. Preliminary data on life expectancy are variable, with a range from 5 to 25 years."</div>
+
+
+                <div class="evidence-explanation">Provides cohort-based progression milestones and survival range for FXTAS.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-fmr1-premutation-carriers-general-population">
+                <div class="item-name">FMR1 premutation carriers (general population)</div>
+                <div class="item-meta">
+
+
+
+
+
+                </div>
+
+                <div class="item-notes">FXTAS occurs specifically in FMR1 premutation carriers; not all carriers develop FXTAS. General-population premutation carrier frequency is commonly cited as roughly 1 in 250-300 females and 1 in 800 males, but a quantitative source is not cited here for those specific figures.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41940304" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41940304" target="_blank">PMID:41940304</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"a neurodegenerative disorder affecting FMR1 premutation carriers (55-200 CCG repeats)"</div>
+
+
+                <div class="evidence-explanation">Confirms FXTAS occurs specifically in FMR1 premutation carriers.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-male-premutation-carriers-over-age-50">
+                <div class="item-name">Male premutation carriers over age 50</div>
+                <div class="item-meta">
+
+
+
+                    <span class="tag">~40%</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Age-dependent penetrance of FXTAS is higher in male (40%) than female (16-20%) premutation carriers (GeneReviews).</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301558" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301558" target="_blank">PMID:20301558</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"more common among males who are hemizygous for the premutation (40%) than among females who are heterozygous for the premutation (16%-20%)."</div>
+
+
+                <div class="evidence-explanation">GeneReviews documents the higher FXTAS penetrance in male than female premutation carriers.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
 
@@ -7556,7 +8178,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-massive-msv000086400">
                 <div class="item-name">
                     Human cerebral cortex proteome of fragile X-associated tremor/ataxia syndrome
 
@@ -7589,7 +8211,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-massive-msv000084199">
                 <div class="item-name">
                     Composition of the Intranuclear Inclusions of Fragile X-associated Tremor/Ataxia Syndrome
 
@@ -7622,7 +8244,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
             </div>
 
-            <div class="item-box dataset-box">
+            <div class="item-box dataset-box anchor-target" id="dataset-massive-msv000085477">
                 <div class="item-name">
                     Characterization of the Cerebrospinal Fluid Proteome in Patients with Fragile X-Associated Tremor/Ataxia Syndrome
 
@@ -7667,7 +8289,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                 <span class="card-count">2</span>
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct00584948">
                 <div class="item-name">
                     NCT00584948
 
@@ -7734,7 +8356,10 @@ This clinical trial targets Impaired executive functioning (HP:0033051). HP:0033
                         <a href="https://clinicaltrials.gov/study/NCT00584948" target="_blank">clinicaltrials:NCT00584948</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7757,7 +8382,7 @@ This clinical trial targets Impaired executive functioning (HP:0033051). HP:0033
 
             </div>
 
-            <div class="item-box clinical-trial-box">
+            <div class="item-box clinical-trial-box anchor-target" id="clinical-trial-nct02603926">
                 <div class="item-name">
                     NCT02603926
 
@@ -7807,7 +8432,10 @@ This clinical trial targets Dementia (HP:0000726). HP:0000726 is a phenotype fro
                         <a href="https://clinicaltrials.gov/study/NCT02603926" target="_blank">clinicaltrials:NCT02603926</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8133,13 +8761,13 @@ pathophysiology:
       modified proteins into intranuclear inclusions.
   evidence:
   - reference: PMID:37830578
-    reference_title: &#34;Exploration of SUMO2/3 Expression Levels and Autophagy Process in Fragile X-Associated Tremor/Ataxia Syndrome.&#34;
+    reference_title: &#34;Exploration of SUMO2/3 Expression Levels and Autophagy Process in Fragile X-Associated Tremor/Ataxia Syndrome: Addressing Study Limitations and Insights for Future Research.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Nearly 200 different proteins have been identified in FXTAS inclusions, being the small ubiquitin-related modifier 2 (SUMO2), ubiquitin and p62 the most highly abundant.&#34;
     explanation: Identifies the protein-degradation-machinery composition of FXTAS inclusions, supporting proteostasis dysfunction.
   - reference: PMID:37830578
-    reference_title: &#34;Exploration of SUMO2/3 Expression Levels and Autophagy Process in Fragile X-Associated Tremor/Ataxia Syndrome.&#34;
+    reference_title: &#34;Exploration of SUMO2/3 Expression Levels and Autophagy Process in Fragile X-Associated Tremor/Ataxia Syndrome: Addressing Study Limitations and Insights for Future Research.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &#34;the analysis of the autophagy flux showed the accumulation of p62 protein levels and autophagosomes in skin fibroblasts from FXTAS patients. Similarly, gene set analysis evidenced a significant downregulation in gene ontology terms related to autophagy in FXTAS samples.&#34;
@@ -8180,7 +8808,7 @@ pathophysiology:
       injury and death.
   evidence:
   - reference: PMID:38578387
-    reference_title: &#34;Mitochondrial dysfunction in Fragile X syndrome and Fragile X-associated tremor/ataxia syndrome.&#34;
+    reference_title: &#34;Mitochondrial dysfunction in Fragile X syndrome and Fragile X-associated tremor/ataxia syndrome: prospect use of antioxidants and mitochondrial nutrients.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;FXTAS is associated with elevated levels of FMR1 mRNA, leading to neurodegenerative manifestations such as tremors and ataxia.Mounting evidence suggests a link between both syndromes and mitochondrial dysfunction (MDF).&#34;
@@ -8821,6 +9449,8 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -9548,7 +10178,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Fragile X-Associated Tremor Ataxia Syndrome", "mondoId": "MONDO:0010382", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Fragile_X-Associated_Tremor_Ataxia_Syndrome", "yamlRevision": "d2881fa8dd98"};
+        const OS_CONFIG = {"diseaseName": "Fragile X-Associated Tremor Ataxia Syndrome", "mondoId": "MONDO:0010382", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Fragile_X-Associated_Tremor_Ataxia_Syndrome", "yamlRevision": "cd9e0b23fc27"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

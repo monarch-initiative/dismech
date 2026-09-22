@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -292,6 +293,20 @@
         .badge-mondo {
             background: #e0f2fe;
             color: #0369a1;
+        }
+
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
         }
 
         .badge-mondo a {
@@ -830,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1508,6 +1550,21 @@
         .experiment-subitem-name {
             font-weight: 700;
             color: #334155;
+            margin-bottom: 4px;
+        }
+
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
             margin-bottom: 4px;
         }
 
@@ -2369,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2863,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2871,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2911,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2926,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3035,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3048,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3252,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3262,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3298,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3319,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3690,6 +3810,29 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3718,7 +3861,7 @@
             <span>Developmental and Epileptic Encephalopathy with Spike-Wave Activation in Sleep</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Developmental and Epileptic Encephalopathy with Spike-Wave Activation in Sleep</h1>
             <div class="header-meta">
 
@@ -4062,7 +4205,7 @@
                 <span class="card-count">3</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-heterogeneous-mostly-de-novo-genetic-or-non-genetic">
                 <div class="item-name">
                     Heterogeneous, mostly de novo genetic or non-genetic
 
@@ -4107,7 +4250,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39096015" target="_blank">PMID:39096015</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4129,7 +4275,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39096015" target="_blank">PMID:39096015</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4152,7 +4301,7 @@
 
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-dominant-usually-de-novo">
                 <div class="item-name">
                     Autosomal dominant, usually de novo
 
@@ -4191,13 +4340,16 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:39096015" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:39096015" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39096015" target="_blank">PMID:39096015</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4220,7 +4372,7 @@
 
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-x-linked">
                 <div class="item-name">
                     X-linked
 
@@ -4259,13 +4411,16 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:39096015" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:39096015" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39096015" target="_blank">PMID:39096015</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4318,7 +4473,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-dee-swas">
 
                     <div class="item-name">
                         Developmental and epileptic encephalopathy with spike-wave activation in sleep
@@ -4352,7 +4507,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39096015" target="_blank">PMID:39096015</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4374,7 +4532,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39096015" target="_blank">PMID:39096015</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4400,7 +4561,7 @@
 
 
 
-                <div class="item-box subtype-box">
+                <div class="item-box subtype-box anchor-target" id="subtype-ee-swas">
 
                     <div class="item-name">
                         Epileptic encephalopathy with spike-wave activation in sleep
@@ -4434,7 +4595,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39096015" target="_blank">PMID:39096015</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4456,7 +4620,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38081201" target="_blank">PMID:38081201</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4584,6 +4751,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4623,6 +4796,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4646,7 +4825,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25160535" target="_blank">PMID:25160535</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4668,7 +4850,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38081201" target="_blank">PMID:38081201</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4684,13 +4869,16 @@
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38081201" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:38081201" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38081201" target="_blank">PMID:38081201</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4794,6 +4982,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4817,7 +5011,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39096015" target="_blank">PMID:39096015</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4833,13 +5030,16 @@
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:39096015" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:39096015" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39096015" target="_blank">PMID:39096015</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4861,7 +5061,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35503717" target="_blank">PMID:35503717</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4963,6 +5166,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4986,7 +5195,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38081201" target="_blank">PMID:38081201</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5008,7 +5220,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38081201" target="_blank">PMID:38081201</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5110,6 +5325,12 @@
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -5133,7 +5354,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25160535" target="_blank">PMID:25160535</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5155,7 +5379,10 @@
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29133062" target="_blank">PMID:29133062</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5192,6 +5419,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-heterogeneous-genetic-etiology" data-dismech-node="Heterogeneous Genetic Etiology" data-dismech-type="pathophysiology">
                 <div class="item-name">Heterogeneous Genetic Etiology</div>
+
 
                 <div class="item-desc">About a third of patients have an identifiable genetic cause, but it is spread thinly: no single gene dominates, and the genes implicated cluster functionally rather than positionally, into ion channels and transcriptional regulators that are highly co-expressed in brain. GRIN2A is the longest-associated, and a recent cohort added ten more with functions ranging from sodium-potassium pump subunits to chromatin modifiers. The practical consequence is that gene identity predicts less here than the converging network output does.</div>
 
@@ -5319,7 +5547,10 @@ This pathophysiological event involves abnormal regulation of postsynaptic membr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39096015" target="_blank">PMID:39096015</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5341,7 +5572,10 @@ This pathophysiological event involves abnormal regulation of postsynaptic membr
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39096015" target="_blank">PMID:39096015</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5366,6 +5600,7 @@ This pathophysiological event involves abnormal regulation of postsynaptic membr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-early-thalamic-injury" data-dismech-node="Early Thalamic Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Early Thalamic Injury</div>
+
 
                 <div class="item-desc">The best-characterized route into this syndrome is not genetic at all. A perinatal thalamic lesion, typically unilateral, accounts for roughly one in seven cases and is the single commonest identifiable cause. The damage is concentrated in medial and dorsal nuclei and spares the ventral thalamus, a distribution that matters because it disconnects association cortex while leaving the machinery that generates sleep spindles intact. The child is often neurologically unremarkable for years before the electroencephalogram changes.</div>
 
@@ -5433,7 +5668,10 @@ This pathophysiological event occurs in dorsal plus ventral thalamus (UBERON:000
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29133062" target="_blank">PMID:29133062</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5455,7 +5693,10 @@ This pathophysiological event occurs in dorsal plus ventral thalamus (UBERON:000
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29133062" target="_blank">PMID:29133062</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5480,6 +5721,7 @@ This pathophysiological event occurs in dorsal plus ventral thalamus (UBERON:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-selective-thalamocortical-disconnection" data-dismech-node="Selective Thalamocortical Disconnection" data-dismech-type="pathophysiology">
                 <div class="item-name">Selective Thalamocortical Disconnection</div>
+
 
                 <div class="item-desc">What the thalamic lesion produces is not a general loss of thalamic function but a selective severing of thalamic-cortical fibres on one side, with ipsilateral white matter loss. The selectivity is the point. Sleep spindles are preserved and the waking electroencephalogram is only mildly affected, so the rhythmic drive that normally organizes non-rapid-eye-movement sleep still arrives at a cortex that has lost its normal thalamic regulation. The continuous sleep spiking then appears on the side of the lesion, which is the observation tying the anatomy to the electrophysiology.</div>
 
@@ -5547,7 +5789,10 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29133062" target="_blank">PMID:29133062</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5569,7 +5814,10 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29133062" target="_blank">PMID:29133062</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5591,7 +5839,10 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29133062" target="_blank">PMID:29133062</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5616,6 +5867,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-abnormal-frequency-dependent-cortical-excitability" data-dismech-node="Abnormal Frequency-Dependent Cortical Excitability" data-dismech-type="pathophysiology">
                 <div class="item-name">Abnormal Frequency-Dependent Cortical Excitability</div>
+
 
                 <div class="item-desc">Cortex that has lost thalamic regulation acquires an abnormal response to being driven at particular rates. Probing visual cortex in patients with posterior spiking reveals excitability that peaks when stimulation is delivered at ten to twenty hertz on the side of the lesion. This is the augmenting response, a form of synaptic potentiation that is absent from cortico-cortical interactions in intact animals and emerges after the thalamus is ablated. It is a state of latent, frequency-tuned potentiation rather than continuous overexcitation, which is why the child can look electrically normal while awake.</div>
 
@@ -5734,7 +5986,10 @@ This pathophysiological event involves abnormal regulation of synaptic plasticit
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29133062" target="_blank">PMID:29133062</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5756,7 +6011,10 @@ This pathophysiological event involves abnormal regulation of synaptic plasticit
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29133062" target="_blank">PMID:29133062</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5781,6 +6039,7 @@ This pathophysiological event involves abnormal regulation of synaptic plasticit
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sleep-potentiated-spike-wave-activation" data-dismech-node="Sleep-Potentiated Spike-Wave Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Sleep-Potentiated Spike-Wave Activation</div>
+
 
                 <div class="item-desc">Two things coincide in non-rapid-eye-movement sleep and neither is sufficient alone: brainstem activation falls away, which is the condition under which the augmenting response is strongest, and sleep spindles supply rhythmic drive in precisely the frequency band the cortex has become abnormally responsive to. The result is that discharge which was intermittent or absent in wakefulness becomes near-continuous once the child falls asleep. This state-dependence is the defining feature of the syndrome and the reason a routine waking electroencephalogram can be reported as normal.</div>
 
@@ -5873,7 +6132,10 @@ This pathophysiological event involves sleep (GO:0030431). GO:0030431 is a biolo
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/29133062" target="_blank">PMID:29133062</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5895,7 +6157,10 @@ This pathophysiological event involves sleep (GO:0030431). GO:0030431 is a biolo
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25160535" target="_blank">PMID:25160535</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5920,6 +6185,7 @@ This pathophysiological event involves sleep (GO:0030431). GO:0030431 is a biolo
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disruption-of-sleep-dependent-synaptic-plasticity" data-dismech-node="Disruption of Sleep-Dependent Synaptic Plasticity" data-dismech-type="pathophysiology">
                 <div class="item-name">Disruption of Sleep-Dependent Synaptic Plasticity</div>
+
 
                 <div class="item-desc">Slow-wave sleep is not passive for a developing cortex. It is when synaptic strengths are rescaled and the day&#39;s experience is consolidated into developing cortical maps, and it does this during critical periods when those maps are still plastic. Occupying that window with continuous epileptiform discharge is the proposed mechanism by which an electroencephalographic abnormality becomes a cognitive one, and it explains why the deficit tracks which cortex is involved rather than seizure burden: perisylvian activation costs language, frontal activation costs attention and behaviour.</div>
 
@@ -6038,7 +6304,10 @@ This pathophysiological event involves abnormal regulation of synaptic plasticit
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25160535" target="_blank">PMID:25160535</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6054,13 +6323,16 @@ This pathophysiological event involves abnormal regulation of synaptic plasticit
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:25160535" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:25160535" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25160535" target="_blank">PMID:25160535</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6085,6 +6357,7 @@ This pathophysiological event involves abnormal regulation of synaptic plasticit
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-focal-and-atypical-absence-seizures" data-dismech-node="Focal and Atypical Absence Seizures" data-dismech-type="pathophysiology">
                 <div class="item-name">Focal and Atypical Absence Seizures</div>
+
 
                 <div class="item-desc">Clinical seizures do occur, typically focal seizures often arising from sleep and atypical absences, but they are frequently mild, sometimes absent entirely, and they are not what causes the regression. This is the feature that most distinguishes the syndrome from other developmental and epileptic encephalopathies, where seizure burden and cognitive outcome move together. A child can have this syndrome, and lose skills to it, with barely any seizures at all.</div>
 
@@ -6118,7 +6391,10 @@ This pathophysiological event involves abnormal regulation of synaptic plasticit
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38081201" target="_blank">PMID:38081201</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6143,6 +6419,7 @@ This pathophysiological event involves abnormal regulation of synaptic plasticit
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-age-dependent-remission-of-the-electrographic-pattern" data-dismech-node="Age-Dependent Remission of the Electrographic Pattern" data-dismech-type="pathophysiology">
                 <div class="item-name">Age-Dependent Remission of the Electrographic Pattern</div>
+
 
                 <div class="item-desc">The sleep activation switches itself off, usually around adolescence, and it does so whether or not treatment worked. That spontaneous termination is as developmentally regulated as the onset, and it is the single most important thing to understand about prognosis: the electroencephalogram will normalize on its own, but the cognitive ground lost while it was active may not be recovered. It is also why treatment is judged on cognition rather than on the eventual disappearance of the pattern, which would have happened anyway.</div>
 
@@ -6176,7 +6453,10 @@ This pathophysiological event involves abnormal regulation of synaptic plasticit
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25160535" target="_blank">PMID:25160535</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6201,6 +6481,7 @@ This pathophysiological event involves abnormal regulation of synaptic plasticit
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-developmental-regression-and-cognitive-behavioural-encephalopathy" data-dismech-node="Developmental Regression and Cognitive-Behavioural Encephalopathy" data-dismech-type="pathophysiology">
                 <div class="item-name">Developmental Regression and Cognitive-Behavioural Encephalopathy</div>
+
 
                 <div class="item-desc">The clinical endpoint and the reason the syndrome matters: loss of skills the child already had. Which skills depends on which cortex carries the activation, giving language regression, attentional and behavioural collapse, or global cognitive decline. Regression patterns are similar whether the child was developmentally normal beforehand or already delayed, but the eventual intellectual outcome is worse in the delayed group, which also has a longer duration of epilepsy.</div>
 
@@ -6234,7 +6515,10 @@ This pathophysiological event involves abnormal regulation of synaptic plasticit
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39096015" target="_blank">PMID:39096015</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6299,28 +6583,13 @@ This pathophysiological event involves abnormal regulation of synaptic plasticit
             </div>
 
 
-            <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Nervous System<span class="pill-count">(8)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Other<span class="pill-count">(1)</span></button>
-
-                <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
-            </div>
+            <div class="item-box phenotype-box anchor-target" id="phenotype-spike-wave-activation-in-sleep" data-dismech-node="Spike-wave activation in sleep" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Spike-wave activation in sleep
 
 
-            <details class="phenotype-category-group" id="pheno-cat-1">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Nervous System
-                    <span class="cat-count">8</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-developmental-regression" data-dismech-node="Developmental regression" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Developmental regression
-
-
+                    <span class="phenotype-category">Neurologic</span>
 
 
 
@@ -6329,559 +6598,18 @@ This pathophysiological event involves abnormal regulation of synaptic plasticit
 
 
 
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002376" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0002376</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0031491" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0031491</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Developmental regression (HP:0002376). HP:0002376 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:38081201" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38081201" target="_blank">PMID:38081201</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Epileptic encephalopathy with spike-wave activation in sleep (EE-SWAS) is a rare syndrome associated with cognitive and behavioural regression."</div>
-
-
-                <div class="evidence-explanation">States the regression that defines the syndrome and that the trial&#39;s primary outcome was designed to capture.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-intellectual-disability" data-dismech-node="Intellectual disability" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Intellectual disability
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001249</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:39096015" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39096015" target="_blank">PMID:39096015</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Although developmental regression patterns were similar in both syndromes, DEE-SWAS was associated with a longer duration of epilepsy and poorer intellectual outcome than EE-SWAS."</div>
-
-
-                <div class="evidence-explanation">Documents the intellectual outcome and its difference between the two arms.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-language-regression" data-dismech-node="Language regression" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Language regression
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Aphasia</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002381" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0002381</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Aphasia (HP:0002381). HP:0002381 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:25160535" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25160535" target="_blank">PMID:25160535</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Several pediatric seizure disorders have common electrophysiological features during slow-wave sleep that produce different syndromes based on which part of the developing brain is involved."</div>
-
-
-                <div class="evidence-explanation">States the topographic principle that makes language the affected domain when perisylvian cortex carries the activation.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-behavioural-disturbance-and-attentional-impairment" data-dismech-node="Behavioural disturbance and attentional impairment" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Behavioural disturbance and attentional impairment
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Atypical behavior</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000708" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0000708</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Atypical behavior (HP:0000708). HP:0000708 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:38081201" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38081201" target="_blank">PMID:38081201</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Epileptic encephalopathy with spike-wave activation in sleep (EE-SWAS) is a rare syndrome associated with cognitive and behavioural regression."</div>
-
-
-                <div class="evidence-explanation">Names behavioural regression alongside the cognitive component.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-atypical-absence-seizure" data-dismech-node="Atypical absence seizure" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Atypical absence seizure
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007270" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0007270</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Atypical absence seizure (HP:0007270). HP:0007270 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:35503717" data-dismech-supports="PARTIAL">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35503717" target="_blank">PMID:35503717</a>
-                    </span>
-
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"In this paper, we describe the childhood onset epilepsy syndromes, most of which have both mandatory seizure type(s) and interictal electroencephalographic (EEG) features."</div>
-
-
-                <div class="evidence-explanation">Establishes that the ILAE defines these syndromes by mandatory seizure types. Marked PARTIAL because the abstract does not enumerate them for this syndrome, so the absence seizure type rests on the wider literature rather than on this quote.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-global-developmental-delay" data-dismech-node="Global developmental delay" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Global developmental delay
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001263</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:39096015" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39096015" target="_blank">PMID:39096015</a>
-                    </span>
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Although developmental regression patterns were similar in both syndromes, DEE-SWAS was associated with a longer duration of epilepsy and poorer intellectual outcome than EE-SWAS."</div>
-
-
-                <div class="evidence-explanation">Documents the developmental impairment that distinguishes the DEE-SWAS arm and its worse outcome.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-attention-deficit-hyperactivity-disorder" data-dismech-node="Attention deficit hyperactivity disorder" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Attention deficit hyperactivity disorder
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007018" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0007018</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Attention deficit hyperactivity disorder (HP:0007018). HP:0007018 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:38081201" data-dismech-supports="PARTIAL">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38081201" target="_blank">PMID:38081201</a>
-                    </span>
-
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Epileptic encephalopathy with spike-wave activation in sleep (EE-SWAS) is a rare syndrome associated with cognitive and behavioural regression."</div>
-
-
-                <div class="evidence-explanation">Establishes behavioural regression as a defining component. Marked PARTIAL because the abstract does not name the attentional phenotype specifically, so the more specific term is curated on the strength of the behavioural regression it belongs to.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-focal-onset-seizure" data-dismech-node="Focal-onset seizure" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Focal-onset seizure
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007359" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0007359</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Focal-onset seizure (HP:0007359). HP:0007359 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:35503717" data-dismech-supports="PARTIAL">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35503717" target="_blank">PMID:35503717</a>
-                    </span>
-
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"In this paper, we describe the childhood onset epilepsy syndromes, most of which have both mandatory seizure type(s) and interictal electroencephalographic (EEG) features."</div>
-
-
-                <div class="evidence-explanation">Establishes that the ILAE defines these syndromes by mandatory seizure types together with EEG features. Marked PARTIAL because the abstract does not enumerate the seizure types for this specific syndrome, so the seizure semiology here rests on the wider literature.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-2">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-spike-wave-activation-in-sleep" data-dismech-node="Spike-wave activation in sleep" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Spike-wave activation in sleep
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Continuous spike and waves during slow sleep</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0031491" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0031491</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
 This clinical feature is Continuous spike and waves during slow sleep (HP:0031491). HP:0031491 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -6899,7 +6627,10 @@ This clinical feature is Continuous spike and waves during slow sleep (HP:003149
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25160535" target="_blank">PMID:25160535</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6923,34 +6654,584 @@ This clinical feature is Continuous spike and waves during slow sleep (HP:003149
 
 
 
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-developmental-regression" data-dismech-node="Developmental regression" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Developmental regression
+
+
+                    <span class="phenotype-category">Neurologic</span>
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002376" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0002376</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Developmental regression (HP:0002376). HP:0002376 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
                 </div>
 
-            </details>
 
-            <script>
-            (function() {
-                // TOC pill click: expand target group and scroll to it
-                document.querySelectorAll('.pheno-toc-pill').forEach(function(pill) {
-                    pill.addEventListener('click', function() {
-                        var target = document.getElementById(pill.dataset.target);
-                        if (target) {
-                            target.open = true;
-                            target.scrollIntoView({behavior: 'smooth', block: 'start'});
-                        }
-                    });
-                });
-                // Expand/collapse all toggle
-                var btn = document.getElementById('phenoToggleAll');
-                if (btn) {
-                    btn.addEventListener('click', function() {
-                        var groups = document.querySelectorAll('.phenotype-category-group');
-                        var anyOpen = Array.from(groups).some(function(g) { return g.open; });
-                        groups.forEach(function(g) { g.open = !anyOpen; });
-                        btn.textContent = anyOpen ? 'Expand all' : 'Collapse all';
-                    });
-                }
-            })();
-            </script>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38081201" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38081201" target="_blank">PMID:38081201</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Epileptic encephalopathy with spike-wave activation in sleep (EE-SWAS) is a rare syndrome associated with cognitive and behavioural regression."</div>
+
+
+                <div class="evidence-explanation">States the regression that defines the syndrome and that the trial&#39;s primary outcome was designed to capture.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-intellectual-disability" data-dismech-node="Intellectual disability" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Intellectual disability
+
+
+                    <span class="phenotype-category">Neurologic</span>
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001249</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39096015" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39096015" target="_blank">PMID:39096015</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Although developmental regression patterns were similar in both syndromes, DEE-SWAS was associated with a longer duration of epilepsy and poorer intellectual outcome than EE-SWAS."</div>
+
+
+                <div class="evidence-explanation">Documents the intellectual outcome and its difference between the two arms.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-language-regression" data-dismech-node="Language regression" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Language regression
+
+
+                    <span class="phenotype-category">Neurologic</span>
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002381" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0002381</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Aphasia (HP:0002381). HP:0002381 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25160535" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25160535" target="_blank">PMID:25160535</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Several pediatric seizure disorders have common electrophysiological features during slow-wave sleep that produce different syndromes based on which part of the developing brain is involved."</div>
+
+
+                <div class="evidence-explanation">States the topographic principle that makes language the affected domain when perisylvian cortex carries the activation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-behavioural-disturbance-and-attentional-impairment" data-dismech-node="Behavioural disturbance and attentional impairment" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Behavioural disturbance and attentional impairment
+
+
+                    <span class="phenotype-category">Behavioral</span>
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000708" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000708</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Atypical behavior (HP:0000708). HP:0000708 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38081201" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38081201" target="_blank">PMID:38081201</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Epileptic encephalopathy with spike-wave activation in sleep (EE-SWAS) is a rare syndrome associated with cognitive and behavioural regression."</div>
+
+
+                <div class="evidence-explanation">Names behavioural regression alongside the cognitive component.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-atypical-absence-seizure" data-dismech-node="Atypical absence seizure" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Atypical absence seizure
+
+
+                    <span class="phenotype-category">Neurologic</span>
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007270" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0007270</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Atypical absence seizure (HP:0007270). HP:0007270 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35503717" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35503717" target="_blank">PMID:35503717</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In this paper, we describe the childhood onset epilepsy syndromes, most of which have both mandatory seizure type(s) and interictal electroencephalographic (EEG) features."</div>
+
+
+                <div class="evidence-explanation">Establishes that the ILAE defines these syndromes by mandatory seizure types. Marked PARTIAL because the abstract does not enumerate them for this syndrome, so the absence seizure type rests on the wider literature rather than on this quote.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-global-developmental-delay" data-dismech-node="Global developmental delay" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Global developmental delay
+
+
+                    <span class="phenotype-category">Neurologic</span>
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001263</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39096015" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39096015" target="_blank">PMID:39096015</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Although developmental regression patterns were similar in both syndromes, DEE-SWAS was associated with a longer duration of epilepsy and poorer intellectual outcome than EE-SWAS."</div>
+
+
+                <div class="evidence-explanation">Documents the developmental impairment that distinguishes the DEE-SWAS arm and its worse outcome.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-attention-deficit-hyperactivity-disorder" data-dismech-node="Attention deficit hyperactivity disorder" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Attention deficit hyperactivity disorder
+
+
+                    <span class="phenotype-category">Behavioral</span>
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007018" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0007018</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Attention deficit hyperactivity disorder (HP:0007018). HP:0007018 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38081201" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38081201" target="_blank">PMID:38081201</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Epileptic encephalopathy with spike-wave activation in sleep (EE-SWAS) is a rare syndrome associated with cognitive and behavioural regression."</div>
+
+
+                <div class="evidence-explanation">Establishes behavioural regression as a defining component. Marked PARTIAL because the abstract does not name the attentional phenotype specifically, so the more specific term is curated on the strength of the behavioural regression it belongs to.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-focal-onset-seizure" data-dismech-node="Focal-onset seizure" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Focal-onset seizure
+
+
+                    <span class="phenotype-category">Neurologic</span>
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007359" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0007359</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Focal-onset seizure (HP:0007359). HP:0007359 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35503717" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35503717" target="_blank">PMID:35503717</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In this paper, we describe the childhood onset epilepsy syndromes, most of which have both mandatory seizure type(s) and interictal electroencephalographic (EEG) features."</div>
+
+
+                <div class="evidence-explanation">Establishes that the ILAE defines these syndromes by mandatory seizure types together with EEG features. Marked PARTIAL because the abstract does not enumerate the seizure types for this specific syndrome, so the seizure semiology here rests on the wider literature.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+            </div>
+
 
         </div>
 
@@ -6999,6 +7280,9 @@ This disease-associated gene is GRIN2A (hgnc:4585). hgnc:4585 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -7011,7 +7295,10 @@ This disease-associated gene is GRIN2A (hgnc:4585). hgnc:4585 is a gene from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30544257" target="_blank">PMID:30544257</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -7033,7 +7320,10 @@ This disease-associated gene is GRIN2A (hgnc:4585). hgnc:4585 is a gene from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30544257" target="_blank">PMID:30544257</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7049,13 +7339,18 @@ This disease-associated gene is GRIN2A (hgnc:4585). hgnc:4585 is a gene from the
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:30544257" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:30544257" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30544257" target="_blank">PMID:30544257</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7065,7 +7360,7 @@ This disease-associated gene is GRIN2A (hgnc:4585). hgnc:4585 is a gene from the
                 <div class="evidence-snippet">"This new pathomechanistic model may ultimately help in predicting phenotype severity as well as eligibility for potential precision medicine approaches in GRIN2A-related disorders"</div>
 
 
-                <div class="evidence-explanation">Records the precision-therapy prospect without asserting a drug. Marked PARTIAL because it states a possibility rather than a demonstrated treatment, which is the honest strength of this claim today.</div>
+                <div class="evidence-explanation">Records the precision-therapy prospect without asserting a drug. Marked INDIRECT because it states a possibility rather than a demonstrated treatment, which is the honest strength of this claim today.</div>
 
 
 
@@ -7116,6 +7411,9 @@ This disease-associated gene is GRIN1 (hgnc:4584). hgnc:4584 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7128,7 +7426,10 @@ This disease-associated gene is GRIN1 (hgnc:4584). hgnc:4584 is a gene from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39096015" target="_blank">PMID:39096015</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7150,7 +7451,10 @@ This disease-associated gene is GRIN1 (hgnc:4584). hgnc:4584 is a gene from the 
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39096015" target="_blank">PMID:39096015</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7178,6 +7482,9 @@ This disease-associated gene is GRIN1 (hgnc:4584). hgnc:4584 is a gene from the 
 
 
         <!-- Variants recorded at the disease level -->
+
+
+        <!-- Registry / external-database assertions recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -7268,6 +7575,31 @@ This treatment uses methylprednisolone, annotated with 6alpha-methylprednisolone
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">The best-supported treatment, and unusually for this syndrome the support is randomized. In a head-to-head trial against clobazam, a quarter of children given corticosteroids gained at least eleven and a quarter intelligence quotient points at six months while none of the clobazam group did. The trial&#39;s other cognitive measure showed no difference, and it stopped early without reaching its target sample, so the result strengthens rather than settles the case for early steroid use. Either continuous oral prednisolone or pulsed intravenous methylprednisolone is used.</div>
 
 
@@ -7303,7 +7635,10 @@ This treatment uses methylprednisolone, annotated with 6alpha-methylprednisolone
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38081201" target="_blank">PMID:38081201</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7319,13 +7654,16 @@ This treatment uses methylprednisolone, annotated with 6alpha-methylprednisolone
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38081201" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:38081201" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38081201" target="_blank">PMID:38081201</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7341,13 +7679,16 @@ This treatment uses methylprednisolone, annotated with 6alpha-methylprednisolone
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38081201" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:38081201" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38081201" target="_blank">PMID:38081201</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7432,6 +7773,31 @@ This treatment uses clobazam (CHEBI:31413). CHEBI:31413 is a therapeutic agent f
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">A benzodiazepine long used for this syndrome on observational grounds. When finally compared head to head with corticosteroids it did not produce the intelligence quotient gains that steroids did, though the two were indistinguishable on the other cognitive measure and in adverse event rates. It remains in use, but the trial removes the basis for treating it as equivalent first-line.</div>
 
 
@@ -7467,7 +7833,10 @@ This treatment uses clobazam (CHEBI:31413). CHEBI:31413 is a therapeutic agent f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38081201" target="_blank">PMID:38081201</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7489,7 +7858,10 @@ This treatment uses clobazam (CHEBI:31413). CHEBI:31413 is a therapeutic agent f
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38081201" target="_blank">PMID:38081201</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7552,6 +7924,31 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Carbamazepine, oxcarbazepine, phenytoin, and phenobarbital can induce or worsen the sleep activation, which makes stopping them the cheapest intervention available in this syndrome and one that costs nothing to try. The trap is structural rather than careless: these children often have focal seizures, focal seizures are a standard indication for carbamazepine, and the sleep activation that the drug then aggravates is invisible unless someone records a sleep electroencephalogram.</div>
 
 
@@ -7571,7 +7968,10 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26415787" target="_blank">PMID:26415787</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7603,6 +8003,594 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
         <!-- Biochemical Markers -->
 
 
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-sleep-electroencephalography">
+                <div class="item-name">
+                    Sleep electroencephalography
+
+                </div>
+
+                <div class="item-desc">The diagnostic test, and one that will be missed if only a waking recording is done. A sleep study, ideally whole-night, is required to demonstrate the activation, because the waking record can be normal or show only sparse discharge. Quantifying how much of non-rapid-eye-movement sleep is occupied is what turns the observation into a diagnosis. This entry deliberately does not assert a numeric spike-wave index threshold. Published thresholds differ, the ILAE definition cited here does not mandate one, and a curated number would give a false impression of consensus about who has this disease.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        Electroencephalography
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C38054" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-27">NCIT:C38054</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-27">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Marked activation of epileptiform discharge in non-rapid-eye-movement sleep relative to wakefulness, often near-continuous, and lateralized to the side of any structural lesion.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29133062" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29133062" target="_blank">PMID:29133062</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Longitudinal whole-night and high-density electroencephalograms (EEGs) were performed, as well as detailed imaging and clinical evaluation."</div>
+
+
+                <div class="evidence-explanation">Documents whole-night recording as the method used to characterize the syndrome, which is the diagnostic standard this record describes.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29133062" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29133062" target="_blank">PMID:29133062</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The sleep continuous spiking was lateralized to the hemisphere with the lesion."</div>
+
+
+                <div class="evidence-explanation">Supports the lateralization described in the results field, which is what links the electrographic finding to a structural cause when one exists.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-brain-mri-for-thalamic-and-structural-lesions">
+                <div class="item-name">
+                    Brain MRI for thalamic and structural lesions
+
+                </div>
+
+                <div class="item-desc">Imaging is directed at the thalamus in particular, since perinatal thalamic injury is the commonest identifiable cause and the volume loss can be subtle. Structural causes account for roughly one in eight patients overall.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        Magnetic Resonance Imaging
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C16809" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-28">NCIT:C16809</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-28">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Unilateral thalamic volume loss predominantly affecting medial and dorsal nuclei, with ipsilateral white matter loss and ventricular enlargement, or another structural lesion.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39096015" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39096015" target="_blank">PMID:39096015</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Structural etiologies were found in 12/91 (13%) individuals."</div>
+
+
+                <div class="evidence-explanation">Quantifies the yield of imaging for a structural cause in a systematically investigated cohort.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29133062" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29133062" target="_blank">PMID:29133062</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Lesions produced white matter loss and ventricle enlargement on the same hemisphere, which in four patients was associated with selective loss of thalamic-cortical fibers."</div>
+
+
+                <div class="evidence-explanation">Describes the imaging findings reported in the results field.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-genetic-testing">
+                <div class="item-name">
+                    Genetic testing
+
+                </div>
+
+                <div class="item-desc">Worth doing, because a genetic cause is found in about a third of patients and the yield is much higher in the developmentally delayed arm than in the previously normal one. No single gene dominates, so panel or exome testing rather than targeted analysis is appropriate.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        Genetic Testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15709" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-29">NCIT:C15709</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> A pathogenic variant in one of a broad set of channel and transcriptional regulator genes, or a copy number variant, in roughly a third of patients.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39096015" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39096015" target="_blank">PMID:39096015</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We identified the etiology in 42/91 (46%) patients in our Core cohort, including 29/44 (66%) with DEE-SWAS and 13/47 (28%) with EE-SWAS."</div>
+
+
+                <div class="evidence-explanation">Quantifies the overall diagnostic yield and the large difference between the two arms, which is what makes baseline development a useful guide to how hard to look.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-onset-of-sleep-activation-with-regression">
+                <div class="item-name">Onset of sleep activation with regression</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Mid-childhood</span>
+
+
+
+                </div>
+
+                <div class="item-notes">The electroencephalographic activation appears in mid-childhood, often after a period in which seizures alone were present and unremarkable, and the loss of skills follows. Because a waking recording can be normal, the interval between the regression starting and the diagnosis being made is frequently long.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25160535" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25160535" target="_blank">PMID:25160535</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"developmentally regulated onset and termination of abnormal electrical activity, and loss of previously acquired skills"</div>
+
+
+                <div class="evidence-explanation">States the developmentally regulated onset and the associated skill loss that define this phase.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-spontaneous-remission-of-the-electrographic-pattern-with-residual-deficit">
+                <div class="item-name">Spontaneous remission of the electrographic pattern with residual deficit</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Adolescence</span>
+
+
+
+                </div>
+
+                <div class="item-notes">The sleep activation resolves on its own around adolescence regardless of treatment. Cognitive recovery is variable and often incomplete, so the prognosis is set less by whether the pattern eventually stops, which it will, than by how long it ran and over which cortex.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25160535" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25160535" target="_blank">PMID:25160535</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"developmentally regulated onset and termination of abnormal electrical activity, and loss of previously acquired skills"</div>
+
+
+                <div class="evidence-explanation">Supports the developmentally regulated termination described in this phase.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-children-with-epilepsy">
+                <div class="item-name">Children with epilepsy</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Unknown</span>
+
+
+
+                    <span class="tag">Rare</span>
+
+                </div>
+
+                <div class="item-notes">No population-based prevalence estimate is available. The syndrome is described as rare in the randomized trial literature, and its ascertainment depends on whether a sleep electroencephalogram is performed, since a waking record can be normal. That dependence makes any published rate a lower bound on the true one.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38081201" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38081201" target="_blank">PMID:38081201</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Epileptic encephalopathy with spike-wave activation in sleep (EE-SWAS) is a rare syndrome associated with cognitive and behavioural regression."</div>
+
+
+                <div class="evidence-explanation">Supports the qualitative rarity band. Marked PARTIAL because it is a descriptor rather than a measurement, which is why no rate is asserted.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-children-with-continuous-spike-wave-of-sleep">
+                <div class="item-name">Children with continuous spike-wave of sleep</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Unknown</span>
+
+
+
+                    <span class="tag">Unknown</span>
+
+                </div>
+
+                <div class="item-notes">Within the syndrome, early neonatal thalamic lesions account for about 14 percent of cases, making them the commonest single identifiable cause. This is an etiological fraction rather than a population rate.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29133062" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29133062" target="_blank">PMID:29133062</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Early neonatal thalamic lesions account for about 14% of continuous spike-wave of sleep (CSWS) syndrome, representing the most common etiology in this epileptic encephalopathy in children"</div>
+
+
+                <div class="evidence-explanation">Gives the etiological fraction reported in the notes.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
 
         <div class="card" id="differentials">
@@ -7617,7 +8605,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-landau-kleffner-syndrome">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Landau-Kleffner_Syndrome.html">Landau-Kleffner Syndrome</a>
@@ -7666,7 +8654,10 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25160535" target="_blank">PMID:25160535</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7691,7 +8682,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-lennox-gastaut-syndrome">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Lennox-Gastaut_Syndrome.html">Lennox-Gastaut Syndrome</a>
@@ -7742,7 +8733,10 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35503717" target="_blank">PMID:35503717</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7767,7 +8761,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
-            <div class="item-box differential-box">
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-self-limited-epilepsy-with-centrotemporal-spikes">
                 <div class="item-name">
 
                     <a class="item-name-link" href="Self-Limited_Epilepsy_with_Centrotemporal_Spikes.html">Self-Limited Epilepsy with Centrotemporal Spikes</a>
@@ -7816,7 +8810,10 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35503717" target="_blank">PMID:35503717</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8097,7 +9094,7 @@ inheritance:
         reference_title: &gt;-
           Solving the Etiology of Developmental and Epileptic Encephalopathy with
           Spike-Wave Activation in Sleep (D/EE-SWAS).
-        supports: PARTIAL
+        supports: SUPPORT
         evidence_source: HUMAN_CLINICAL
         snippet: &gt;-
           We identified 10 novel D/EE-SWAS genes with a range of functions:
@@ -8126,7 +9123,7 @@ inheritance:
         reference_title: &gt;-
           Solving the Etiology of Developmental and Epileptic Encephalopathy with
           Spike-Wave Activation in Sleep (D/EE-SWAS).
-        supports: PARTIAL
+        supports: SUPPORT
         evidence_source: HUMAN_CLINICAL
         snippet: &gt;-
           DEE-SWAS and EE-SWAS have highly heterogeneous genetic and structural
@@ -8188,7 +9185,8 @@ genetic:
         reference_title: &gt;-
           GRIN2A-related disorders: genotype and functional consequence predict
           phenotype.
-        supports: PARTIAL
+        supports: SUPPORT
+        directness: INDIRECT
         evidence_source: HUMAN_CLINICAL
         snippet: &gt;-
           This new pathomechanistic model may ultimately help in predicting
@@ -8196,13 +9194,13 @@ genetic:
           medicine approaches in GRIN2A-related disorders
         explanation: &gt;-
           Records the precision-therapy prospect without asserting a drug. Marked
-          PARTIAL because it states a possibility rather than a demonstrated
+          INDIRECT because it states a possibility rather than a demonstrated
           treatment, which is the honest strength of this claim today.
       - reference: PMID:39096015
         reference_title: &gt;-
           Solving the Etiology of Developmental and Epileptic Encephalopathy with
           Spike-Wave Activation in Sleep (D/EE-SWAS).
-        supports: PARTIAL
+        supports: SUPPORT
         evidence_source: HUMAN_CLINICAL
         snippet: &gt;-
           D/EE-SWAS genes were highly co-expressed in brain, highlighting the
@@ -8562,7 +9560,7 @@ pathophysiology:
         reference_title: &gt;-
           Neurobiology of continuous spike-wave in slow-wave sleep and
           Landau-Kleffner syndromes.
-        supports: PARTIAL
+        supports: SUPPORT
         evidence_source: OTHER
         snippet: &gt;-
           Over the last 20 years, a variety of basic science findings suggest how
@@ -8794,7 +9792,7 @@ phenotypes:
           International League Against Epilepsy classification and definition of
           epilepsy syndromes with onset in childhood: Position paper by the ILAE
           Task Force on Nosology and Definitions.
-        supports: PARTIAL
+        supports: SUPPORT
         evidence_source: OTHER
         snippet: &gt;-
           In this paper, we describe the childhood onset epilepsy syndromes, most
@@ -8847,7 +9845,7 @@ phenotypes:
           Corticosteroids versus clobazam for treatment of children with epileptic
           encephalopathy with spike-wave activation in sleep (RESCUE ESES): a
           multicentre randomised controlled trial.
-        supports: PARTIAL
+        supports: SUPPORT
         evidence_source: HUMAN_CLINICAL
         snippet: &gt;-
           Epileptic encephalopathy with spike-wave activation in sleep (EE-SWAS) is
@@ -8874,7 +9872,7 @@ phenotypes:
           International League Against Epilepsy classification and definition of
           epilepsy syndromes with onset in childhood: Position paper by the ILAE
           Task Force on Nosology and Definitions.
-        supports: PARTIAL
+        supports: SUPPORT
         evidence_source: OTHER
         snippet: &gt;-
           In this paper, we describe the childhood onset epilepsy syndromes, most
@@ -8901,7 +9899,7 @@ prevalence:
           Corticosteroids versus clobazam for treatment of children with epileptic
           encephalopathy with spike-wave activation in sleep (RESCUE ESES): a
           multicentre randomised controlled trial.
-        supports: PARTIAL
+        supports: SUPPORT
         evidence_source: HUMAN_CLINICAL
         snippet: &gt;-
           Epileptic encephalopathy with spike-wave activation in sleep (EE-SWAS) is
@@ -9019,7 +10017,7 @@ treatments:
           Corticosteroids versus clobazam for treatment of children with epileptic
           encephalopathy with spike-wave activation in sleep (RESCUE ESES): a
           multicentre randomised controlled trial.
-        supports: PARTIAL
+        supports: SUPPORT
         evidence_source: HUMAN_CLINICAL
         snippet: &gt;-
           Our data indicated an improvement in IQ outcomes with corticosteroids
@@ -9033,7 +10031,7 @@ treatments:
           Corticosteroids versus clobazam for treatment of children with epileptic
           encephalopathy with spike-wave activation in sleep (RESCUE ESES): a
           multicentre randomised controlled trial.
-        supports: PARTIAL
+        supports: SUPPORT
         evidence_source: HUMAN_CLINICAL
         snippet: &gt;-
           The trial was terminated prematurely, and the target sample size was not
@@ -9429,7 +10427,7 @@ discussions:
           Corticosteroids versus clobazam for treatment of children with epileptic
           encephalopathy with spike-wave activation in sleep (RESCUE ESES): a
           multicentre randomised controlled trial.
-        supports: PARTIAL
+        supports: SUPPORT
         evidence_source: HUMAN_CLINICAL
         snippet: &gt;-
           Our data indicated an improvement in IQ outcomes with corticosteroids
@@ -9443,7 +10441,7 @@ discussions:
           Corticosteroids versus clobazam for treatment of children with epileptic
           encephalopathy with spike-wave activation in sleep (RESCUE ESES): a
           multicentre randomised controlled trial.
-        supports: PARTIAL
+        supports: SUPPORT
         evidence_source: HUMAN_CLINICAL
         snippet: &gt;-
           The trial was terminated prematurely, and the target sample size was not
@@ -9455,7 +10453,7 @@ discussions:
         reference_title: &gt;-
           Solving the Etiology of Developmental and Epileptic Encephalopathy with
           Spike-Wave Activation in Sleep (D/EE-SWAS).
-        supports: PARTIAL
+        supports: SUPPORT
         evidence_source: HUMAN_CLINICAL
         snippet: &gt;-
           Although developmental regression patterns were similar in both
@@ -9525,7 +10523,7 @@ discussions:
         reference_title: &gt;-
           Solving the Etiology of Developmental and Epileptic Encephalopathy with
           Spike-Wave Activation in Sleep (D/EE-SWAS).
-        supports: PARTIAL
+        supports: SUPPORT
         evidence_source: HUMAN_CLINICAL
         snippet: &gt;-
           Although developmental regression patterns were similar in both
@@ -9776,6 +10774,27 @@ discussions:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Scope note. This entry models DEE-SWAS and EE-SWAS as one mechanism with two clinical framings rather than as two diseases. The ILAE distinguishes them only by whether development was already impaired before the spike-wave activation began, which is a statement about the baseline rather than about the process, and the mechanism graph is identical for both. Whether that boundary is the right one is curated as an explicit discussion rather than settled here, since the two arms do differ in how often an etiology is found and in outcome. The older names, continuous spike-and-wave during sleep and electrical status epilepticus in sleep, are retained as synonyms because most of the mechanistic literature this entry cites uses them.
+On the central causal claim. The syndrome&#39;s name assumes the epileptiform activation causes the regression. This entry does model that edge, but treats it as contested rather than established, because the alternative reading, in which the sleep activation and the regression are parallel consequences of one lesion, has not been excluded and carries different treatment implications. The relevant randomized evidence is curated with its limitations attached.
+Sourcing note. The entry was drafted from the ILAE position paper, the etiological cohort, the thalamic-lesion physiology series, and the randomized trial, then cross-checked against a deep-research report generated with the claude_code provider and committed here as research/DEE_with_Spike-Wave_Activation_in_Sleep-deep-research-claude_code.md. The cross-check prompted the subtype split recorded above and the discussion on why corticosteroids work. One of its recommendations was deliberately declined: it supplied competing numeric spike-wave index thresholds from the literature, and rather than curate a number this entry states in the diagnosis record that no threshold is asserted, because the thresholds disagree and quoting one would imply a consensus that does not exist.
+Module conformance note. Two nodes conform to epilepsy_excitation_inhibition_imbalance. The graph joins the module at the hyperexcitability node rather than at its ion-channel trigger, because the most-studied route into this syndrome is a structural thalamic lesion rather than a channel defect, and because the state-dependence is the part the generic module does not capture at all: what is unusual here is not that cortex is excitable but that it is excitable only in a particular sleep stage.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: DEE with Spike-Wave Activation in Sleep</strong> · 2026-08-05T18:08:05Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/DEE_with_Spike-Wave_Activation_in_Sleep/2026-08-05T180805Z-claude-code-816b70.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of developmental and/or epileptic encephalopathy with spike-wave activation in sleep (MONDO:0800501), covering the syndrome formerly called continuous spike-and-wave during sleep. Nine-node pathograph with two roots, a heterogeneous genetic etiology and an early thalamic injury, converging through selective thalamocortical disconnection on an abnormal frequency-dependent cortical excitability node, the augmenting response, which is then potentiated specifically in non-rapid-eye-movement sleep by the coincidence of reduced brainstem activation and spindle-band drive. That sleep-potentiated activation branches into disruption of sleep-dependent synaptic plasticity leading to developmental regression, into clinical seizures, and into the developmentally gated spontaneous remission of the electrographic pattern. Two nodes conform to epilepsy_excitation_inhibition_imbalance at the hyperexcitability and recurrent-seizure nodes; the scope note records why the module is joined there rather than at its ion-channel trigger, and that the state-dependence which defines this syndrome is not something the generic module captures. Four discussions: a CONTROVERSY on whether the sleep discharge actually causes the regression or is a parallel consequence of the same lesion, curated with the randomized trial evidence and its own stated limitations on both sides; a CONTROVERSY on whether the ILAE DEE-SWAS versus EE-SWAS split is a real boundary or a description of the starting point; a KNOWLEDGE_GAP on why corticosteroids work when no immune mechanism is established; and a KNOWLEDGE_GAP on the developmental gating of onset and spontaneous remission. Deep-research cross-check with the claude_code provider prompted the has_subtypes split and the steroid-mechanism discussion; its suggestion to curate a numeric spike-wave index threshold was declined and the reason recorded in the diagnosis record, since the published thresholds disagree and the ILAE definition does not mandate one. MONDO:0800501 required local sqlite seeding of the DiseaseTerm enum cache per the known OLS timeout issue; conf/oak_config.yaml was restored unchanged afterwards. Validation: schema passed, term validation passed, 57/57 evidence snippets verified against cached references, snippet-length check clean, pathograph self-check clean.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -11215,7 +12234,7 @@ Genuinely variable and clinically informative: <strong>unilateral/focal SWAS</st
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Developmental and Epileptic Encephalopathy with Spike-Wave Activation in Sleep", "mondoId": "MONDO:0800501", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Developmental_and_Epileptic_Encephalopathy_with_Spike-Wave_Activation_in_Sleep", "yamlRevision": "e1b378a37ad9"};
+        const OS_CONFIG = {"diseaseName": "Developmental and Epileptic Encephalopathy with Spike-Wave Activation in Sleep", "mondoId": "MONDO:0800501", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Developmental_and_Epileptic_Encephalopathy_with_Spike-Wave_Activation_in_Sleep", "yamlRevision": "44b838924688"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

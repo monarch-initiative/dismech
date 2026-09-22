@@ -1,3 +1,4 @@
+{% from "_genomic_regions.html.j2" import render_affected_regions %}
 {% set pill_tips = namespace(n=0) %}<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -128,6 +129,16 @@
             background: rgba(0, 131, 143, 0.12);
             color: var(--teal);
             border: 1px solid var(--teal-light);
+        }
+
+        /* Study-area category pills. Colour comes from ModuleCategoryEnum via
+           the renderer, so only the shape is set here. */
+        .badge-study-area {
+            border: 1px solid;
+            font-weight: 600;
+            font-size: 0.8rem;
+            padding: 5px 13px;
+            cursor: help;
         }
 
         .badge-module {
@@ -298,6 +309,18 @@
         .tag-component {
             background: #f0fdf4;
             color: #166534;
+        }
+
+        /* Same values as disorder.html.j2 so a treatment chip looks identical
+           whether it is read on a disorder page or on a module page. */
+        .tag-treatment {
+            background: #ede9fe;
+            color: #5b21b6;
+        }
+
+        .tag-gene {
+            background: #dbeafe;
+            color: #1e40af;
         }
 
         .tag-role {
@@ -475,9 +498,7 @@
             font-weight: 600;
         }
         .support-SUPPORT { background: #d1fae5; color: #065f46; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
-        .support-WRONG_STATEMENT { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f3f4f6; color: #4b5563; }
         .hypothesis-notes {
             margin-top: 8px;
@@ -815,6 +836,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {{ entity_ref_kind_aliases | tojson }};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -823,7 +858,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -863,7 +898,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -878,8 +913,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -932,8 +968,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -945,7 +981,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1103,8 +1140,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1113,12 +1151,21 @@
                 return label || id;
             }
 
+            {% include "_genomic_regions.js.j2" %}
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1154,7 +1201,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -1375,6 +1430,99 @@
     <a href="{{ curie | curie_to_url }}" target="_blank" class="curie-chip curie-chip-{{ curie_prefix }}"{% if describedby %} aria-describedby="{{ describedby }}"{% else %} title="Open {{ curie }}"{% endif %}>{{ curie }}</a>
     {% endif %}
     {% endmacro %}
+
+    {# Treatment platform rows. Twin of render_treatment_platform in
+       disorder.html.j2 -- update both. The enum display labels come from the
+       shared `treatment_platform_label` global rather than a per-template map,
+       so the two pages cannot disagree about what SIRNA or GALNAC is called.
+
+       The carrier facts (delivery platform, targeting ligand) have two homes. The
+       Treatment-level delivery_system block is the current one and is read first;
+       the copy nested in oligonucleotide_details predates it and is the fallback.
+       `just check-delivery-system` reports a treatment that fills both.
+
+       delivery_platform and the targeting ligand are separate chips on purpose:
+       they are orthogonal, and collapsing them would show "no targeting" versus
+       "GalNAc" when the real distinction is nanoparticle versus conjugate.
+       aso_details / aso_mechanism / aso_chemistry / conjugation are the
+       deprecated spellings, read as fallbacks so entries authored before the
+       slots were generalized render. #}
+    {% macro render_treatment_platform(tx) %}
+    {% set oligo = tx.oligonucleotide_details or tx.aso_details %}
+    {% set ds = tx.delivery_system %}
+    {% set oligo_mechanism = (oligo.oligonucleotide_mechanism or oligo.aso_mechanism) if oligo else none %}
+    {% set oligo_chemistry = (oligo.oligonucleotide_chemistry or oligo.aso_chemistry) if oligo else none %}
+    {% set delivery_platform = (ds.delivery_platform if ds else none) or (oligo.delivery_platform if oligo else none) %}
+    {% set targeting_ligand = (ds.targeting_ligand if ds else none) or ((oligo.targeting_ligand or oligo.conjugation) if oligo else none) %}
+    {% if tx.therapeutic_modality or oligo_mechanism or oligo_chemistry or delivery_platform or targeting_ligand %}
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+        {% if tx.therapeutic_modality %}
+        <span class="tag tag-treatment">{{ treatment_platform_label(tx.therapeutic_modality) }}</span>
+        {% endif %}
+        {% if oligo_mechanism %}
+        <span class="tag" style="background: #f3e8ff; color: #6b21a8;">{{ treatment_platform_label(oligo_mechanism) }}</span>
+        {% endif %}
+        {% if delivery_platform %}
+        <span class="tag" style="background: #ede9fe; color: #5b21b6;">Delivery: {{ treatment_platform_label(delivery_platform) }}</span>
+        {% endif %}
+        {% if targeting_ligand %}
+        <span class="tag" style="background: #ede9fe; color: #5b21b6;">Targeting: {{ treatment_platform_label(targeting_ligand) }}</span>
+        {% endif %}
+        {% if oligo_chemistry %}
+        <span class="tag" style="background: #ede9fe; color: #5b21b6;">Chemistry: {{ treatment_platform_label(oligo_chemistry) }}</span>
+        {% endif %}
+    </div>
+    {% endif %}
+    {# What a targeted carrier is aimed at; absent for an untargeted formulation. #}
+    {% if ds and (ds.targeting_receptor or ds.target_cell_types) %}
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Delivery target:</strong>
+        {% if ds.targeting_receptor %}
+        <span class="tag tag-gene">{{ ds.targeting_receptor.preferred_term or (ds.targeting_receptor.term.label if ds.targeting_receptor.term else '') }}</span>
+        {% endif %}
+        {% for cell_type in ds.target_cell_types or [] %}
+        <span class="tag tag-cell">{{ cell_type.preferred_term or (cell_type.term.label if cell_type.term else '') }}</span>
+        {% endfor %}
+    </div>
+    {% endif %}
+    {% if ds and ds.description %}
+    <div class="item-meta" style="font-size: 0.8rem; color: #4b5563;">{{ ds.description }}</div>
+    {% endif %}
+    {% if oligo and (oligo.target_gene or oligo.target_transcript or oligo.target_exon) %}
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">RNA target:</strong>
+        {% if oligo.target_gene %}
+        {% set gene_label = oligo.target_gene.preferred_term or (oligo.target_gene.term.label if oligo.target_gene.term else '') %}
+        {% set tooltip = term_tooltip(oligo.target_gene, "treatment.target_gene") %}
+        {% set pill_tips.n = pill_tips.n + 1 %}{% set tip_id = "pill-tip-" ~ pill_tips.n %}
+        {% set has_chip = oligo.target_gene.term and oligo.target_gene.term.id %}
+        <span class="tag tag-gene"{% if tooltip and not has_chip %} tabindex="0" aria-describedby="{{ tip_id }}"{% endif %}>
+            {{ gene_label }}
+            {% if has_chip %}{{ render_curie_link(oligo.target_gene.term.id, describedby=tip_id) }}{% endif %}
+            {% if tooltip %}<span class="pill-tip" role="tooltip" id="{{ tip_id }}">{{ tooltip }}</span>{% endif %}
+        </span>
+        {% endif %}
+        {% if oligo.target_transcript %}
+        <span class="tag" style="background: #f3e8ff; color: #6b21a8;">{{ oligo.target_transcript }}</span>
+        {% endif %}
+        {% if oligo.target_exon %}
+        <span class="tag" style="background: #f3e8ff; color: #6b21a8;">{{ oligo.target_exon }}</span>
+        {% endif %}
+    </div>
+    {% endif %}
+    {% if tx.dosing_interval or tx.dosing_interval_days %}
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Dosing:</strong>
+        {% if tx.dosing_interval %}
+        <span class="tag tag-treatment">{{ tx.dosing_interval }}</span>
+        {% endif %}
+        {% if tx.dosing_interval_days %}
+        <span class="tag" style="background: #f3e8ff; color: #6b21a8;">every {{ tx.dosing_interval_days | round(1) | int if tx.dosing_interval_days == tx.dosing_interval_days | round(0) else tx.dosing_interval_days }} days</span>
+        {% endif %}
+    </div>
+    {% endif %}
+    {% endmacro %}
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -1408,6 +1556,11 @@
         <header class="page-header">
             <h1>{{ module.name }}</h1>
             <div class="header-meta">
+                {% for category in module._categories %}
+                <span class="badge badge-study-area"
+                      title="{{ category.description }}"
+                      style="background: {{ category.background }}; border-color: {{ category.border }}; color: {{ category.text }};">{{ category.label }}</span>
+                {% endfor %}
                 <span class="badge badge-category">{{ module.category or 'Module' }}</span>
                 <span class="badge badge-module">{{ module_id }}</span>
                 <span class="badge badge-count">{{ disorder_usage | length }} disorder{{ '' if disorder_usage | length == 1 else 's' }}</span>
@@ -1692,6 +1845,26 @@
         </div>
         {% endif %}
 
+        {% if module._module_collections %}
+        <div class="card" id="module-collections">
+            <div class="card-header">
+                <div class="card-icon" style="background: #eef2ff; color: #4338ca;">⌘</div>
+                <h2 class="card-title">Module Collections</h2>
+                <span class="card-count">{{ module._module_collections | length }}</span>
+            </div>
+            <div class="crosslink-list">
+                {% for collection in module._module_collections %}
+                <div class="crosslink-item">
+                    <a href="{{ collection.href }}">{{ collection.display_name or collection.name }}</a>
+                    {% if collection.framework_terms %}
+                    <span class="crosslink-desc">as {{ collection.framework_terms | join(', ') }}</span>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">↗</div>
@@ -1771,11 +1944,21 @@
             {% for patho in module.pathophysiology %}
             <div class="item-box anchor-target" id="{{ patho._anchor_id }}" data-dismech-node="{{ patho.name | e }}" data-dismech-type="pathophysiology">
                 <div class="item-name">{{ patho.name }}</div>
+                {% if patho.regulatory_category or patho.mechanism_confidence %}
+                <div class="item-meta">
+                    {% if patho.regulatory_category %}
+                    <span class="tag">Regulatory category: {{ patho.regulatory_category }}{% if patho.mechanism_confidence %} ({{ patho.mechanism_confidence | replace('_', ' ') | title }}){% endif %}</span>
+                    {% else %}
+                    <span class="tag">Mechanism confidence: {{ patho.mechanism_confidence | replace('_', ' ') | title }}</span>
+                    {% endif %}
+                </div>
+                {% endif %}
                 <div class="item-meta">
                     {% if patho.role %}
                     <span class="tag tag-role">{{ patho.role | replace('_', ' ') }}</span>
                     {% endif %}
                 </div>
+                {% if patho.genetic_context %}{{ render_affected_regions(patho.genetic_context.affected_regions) }}{% endif %}
                 {% if patho.description %}
                 <div class="item-desc">{{ patho.description }}</div>
                 {% endif %}
@@ -1860,6 +2043,98 @@
                         {% endfor %}
                     </ul>
                 </div>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        {# Treatments. Module pages rendered none of these until now, even though
+           42 modules carry a treatments block: a module that models a therapy
+           (the antibiotic, antiviral, antifungal and oligonucleotide modules)
+           had its drugs curated and invisible. Leaner than the disorder card by
+           design -- this template renders no evidence expanders anywhere, so the
+           evidence behind a mechanism link is summarised as a count. #}
+        {% if module.treatments %}
+        <div class="card" id="treatments">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
+                <h2 class="card-title">Treatments</h2>
+                <span class="card-count">{{ module.treatments | length }}</span>
+            </div>
+            {% for tx in module.treatments %}
+            <div class="item-box" data-dismech-node="{{ tx.name | e }}" data-dismech-type="treatment">
+                <div class="item-name">{{ tx.name }}</div>
+                {% if tx.action_category or (tx.treatment_term and tx.treatment_term.term) %}
+                <div class="item-meta">
+                    {% if tx.action_category %}
+                    <span class="tag tag-treatment">{{ tx.action_category | replace('_', ' ') | title }}</span>
+                    {% endif %}
+                    {% if tx.treatment_term and tx.treatment_term.term %}
+                    {% set tooltip = term_tooltip(tx.treatment_term, "treatment.treatment_term") %}
+                    {% set pill_tips.n = pill_tips.n + 1 %}{% set tip_id = "pill-tip-" ~ pill_tips.n %}
+                    <span class="tag tag-treatment">
+                        {{ tx.treatment_term.preferred_term or tx.treatment_term.term.label }}
+                        {{ render_curie_link(tx.treatment_term.term.id, describedby=tip_id) }}
+                        {% if tooltip %}<span class="pill-tip" role="tooltip" id="{{ tip_id }}">{{ tooltip }}</span>{% endif %}
+                    </span>
+                    {% endif %}
+                </div>
+                {% endif %}
+                {% if tx.treatment_term and tx.treatment_term.therapeutic_agent %}
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+                    {% for agent in tx.treatment_term.therapeutic_agent %}
+                    {% set tooltip = term_tooltip(agent, "treatment.therapeutic_agent") %}
+                    {% set pill_tips.n = pill_tips.n + 1 %}{% set tip_id = "pill-tip-" ~ pill_tips.n %}
+                    {% set has_chip = agent.term and agent.term.id %}
+                    <span class="tag tag-treatment"{% if tooltip and not has_chip %} tabindex="0" aria-describedby="{{ tip_id }}"{% endif %}>
+                        {{ agent.preferred_term or (agent.term.label if agent.term else '') }}
+                        {% if has_chip %}{{ render_curie_link(agent.term.id, describedby=tip_id) }}{% endif %}
+                        {% if tooltip %}<span class="pill-tip" role="tooltip" id="{{ tip_id }}">{{ tooltip }}</span>{% endif %}
+                    </span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                {{ render_treatment_platform(tx) }}
+                {% if tx.description %}
+                <div class="item-desc">{{ tx.description }}</div>
+                {% endif %}
+                {% if tx.target_mechanisms %}
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism target:</strong>
+                    {% for tm in tx.target_mechanisms %}
+                    {# Link to the node's card. The anchor id is assigned per
+                       pathophysiology node at load time, so it is looked up by
+                       name here rather than recomputed. #}
+                    {% set node = namespace(anchor='') %}
+                    {% for patho in module.pathophysiology or [] %}
+                    {% if patho.name == tm.target and patho._anchor_id %}{% set node.anchor = patho._anchor_id %}{% endif %}
+                    {% endfor %}
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        {% if tm.treatment_effect %}
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">{{ tm.treatment_effect }}</span>
+                        {% endif %}
+                        {% if node.anchor %}
+                        <a href="#{{ node.anchor }}"><strong>{{ tm.target }}</strong></a>
+                        {% else %}
+                        <strong style="color: #5b21b6;">{{ tm.target }}</strong>
+                        {% endif %}
+                        {% if tm.description %}<span> — {{ tm.description }}</span>{% endif %}
+                        {% if tm.evidence %}
+                        <span class="tag" style="background:#ecfeff;color:#155e75;font-size:0.75rem;">Evidence: {{ tm.evidence | length }}</span>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                {% if tx.evidence %}
+                <div class="item-meta">
+                    <span class="tag" style="background:#ecfeff;color:#155e75;">Evidence: {{ tx.evidence | length }}</span>
+                </div>
+                {% endif %}
+                {% if tx.notes %}
+                <div class="item-desc" style="font-size: 0.85rem;">{{ tx.notes }}</div>
                 {% endif %}
             </div>
             {% endfor %}

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -292,6 +293,20 @@
         .badge-mondo {
             background: #e0f2fe;
             color: #0369a1;
+        }
+
+        .badge-preprint {
+            display: inline-flex;
+            align-items: center;
+            padding: 2px 9px;
+            border-radius: 10px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #f59e0b;
         }
 
         .badge-mondo a {
@@ -830,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -1508,6 +1550,21 @@
         .experiment-subitem-name {
             font-weight: 700;
             color: #334155;
+            margin-bottom: 4px;
+        }
+
+        /* Prose statements of what a result would mean. Deliberately not
+           `.entity-ref-chip`: these are sentences, and a 250-character
+           sentence in a monospace reference chip is unreadable (#9394). */
+        .experiment-outcome-list {
+            margin: 0;
+            padding-left: 18px;
+            font-size: 0.86rem;
+            line-height: 1.5;
+            color: #334155;
+        }
+
+        .experiment-outcome-list li {
             margin-bottom: 4px;
         }
 
@@ -2369,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2863,6 +2931,20 @@
     }
 
     /* -- Jump from a pathograph node to the matching card on the page -- */
+    /* A card advertises its section in the singular ("phenotype"), while a
+       normalised entity reference carries the schema slot ("phenotypes#Name").
+       Canonicalise both sides before comparing, or the section-preference step
+       below never fires for a normalised ref and silently degrades to matching
+       on name alone — which picks the wrong card when the same name appears in
+       two sections. Map comes from SECTION_KEYS so it cannot drift (#9394). */
+    var KIND_ALIASES = {"animal_model": "animal_models", "computational_model": "computational_models", "dataset": "datasets", "discussion": "discussions", "experimental_model": "experimental_models", "mechanistic_hypothesis": "mechanistic_hypotheses", "phenotype": "phenotypes", "stage": "stages", "subtype": "has_subtypes", "treatment": "treatments", "variant": "variants"};
+    function canonicalKind(kind) {
+        if (!kind) return kind;
+        return Object.prototype.hasOwnProperty.call(KIND_ALIASES, kind)
+            ? KIND_ALIASES[kind]
+            : kind;
+    }
+
     function findCardForNode(nodeId, nodeType) {
         var candidates = document.querySelectorAll("[data-dismech-node]");
         var fallback = null;
@@ -2871,7 +2953,7 @@
             if (el.getAttribute("data-dismech-node") !== nodeId) continue;
             /* Prefer the card whose section matches the node type, since the same
                name can appear in more than one section. */
-            if (!nodeType || el.getAttribute("data-dismech-type") === nodeType) return el;
+            if (!nodeType || canonicalKind(el.getAttribute("data-dismech-type")) === canonicalKind(nodeType)) return el;
             if (!fallback) fallback = el;
         }
         if (fallback) return fallback;
@@ -2911,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2926,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3035,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3048,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3252,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3262,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3298,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3319,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3690,6 +3810,29 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3718,7 +3861,7 @@
             <span>Hypertrophic Cardiomyopathy 20</span>
         </nav>
 
-        <header class="page-header">
+        <header class="page-header anchor-target" id="disease-entry">
             <h1>Hypertrophic Cardiomyopathy 20</h1>
             <div class="header-meta">
 
@@ -3981,7 +4124,7 @@ This entry is therefore curated as a *contested* disease entity: the mechanistic
                 <span class="card-count">1</span>
             </div>
 
-            <div class="item-box inheritance-box">
+            <div class="item-box inheritance-box anchor-target" id="inheritance-autosomal-dominant">
                 <div class="item-name">
                     Autosomal Dominant
 
@@ -4026,7 +4169,10 @@ This entry is therefore curated as a *contested* disease entity: the mechanistic
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20970104" target="_blank">PMID:20970104</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4048,7 +4194,10 @@ This entry is therefore curated as a *contested* disease entity: the mechanistic
                         <a href="https://bioregistry.io/CGGV:assertion_9456bdef-7708-45b2-a698-c897167d7f5b-2023-03-23T160000.000Z" target="_blank">CGGV:assertion_9456bdef-7708-45b2-a698-c897167d7f5b-2023-03-23T160000.000Z</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4120,7 +4269,7 @@ This entry is therefore curated as a *contested* disease entity: the mechanistic
 
 
 
-    <span class="entity-ref-chip">genetic#NEXN Missense Variants (Limited Gene-Disease Validity for HCM)</span>
+    <a class="entity-ref-chip" href="#genetic-nexn-missense-variants-limited-gene-disease-validity-for-hcm">genetic#NEXN Missense Variants (Limited Gene-Disease Validity for HCM)</a>
 
 
 
@@ -4148,6 +4297,12 @@ This entry is therefore curated as a *contested* disease entity: the mechanistic
         </div>
 
         <div class="item-desc" style="margin-top: 8px;">Re-run a ClinGen gene-disease validity curation for NEXN-HCM incorporating post-2023 evidence (notably the 2025 multicentre burden analysis) to determine whether the classification should move from Limited to Disputed or Refuted, and propose a corresponding MONDO/OMIM status annotation.</div>
+
+
+
+
+
+
 
 
 
@@ -4200,6 +4355,12 @@ This entry is therefore curated as a *contested* disease entity: the mechanistic
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4223,7 +4384,10 @@ This entry is therefore curated as a *contested* disease entity: the mechanistic
                         <a href="https://bioregistry.io/CGGV:assertion_9456bdef-7708-45b2-a698-c897167d7f5b-2023-03-23T160000.000Z" target="_blank">CGGV:assertion_9456bdef-7708-45b2-a698-c897167d7f5b-2023-03-23T160000.000Z</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4245,7 +4409,10 @@ This entry is therefore curated as a *contested* disease entity: the mechanistic
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40680702" target="_blank">PMID:40680702</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4267,7 +4434,10 @@ This entry is therefore curated as a *contested* disease entity: the mechanistic
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39132495" target="_blank">PMID:39132495</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4364,6 +4534,12 @@ This entry is therefore curated as a *contested* disease entity: the mechanistic
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4387,7 +4563,10 @@ This entry is therefore curated as a *contested* disease entity: the mechanistic
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19881492" target="_blank">PMID:19881492</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4431,21 +4610,21 @@ This entry is therefore curated as a *contested* disease entity: the mechanistic
 
 
 
-    <span class="entity-ref-chip">phenotype#Hypertrophic Cardiomyopathy</span>
+    <a class="entity-ref-chip" href="#phenotype-hypertrophic-cardiomyopathy">phenotypes#Hypertrophic Cardiomyopathy</a>
 
 
 
 
 
 
-    <span class="entity-ref-chip">phenotype#Myocardial Sarcomeric Disarray</span>
+    <a class="entity-ref-chip" href="#phenotype-myocardial-sarcomeric-disarray">phenotypes#Myocardial Sarcomeric Disarray</a>
 
 
 
 
 
 
-    <span class="entity-ref-chip">phenotype#Myocardial Fibrosis</span>
+    <a class="entity-ref-chip" href="#phenotype-myocardial-fibrosis">phenotypes#Myocardial Fibrosis</a>
 
 
 
@@ -4491,6 +4670,12 @@ This entry is therefore curated as a *contested* disease entity: the mechanistic
 
 
 
+
+
+
+
+
+
     </div>
 
 
@@ -4514,7 +4699,10 @@ This entry is therefore curated as a *contested* disease entity: the mechanistic
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38059363" target="_blank">PMID:38059363</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4551,6 +4739,13 @@ This entry is therefore curated as a *contested* disease entity: the mechanistic
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nexn-missense-variants-impair-nexilin-f-actin-binding" data-dismech-node="NEXN Missense Variants Impair Nexilin F-Actin Binding" data-dismech-type="pathophysiology">
                 <div class="item-name">NEXN Missense Variants Impair Nexilin F-Actin Binding</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Nexilin (NEXN) is an F-actin-binding protein of the cardiac Z-disc, not a component of the thick or thin filament. The two HCM-reported missense variants lie in or adjacent to the actin-binding domain: in transfected C2C12 cells they caused abnormal local accumulation of nexilin, and the actin-binding-domain fragment carrying p.Q131E lost F-actin binding entirely, with coimmunoprecipitation showing reduced binding of full-length NEXN to alpha-actin. The proposed proximal lesion is therefore failure of the nexilin-actin anchorage that couples thin filaments to the Z-disc, rather than an alteration of cross-bridge cycling. Confidence is PROVISIONAL: the functional data are robust in vitro but derive from the same single report that proposed the gene-disease association, which has since been classified Limited by ClinGen.</div>
 
@@ -4733,7 +4928,10 @@ This pathophysiological event involves Z disc (GO:0030018). GO:0030018 is a cell
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20970104" target="_blank">PMID:20970104</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4755,7 +4953,10 @@ This pathophysiological event involves Z disc (GO:0030018). GO:0030018 is a cell
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20970104" target="_blank">PMID:20970104</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4780,6 +4981,13 @@ This pathophysiological event involves Z disc (GO:0030018). GO:0030018 is a cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiac-z-disc-destabilization-under-mechanical-load" data-dismech-node="Cardiac Z-Disc Destabilization Under Mechanical Load" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiac Z-Disc Destabilization Under Mechanical Load</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
 
                 <div class="item-desc">The Z-disc is the mechanical integration site that anchors myofilaments and transmits contractile force between adjacent sarcomeres. Nexilin was identified as a Z-disc protein whose specific role is to protect the Z-disc from the forces generated within the sarcomere; loss-of-function models show that Z-disc damage in nexilin-deficient muscle is aggravated by increasing mechanical strain. The inferred consequence of impaired nexilin-actin anchorage is therefore progressive Z-disc destabilization under contractile load. IMPORTANT CAVEAT: the direct experimental evidence for this step comes from nexilin-deficient zebrafish and from human DILATED cardiomyopathy carriers, not from the HCM families — in those models Z-disc failure produced a dilated, not hypertrophic, phenotype. The step is retained as HYPOTHETICAL for CMH20 because no HCM-specific model system has been reported.</div>
 
@@ -4976,7 +5184,10 @@ This pathophysiological event occurs in Myocardium (UBERON:0002349). UBERON:0002
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20970104" target="_blank">PMID:20970104</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4992,13 +5203,16 @@ This pathophysiological event occurs in Myocardium (UBERON:0002349). UBERON:0002
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:19881492" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:19881492" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/19881492" target="_blank">PMID:19881492</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5023,6 +5237,13 @@ This pathophysiological event occurs in Myocardium (UBERON:0002349). UBERON:0002
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiomyocyte-hypertrophy-sarcomeric-disarray-and-myocardial-fibrosis" data-dismech-node="Cardiomyocyte Hypertrophy, Sarcomeric Disarray, and Myocardial Fibrosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiomyocyte Hypertrophy, Sarcomeric Disarray, and Myocardial Fibrosis</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
 
                 <div class="item-desc">The tissue-level endpoint that defines the hypertrophic phenotype: cardiomyocyte hypertrophy with myofibrillar/sarcomeric disarray and increased interstitial myocardial fibrosis, producing ventricular wall thickening that is not explained by loading conditions. This node describes the shared HCM remodeling endpoint rather than a NEXN-specific finding — no NEXN-specific myocardial histopathology has been reported in the CMH20 families, so the node is marked HYPOTHETICAL for this entry.</div>
 
@@ -5190,13 +5411,16 @@ This pathophysiological event occurs in Heart left ventricle (UBERON:0002084). U
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:20970104" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:20970104" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20970104" target="_blank">PMID:20970104</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5244,7 +5468,7 @@ This pathophysiological event occurs in Heart left ventricle (UBERON:0002084). U
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Cardiac Z-Disc Destabilization Under Mechanical Load\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The Z-disc is the mechanical integration site that anchors myofilaments and transmits contractile force between adjacent sarcomeres. Nexilin was identified as a Z-disc protein whose specific role is to protect the Z-disc from the forces generated within the sarcomere; loss-of-function models show that Z-disc damage in nexilin-deficient muscle is aggravated by increasing mechanical strain. The inferred consequence of impaired nexilin-actin anchorage is therefore progressive Z-disc destabilization under contractile load. IMPORTANT CAVEAT: the direct experimental evidence for this step comes from nexilin-deficient zebrafish and from human DILATED cardiomyopathy carriers, not from the HCM families \\u2014 in those models Z-disc failure produced a dilated, not hypertrophic, phenotype. The step is retained as HYPOTHETICAL for CMH20 because no HCM-specific model system has been reported.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Cardiac muscle cell\"], \"biological_processes\": [\"Sarcomere organization\", \"Muscle contraction\"], \"locations\": [\"Myocardium\"]}}, {\"id\": \"Cardiomyocyte Hypertrophy, Sarcomeric Disarray, and Myocardial Fibrosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The tissue-level endpoint that defines the hypertrophic phenotype: cardiomyocyte hypertrophy with myofibrillar/sarcomeric disarray and increased interstitial myocardial fibrosis, producing ventricular wall thickening that is not explained by loading conditions. This node describes the shared HCM remodeling endpoint rather than a NEXN-specific finding \\u2014 no NEXN-specific myocardial histopathology has been reported in the CMH20 families, so the node is marked HYPOTHETICAL for this entry.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Cardiac muscle cell\"], \"biological_processes\": [\"Cardiac muscle hypertrophy in response to stress\", \"Extracellular matrix organization\"], \"locations\": [\"Heart left ventricle\"]}}, {\"id\": \"Hypertrophic Cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The defining clinical phenotype: left ventricular hypertrophy not explained by abnormal loading conditions. Reported in two families carrying NEXN missense variants in the original CMH20 report, and in three of 29 NEXN variant-carrying probands in a large French cardiomyopathy sequencing series \\u2014 though in the latter the authors state a causal link could not be established. Frequency is deliberately omitted: the number of reported carriers is too small, and the gene-disease validity too uncertain, to support a frequency band.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001639\"}}, {\"id\": \"NEXN Dilated Cardiomyopathy Association (Differential Context)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"NEXN\"], \"gene_terms\": [{\"label\": \"NEXN\", \"id\": \"hgnc:29557\"}], \"association\": \"Distinct, better-supported NEXN cardiomyopathy phenotype\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"NEXN Missense Variants Impair Nexilin F-Actin Binding\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Nexilin (NEXN) is an F-actin-binding protein of the cardiac Z-disc, not a component of the thick or thin filament. The two HCM-reported missense variants lie in or adjacent to the actin-binding domain: in transfected C2C12 cells they caused abnormal local accumulation of nexilin, and the actin-binding-domain fragment carrying p.Q131E lost F-actin binding entirely, with coimmunoprecipitation showing reduced binding of full-length NEXN to alpha-actin. The proposed proximal lesion is therefore failure of the nexilin-actin anchorage that couples thin filaments to the Z-disc, rather than an alteration of cross-bridge cycling. Confidence is PROVISIONAL: the functional data are robust in vitro but derive from the same single report that proposed the gene-disease association, which has since been classified Limited by ClinGen.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Cardiac muscle cell\"], \"molecular_functions\": [\"actin binding\"], \"genes\": [\"NEXN\"], \"gene_terms\": [{\"label\": \"NEXN\", \"id\": \"hgnc:29557\"}]}}], \"edges\": [{\"source\": \"NEXN Missense Variants Impair Nexilin F-Actin Binding\", \"target\": \"Cardiac Z-Disc Destabilization Under Mechanical Load\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cardiac Z-Disc Destabilization Under Mechanical Load\", \"target\": \"Cardiomyocyte Hypertrophy, Sarcomeric Disarray, and Myocardial Fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The steps linking Z-disc destabilization to a hypertrophic (as opposed to dilated) remodeling response have not been established for NEXN; no HCM-recapitulating NEXN model system has been reported.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cardiomyocyte Hypertrophy, Sarcomeric Disarray, and Myocardial Fibrosis\", \"target\": \"Hypertrophic Cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"NEXN Dilated Cardiomyopathy Association (Differential Context)\", \"target\": \"NEXN Missense Variants Impair Nexilin F-Actin Binding\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Cardiac Z-Disc Destabilization Under Mechanical Load\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The Z-disc is the mechanical integration site that anchors myofilaments and transmits contractile force between adjacent sarcomeres. Nexilin was identified as a Z-disc protein whose specific role is to protect the Z-disc from the forces generated within the sarcomere; loss-of-function models show that Z-disc damage in nexilin-deficient muscle is aggravated by increasing mechanical strain. The inferred consequence of impaired nexilin-actin anchorage is therefore progressive Z-disc destabilization under contractile load. IMPORTANT CAVEAT: the direct experimental evidence for this step comes from nexilin-deficient zebrafish and from human DILATED cardiomyopathy carriers, not from the HCM families \\u2014 in those models Z-disc failure produced a dilated, not hypertrophic, phenotype. The step is retained as HYPOTHETICAL for CMH20 because no HCM-specific model system has been reported.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Cardiac muscle cell\"], \"biological_processes\": [\"Sarcomere organization\", \"Muscle contraction\"], \"locations\": [\"Myocardium\"], \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Cardiomyocyte Hypertrophy, Sarcomeric Disarray, and Myocardial Fibrosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The tissue-level endpoint that defines the hypertrophic phenotype: cardiomyocyte hypertrophy with myofibrillar/sarcomeric disarray and increased interstitial myocardial fibrosis, producing ventricular wall thickening that is not explained by loading conditions. This node describes the shared HCM remodeling endpoint rather than a NEXN-specific finding \\u2014 no NEXN-specific myocardial histopathology has been reported in the CMH20 families, so the node is marked HYPOTHETICAL for this entry.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Cardiac muscle cell\"], \"biological_processes\": [\"Cardiac muscle hypertrophy in response to stress\", \"Extracellular matrix organization\"], \"locations\": [\"Heart left ventricle\"], \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Hypertrophic Cardiomyopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The defining clinical phenotype: left ventricular hypertrophy not explained by abnormal loading conditions. Reported in two families carrying NEXN missense variants in the original CMH20 report, and in three of 29 NEXN variant-carrying probands in a large French cardiomyopathy sequencing series \\u2014 though in the latter the authors state a causal link could not be established. Frequency is deliberately omitted: the number of reported carriers is too small, and the gene-disease validity too uncertain, to support a frequency band.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001639\"}}, {\"id\": \"NEXN Dilated Cardiomyopathy Association (Differential Context)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"NEXN\"], \"gene_terms\": [{\"label\": \"NEXN\", \"id\": \"hgnc:29557\"}], \"association\": \"Distinct, better-supported NEXN cardiomyopathy phenotype\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"NEXN Missense Variants Impair Nexilin F-Actin Binding\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Nexilin (NEXN) is an F-actin-binding protein of the cardiac Z-disc, not a component of the thick or thin filament. The two HCM-reported missense variants lie in or adjacent to the actin-binding domain: in transfected C2C12 cells they caused abnormal local accumulation of nexilin, and the actin-binding-domain fragment carrying p.Q131E lost F-actin binding entirely, with coimmunoprecipitation showing reduced binding of full-length NEXN to alpha-actin. The proposed proximal lesion is therefore failure of the nexilin-actin anchorage that couples thin filaments to the Z-disc, rather than an alteration of cross-bridge cycling. Confidence is PROVISIONAL: the functional data are robust in vitro but derive from the same single report that proposed the gene-disease association, which has since been classified Limited by ClinGen.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Cardiac muscle cell\"], \"molecular_functions\": [\"actin binding\"], \"genes\": [\"NEXN\"], \"gene_terms\": [{\"label\": \"NEXN\", \"id\": \"hgnc:29557\"}], \"mechanism_confidence\": \"PROVISIONAL\"}}], \"edges\": [{\"source\": \"NEXN Missense Variants Impair Nexilin F-Actin Binding\", \"target\": \"Cardiac Z-Disc Destabilization Under Mechanical Load\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cardiac Z-Disc Destabilization Under Mechanical Load\", \"target\": \"Cardiomyocyte Hypertrophy, Sarcomeric Disarray, and Myocardial Fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The steps linking Z-disc destabilization to a hypertrophic (as opposed to dilated) remodeling response have not been established for NEXN; no HCM-recapitulating NEXN model system has been reported.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Cardiomyocyte Hypertrophy, Sarcomeric Disarray, and Myocardial Fibrosis\", \"target\": \"Hypertrophic Cardiomyopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"NEXN Dilated Cardiomyopathy Association (Differential Context)\", \"target\": \"NEXN Missense Variants Impair Nexilin F-Actin Binding\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5261,34 +5485,18 @@ This pathophysiological event occurs in Heart left ventricle (UBERON:0002084). U
             </div>
 
 
-            <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(2)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Other<span class="pill-count">(2)</span></button>
-
-                <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
-            </div>
+            <div class="item-box phenotype-box anchor-target" id="phenotype-hypertrophic-cardiomyopathy" data-dismech-node="Hypertrophic Cardiomyopathy" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Hypertrophic Cardiomyopathy
 
 
-            <details class="phenotype-category-group" id="pheno-cat-1">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Cardiovascular
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hypertrophic-cardiomyopathy" data-dismech-node="Hypertrophic Cardiomyopathy" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hypertrophic Cardiomyopathy
-
-
+                    <span class="phenotype-category">Cardiovascular</span>
 
 
 
 
                     <span class="phenotype-id">
-
 
 
 
@@ -5300,7 +5508,10 @@ Relation: this clinical feature is this phenotype
 This clinical feature is Hypertrophic cardiomyopathy (HP:0001639). HP:0001639 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -5318,7 +5529,10 @@ This clinical feature is Hypertrophic cardiomyopathy (HP:0001639). HP:0001639 is
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20970104" target="_blank">PMID:20970104</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5334,13 +5548,18 @@ This clinical feature is Hypertrophic cardiomyopathy (HP:0001639). HP:0001639 is
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38059363" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:38059363" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38059363" target="_blank">PMID:38059363</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5350,7 +5569,7 @@ This clinical feature is Hypertrophic cardiomyopathy (HP:0001639). HP:0001639 is
                 <div class="evidence-snippet">"We also detected NEXN variants in patients with hypertrophic cardiomyopathy and sudden infant death syndrome/idiopathic ventricular fibrillation, although a causal link could not be established."</div>
 
 
-                <div class="evidence-explanation">Independent observation of NEXN variants in HCM patients, but explicitly without establishing causation — hence PARTIAL.</div>
+                <div class="evidence-explanation">Independent observation of NEXN variants in HCM patients, but explicitly without establishing causation — hence INDIRECT.</div>
 
 
 
@@ -5364,19 +5583,19 @@ This clinical feature is Hypertrophic cardiomyopathy (HP:0001639). HP:0001639 is
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-left-ventricular-hypertrophy" data-dismech-node="Left Ventricular Hypertrophy" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Left Ventricular Hypertrophy
+            <div class="item-box phenotype-box anchor-target" id="phenotype-left-ventricular-hypertrophy" data-dismech-node="Left Ventricular Hypertrophy" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Left Ventricular Hypertrophy
 
 
+                    <span class="phenotype-category">Cardiovascular</span>
 
 
 
 
                     <span class="phenotype-id">
-
 
 
 
@@ -5388,7 +5607,10 @@ Relation: this clinical feature is this phenotype
 This clinical feature is Left ventricular hypertrophy (HP:0001712). HP:0001712 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -5400,13 +5622,16 @@ This clinical feature is Left ventricular hypertrophy (HP:0001712). HP:0001712 i
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:20970104" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:20970104" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20970104" target="_blank">PMID:20970104</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5430,28 +5655,19 @@ This clinical feature is Left ventricular hypertrophy (HP:0001712). HP:0001712 i
 
 
 
-                </div>
+            </div>
 
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-2">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-myocardial-sarcomeric-disarray" data-dismech-node="Myocardial Sarcomeric Disarray" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Myocardial Sarcomeric Disarray
+            <div class="item-box phenotype-box anchor-target" id="phenotype-myocardial-sarcomeric-disarray" data-dismech-node="Myocardial Sarcomeric Disarray" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Myocardial Sarcomeric Disarray
 
 
+                    <span class="phenotype-category">Cardiovascular</span>
 
 
 
 
                     <span class="phenotype-id">
-
 
 
 
@@ -5463,10 +5679,13 @@ Relation: this clinical feature is this phenotype
 This clinical feature is Myocardial sarcomeric disarray (HP:0031333). HP:0031333 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
 
 
-                    <div class="item-desc">Not directly observed in NEXN variant carriers in any published report; inferred from the HCM disease definition used by the ascertaining study.</div>
+
+
+
+                <div class="item-desc">Not directly observed in NEXN variant carriers in any published report; inferred from the HCM disease definition used by the ascertaining study.</div>
 
 
 
@@ -5477,13 +5696,16 @@ This clinical feature is Myocardial sarcomeric disarray (HP:0031333). HP:0031333
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:20970104" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:20970104" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20970104" target="_blank">PMID:20970104</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5507,19 +5729,19 @@ This clinical feature is Myocardial sarcomeric disarray (HP:0031333). HP:0031333
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-myocardial-fibrosis" data-dismech-node="Myocardial Fibrosis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Myocardial Fibrosis
+            <div class="item-box phenotype-box anchor-target" id="phenotype-myocardial-fibrosis" data-dismech-node="Myocardial Fibrosis" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Myocardial Fibrosis
 
 
+                    <span class="phenotype-category">Cardiovascular</span>
 
 
 
 
                     <span class="phenotype-id">
-
 
 
 
@@ -5531,10 +5753,13 @@ Relation: this clinical feature is this phenotype
 This clinical feature is Myocardial fibrosis (HP:0001685). HP:0001685 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
 
 
-                    <div class="item-desc">No NEXN-specific cardiac magnetic resonance or histopathology data exist for the HCM phenotype. Notably, myocardial fibrosis was reported in 64% of NEXN-truncating-variant carriers in the DILATED/nondilated LV cardiomyopathy cohort, which is a different phenotype from CMH20.</div>
+
+
+
+                <div class="item-desc">No NEXN-specific cardiac magnetic resonance or histopathology data exist for the HCM phenotype. Notably, myocardial fibrosis was reported in 64% of NEXN-truncating-variant carriers in the DILATED/nondilated LV cardiomyopathy cohort, which is a different phenotype from CMH20.</div>
 
 
 
@@ -5545,13 +5770,16 @@ This clinical feature is Myocardial fibrosis (HP:0001685). HP:0001685 is a pheno
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:20970104" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:20970104" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20970104" target="_blank">PMID:20970104</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5575,34 +5803,8 @@ This clinical feature is Myocardial fibrosis (HP:0001685). HP:0001685 is a pheno
 
 
 
-                </div>
+            </div>
 
-            </details>
-
-            <script>
-            (function() {
-                // TOC pill click: expand target group and scroll to it
-                document.querySelectorAll('.pheno-toc-pill').forEach(function(pill) {
-                    pill.addEventListener('click', function() {
-                        var target = document.getElementById(pill.dataset.target);
-                        if (target) {
-                            target.open = true;
-                            target.scrollIntoView({behavior: 'smooth', block: 'start'});
-                        }
-                    });
-                });
-                // Expand/collapse all toggle
-                var btn = document.getElementById('phenoToggleAll');
-                if (btn) {
-                    btn.addEventListener('click', function() {
-                        var groups = document.querySelectorAll('.phenotype-category-group');
-                        var anyOpen = Array.from(groups).some(function(g) { return g.open; });
-                        groups.forEach(function(g) { g.open = !anyOpen; });
-                        btn.textContent = anyOpen ? 'Expand all' : 'Collapse all';
-                    });
-                }
-            })();
-            </script>
 
         </div>
 
@@ -5651,6 +5853,9 @@ This disease-associated gene is NEXN (hgnc:29557). hgnc:29557 is a gene from the
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal Dominant</span>
@@ -5671,7 +5876,10 @@ This disease-associated gene is NEXN (hgnc:29557). hgnc:29557 is a gene from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20970104" target="_blank">PMID:20970104</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5687,13 +5895,16 @@ This disease-associated gene is NEXN (hgnc:29557). hgnc:29557 is a gene from the
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:20970104" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:20970104" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20970104" target="_blank">PMID:20970104</a>
                     </span>
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5715,7 +5926,10 @@ This disease-associated gene is NEXN (hgnc:29557). hgnc:29557 is a gene from the
                         <a href="https://bioregistry.io/CGGV:assertion_9456bdef-7708-45b2-a698-c897167d7f5b-2023-03-23T160000.000Z" target="_blank">CGGV:assertion_9456bdef-7708-45b2-a698-c897167d7f5b-2023-03-23T160000.000Z</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5776,6 +5990,9 @@ This disease-associated gene is NEXN (hgnc:29557). hgnc:29557 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5788,7 +6005,10 @@ This disease-associated gene is NEXN (hgnc:29557). hgnc:29557 is a gene from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40680702" target="_blank">PMID:40680702</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5810,7 +6030,10 @@ This disease-associated gene is NEXN (hgnc:29557). hgnc:29557 is a gene from the
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38059363" target="_blank">PMID:38059363</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5838,6 +6061,9 @@ This disease-associated gene is NEXN (hgnc:29557). hgnc:29557 is a gene from the
 
 
         <!-- Variants recorded at the disease level -->
+
+
+        <!-- Registry / external-database assertions recorded at the disease level -->
 
 
         <!-- Medical actions -->
@@ -5890,6 +6116,20 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Genetic counseling for probands and at-risk relatives. For NEXN specifically, counseling must convey that the NEXN-HCM gene-disease relationship is classified Limited by ClinGen, so a NEXN variant found in an HCM patient generally should not be used for predictive cascade testing or to release genotype-negative relatives from clinical surveillance. Clinical (imaging/ECG) family screening remains indicated regardless of NEXN genotype.</div>
 
 
@@ -5909,7 +6149,10 @@ This treatment is Genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/30681346" target="_blank">PMID:30681346</a>
                     </span>
 
+
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5973,6 +6216,31 @@ This treatment is Therapeutic procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">No NEXN-specific therapy exists. Management follows standard nonsyndromic HCM care: symptom-directed pharmacotherapy, arrhythmia surveillance, sudden-death risk stratification with implantable cardioverter-defibrillator placement where indicated, and septal reduction therapy for drug-refractory obstruction. Consult the umbrella `Hypertrophic Cardiomyopathy` entry and current HCM guidelines for details; this entry deliberately does not restate them.</div>
 
 
@@ -5990,6 +6258,222 @@ This treatment is Therapeutic procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-cardiomyopathy-gene-panel-with-nexn-not-appropriate-for-diagnostic-reporting">
+                <div class="item-name">
+                    Cardiomyopathy gene panel, with NEXN not appropriate for diagnostic reporting
+
+                </div>
+
+                <div class="item-desc">The clinically consequential fact about NEXN is a reporting rule, not a testing indication. ClinGen classifies NEXN-hypertrophic cardiomyopathy as Limited, and its Hereditary Cardiovascular Disease Gene Curation Expert Panel places limited, no-evidence and disputed genes together in the &#34;uncertain significance&#34; tier, stating that genes with disputed evidence are not appropriate for diagnostic reporting - including their variants of uncertain significance. A NEXN variant found on a cardiomyopathy panel therefore should not be reported as the cause of a patient&#39;s hypertrophic cardiomyopathy, should not be used to direct predictive cascade testing in relatives, and does not discharge the family from clinical surveillance. Panel testing itself remains indicated - to find a variant in a gene that does carry adequate validity.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        Cardiomyopathy gene panel testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15709" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-22">NCIT:C15709</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-22">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> A NEXN variant is an uncertain-significance finding at gene level, not a molecular diagnosis. Interpret the panel as though NEXN had not been on it.</div>
+
+
+                <div class="item-notes">The reporting caveat previously lived only in the genetic counseling treatment, inferred from a generic Ingles-2019 quote. It is stated here instead, in the section that governs test interpretation, and sourced directly from the ClinGen expert-panel reappraisal that classifies NEXN.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39132495" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39132495" target="_blank">PMID:39132495</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Genes of uncertain significance are those with classifications of limited, no evidence or disputed."</div>
+
+
+                <div class="evidence-explanation">Places the Limited classification NEXN carries into the uncertain-significance tier, which is what governs how a NEXN variant may be reported.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39132495" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39132495" target="_blank">PMID:39132495</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Nine (29%) genes were downgraded to disputed, further discouraging clinical reporting of variants in these genes."</div>
+
+
+                <div class="evidence-explanation">Documents the reappraisal that moved a substantial fraction of previously accepted HCM genes out of clinical reportability, which is the context in which NEXN&#39;s Limited status should be read.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-hypertrophic-cardiomyopathy-probands-in-a-9516-patient-sequencing-cohort">
+                <div class="item-name">Hypertrophic cardiomyopathy probands in a 9516-patient sequencing cohort</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Cases In Literature</span>
+
+
+
+                    <span class="tag">Not yet documented</span>
+
+                </div>
+
+                <div class="item-notes">No population prevalence exists for CMH20 and arguably none can while the gene-disease relationship is Limited - an entity that should not be diagnostically reported cannot be counted. What is measurable is how often NEXN variants turn up among sequenced HCM probands: 3 of the 29 unrelated single-variant probands in a 9516-patient cardiomyopathy cohort had hypertrophic cardiomyopathy, a 0.14% prevalence within that HCM denominator. That figure counts variant carriage, not established causation - the same paper states a causal link could not be established - so it is recorded as NOT_YET_DOCUMENTED with the number in notes rather than as a rate.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38059363" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38059363" target="_blank">PMID:38059363</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"21 presented with dilated cardiomyopathy (prevalence, 0.33%), and 3 presented with hypertrophic cardiomyopathy (prevalence, 0.14%)."</div>
+
+
+                <div class="evidence-explanation">Gives the carriage frequency within an HCM denominator, and simultaneously shows the asymmetry that governs this entry - NEXN variants were found more than twice as often in dilated as in hypertrophic cardiomyopathy. PARTIAL because carriage is not causation and the authors say so.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -6091,7 +6575,7 @@ prevalence:
   evidence:
   - reference: PMID:38059363
     reference_title: &#34;NEXN Gene in Cardiomyopathies and Sudden Cardiac Deaths: Prevalence, Phenotypic Expression, and Prognosis.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       21 presented with dilated cardiomyopathy (prevalence, 0.33%), and 3
@@ -6258,7 +6742,7 @@ pathophysiology:
       proposed mechanism depends on.
   - reference: PMID:19881492
     reference_title: &#34;Nexilin mutations destabilize cardiac Z-disks and lead to dilated cardiomyopathy.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &gt;-
       Increasing mechanical strain aggravated Z-disk damage in
@@ -6312,7 +6796,7 @@ pathophysiology:
   evidence:
   - reference: PMID:20970104
     reference_title: &#34;Mutations in NEXN, a Z-disc gene, are associated with hypertrophic cardiomyopathy.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Hypertrophic cardiomyopathy (HCM), the most common inherited cardiac
@@ -6358,7 +6842,8 @@ phenotypes:
       in a cohort screened specifically for HCM.
   - reference: PMID:38059363
     reference_title: &#34;NEXN Gene in Cardiomyopathies and Sudden Cardiac Deaths: Prevalence, Phenotypic Expression, and Prognosis.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
+    directness: INDIRECT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       We also detected NEXN variants in patients with hypertrophic
@@ -6366,7 +6851,7 @@ phenotypes:
       fibrillation, although a causal link could not be established.
     explanation: &gt;-
       Independent observation of NEXN variants in HCM patients, but explicitly
-      without establishing causation — hence PARTIAL.
+      without establishing causation — hence INDIRECT.
 - category: Cardiovascular
   name: Left Ventricular Hypertrophy
   description: &gt;-
@@ -6381,7 +6866,7 @@ phenotypes:
   evidence:
   - reference: PMID:20970104
     reference_title: &#34;Mutations in NEXN, a Z-disc gene, are associated with hypertrophic cardiomyopathy.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       characterized by increased ventricular wall thickness that cannot be
@@ -6409,7 +6894,7 @@ phenotypes:
   evidence:
   - reference: PMID:20970104
     reference_title: &#34;Mutations in NEXN, a Z-disc gene, are associated with hypertrophic cardiomyopathy.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       cadiomyocyte hypertrophy and disarray, and increased myocardial fibrosis
@@ -6437,7 +6922,7 @@ phenotypes:
   evidence:
   - reference: PMID:20970104
     reference_title: &#34;Mutations in NEXN, a Z-disc gene, are associated with hypertrophic cardiomyopathy.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       is characterized by increased ventricular wall thickness that cannot be
@@ -6514,7 +6999,7 @@ genetic:
       for NEXN, which is the entire clinical basis for the CMH20 designation.
   - reference: PMID:20970104
     reference_title: &#34;Mutations in NEXN, a Z-disc gene, are associated with hypertrophic cardiomyopathy.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Therefore, the mutations in NEXN that we describe here may further expand
@@ -6545,7 +7030,7 @@ genetic:
       NEXN-HCM relationship while confirming the DCM/NDLVC association.
   - reference: PMID:30681346
     reference_title: &#34;Evaluating the Clinical Validity of Hypertrophic Cardiomyopathy Genes.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Of 33 HCM genes, only 8 (24%) were categorized as definitive ( MYBPC3,
@@ -6823,9 +7308,9 @@ discussions:
   kind: KNOWLEDGE_GAP
   status: OPEN
   attaches_to:
-  - &#34;phenotype#Hypertrophic Cardiomyopathy&#34;
-  - &#34;phenotype#Myocardial Sarcomeric Disarray&#34;
-  - &#34;phenotype#Myocardial Fibrosis&#34;
+  - &#34;phenotypes#Hypertrophic Cardiomyopathy&#34;
+  - &#34;phenotypes#Myocardial Sarcomeric Disarray&#34;
+  - &#34;phenotypes#Myocardial Fibrosis&#34;
   rationale: &gt;-
     The published clinical description of CMH20 amounts to two families in the
     2010 report plus three probands in a French series whose causality was
@@ -6988,6 +7473,103 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Address PR #7812 review: GO terms, diagnosis block, treatment term</strong> · 2026-08-12T22:22:23Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Hypertrophic_Cardiomyopathy_20/2026-08-12T222223Z-claude-code-32600c.yaml">View source</a></p>
+                        <p class="research-review-text">Responds to the ai4c-reviewer CHANGES_REQUESTED review on PR #7812. All five IMPORTANT items
+are addressed, plus three of the suggestions. One suggestion is declined with reasoning, and
+the reason is recorded in the entry itself.
+
+ITEM 1 - GeneReviews tagged but never mined. Added a top-level notes block recording that
+PMID:20301725&#39;s PubMed record is the six-point purpose statement with no Clinical
+Characteristics / Diagnosis / Management / Genetic Counseling narrative to quote, that no
+NEXN-specific GeneReviews chapter exists, and that the tag therefore records the parent
+overview having been checked rather than content having been drawn from it. Kept the tag
+rather than dropping it, per the first of the two options offered.
+
+ITEMS 2 and 3 - module-expected biological processes absent, and GO:0055008 in the wrong
+register. Both fixed together, since item 3&#39;s correct replacement is one of the terms item 2
+asks for. The Primary Cardiomyocyte Insult conformer now carries GO:0045214 sarcomere
+organization (ABNORMAL) and GO:0006936 muscle contraction (ABNORMAL); the Ventricular
+Remodeling conformer now carries GO:0014898 cardiac muscle hypertrophy in response to stress
+(INCREASED) and GO:0030198 extracellular matrix organization (INCREASED). GO:0055008 cardiac
+muscle tissue morphogenesis - a developmental term applied to adult remodeling - is gone, and
+GO:0055003 cardiac myofibril assembly (DECREASED) was likewise replaced by GO:0045214, per the
+related suggestion: the claim is destabilization of a formed Z-disc, not a failure of
+assembly. The module&#39;s own node contents were read directly rather than taken from the review,
+to confirm the expected term set.
+
+ITEM 4 - Standard Hypertrophic Cardiomyopathy Management mis-termed. The description spans
+pharmacotherapy, ICD placement and septal reduction while treatment_term was NCIT:C15986
+Pharmacotherapy, which named a third of it. Of the two remedies offered, the second was taken:
+retermed to the broader NCIT:C49236 Therapeutic Procedure and given therapeutic_modality
+OTHER, rather than narrowing the description. Narrowing would have misrepresented what the
+entry is doing - this is a deliberate single pointer to umbrella management, not a curated
+treatment. No therapeutic_agent was added for the same reason: naming metoprolol, verapamil or
+mavacamten here would imply NEXN-specific evidence for them, and there is none. The reasoning
+is recorded in the treatment notes.
+
+ITEM 5 - no diagnosis block, and the reporting claim in the wrong place. Added a diagnosis
+entry for cardiomyopathy gene panel testing (NCIT:C15709) built around the clinically
+consequential fact, which is a reporting rule rather than a testing indication: ClinGen places
+limited, no-evidence and disputed genes in a single uncertain-significance tier and states
+that disputed-evidence genes are not appropriate for diagnostic reporting. Both quotes the
+review extracted from PMID:39132495 are used verbatim. The entry states what follows - a NEXN
+variant is not a molecular diagnosis, must not direct predictive cascade testing, and does not
+discharge a family from clinical surveillance - and its notes record that this caveat
+previously lived only in the genetic counseling treatment, inferred from a generic Ingles-2019
+quote, and has been moved to the section that governs test interpretation and sourced directly
+from the panel that classifies NEXN.
+
+SUGGESTION taken - prevalence. Added a CASES_IN_LITERATURE / NOT_YET_DOCUMENTED record with
+the 0.14% figure in notes, as suggested, plus a point worth making explicit: a Limited entity
+that should not be diagnostically reported arguably cannot have a population prevalence at
+all, and the 0.14% counts variant carriage rather than established causation, which the source
+itself says. The evidence item is PARTIAL and its explanation notes the asymmetry the same
+sentence reveals - NEXN variants were more than twice as common in dilated as in hypertrophic
+cardiomyopathy in that cohort.
+
+SUGGESTION declined, with the reason recorded in the entry&#39;s notes - the missing phenotypes
+(atrial fibrillation, reduced LVEF, sudden cardiac death) and the scoping asymmetry the review
+asked for a rationale on. On checking the source rather than the DR summary, these phenotypes
+cannot be curated for this entity: in PMID:38059363 the median ejection fraction of 37.5% is
+explicitly &#34;for patients with dilated cardiomyopathy&#34;, and the arrhythmic events and sudden
+infant deaths are reported without attribution to the three hypertrophic probands, with the
+authors stating that a causal link could not be established. Adding them would move a DCM
+observation onto an HCM entity - exactly the confusion this entry&#39;s DISPUTED framing and
+external_assertions exist to prevent. The notes state that, explain why disarray and fibrosis
+are nonetheless retained (they are definitional for the entity the MONDO term names, so their
+absence would mislead), and record what would justify adding the clinical phenotypes later: a
+cohort reporting them in NEXN HCM carriers specifically. The onset suggestion is declined on
+the same ground - the median age at diagnosis of 32.0 is for all 29 probands, a
+mixed DCM/HCM population, not for the HCM subgroup.
+
+Also noted, not actioned here because it is out of scope for this PR: the review&#39;s observation
+that kb/disorders/Hypertrophic_Cardiomyopathy.yaml carries a NEXN entry citing the same CGGV
+Limited assertion without relationship_type: DISPUTED, which is now inconsistent with this
+entry. That belongs in its own PR against the umbrella entry.
+
+VALIDATION. &#39;just validate-disorders kb/disorders/Hypertrophic_Cardiomyopathy_20.yaml&#39; passes
+in full - schema, terms, references - with &#34;Snippets checked: 30/30 verified against cached
+references&#34;, up from 27/27. All replacement GO terms were confirmed against the module&#39;s own
+node definitions before use. The branch was rebased onto current origin/main; the rebase
+conflicted only on two generated cache CSVs, resolved to main&#39;s side with this entry&#39;s rows
+re-derived by just validate-terms rather than hand-merged.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Hypertrophic Cardiomyopathy 20 (NEXN)</strong> · 2026-08-02T01:26:48Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Hypertrophic_Cardiomyopathy_20/2026-08-02T012648Z-claude-code-e44913.yaml">View source</a></p>
+                        <p class="research-review-text">Created kb/disorders/Hypertrophic_Cardiomyopathy_20.yaml for MONDO:0013477 (CMH20; OMIM 613876; NEXN / hgnc:29557). NEC preflight against sqlite:obo:mondo confirmed causal gene NEXN, the OMIM:613876 xref, and is_a MONDO:0024573 familial hypertrophic cardiomyopathy. Duplicate preflight against fresh origin/main found no existing entry for MONDO:0013477 or for its parent MONDO:0024573. Deep research: the falcon provider was unavailable in this environment (no EDISON_API_KEY / FUTUREHOUSE_API_KEY), so the claude_code provider was used instead - research/Hypertrophic_Cardiomyopathy_20-deep-research-claude_code.md, 17 web searches, 55 turns, 26 citations. The DR report independently converged on the same Limited-validity framing used here, and its gene mention counts (NEXN 144 vs MYBPC3 4, MYH7 2, TNNT2 1) rule out named-entity confusion. KEY CURATION DECISION: this entry is deliberately curated as a CONTESTED entity rather than as an established mechanism. ClinGen&#39;s Hereditary Cardiovascular Disease GCEP classifies NEXN-HCM as Limited (CGGV assertion 9456bdef, 2023-03-23, SOP9), and the published ClinGen HCM reappraisal (PMID:39132495) names NEXN explicitly among six genes retaining a Limited classification. The largest NEXN carrier cohort to date (PMID:40680702, 60 carriers) found NEXN truncating-variant enrichment in DCM/NDLVC but no association with HCM; that item is recorded with supports REFUTE. PMID:38059363 found three HCM probands (0.14 percent) but states a causal link could not be established. The CMH20 designation as a whole rests on PMID:20970104 (Wang 2010: two families, two missense variants, loss of F-actin binding in vitro). Mechanistic framing is Z-disc / F-actin anchorage failure rather than thick- or thin-filament cross-bridge kinetics, since NEXN encodes nexilin, an F-actin-binding Z-disc protein. Pathophysiology is a three-node chain tagged MOLECULAR, CELLULAR, TISSUE with mechanism_confidence PROVISIONAL then HYPOTHETICAL then HYPOTHETICAL, conforming to cardiomyopathy_maladaptive_remodeling at the Primary Cardiomyocyte Insult and Ventricular Remodeling nodes. The Z-disc to hypertrophy edge is INDIRECT_UNKNOWN_INTERMEDIATES because every published nexilin model system yields a dilated phenotype. genetic[0] uses relationship_type DISPUTED and carries a case_fraction of 0.14 percent; genetic[1] records the better-supported NEXN dilated cardiomyopathy association purely as differential context to prevent future NEC. No phenotype carries a frequency band: the reported carrier count is too small and the validity too uncertain to justify one. Three discussions are recorded, each with proposed_experiments - a CONTROVERSY on gene-disease validity, a HUMAN_MODEL_MISMATCH on the dilated-versus-hypertrophic model discrepancy, and a KNOWLEDGE_GAP on the absent clinical phenotype detail. Validation: just validate PASS, just validate-references PASS with 27 of 27 snippets verified, just validate-terms PASS, snippet-length ratchet PASS, compliance 81.8 percent global and 82.4 percent weighted. NOTE for maintainers: PMID:40161564 was fetched but deliberately NOT cited and its cache file was removed, because the fetch appended an unrelated full-text PDF (full_text_url pointed at PMC8359989) beneath a correct abstract - a cache-integrity issue worth reporting upstream.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -8391,7 +8973,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Hypertrophic Cardiomyopathy 20", "mondoId": "MONDO:0013477", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hypertrophic_Cardiomyopathy_20", "yamlRevision": "45b6cbedabac"};
+        const OS_CONFIG = {"diseaseName": "Hypertrophic Cardiomyopathy 20", "mondoId": "MONDO:0013477", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hypertrophic_Cardiomyopathy_20", "yamlRevision": "3d2d20ad1bf0"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
