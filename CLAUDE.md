@@ -30,6 +30,9 @@ Claude Code skills are available in `.claude/skills/`:
   scope and alignment investigations, Boomer results, proxy merges, and source
   correction reports with entity tables and competing solutions.
 - **dismech-references**: Use when curating or validating evidence and references.
+- **[noncoding-variant-impact](.claude/skills/noncoding-variant-impact/SKILL.md)**:
+  Use when curating noncoding variant effects, including regulatory structural
+  variants, expression changes, and target-gene relationships.
 - **review-hypothesis-exploration**: Use when assessing or reconciling a
   provider hypothesis report, including its datasets, analyses, and artifacts.
 - **extend-schema**: Use when adding, narrowing, deprecating, or removing a
@@ -560,13 +563,15 @@ always *was* a reference slot, and `geo:` is now treated as one end to end:
   `REFERENCE_CACHED_PREFIXES` in `scripts/verify_dataset_accessions.py`,
   backfilling the cache, and fixing what the newly-enabled checks surface.
 
-**`cache/dataset_accessions.json` is frozen. Never read, write, or edit it.**
+**`cache/dataset_accessions.json` is retired and deleted. Never recreate it.**
 It was a single shared JSON blob rewritten in full by every verifier run — so
 every curation PR touching a `datasets:` block churned the same 1.8 MB file, and
 PRs adding neighbouring `geo:` keys collided. Nothing reads or writes it any
-more (`test_no_automation_touches_the_frozen_dataset_cache` enforces this). It
-stays in git only until the open PRs carrying edits to it have drained; do not
-add it to a commit, and do not "helpfully" regenerate it.
+more (`test_no_automation_touches_the_frozen_dataset_cache` enforces this and
+checks that the path stays untracked on every CI run). It was frozen temporarily
+to let old PRs drain; that transition is over. If an old PR still carries it,
+keep its deletion when resolving conflicts without reading or merging its
+contents. Do not restore or regenerate it.
 
 **The check that tooling cannot do for you:** verification proves a dataset
 *exists*, never that it is about the right disease. Searching a causal gene
@@ -3155,7 +3160,7 @@ Non-negotiable rules:
 
 - A `snippet` must be an exact source substring that substantively supports the
   precise claim. Never fabricate or paraphrase it; a title is usually not a
-  finding.
+  finding. "Exact" means exact *after normalization, on both sides* — see below.
 - `evidence_source` classifies the cited study, not the curator or claim.
 - Treat deep-research reports as leads. Read their reference-validation results
   and run `just preflight-dr <report> <MONDO_ID>` before using their content.
@@ -3169,6 +3174,21 @@ Non-negotiable rules:
   it out. Re-run `just count-verified-snippets` on the pushed tree afterwards,
   and re-read `notes:` for any sentence that called a pruned reference "cached" —
   prose describing repository state is content, and it rots.
+
+**Publisher typography folds — a snippet need not be byte-identical.** Both
+sides of the comparison are normalized (`normalize_text` maps every non-word
+non-space character to a space, then collapses whitespace with `\s+`, which in
+Python matches Unicode whitespace). So an ordinary space matches the U+2009 thin
+spaces Nature journals put around `=`, and a hyphen matches an en dash or
+unicode minus in a range: `"AUC = 0.933"` typed normally matches the source. In
+the #9308 tranche 8 of 15 snippets were not byte-exact and all 15 verified.
+
+Prefer plain ASCII in new snippets anyway — an invisible character in a quote is
+a trap for the next curator, and it buys nothing. Existing snippets that copied
+the source's thin spaces and en dashes verbatim are equally valid and need no
+repair. The characters that do **not** fold are `x` typed for `×`, mid-word soft
+hyphens and zero-width spaces, `ﬁ`-style ligatures, and the U+00B5 micro sign.
+Full detail, including why this matters, in `.claude/skills/dismech-references`.
 
 Example:
 
@@ -3211,12 +3231,25 @@ paper titles used as findings, one quoted sentence graded with two different
 `evidence_source` values in the same file, environmental claims without
 entry-level evidence, duplicate YAML keys, broken `<kind>#<name>` entity
 references, broken bare-name pathograph targets, and prose claims about
-defective sources that the cache contradicts. The first four use baselines, as
-does `check-causal-targets`; do not update a baseline to admit a
-defect introduced by the current change. `check-environmental-evidence` had one
-too, until the #8296 backlog reached zero and it became a hard gate -- an
-exposure that genuinely cannot be cited now carries a `review_notes:` waiver
-instead of a baseline row (see below).
+defective sources that the cache contradicts. Four of them carry a committed
+baseline file grandfathering a pre-existing backlog -- `check-snippet-length`,
+`check-title-snippets`, `check-snippet-grading` and `check-causal-targets`. Two
+further gates that are in `just qc` but not in the list above do too:
+`check-reference-titles` and `check-coarse-phenotypes`. Those six are the whole
+set, and it is checkable rather than remembered -- `tests/*_baseline.txt` and the
+`just update-*-baseline` recipes are one-to-one with it. Do not update a baseline
+to admit a defect introduced by the current change.
+
+Two of these gates used to have a baseline and no longer do, by the same route:
+the backlog was repaired, then the mechanism was removed, so there is now no way
+to grandfather a finding. `check-environmental-evidence` got there first (#8296),
+and an exposure that genuinely cannot be cited now carries a `review_notes:`
+waiver instead of a baseline row (see below). `check-folded-hyphens` followed
+once #11760 had repaired its 293-split backlog, which was #4800's stated
+endpoint. Where that check flags a line that is genuinely correct, the fix is to
+teach the detector the shape and pin it with a test -- as `COORD_RE` does for
+suspended hyphens and `is_status_marker` for clinical negativity markers
+(`ER+/HER2-`, `T-B-NK-`) -- rather than to record an exception.
 
 **When an exposure genuinely cannot be cited, say so in `review_notes:`.**
 `check-environmental-evidence` treats an `environmental[]` entry whose
@@ -3858,7 +3891,7 @@ Use worktrees for parallel feature work. The **primary checkout** (wherever you 
 | `exports/sedml/*.omex` | NO | Derived — a byte-for-byte zip of the committed `exports/sedml/<model_id>/` directory; rebuild with `just sedml-export --omex` |
 | `app/models/data.js` | NO | Derived — the computational-models browser index, rebuilt from every `computational_models` block in `kb/` by `just gen-models-data`. **Never commit it from a curation PR**: it is regenerated wholesale, so two model PRs that both commit it conflict on it and nothing else (#9804) |
 | `app/hpo_category_cache.json` | NO | Derived — the HP-term-to-broad-category map, written by `just gen-browser-data` beside `app/data.js` and committed by the same workflow (#11299). Both `render` and `browser_export` read it |
-| `cache/dataset_accessions.json` | **NEVER** | Frozen. Superseded by `references_cache/GEO_*.md`; nothing reads or writes it. Never stage it, in any change |
+| `cache/dataset_accessions.json` | **NEVER** | Deleted and ignored. Superseded by `references_cache/GEO_*.md`; keep it deleted when resolving old PRs |
 
 **Scope of the "derived" rule:** it governs *hand-authored* PRs — never commit
 these paths alongside a curation or code change. The derived artifacts do live in
@@ -4008,11 +4041,45 @@ before retrying. The default budget is five retries per sweep; `dry_run`,
 `pr_number`, `review_retry_delay_hours` and `max_review_retries` are available in
 the manual trigger. See [review recovery](docs/explanation/automation-and-agents.md#recovering-failed-review-actions).
 
+### Inactive PR assignments
+
+Assignment is an active-work hold, not a permanent reservation. The independent
+`assignment-inactivity` shepherd job considers every open assigned PR, regardless
+of author, draft status, or checks. After seven days without activity from any
+current assignee, it posts one reminder tagging the author and assignees. At
+fourteen days **since the last assignee activity**, it removes the assignment
+if the reminder is still unanswered. An assignee's PR comment, review, inline
+review comment, or authored or committed GitHub-linked commit resets the clock.
+Assignment changes also restart it. Other users' comments and the reminder
+itself do not count.
+
+Any current assignee can keep a jointly assigned PR active. After a response,
+a later week of inactivity gets a new reminder; the fourteen-day threshold also
+starts from that new activity. Old PRs always receive a reminder first, but if
+already inactive for fourteen days they can be unassigned on the next sweep,
+currently about an hour later. There is no separate reminder grace period.
+The job rereads activity and assignment immediately before a write, and leaves
+assignments alone when history is incomplete or unavailable. Manual inputs
+`dry_run`, `pr_number`, and `max_assignment_actions` (default 10; 0 disables) apply.
+
+Unassignment clears only the assignment hold. Review requirements, conflict and
+CI checks, and the repair jobs' remaining lifecycle and branch-ownership guards
+still apply. Otherwise eligible PRs can be repaired regardless of author. See
+[assignment inactivity](docs/explanation/automation-and-agents.md#inactive-pr-assignments).
+
 ### Shepherd repair scope and generated-cache conflicts
 
 The shepherd tends eligible abandoned code, tests, schema, workflow, and
-documentation PRs as well as curation. Python is in scope. Unresolved review
-feedback comes first; an approved clean branch is the merge controller's work,
+documentation PRs as well as curation, regardless of whether a human or bot
+authored them. Repair eligibility requires an open PR targeting `main`, no
+assignees, and a head in this repository outside the separately managed `auto/`
+lanes. `isCrossRepository` must be explicitly false; fork heads and missing or
+unknown head-repository metadata are excluded. Reconfirm this before checking
+out or executing PR code and before pushing. Assignment is the deterministic
+active-work hold. For unassigned PRs, the agent checks recent activity and
+discussion to avoid duplicating an ongoing repair; there is no fixed PR-age
+cutoff for repair. Python is in scope. Unresolved review feedback comes first;
+an approved clean branch is the merge controller's work,
 even when it is behind main. Do not refresh a branch merely for freshness.
 
 The separate `repair-caches` job handles additive conflicts in term and enum
@@ -4025,8 +4092,10 @@ Reference markdown and other generated formats remain shepherd work; never
 resolve a generated directory wholesale by taking one side. A deterministic
 refusal does not authorize abandoning the PR.
 
-The job uses the agent's existing author/assignment guards. Manual inputs
-`max_cache_repairs` (default 3; 0 disables), `dry_run`, and `pr_number` control it.
+The job uses the agent's assignment, lifecycle, and head-repository guards
+regardless of author; `isCrossRepository` must be explicitly false.
+Manual inputs `max_cache_repairs` (default 3; 0 disables), `dry_run`, and
+`pr_number` control it.
 See [the repair contract](docs/explanation/automation-and-agents.md#tending-abandoned-prs-and-repairing-cache-conflicts).
 
 ### Deterministic auto-merge of ready PRs
@@ -4050,11 +4119,11 @@ author, human or agent** — once it is simultaneously:
 
 Nothing is judged; the predicate is applied to GitHub-reported state, so a run's
 outcome is reproducible from the API response alone. This is separate from the
-LLM agent job in the same workflow, whose guardrails still forbid it from
-*editing* human-authored PRs. The jobs never share a runner, and the controller
-mints a separate write token that is not exposed to the LLM runner. The LLM's
-own App token still has contents-write capability for branch repair, so its
-no-merge rule is prompt-enforced rather than a GitHub permission boundary;
+LLM agent job in the same workflow, which repairs eligible unassigned PRs from
+any author but cannot merge or approve them. The jobs never share a runner, and
+the controller mints a separate write token that is not exposed to the LLM
+runner. The LLM's own App token still has contents-write capability for branch
+repair, so its no-merge rule is prompt-enforced rather than a GitHub permission boundary;
 enforcing that boundary requires a separate identity, broker, or ruleset. The
 sweep itself only merges already-approved work.
 
@@ -4073,10 +4142,11 @@ review. If that protection setting is ever turned off, the sweep needs an explic
 
 **To stop a PR being auto-merged, assign it to a human or leave a
 CHANGES_REQUESTED review.** A human-assigned PR is treated as somebody's active
-work and is never swept; bot or agent assignment is not a hold. Draft status is
-not a hold: anything opened as a PR is in the review queue. The controller marks
-an eligible draft ready, re-reads every guard, and restores draft state if that
-merge attempt aborts.
+work and is never swept while assigned; maintain that hold by responding to
+inactivity reminders as described above. Bot or agent assignment is not a hold.
+Draft status is not a hold: anything opened as a PR is in the review queue. The
+controller marks an eligible draft ready, re-reads every guard, and restores
+draft state if that merge attempt aborts.
 
 **A third hold exists and is not visible from the PR page.** The controller
 also holds a PR back once it has failed the merge queue

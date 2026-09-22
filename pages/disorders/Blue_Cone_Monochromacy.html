@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4507,6 +4546,7 @@ Clinically this produces reduced but not absent visual acuity (roughly 20/60 to 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-function-of-the-opn1lw-opn1mw-opsin-gene-array" data-dismech-node="Loss of Function of the OPN1LW/OPN1MW Opsin Gene Array" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Function of the OPN1LW/OPN1MW Opsin Gene Array</div>
 
+
                 <div class="item-desc">The initiating lesion. Both the L and M opsin genes on Xq28 must lose function; loss of only one produces ordinary red-green colour blindness, not this disorder. Two mutational routes dominate. The first is deletion of the locus control region 3.1-3.7 kb upstream of the array, which silences every gene downstream of it. The second is unequal homologous recombination that collapses the array to a single gene or a 5&#39;L-M-3&#39; hybrid, which then carries an inactivating point substitution — most often Cys203Arg, and less often Arg247Ter or Pro307Leu. High-resolution X-chromosome microarray has since resolved more complex rearrangements, including a founder allele combining a 3-kb LCR deletion with insertion of an aberrant OPN1MW gene.</div>
 
 
@@ -4611,9 +4651,14 @@ This pathophysiological event involves OPN1MW (hgnc:4206). hgnc:4206 is a gene f
 
 
 
+
+
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4744,6 +4789,7 @@ This pathophysiological event involves OPN1MW (hgnc:4206). hgnc:4206 is a gene f
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-locus-control-region-driven-opsin-expression" data-dismech-node="Failure of Locus Control Region-Driven Opsin Expression" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Locus Control Region-Driven Opsin Expression</div>
+
 
                 <div class="item-desc">The regulatory arm, and the reason a single deletion suffices. A locus control region between 3.1 and 3.7 kb upstream of the L opsin transcription start site is essential for expression of the adjacent visual pigment genes, and the mutually exclusive choice of one opsin per cone is set by competition between the two pigment promoters for pairing with that single LCR. Deleting it therefore does not silence one gene, it silences the array — converting what would need to be two independent inactivating events into one.</div>
 
@@ -4987,6 +5033,7 @@ This pathophysiological event involves absent regulation of DNA-templated transc
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-absent-or-non-functional-l-and-m-cone-photopigment" data-dismech-node="Absent or Non-Functional L and M Cone Photopigment" data-dismech-type="pathophysiology">
                 <div class="item-name">Absent or Non-Functional L and M Cone Photopigment</div>
+
 
                 <div class="item-desc">The convergence point of both mutational routes. Cones that should express L or M opsin either make no opsin at all (deletion genotypes) or make an unstable, non-functional one (Cys203Arg disrupts a conserved disulfide bond required for correct folding of the seven-transmembrane opsin GPCR). Opsin is not only the light sensor but a structural requirement for building and maintaining the cone outer segment, so an opsin-null cone is compromised as a cell, not merely blind.</div>
 
@@ -5283,6 +5330,7 @@ This pathophysiological event involves absent G protein-coupled photoreceptor ac
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cone-outer-segment-disruption-and-progressive-foveal-cone-loss" data-dismech-node="Cone Outer Segment Disruption and Progressive Foveal Cone Loss" data-dismech-type="pathophysiology">
                 <div class="item-name">Cone Outer Segment Disruption and Progressive Foveal Cone Loss</div>
 
+
                 <div class="item-desc">Foveal cones are structurally abnormal from early in life and decline further with age. Adaptive-optics imaging shows reduced total cone density with the majority of the remaining population non-waveguiding — that is, present as cells but not functioning as light guides. This is why the &#34;stationary disorder&#34; framing is only partly right: outer retinal changes are detectable on OCT with an age-related effect on foveal disease stage, and psychophysical progression has been demonstrated in individual families. Progression is genotype-dependent, with large deletions advancing faster than the Cys203Arg substitution.</div>
 
 
@@ -5509,6 +5557,7 @@ This pathophysiological event occurs in fovea centralis (UBERON:0001786). UBERON
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-vision-mediated-by-preserved-s-cones-and-rods" data-dismech-node="Vision Mediated by Preserved S Cones and Rods" data-dismech-type="pathophysiology">
                 <div class="item-name">Vision Mediated by Preserved S Cones and Rods</div>
 
+
                 <div class="item-desc">What is left, and why the phenotype is what it is. S cones (OPN1SW, on chromosome 7) and rods are genetically untouched, so daylight vision is carried by the S-cone population — only a few percent of all cones, sparse in the fovea — together with rods operating partially desensitized in photopic conditions. That residual system explains the clinical picture directly: acuity is reduced but far from absent, colour discrimination survives on the tritan axis while failing on protan and deutan axes, and night vision is typically healthy. It is also the finding that separates this disorder from complete achromatopsia, where all cone signal is extinguished.</div>
 
 
@@ -5723,6 +5772,7 @@ This pathophysiological event involves abnormal visual perception (GO:0007601). 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-carrier-female-cone-mosaic-disruption" data-dismech-node="Carrier Female Cone Mosaic Disruption" data-dismech-type="pathophysiology">
                 <div class="item-name">Carrier Female Cone Mosaic Disruption</div>
+
 
                 <div class="item-desc">Carrier females are described as unaffected, but they are not unaffected at the level of the retina. Random X-inactivation means roughly half of the cones fated to express L or M opsin instead express nothing, and imaging those retinas shows reduced cone density and disrupted mosaic organization relative to normal trichromats — evidence that opsin-null cones degenerate early rather than persisting silently. This is the cleanest natural experiment supporting the structural role of opsin asserted in the parent node, and it is the mechanism behind the rare manifesting female, in whom X-inactivation is completely skewed rather than random.</div>
 
@@ -6687,6 +6737,9 @@ This disease-associated gene is OPN1LW (hgnc:9936). hgnc:9936 is a gene from the
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">X-linked recessive</span>
@@ -6792,6 +6845,9 @@ This disease-associated gene is OPN1MW (hgnc:4206). hgnc:4206 is a gene from the
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">X-linked recessive</span>
@@ -6872,6 +6928,9 @@ This disease-associated gene is OPN1LW (hgnc:9936). hgnc:9936 is a gene from the
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">X-linked recessive</span>
@@ -6950,6 +7009,9 @@ This disease-associated gene is OPN1MW (hgnc:4206). hgnc:4206 is a gene from the
 
 
                 </div>
+
+
+
 
 
 
@@ -7078,6 +7140,9 @@ This disease-associated gene is GPR143 (hgnc:20145). hgnc:20145 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7148,6 +7213,9 @@ This disease-associated gene is OPN1LW (hgnc:9936). hgnc:9936 is a gene from the
 
 
                 </div>
+
+
+
 
 
 

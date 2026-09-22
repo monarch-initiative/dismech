@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4543,6 +4582,7 @@ This subtype is caused by variation in MAPT (hgnc:6893). hgnc:6893 is a gene fro
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-4r-tau-aggregation-in-neurons-and-glia" data-dismech-node="4R-Tau Aggregation in Neurons and Glia" data-dismech-type="pathophysiology">
                 <div class="item-name">4R-Tau Aggregation in Neurons and Glia</div>
 
+
                 <div class="item-desc">PSP is neuropathologically defined by accumulation of hyperphosphorylated, aggregated four-repeat (4R) tau in neurons, astrocytes (tufted astrocytes), and oligodendrocytes (coiled bodies). Tau inclusions disrupt microtubule biology and proteostasis. MAPT expression is preserved in all three cell types harboring tau aggregates, supporting ongoing local tau production that can feed continued aggregation and cell-to-cell seeding. This is the upstream initiating lesion of PSP pathology.</div>
 
 
@@ -4848,6 +4888,7 @@ This pathophysiological event involves increased Tau hyperphosphorylation, annot
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mapt-h1-haplotype-and-4r-tau-splicing-imbalance" data-dismech-node="MAPT H1 Haplotype and 4R Tau Splicing Imbalance" data-dismech-type="pathophysiology">
                 <div class="item-name">MAPT H1 Haplotype and 4R Tau Splicing Imbalance</div>
 
+
                 <div class="item-desc">The MAPT 17q21.31 locus contains low-copy repeats flanking a recurrent genomic inversion, giving rise to two dominant haplotypes (H1 and H2). The H1 haplotype is the strongest common genetic risk factor for PSP. Haplotype-dependent regulation biases tau pre-mRNA splicing and expression toward the 4R isoform: post-mortem bulk RNA-seq shows increased total tau mRNA and an increased proportion of 4R tau transcripts in PSP brain, with 4R tau mRNA significantly associated with the H1 haplotype, supporting an upstream splicing/expression mechanism feeding tau aggregation.</div>
 
 
@@ -5121,6 +5162,7 @@ This pathophysiological event involves Increased tau gene expression, annotated 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-integrated-stress-response-activation" data-dismech-node="Integrated Stress Response Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Integrated Stress Response Activation</div>
 
+
                 <div class="item-desc">Chronic proteotoxic/tau burden activates the integrated stress response (EIF2 signaling) in vulnerable cell types. Single-nucleus RNA-seq of the PSP diencephalon identified EIF2 signaling as an activated adaptive stress pathway, and activated eIF2-alpha was positively correlated with tau pathology burden and localized to p-tau-positive neurons and ALDH1L1-positive astrocytes. Failure of this adaptive stress response is proposed to contribute mechanistically to PSP progression and neuronal loss.</div>
 
 
@@ -5352,6 +5394,7 @@ This pathophysiological event involves Response to endoplasmic reticulum stress 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neuroinflammation-and-glial-activation" data-dismech-node="Neuroinflammation and Glial Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Neuroinflammation and Glial Activation</div>
 
+
                 <div class="item-desc">Tau pathology triggers glial and immune activation in PSP. CSF proteomic and neuropathologic studies implicate dysregulated cytokine/inflammatory signaling and glial activation as an ongoing neuroimmune component that may track and contribute to disease progression. (Cached CSF-proteomics reference content was title-only; quantitative inflammatory-marker detail in the deep-research report should be re-verified against the full abstract before being quoted.)</div>
 
 
@@ -5558,6 +5601,7 @@ This pathophysiological event involves Inflammatory response (GO:0006954). GO:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-axon-guidance-and-synaptic-pathway-dysregulation" data-dismech-node="Axon Guidance and Synaptic Pathway Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Axon Guidance and Synaptic Pathway Dysregulation</div>
 
+
                 <div class="item-desc">Downstream of tauopathy, PSP shows circuit-level dysfunction. CSF proteomic studies have identified dysregulation of axon guidance and synaptic-function pathways, consistent with axonal and synaptic injury contributing to the motor and cognitive syndromes. (CSF-proteomics cache content was title-only; the axon-guidance pathway detail is drawn from the deep-research report and should be re-verified against the full abstract before quoting specific statistics.)</div>
 
 
@@ -5703,6 +5747,7 @@ This pathophysiological event involves abnormal Axon guidance (GO:0007411). GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neuronal-dysfunction-and-loss" data-dismech-node="Neuronal Dysfunction and Loss" data-dismech-type="pathophysiology">
                 <div class="item-name">Neuronal Dysfunction and Loss</div>
+
 
                 <div class="item-desc">Convergent tau toxicity, maladaptive stress signaling, neuroinflammation, and synaptic/axonal injury produce region- and cell-type-specific neuronal dysfunction and death, predominantly in the subthalamic nucleus, globus pallidus, and dorsal midbrain, with variable cortical involvement. This neurodegeneration underlies the progressive motor, oculomotor, and cognitive syndromes of PSP.</div>
 
@@ -7050,6 +7095,9 @@ This disease-associated gene is MAPT (hgnc:6893). hgnc:6893 is a gene from the H
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant inheritance</span>
@@ -7159,6 +7207,9 @@ This disease-associated gene is APOE (hgnc:613). hgnc:613 is a gene from the HUG
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7215,6 +7266,9 @@ This disease-associated gene is APOE (hgnc:613). hgnc:613 is a gene from the HUG
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 

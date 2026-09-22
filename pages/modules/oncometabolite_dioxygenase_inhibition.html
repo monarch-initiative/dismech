@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1056,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1071,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1125,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1138,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1296,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1306,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1347,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2137,11 +2174,13 @@ This mechanism module involves increased cellular response to oxidative stress (
             
             <div class="item-box anchor-target" id="module-pathophysiology-metabolic-enzyme-lesion-tca-tumor-suppressor-loss-or-idh-neomorphic-gain" data-dismech-node="Metabolic Enzyme Lesion (TCA Tumor Suppressor Loss or IDH Neomorphic Gain)" data-dismech-type="pathophysiology">
                 <div class="item-name">Metabolic Enzyme Lesion (TCA Tumor Suppressor Loss or IDH Neomorphic Gain)</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The initiating lesion, reached by two opposite genetic routes. In the tumor suppressor route, both alleles of a TCA-cycle enzyme gene are inactivated — fumarate hydratase in hereditary leiomyomatosis and renal cell cancer, or a succinate dehydrogenase subunit in hereditary paraganglioma-pheochromocytoma — typically a germline first hit plus somatic loss of the wild-type allele. In the oncogene route, a heterozygous missense mutation at IDH1 R132 or IDH2 R140/R172 confers a neomorphic activity while the wild-type allele is retained, so there is simultaneous partial loss of normal 2-oxoglutarate production and gain of a new product.</div>
                 
@@ -2187,11 +2226,13 @@ This mechanism module involves increased cellular response to oxidative stress (
             
             <div class="item-box anchor-target" id="module-pathophysiology-oncometabolite-accumulation" data-dismech-node="Oncometabolite Accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Oncometabolite Accumulation</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">amplifier</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The metabolite immediately upstream of the disabled enzyme, or the neomorphic product, accumulates to concentrations far above physiological. Succinate accumulates when succinate dehydrogenase is inhibited; fumarate accumulates when fumarate hydratase is lost; R-2-hydroxyglutarate is produced de novo by mutant IDH. What unites them is structural: each is a close analogue of 2-oxoglutarate, the obligatory co-substrate of an entire dioxygenase superfamily, and each is present at concentrations sufficient to compete with it.</div>
                 
@@ -2290,11 +2331,13 @@ This pathophysiological event involves decreased tricarboxylic acid cycle (GO:00
             
             <div class="item-box anchor-target" id="module-pathophysiology-competitive-inhibition-of-2-oxoglutarate-dependent-dioxygenases" data-dismech-node="Competitive Inhibition of 2-Oxoglutarate-Dependent Dioxygenases" data-dismech-type="pathophysiology">
                 <div class="item-name">Competitive Inhibition of 2-Oxoglutarate-Dependent Dioxygenases</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">central effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The rate-limiting, disorder-agnostic node this module exists to name. The accumulated oncometabolite occupies the same active-site space as 2-oxoglutarate and competitively inhibits the superfamily of enzymes that require it — the HIF prolyl hydroxylases, the TET family of 5-methylcytosine hydroxylases, and the Jumonji-domain histone demethylases, among others. Inhibition is not selective for one target, which is why a single metabolic lesion produces simultaneous hypoxia-response and chromatin phenotypes, and why the tumor phenotype cannot be explained by ATP deficiency.</div>
                 
@@ -2361,11 +2404,13 @@ This pathophysiological event involves decreased tricarboxylic acid cycle (GO:00
             
             <div class="item-box anchor-target" id="module-pathophysiology-pseudohypoxic-hif-stabilization" data-dismech-node="Pseudohypoxic HIF Stabilization" data-dismech-type="pathophysiology">
                 <div class="item-name">Pseudohypoxic HIF Stabilization</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">With the prolyl hydroxylases inhibited, HIF-alpha subunits are not hydroxylated, are not recognized by the VHL E3 ligase, and accumulate in normoxia. The cell therefore transcribes the hypoxia programme — angiogenic, glycolytic and invasion-associated target genes — while oxygen is adequate. This is the mechanistic explanation for why highly vascular tumors arise in these syndromes without any VHL mutation, and it is the point of convergence with von Hippel-Lindau disease, which reaches the same state from the opposite direction by losing the ligase instead of inhibiting the hydroxylase.</div>
                 
@@ -2464,11 +2509,13 @@ This pathophysiological event involves increased cellular response to decreased 
             
             <div class="item-box anchor-target" id="module-pathophysiology-impaired-demethylation-and-genome-wide-hypermethylation" data-dismech-node="Impaired Demethylation and Genome-Wide Hypermethylation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Demethylation and Genome-Wide Hypermethylation</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Inhibition of the TET 5-methylcytosine hydroxylases and the Jumonji-family histone demethylases blocks the removal of methyl marks, so DNA and histone methylation accumulate genome-wide. In SDHx-mutated paraganglioma this produces a distinct hypermethylator cluster with downregulation of the genes that specify neuroendocrine differentiation; in IDH-mutant acute myeloid leukaemia the same chemistry produces a global hypermethylation signature with impaired haematopoietic differentiation. The severity tracks the genotype — epigenetic silencing is most marked in SDHB-mutated tumors, which are also the most malignant.</div>
                 
@@ -2581,11 +2628,13 @@ This pathophysiological event involves decreased demethylation (GO:0070988). GO:
             
             <div class="item-box anchor-target" id="module-pathophysiology-keap1-succination-and-nrf2-antioxidant-pathway-activation" data-dismech-node="KEAP1 Succination and NRF2 Antioxidant Pathway Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">KEAP1 Succination and NRF2 Antioxidant Pathway Activation</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">adaptive escape</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">A branch specific to fumarate and chemically distinct from the rest of the module: fumarate reacts covalently with cysteine thiols to form S-(2-succinyl)cysteine, and succination of KEAP1 abrogates its ability to repress NRF2. The NRF2 antioxidant transcriptional programme is then constitutively active. Mouse genetics places this branch outside the HIF axis — Fh1-associated renal cyst formation proceeds independently of HIF — which is the principal reason the HIF branch cannot be assumed to be the sole oncogenic driver in FH-deficient disease.</div>
                 
@@ -2663,11 +2712,13 @@ This pathophysiological event involves increased cellular response to oxidative 
             
             <div class="item-box anchor-target" id="module-pathophysiology-oncometabolite-driven-tumorigenesis-with-differentiation-block" data-dismech-node="Oncometabolite-Driven Tumorigenesis with Differentiation Block" data-dismech-type="pathophysiology">
                 <div class="item-name">Oncometabolite-Driven Tumorigenesis with Differentiation Block</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The convergent output: tumors that are characteristically hypervascular, metabolically reprogrammed, and blocked in differentiation, arising in the specific lineages each genotype affects — smooth muscle and renal tubular epithelium for FH, chromaffin and paraganglionic tissue for SDHx, glial and haematopoietic progenitors for IDH. Reversibility is part of the evidence for the mechanism: the migratory phenotype induced by succinate accumulation in SDH-deficient cells is reversed by a DNA hypomethylating agent, which would not be expected if the hypermethylation were a bystander mark.</div>
                 

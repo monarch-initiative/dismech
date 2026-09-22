@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4312,6 +4351,13 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-plau-tandem-duplication" data-dismech-node="PLAU Tandem Duplication" data-dismech-type="pathophysiology">
                 <div class="item-name">PLAU Tandem Duplication</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The initiating lesion is a direct germline tandem duplication of a 78-kb segment of chromosome 10q22 containing PLAU and C10orf55. It is a copy-number gain, not a sequence change: the uPA coding sequence and the transcripts produced from it are structurally normal, which is why the disorder is a regulatory gain of function rather than an altered protein. C10orf55 lies inside the duplicated interval but is not the causal effector.</div>
 
 
@@ -4372,6 +4418,8 @@ This pathophysiological event involves PLAU (hgnc:9052). hgnc:9052 is a gene fro
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4384,6 +4432,9 @@ This pathophysiological event involves PLAU (hgnc:9052). hgnc:9052 is a gene fro
         <span class="tag tag-classification">functional_impact_category: GAIN_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">A heterozygous ~78-kb direct tandem duplication. The gain of function is regulatory and lineage-restricted rather than a change in uPA structure or catalytic activity.</div>
 
@@ -4490,6 +4541,13 @@ This pathophysiological event involves PLAU (hgnc:9052). hgnc:9052 is a gene fro
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-megakaryocyte-enhancer-adoption-by-the-duplicated-plau-allele" data-dismech-node="Megakaryocyte Enhancer Adoption by the Duplicated PLAU Allele" data-dismech-type="pathophysiology">
                 <div class="item-name">Megakaryocyte Enhancer Adoption by the Duplicated PLAU Allele</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Reorganization of sub-TAD architecture brings the duplicated PLAU copy into preferential contact with a conserved megakaryocyte enhancer that lies within the same topologically associating domain. On the disease chromosome the PLAU promoter loses repressive H3K27me3 and gains transcription-associated H3K36me3. Because the adopted enhancer is active specifically during megakaryopoiesis, the consequence is confined to that lineage - this is the step that explains the cell-type specificity of the whole disorder.</div>
 
 
@@ -4569,6 +4627,13 @@ This pathophysiological event involves PLAU (hgnc:9052). hgnc:9052 is a gene fro
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-megakaryocyte-restricted-plau-overexpression" data-dismech-node="Megakaryocyte-Restricted PLAU Overexpression" data-dismech-type="pathophysiology">
                 <div class="item-name">Megakaryocyte-Restricted PLAU Overexpression</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">QPD megakaryocytes produce more than 100-fold the normal level of structurally normal PLAU transcript, far in excess of the twofold that an extra gene copy alone would predict, and with a strong allelic bias toward the disease chromosome. Leukocytes from the same individuals show only the small increase that copy number predicts. That contrast is the direct evidence that the mechanism is lineage-restricted enhancer adoption and not gene dosage.</div>
 
@@ -4742,6 +4807,13 @@ This pathophysiological event involves megakaryocyte (CL:0000556). CL:0000556 is
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-excess-upa-storage-in-platelet-alpha-granules" data-dismech-node="Excess uPA Storage in Platelet Alpha-Granules" data-dismech-type="pathophysiology">
                 <div class="item-name">Excess uPA Storage in Platelet Alpha-Granules</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Platelets carry more than 100-fold the normal uPA content, stored in alpha-granules, while plasma and urine uPA remain normal. The component lost to the primary hemostatic apparatus is therefore not a receptor but the alpha-granule cargo itself, which is destroyed in situ by the enzyme stored alongside it.</div>
 
 
@@ -4884,6 +4956,13 @@ This pathophysiological event involves platelet (CL:0000233). CL:0000233 is a ce
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-intraplatelet-plasmin-generation-and-alpha-granule-protein-degradation" data-dismech-node="Intraplatelet Plasmin Generation and Alpha-Granule Protein Degradation" data-dismech-type="pathophysiology">
                 <div class="item-name">Intraplatelet Plasmin Generation and Alpha-Granule Protein Degradation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">uPA stored with the cargo converts plasminogen to plasmin inside the alpha-granule, and plasmin degrades fibrinogen, factor V, von Willebrand factor, thrombospondin-1, multimerin-1, osteonectin and P-selectin. The degradation is post-translational: transcripts for the alpha-granule proteins are not reduced, so the platelet is built normally and its cargo is destroyed afterwards. This is the step that historically gave the disorder its &#34;factor V Quebec&#34; name, when the deficiency of platelet factor V was mistaken for the primary defect.</div>
 
@@ -5039,6 +5118,13 @@ This pathophysiological event involves increased plasminogen activation (GO:0031
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-accelerated-platelet-localized-clot-lysis" data-dismech-node="Accelerated Platelet-Localized Clot Lysis" data-dismech-type="pathophysiology">
                 <div class="item-name">Accelerated Platelet-Localized Clot Lysis</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Activated QPD platelets release uPA into the clot they have just helped build, and the plug is lysed prematurely. Primary hemostasis succeeds and then fails, which is why bleeding is delayed rather than immediate and why it is refractory to platelet transfusion, which adds platelets without suppressing local plasmin generation. Because systemic fibrinolysis is normal, the effect is confined to the site of the plug. This node is deliberately not marked as conforming to primary_hemostatic_plug_failure - that module models a plug that never forms, whereas the defining QPD lesion destroys a plug that did.</div>
 
@@ -5296,7 +5382,7 @@ This pathophysiological event involves increased fibrinolysis (GO:0042730). GO:0
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Accelerated Platelet-Localized Clot Lysis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Activated QPD platelets release uPA into the clot they have just helped build, and the plug is lysed prematurely. Primary hemostasis succeeds and then fails, which is why bleeding is delayed rather than immediate and why it is refractory to platelet transfusion, which adds platelets without suppressing local plasmin generation. Because systemic fibrinolysis is normal, the effect is confined to the site of the plug. This node is deliberately not marked as conforming to primary_hemostatic_plug_failure - that module models a plug that never forms, whereas the defining QPD lesion destroys a plug that did.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"fibrinolysis\"], \"animal_models\": [{\"name\": \"Megakaryocyte-targeted uPA transgenic mouse\", \"species\": \"Mouse\", \"genotype\": \"Transgenic overexpression of uPA restricted to the megakaryocyte lineage\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reproduces the downstream consequence - platelet uPA overexpression with a bleeding phenotype - and so establishes that ectopic platelet uPA is sufficient to cause the disorder.\"}]}}, {\"id\": \"Delayed-Onset Bleeding After Hemostatic Challenge\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The defining clinical feature. Bleeding follows an apparently successful initial hemostatic response, typically emerging 12 to 24 hours - sometimes three to four days - after surgery, dental extraction, trauma or a deep cut, and can then persist for days. In the founder-family study, bleeding beyond 24 hours after dental extraction or deep cuts was among the manifestations carrying an odds ratio above 20.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0004846\"}}, {\"id\": \"Epistaxis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Nosebleeds were more frequent in affected relatives, though severe nosebleeds were uncommon - a milder mucocutaneous feature than the procedural bleeding that defines the disorder.\", \"meta\": {\"term_id\": \"HP:0000421\"}}, {\"id\": \"Excess uPA Storage in Platelet Alpha-Granules\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Platelets carry more than 100-fold the normal uPA content, stored in alpha-granules, while plasma and urine uPA remain normal. The component lost to the primary hemostatic apparatus is therefore not a receptor but the alpha-granule cargo itself, which is destroyed in situ by the enzyme stored alongside it.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"platelet\"]}}, {\"id\": \"Hematuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Often spontaneous and episodic rather than challenge-related. In the family study it was among the manifestations significantly associated with affected status, and it generally resolves without specific treatment.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000790\"}}, {\"id\": \"Intraplatelet Plasmin Generation and Alpha-Granule Protein Degradation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"uPA stored with the cargo converts plasminogen to plasmin inside the alpha-granule, and plasmin degrades fibrinogen, factor V, von Willebrand factor, thrombospondin-1, multimerin-1, osteonectin and P-selectin. The degradation is post-translational: transcripts for the alpha-granule proteins are not reduced, so the platelet is built normally and its cargo is destroyed afterwards. This is the step that historically gave the disorder its \\\"factor V Quebec\\\" name, when the deficiency of platelet factor V was mistaken for the primary defect.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"plasminogen activation\"]}}, {\"id\": \"Joint Bleeding\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hemarthrosis occurred only in affected relatives in the family study. Recurrent episodes can produce destructive arthropathy, which is the main route by which an otherwise episodic disorder accumulates permanent damage.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0005261\"}}, {\"id\": \"Large Spreading Bruises\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bruises that track downward or reach the size of an orange were reported only by affected participants, and are one of the more specific clinical clues to the disorder.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000978\"}}, {\"id\": \"Megakaryocyte Enhancer Adoption by the Duplicated PLAU Allele\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reorganization of sub-TAD architecture brings the duplicated PLAU copy into preferential contact with a conserved megakaryocyte enhancer that lies within the same topologically associating domain. On the disease chromosome the PLAU promoter loses repressive H3K27me3 and gains transcription-associated H3K36me3. Because the adopted enhancer is active specifically during megakaryopoiesis, the consequence is confined to that lineage - this is the step that explains the cell-type specificity of the whole disorder.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Megakaryocyte-Restricted PLAU Overexpression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"QPD megakaryocytes produce more than 100-fold the normal level of structurally normal PLAU transcript, far in excess of the twofold that an extra gene copy alone would predict, and with a strong allelic bias toward the disease chromosome. Leukocytes from the same individuals show only the small increase that copy number predicts. That contrast is the direct evidence that the mechanism is lineage-restricted enhancer adoption and not gene dosage.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"megakaryocyte\"]}}, {\"id\": \"Megakaryocyte-targeted uPA transgenic mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A transgenic mouse engineered to overexpress uPA specifically in megakaryocytes develops a QPD-like bleeding disorder. It tests the sufficiency of ectopic platelet uPA rather than reproducing the human lesion.\"}, {\"id\": \"Mild Thrombocytopenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Platelet counts are lower than in unaffected relatives but frequently remain within the normal reference interval, so a normal platelet count does not exclude the diagnosis. The thrombocytopenia is mild and is not the cause of the bleeding phenotype, which tracks the fibrinolytic defect instead.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001873\"}}, {\"id\": \"PLAU\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"PLAU\"], \"gene_terms\": [{\"label\": \"PLAU\", \"id\": \"hgnc:9052\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"PLAU Tandem Duplication\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion is a direct germline tandem duplication of a 78-kb segment of chromosome 10q22 containing PLAU and C10orf55. It is a copy-number gain, not a sequence change: the uPA coding sequence and the transcripts produced from it are structurally normal, which is why the disorder is a regulatory gain of function rather than an altered protein. C10orf55 lies inside the duplicated interval but is not the causal effector.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"PLAU\"], \"gene_terms\": [{\"label\": \"PLAU\", \"id\": \"hgnc:9052\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"GAIN_OF_FUNCTION\", \"description\": \"A heterozygous ~78-kb direct tandem duplication. The gain of function is regulatory and lineage-restricted rather than a change in uPA structure or catalytic activity.\"}, \"role\": \"trigger\"}}, {\"id\": \"Poor Wound Healing\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delayed wound healing was reported by a minority of affected relatives. Whether this reflects repeated bleeding into the healing wound or loss of specific alpha-granule proteins with roles in repair is not separately established.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001058\"}}, {\"id\": \"Prolonged Menstrual Bleeding\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Menses lasting longer than seven days were reported more often by affected women, although self-described \\\"abundant\\\" menstruation did not itself discriminate affected from unaffected participants in the small female sample.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000132\"}}, {\"id\": \"Tranexamic Acid\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Antifibrinolytic therapy is the only treatment shown to control QPD bleeding, and it is used both to treat an established bleed and as prophylaxis around a planned hemostatic challenge. Because the bleeding is delayed, cover must continue for days after the challenge rather than stopping once immediate hemostasis is achieved - reported schedules run from three to four days for minor procedures up to ten to fourteen days after intracranial bleeding. Epsilon-aminocaproic acid is a less potent alternative requiring higher doses; it is deliberately left without an ontology binding here because no CHEBI term for it was resolved during curation.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"tranexamic acid\"]}}], \"edges\": [{\"source\": \"PLAU Tandem Duplication\", \"target\": \"Megakaryocyte Enhancer Adoption by the Duplicated PLAU Allele\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The duplication disrupts the boundary between the PLAU and VCL sub-topologically associating domains, placing one PLAU copy in a new regulatory neighbourhood.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Megakaryocyte Enhancer Adoption by the Duplicated PLAU Allele\", \"target\": \"Megakaryocyte-Restricted PLAU Overexpression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Enhancer adoption drives transcription of the duplicated allele during megakaryopoiesis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Megakaryocyte-Restricted PLAU Overexpression\", \"target\": \"Excess uPA Storage in Platelet Alpha-Granules\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Overexpressed uPA is packaged into alpha-granules as the megakaryocyte produces platelets.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Excess uPA Storage in Platelet Alpha-Granules\", \"target\": \"Intraplatelet Plasmin Generation and Alpha-Granule Protein Degradation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Stored uPA converts plasminogen to plasmin within the granule compartment.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intraplatelet Plasmin Generation and Alpha-Granule Protein Degradation\", \"target\": \"Accelerated Platelet-Localized Clot Lysis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Platelet activation at a site of injury releases active uPA into the forming plug.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intraplatelet Plasmin Generation and Alpha-Granule Protein Degradation\", \"target\": \"Mild Thrombocytopenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Intraplatelet proteolysis, and possibly shortened platelet survival, probably contribute to the reduced platelet count. This link is less directly established than the fibrinolytic arm.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Accelerated Platelet-Localized Clot Lysis\", \"target\": \"Delayed-Onset Bleeding After Hemostatic Challenge\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Premature dissolution of the formed plug produces bleeding hours to days after the challenge.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Accelerated Platelet-Localized Clot Lysis\", \"target\": \"Joint Bleeding\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Accelerated Platelet-Localized Clot Lysis\", \"target\": \"Hematuria\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Accelerated Platelet-Localized Clot Lysis\", \"target\": \"Epistaxis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Accelerated Platelet-Localized Clot Lysis\", \"target\": \"Large Spreading Bruises\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Accelerated Platelet-Localized Clot Lysis\", \"target\": \"Prolonged Menstrual Bleeding\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Accelerated Platelet-Localized Clot Lysis\", \"target\": \"Poor Wound Healing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Repeated bleeding into a healing wound is the presumed route; the contribution of individual degraded alpha-granule proteins to healing is inferred rather than separately demonstrated.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Tranexamic Acid\", \"target\": \"Accelerated Platelet-Localized Clot Lysis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Megakaryocyte-targeted uPA transgenic mouse\", \"target\": \"Accelerated Platelet-Localized Clot Lysis\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Reproduces the downstream consequence - platelet uPA overexpression with a bleeding phenotype - and so establishes that ectopic platelet uPA is sufficient to cause the disorder.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The model does not carry the tandem duplication and does not reproduce the enhancer adoption that causes lineage-restricted overexpression in humans; the transgene supplies the endpoint directly. Its reproductive phenotype is also more severe than the human disease, with fetal loss and fatal postpartum hemorrhage reported, whereas all nine pregnancies among five affected women in the founder-family study were successful.\"}, {\"source\": \"PLAU\", \"target\": \"PLAU Tandem Duplication\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Accelerated Platelet-Localized Clot Lysis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Activated QPD platelets release uPA into the clot they have just helped build, and the plug is lysed prematurely. Primary hemostasis succeeds and then fails, which is why bleeding is delayed rather than immediate and why it is refractory to platelet transfusion, which adds platelets without suppressing local plasmin generation. Because systemic fibrinolysis is normal, the effect is confined to the site of the plug. This node is deliberately not marked as conforming to primary_hemostatic_plug_failure - that module models a plug that never forms, whereas the defining QPD lesion destroys a plug that did.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"fibrinolysis\"], \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Megakaryocyte-targeted uPA transgenic mouse\", \"species\": \"Mouse\", \"genotype\": \"Transgenic overexpression of uPA restricted to the megakaryocyte lineage\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reproduces the downstream consequence - platelet uPA overexpression with a bleeding phenotype - and so establishes that ectopic platelet uPA is sufficient to cause the disorder.\"}]}}, {\"id\": \"Delayed-Onset Bleeding After Hemostatic Challenge\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The defining clinical feature. Bleeding follows an apparently successful initial hemostatic response, typically emerging 12 to 24 hours - sometimes three to four days - after surgery, dental extraction, trauma or a deep cut, and can then persist for days. In the founder-family study, bleeding beyond 24 hours after dental extraction or deep cuts was among the manifestations carrying an odds ratio above 20.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0004846\"}}, {\"id\": \"Epistaxis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Nosebleeds were more frequent in affected relatives, though severe nosebleeds were uncommon - a milder mucocutaneous feature than the procedural bleeding that defines the disorder.\", \"meta\": {\"term_id\": \"HP:0000421\"}}, {\"id\": \"Excess uPA Storage in Platelet Alpha-Granules\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Platelets carry more than 100-fold the normal uPA content, stored in alpha-granules, while plasma and urine uPA remain normal. The component lost to the primary hemostatic apparatus is therefore not a receptor but the alpha-granule cargo itself, which is destroyed in situ by the enzyme stored alongside it.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"platelet\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Hematuria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Often spontaneous and episodic rather than challenge-related. In the family study it was among the manifestations significantly associated with affected status, and it generally resolves without specific treatment.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000790\"}}, {\"id\": \"Intraplatelet Plasmin Generation and Alpha-Granule Protein Degradation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"uPA stored with the cargo converts plasminogen to plasmin inside the alpha-granule, and plasmin degrades fibrinogen, factor V, von Willebrand factor, thrombospondin-1, multimerin-1, osteonectin and P-selectin. The degradation is post-translational: transcripts for the alpha-granule proteins are not reduced, so the platelet is built normally and its cargo is destroyed afterwards. This is the step that historically gave the disorder its \\\"factor V Quebec\\\" name, when the deficiency of platelet factor V was mistaken for the primary defect.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"plasminogen activation\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Joint Bleeding\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hemarthrosis occurred only in affected relatives in the family study. Recurrent episodes can produce destructive arthropathy, which is the main route by which an otherwise episodic disorder accumulates permanent damage.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0005261\"}}, {\"id\": \"Large Spreading Bruises\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bruises that track downward or reach the size of an orange were reported only by affected participants, and are one of the more specific clinical clues to the disorder.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000978\"}}, {\"id\": \"Megakaryocyte Enhancer Adoption by the Duplicated PLAU Allele\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reorganization of sub-TAD architecture brings the duplicated PLAU copy into preferential contact with a conserved megakaryocyte enhancer that lies within the same topologically associating domain. On the disease chromosome the PLAU promoter loses repressive H3K27me3 and gains transcription-associated H3K36me3. Because the adopted enhancer is active specifically during megakaryopoiesis, the consequence is confined to that lineage - this is the step that explains the cell-type specificity of the whole disorder.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Megakaryocyte-Restricted PLAU Overexpression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"QPD megakaryocytes produce more than 100-fold the normal level of structurally normal PLAU transcript, far in excess of the twofold that an extra gene copy alone would predict, and with a strong allelic bias toward the disease chromosome. Leukocytes from the same individuals show only the small increase that copy number predicts. That contrast is the direct evidence that the mechanism is lineage-restricted enhancer adoption and not gene dosage.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"megakaryocyte\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Megakaryocyte-targeted uPA transgenic mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A transgenic mouse engineered to overexpress uPA specifically in megakaryocytes develops a QPD-like bleeding disorder. It tests the sufficiency of ectopic platelet uPA rather than reproducing the human lesion.\"}, {\"id\": \"Mild Thrombocytopenia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Platelet counts are lower than in unaffected relatives but frequently remain within the normal reference interval, so a normal platelet count does not exclude the diagnosis. The thrombocytopenia is mild and is not the cause of the bleeding phenotype, which tracks the fibrinolytic defect instead.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001873\"}}, {\"id\": \"PLAU\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"PLAU\"], \"gene_terms\": [{\"label\": \"PLAU\", \"id\": \"hgnc:9052\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"PLAU Tandem Duplication\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The initiating lesion is a direct germline tandem duplication of a 78-kb segment of chromosome 10q22 containing PLAU and C10orf55. It is a copy-number gain, not a sequence change: the uPA coding sequence and the transcripts produced from it are structurally normal, which is why the disorder is a regulatory gain of function rather than an altered protein. C10orf55 lies inside the duplicated interval but is not the causal effector.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"PLAU\"], \"gene_terms\": [{\"label\": \"PLAU\", \"id\": \"hgnc:9052\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"GAIN_OF_FUNCTION\", \"description\": \"A heterozygous ~78-kb direct tandem duplication. The gain of function is regulatory and lineage-restricted rather than a change in uPA structure or catalytic activity.\"}, \"role\": \"trigger\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Poor Wound Healing\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Delayed wound healing was reported by a minority of affected relatives. Whether this reflects repeated bleeding into the healing wound or loss of specific alpha-granule proteins with roles in repair is not separately established.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001058\"}}, {\"id\": \"Prolonged Menstrual Bleeding\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Menses lasting longer than seven days were reported more often by affected women, although self-described \\\"abundant\\\" menstruation did not itself discriminate affected from unaffected participants in the small female sample.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000132\"}}, {\"id\": \"Tranexamic Acid\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Antifibrinolytic therapy is the only treatment shown to control QPD bleeding, and it is used both to treat an established bleed and as prophylaxis around a planned hemostatic challenge. Because the bleeding is delayed, cover must continue for days after the challenge rather than stopping once immediate hemostasis is achieved - reported schedules run from three to four days for minor procedures up to ten to fourteen days after intracranial bleeding. Epsilon-aminocaproic acid is a less potent alternative requiring higher doses; it is deliberately left without an ontology binding here because no CHEBI term for it was resolved during curation.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"tranexamic acid\"]}}], \"edges\": [{\"source\": \"PLAU Tandem Duplication\", \"target\": \"Megakaryocyte Enhancer Adoption by the Duplicated PLAU Allele\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The duplication disrupts the boundary between the PLAU and VCL sub-topologically associating domains, placing one PLAU copy in a new regulatory neighbourhood.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Megakaryocyte Enhancer Adoption by the Duplicated PLAU Allele\", \"target\": \"Megakaryocyte-Restricted PLAU Overexpression\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Enhancer adoption drives transcription of the duplicated allele during megakaryopoiesis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Megakaryocyte-Restricted PLAU Overexpression\", \"target\": \"Excess uPA Storage in Platelet Alpha-Granules\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Overexpressed uPA is packaged into alpha-granules as the megakaryocyte produces platelets.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Excess uPA Storage in Platelet Alpha-Granules\", \"target\": \"Intraplatelet Plasmin Generation and Alpha-Granule Protein Degradation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Stored uPA converts plasminogen to plasmin within the granule compartment.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intraplatelet Plasmin Generation and Alpha-Granule Protein Degradation\", \"target\": \"Accelerated Platelet-Localized Clot Lysis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Platelet activation at a site of injury releases active uPA into the forming plug.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Intraplatelet Plasmin Generation and Alpha-Granule Protein Degradation\", \"target\": \"Mild Thrombocytopenia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Intraplatelet proteolysis, and possibly shortened platelet survival, probably contribute to the reduced platelet count. This link is less directly established than the fibrinolytic arm.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Accelerated Platelet-Localized Clot Lysis\", \"target\": \"Delayed-Onset Bleeding After Hemostatic Challenge\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Premature dissolution of the formed plug produces bleeding hours to days after the challenge.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Accelerated Platelet-Localized Clot Lysis\", \"target\": \"Joint Bleeding\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Accelerated Platelet-Localized Clot Lysis\", \"target\": \"Hematuria\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Accelerated Platelet-Localized Clot Lysis\", \"target\": \"Epistaxis\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Accelerated Platelet-Localized Clot Lysis\", \"target\": \"Large Spreading Bruises\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Accelerated Platelet-Localized Clot Lysis\", \"target\": \"Prolonged Menstrual Bleeding\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Accelerated Platelet-Localized Clot Lysis\", \"target\": \"Poor Wound Healing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Repeated bleeding into a healing wound is the presumed route; the contribution of individual degraded alpha-granule proteins to healing is inferred rather than separately demonstrated.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Tranexamic Acid\", \"target\": \"Accelerated Platelet-Localized Clot Lysis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Megakaryocyte-targeted uPA transgenic mouse\", \"target\": \"Accelerated Platelet-Localized Clot Lysis\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Reproduces the downstream consequence - platelet uPA overexpression with a bleeding phenotype - and so establishes that ectopic platelet uPA is sufficient to cause the disorder.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The model does not carry the tandem duplication and does not reproduce the enhancer adoption that causes lineage-restricted overexpression in humans; the transgene supplies the endpoint directly. Its reproductive phenotype is also more severe than the human disease, with fetal loss and fatal postpartum hemorrhage reported, whereas all nine pregnancies among five affected women in the founder-family study were successful.\"}, {\"source\": \"PLAU\", \"target\": \"PLAU Tandem Duplication\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6109,6 +6195,9 @@ This disease-associated gene is PLAU (hgnc:9052). hgnc:9052 is a gene from the H
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 

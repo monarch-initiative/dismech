@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4951,6 +4990,7 @@ What organises this entry is the unresolved question of how a misprocessed recep
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tnfrsf11a-exon-1-signal-peptide-tandem-duplication" data-dismech-node="TNFRSF11A Exon 1 Signal-Peptide Tandem Duplication" data-dismech-type="pathophysiology">
                 <div class="item-name">TNFRSF11A Exon 1 Signal-Peptide Tandem Duplication</div>
 
+
                 <div class="item-desc">The initiating lesion. A heterozygous in-frame 18-base-pair tandem duplication in exon 1 of TNFRSF11A, the gene encoding receptor activator of NF-kappaB (RANK), inserts six amino acids into the signal peptide of the receptor. The classic allele is 84dup18; a second 18-bp duplication one base proximal to it adds the same six residues. Intragenic haplotypes show that the identical duplication has arisen independently at least three times, and the exon 1 sequence can form a stable secondary structure that may favour tandem duplication, which is why the same lesion recurs in unrelated families. The allelic 27-, 15- and 12-bp duplications in the same signal peptide cause the related disorders described in the notes.</div>
 
 
@@ -5051,6 +5091,8 @@ This genetic context concerns TNFRSF11A (hgnc:11908). hgnc:11908 is a gene from 
 
 
 
+
+
         <span class="tag tag-classification">allele_type: in-frame 18-bp tandem duplication in exon 1 (signal peptide)</span>
 
 
@@ -5066,6 +5108,9 @@ This genetic context concerns TNFRSF11A (hgnc:11908). hgnc:11908 is a gene from 
         <span class="tag tag-classification">functional_impact_category: GAIN_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Classified as gain of function on the basis of the original functional characterisation, in which both signal-peptide duplications increased RANK-mediated NF-kappaB signalling in vitro, and on the heterozygous disease phenotype of excessive osteoclast activity. The category is held with the caveat recorded in the knowledge gap below: the mutant receptor by itself cannot be activated by ligand, and how one mutant allele overactivates osteoclasts in heterozygous cells is unresolved.</div>
 
@@ -5190,6 +5235,7 @@ This genetic context concerns TNFRSF11A (hgnc:11908). hgnc:11908 is a gene from 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-rank-signal-peptide-cleavage-and-endoplasmic-reticulum-retention" data-dismech-node="Failure of RANK Signal-Peptide Cleavage and Endoplasmic Reticulum Retention" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of RANK Signal-Peptide Cleavage and Endoplasmic Reticulum Retention</div>
+
 
                 <div class="item-desc">The elongated signal peptide is not removed. In two independent in vitro translation systems the mutant proteins fail signal-peptide cleavage, and when expressed in cells mutant RANK does not reach the plasma membrane but accumulates in extensive areas of organised smooth endoplasmic reticulum, where wild-type RANK is found at the membrane and in the Golgi. Reviews describe the consequence as the protein translated from the mutant allele being trapped in the endoplasmic reticulum. The mutant receptor that does accumulate cannot be activated by RANK ligand, so whatever it does to the cell, it does not do it by responding to ligand in the ordinary way.</div>
 
@@ -5377,6 +5423,7 @@ This pathophysiological event involves endoplasmic reticulum (GO:0005783). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ligand-independent-rank-signalling-and-nf-kappab-activation" data-dismech-node="Ligand-Independent RANK Signalling and NF-kappaB Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Ligand-Independent RANK Signalling and NF-kappaB Activation</div>
+
 
                 <div class="item-desc">RANK signalling that is no longer under the control of RANK ligand. In the discovery study, recombinant mutant RANK increased RANK-mediated NF-kappaB signalling in vitro relative to wild type, and the mutations were read as activating; reviews state the mechanism as osteoclast activation through NF-kappaB independent of ligand. The later study of stably transfected cells found that constitutive activation occurred only with overexpression, of wild-type as well as mutant RANK, and not at low expression levels, and concluded that the disease cannot be explained by the mutant receptor alone. The modifier is recorded as GAIN_OF_FUNCTION rather than INCREASED because the claim is qualitative: the pathway has escaped its ligand, not merely risen above its normal level. The disagreement about how it escaped is the entry&#39;s knowledge gap.</div>
 
@@ -5577,6 +5624,7 @@ This pathophysiological event involves dysregulated tumour necrosis factor recep
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-constitutive-osteoclast-formation-survival-and-activation" data-dismech-node="Constitutive Osteoclast Formation, Survival and Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Constitutive Osteoclast Formation, Survival and Activation</div>
+
 
                 <div class="item-desc">Osteoclasts form, persist and resorb in excess of what the skeleton has asked for. Affected bone shows increased osteoclast and osteoblast activity, and the mouse carrying the allelic 75dup27 duplication shows what the heterozygous state does to the lineage: RANKL-induced osteoclast formation and signalling in marrow cells is impaired, yet osteoclast survival is increased independently of RANKL, and the animals develop focal osteolytic lesions. The same allele in homozygous form abolishes osteoclasts altogether and causes osteopetrosis, which shows that the mutant receptor is not simply hyperactive but that one mutant allele beside a wild-type one changes osteoclast behaviour in a way that neither allele alone explains. This node conforms to the module&#39;s RANKL-driven osteoclastogenesis step with the substitution that the driver is a receptor escaped from ligand control rather than an excess of ligand.</div>
 
@@ -5849,6 +5897,7 @@ This pathophysiological event involves increased osteoclast survival (reduced ap
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-generalized-accelerated-bone-remodelling" data-dismech-node="Generalized Accelerated Bone Remodelling" data-dismech-type="pathophysiology">
                 <div class="item-name">Generalized Accelerated Bone Remodelling</div>
 
+
                 <div class="item-desc">Bone turnover runs fast across the whole skeleton, not only at the focal lesions. Bone scintigraphy shows increased uptake at multiple foci, serum alkaline phosphatase and urinary hydroxyproline are variably elevated while other biochemical indices stay normal, and the skeleton as a whole is osteopenic. The focal osteolytic lesions of the limbs, the ossicular resorption of the middle ear and the external root resorption of the teeth are three site-specific expressions of this generalised state.</div>
 
 
@@ -6110,6 +6159,7 @@ This pathophysiological event involves increased bone remodeling (GO:0046849). G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-focal-expansile-osteolysis-with-medullary-expansion-and-cortical-thinning" data-dismech-node="Focal Expansile Osteolysis with Medullary Expansion and Cortical Thinning" data-dismech-type="pathophysiology">
                 <div class="item-name">Focal Expansile Osteolysis with Medullary Expansion and Cortical Thinning</div>
+
 
                 <div class="item-desc">The defining skeletal lesion. From the second decade, focal osteolytic lesions arise mainly in the limb bones, the tibia above all, and advance along the shaft. Progressive osteoclastic resorption is accompanied by medullary expansion and cortical thinning, so the bone widens as it weakens; the sequence ends in pain, severe deformity and pathological fracture. Unlike Paget disease, the lesion does not pass into a sclerotic phase: osteolysis progresses to fat-filled bone. Extensive peripheral and even skull involvement has been described in childhood-onset disease. Conforms to the module&#39;s central resorption effector with the caveat that here the resorption is focal and expansile rather than the diffuse trabecular loss of osteoporosis.</div>
 
@@ -6393,6 +6443,7 @@ This pathophysiological event occurs in tibia (UBERON:0000979). UBERON:0000979 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-middle-ear-ossicular-resorption" data-dismech-node="Middle-Ear Ossicular Resorption" data-dismech-type="pathophysiology">
                 <div class="item-name">Middle-Ear Ossicular Resorption</div>
 
+
                 <div class="item-desc">The auditory ossicles are resorbed. Hereditary incus necrosis was the first ossicular lesion described in the Northern Irish family; a later family showed total absence of the middle-ear ossicles on temporal-bone CT and at exploratory surgery, with the hearing loss dating from childhood. Because the ossicles are among the smallest bones in the body, the same osteoclast overactivity that takes decades to hollow a tibia can remove them in the first years of life, which is why deafness is usually the first sign of the disease. The loss is conductive; a mixed component develops in some patients. Ossicular reconstruction has been reported not to improve thresholds.</div>
 
 
@@ -6636,6 +6687,7 @@ This pathophysiological event occurs in middle ear (UBERON:0001756). UBERON:0001
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-external-root-resorption-of-permanent-teeth" data-dismech-node="External Root Resorption of Permanent Teeth" data-dismech-type="pathophysiology">
                 <div class="item-name">External Root Resorption of Permanent Teeth</div>
+
 
                 <div class="item-desc">Cervical and apical external resorption of the roots of the permanent teeth, with premature deposition of irregular secondary dentine that narrows the pulp and of cellular cementum that narrows the periodontal ligament. Root resorption is an early manifestation, present in 16 of 20 family members with skeletal disease in the Northern Irish study, and may precede bone involvement; the deciduous teeth are largely spared. The teeth loosen, fracture and are lost in adolescence. It is the dental expression of the same resorptive overactivity, and in a child it can be the presenting finding.</div>
 
@@ -8505,6 +8557,9 @@ This disease-associated gene is TNFRSF11A (hgnc:11908). hgnc:11908 is a gene fro
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
