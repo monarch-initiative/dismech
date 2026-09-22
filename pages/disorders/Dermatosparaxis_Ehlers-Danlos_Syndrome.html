@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3836,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 14</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 15</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Dermatosparaxis%20Ehlers-Danlos%20Syndrome"
@@ -4022,7 +4061,7 @@ This is what separates dermatosparaxis from the rest of the EDS family. The clas
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">14</div>
+                <div class="stat-value">15</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4070,7 +4109,7 @@ This is what separates dermatosparaxis from the rest of the EDS family. The clas
             <a class="stat-link" href="#models">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🧫</div>
-                <div class="stat-value">4</div>
+                <div class="stat-value">5</div>
                 <div class="stat-label">Models</div>
             </div>
             </a>
@@ -4080,7 +4119,7 @@ This is what separates dermatosparaxis from the rest of the EDS family. The clas
             <a class="stat-link" href="#references">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">📚</div>
-                <div class="stat-value">11</div>
+                <div class="stat-value">13</div>
                 <div class="stat-label">References</div>
             </div>
             </a>
@@ -4630,6 +4669,13 @@ A 2022 canine report (see animal_models) adds a cross-species data point without
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-adamts2-loss-of-function" data-dismech-node="Biallelic ADAMTS2 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic ADAMTS2 Loss of Function</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Both ADAMTS2 alleles carry variants that abolish procollagen I N-proteinase activity. The reported alleles are overwhelmingly truncating - nonsense, frameshift and splice variants distributed across the gene rather than clustered in one domain - which is consistent with the mechanism being simple loss of the enzyme rather than any position-specific effect on how it behaves. Five of the first six patients identified were homozygous for the same nonsense allele, Q225X.</div>
 
 
@@ -4721,9 +4767,14 @@ This genetic context concerns ADAMTS2 (hgnc:218). hgnc:218 is a gene from the HU
 
 
 
+
+
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
 
 
@@ -4787,6 +4838,19 @@ This pathophysiological event involves procollagen I N-proteinase activity, anno
 
 
                             <span class="crosslink-desc">A catalytic-domain missense allele, complementing the null alleles carried by the bovine and mouse models. The source does not claim priority for it, so none is asserted here.</span>
+
+                        </div>
+
+                        <div class="crosslink-item">
+                            <a href="#animal-model-dermatosparactic-white-dorper-sheep-adamts2-nonsense-allele">Dermatosparactic White Dorper sheep (ADAMTS2 nonsense allele)</a>
+
+                            <span class="crosslink-meta">Sheep</span>
+
+
+                            <span class="crosslink-meta">recapitulates</span>
+
+
+                            <span class="crosslink-desc">A naturally occurring ovine ADAMTS2 nonsense allele, independently confirming loss-of-function ADAMTS2 mutation as causative outside the bovine and canine truncating-allele models.</span>
 
                         </div>
 
@@ -4875,6 +4939,13 @@ This pathophysiological event involves procollagen I N-proteinase activity, anno
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-procollagen-n-propeptide-excision" data-dismech-node="Failure of Procollagen N-Propeptide Excision" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Procollagen N-Propeptide Excision</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">ADAMTS2 normally cleaves the aminoterminal propeptide from types I, II and III procollagen. Without it the N-propeptide is retained and the secreted molecule remains pN-collagen. This is a processing defect, not a synthesis defect: the amount of collagen protein reaching the matrix is not reduced, only its maturation state. ADAMTS3 and ADAMTS14 are homologous N-proteinases but do not compensate in skin, which is why the phenotype is dermatological even though the substrate is ubiquitous.</div>
 
@@ -5093,6 +5164,13 @@ This pathophysiological event involves abnormal collagen biosynthetic process (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hieroglyphic-collagen-fibril-assembly" data-dismech-node="Hieroglyphic Collagen Fibril Assembly" data-dismech-type="pathophysiology">
                 <div class="item-name">Hieroglyphic Collagen Fibril Assembly</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Retained N-propeptides end up on the surface of the assembling fibril, in the overlap zone of the D-period. Being there, they prevent the fibril from achieving a circular cross-section, and the fibril grows as a flattened, branching ribbon - &#34;hieroglyphic&#34; in transverse section, and in the most severely affected skin appearing as sheets rather than discrete fibrils. The dermatosparactic calf, in which this was quantified, carried 57% pN-collagen in its dermal fibrils. Notably the propeptides on such fibrils can no longer be removed even by exogenous N-proteinase, so the lesion is self-locking once assembly has occurred.</div>
 
@@ -5344,6 +5422,13 @@ This pathophysiological event occurs in dermis (UBERON:0002067). UBERON:0002067 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-dermal-tensile-strength" data-dismech-node="Loss of Dermal Tensile Strength" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Dermal Tensile Strength</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">The tensile strength of dermis depends on near-cylindrical fibrils packing closely enough to interact along their length. Ribbon-shaped fibrils cannot do that, so load is no longer distributed between fibrils and the tissue tears at low force. This is the step at which a molecular processing defect becomes a mechanical one, and it explains why the skin is simultaneously fragile and redundant - the same loss of fibril-fibril engagement that lets it tear also lets it stretch and hang.</div>
 
 
@@ -5502,6 +5587,13 @@ This pathophysiological event occurs in skin of body (UBERON:0002097). UBERON:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-generalised-connective-tissue-fragility" data-dismech-node="Generalised Connective Tissue Fragility" data-dismech-type="pathophysiology">
                 <div class="item-name">Generalised Connective Tissue Fragility</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Type I collagen is not confined to skin, so the processing defect is expressed wherever fibrillar collagen carries load. Clinically this appears as umbilical and inguinal herniation, joint laxity, craniofacial features reflecting a soft cranial vault with wide sutures and large fontanelles, and - in the more severely affected - visceral and vascular fragility including bladder and diaphragmatic rupture. The severity of this systemic component is what the 2016 expansion of the phenotype turned on: three of five newly reported patients were substantially milder than every previously published case, so the multisystem burden is variable rather than obligate.</div>
 
 
@@ -5648,7 +5740,7 @@ This pathophysiological event involves abnormal extracellular matrix organizatio
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ADAMTS2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ADAMTS2\"], \"gene_terms\": [{\"label\": \"ADAMTS2\", \"id\": \"hgnc:218\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Adamts2/Adamts14 double-deficient mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Built to ask whether the closest paralogue of ADAMTS2 compensates for it. The answer is that it does not: Adamts14-deficient mice are healthy with normal aminoprocollagen processing, and removing both enzymes produces no worse procollagen processing and no worse fibril pathology than removing ADAMTS2 alone. That negative result is what licenses this entry to describe ADAMTS2 as the non-redundant dermal N-proteinase rather than merely the principal one.\"}, {\"id\": \"Biallelic ADAMTS2 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Both ADAMTS2 alleles carry variants that abolish procollagen I N-proteinase activity. The reported alleles are overwhelmingly truncating - nonsense, frameshift and splice variants distributed across the gene rather than clustered in one domain - which is consistent with the mechanism being simple loss of the enzyme rather than any position-specific effect on how it behaves. Five of the first six patients identified were homozygous for the same nonsense allele, Q225X.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"dermal fibroblast\"], \"molecular_functions\": [\"procollagen I N-proteinase activity\"], \"genetic_context\": {\"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"gene_terms\": [{\"label\": \"ADAMTS2\", \"id\": \"hgnc:218\"}]}, \"animal_models\": [{\"name\": \"Ovine ADAMTS2 catalytic-domain missense model (V15M)\", \"species\": \"Sheep\", \"genotype\": \"ADAMTS2 p.Val15Met (catalytic-domain missense)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"A catalytic-domain missense allele, complementing the null alleles carried by the bovine and mouse models. The source does not claim priority for it, so none is asserted here.\"}]}}, {\"id\": \"Canine dermatosparaxis (ADAMTS2 c.10delC truncating allele)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A naturally occurring truncating allele found in six Alapaha Blue Blood Bulldog and Pit Bull Terrier puppies, all euthanized for severe skin fragility by 13 weeks of age. The same report also describes an adult Catahoula Leopard Dog homozygous for a distinct catalytic-domain missense allele (p.Arg966His) with a much milder course, surviving at least 9 years -- a within-species severity contrast the paper itself declines to attribute conclusively to residual enzyme activity, since euthanasia timing for the truncating-allele puppies also reflected owner decision-making rather than a measured biological endpoint.\"}, {\"id\": \"Dermatosparactic calf\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Bovine dermatosparaxis is the disease in which the enzymatic defect was first characterised, decades before the human condition was recognised. It is a naturally occurring homologue rather than an engineered model, and the causative allele was identified in the same study that solved the human disease.\"}, {\"id\": \"Failure of Procollagen N-Propeptide Excision\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ADAMTS2 normally cleaves the aminoterminal propeptide from types I, II and III procollagen. Without it the N-propeptide is retained and the secreted molecule remains pN-collagen. This is a processing defect, not a synthesis defect: the amount of collagen protein reaching the matrix is not reduced, only its maturation state. ADAMTS3 and ADAMTS14 are homologous N-proteinases but do not compensate in skin, which is why the phenotype is dermatological even though the substrate is ubiquitous.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"protein processing\", \"collagen biosynthetic process\"], \"animal_models\": [{\"name\": \"Adamts2/Adamts14 double-deficient mouse\", \"species\": \"Mouse\", \"genotype\": \"Adamts2 and Adamts14 double-deficient\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Reproduces the processing defect and the fibril alterations, and adds the paralogue test that human genetics cannot supply.\"}]}}, {\"id\": \"Generalised Connective Tissue Fragility\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Type I collagen is not confined to skin, so the processing defect is expressed wherever fibrillar collagen carries load. Clinically this appears as umbilical and inguinal herniation, joint laxity, craniofacial features reflecting a soft cranial vault with wide sutures and large fontanelles, and - in the more severely affected - visceral and vascular fragility including bladder and diaphragmatic rupture. The severity of this systemic component is what the 2016 expansion of the phenotype turned on: three of five newly reported patients were substantially milder than every previously published case, so the multisystem burden is variable rather than obligate.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"extracellular matrix organization\"]}}, {\"id\": \"Hieroglyphic Collagen Fibril Assembly\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Retained N-propeptides end up on the surface of the assembling fibril, in the overlap zone of the D-period. Being there, they prevent the fibril from achieving a circular cross-section, and the fibril grows as a flattened, branching ribbon - \\\"hieroglyphic\\\" in transverse section, and in the most severely affected skin appearing as sheets rather than discrete fibrils. The dermatosparactic calf, in which this was quantified, carried 57% pN-collagen in its dermal fibrils. Notably the propeptides on such fibrils can no longer be removed even by exogenous N-proteinase, so the lesion is self-locking once assembly has occurred.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"collagen fibril organization\", \"extracellular matrix organization\"], \"locations\": [\"dermis\"], \"animal_models\": [{\"name\": \"Dermatosparactic calf\", \"species\": \"Cattle\", \"genotype\": \"ADAMTS2 17-bp deletion, homozygous\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"The calf reproduces the human fibril pathology and is the system in which it was quantified - dermal fibrils containing 57% pN-collagen, irregularly bundled and hieroglyphic in cross-section.\"}, {\"name\": \"Canine dermatosparaxis (ADAMTS2 c.10delC truncating allele)\", \"species\": \"Dog\", \"genotype\": \"ADAMTS2 c.10delC, p.(Pro4ArgfsTer175), homozygous\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Post-mortem dermal, tendon, and ligament collagen from affected puppies showed the same abnormal fibril cross-sectional ultrastructure as the human and bovine disease, extending the ultrastructural phenotype beyond dermis to tendon and ligament.\"}]}}, {\"id\": \"In-frame exon-skipping genomic deletions (exons 3-5, exons 14-16)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A distinct allele class alongside the predominant truncating (nonsense/frameshift/splice) alleles. Genomic deletions remove exons 3-5 or exons 14-16 from the transcript without shifting the reading frame, so the resulting ADAMTS2 protein is missing an internal domain rather than being absent or grossly truncated. Neither deleted region had previously been recognised as functionally critical, but aminoprocollagen processing was still strongly impaired, so this class extends the requirement for intact enzyme structure beyond the domains already implicated by nonsense alleles.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"ADAMTS2\"], \"gene_terms\": [{\"label\": \"ADAMTS2\", \"id\": \"hgnc:218\"}], \"variant_type\": \"in-frame deletion (exon skipping)\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Loss of Dermal Tensile Strength\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The tensile strength of dermis depends on near-cylindrical fibrils packing closely enough to interact along their length. Ribbon-shaped fibrils cannot do that, so load is no longer distributed between fibrils and the tissue tears at low force. This is the step at which a molecular processing defect becomes a mechanical one, and it explains why the skin is simultaneously fragile and redundant - the same loss of fibril-fibril engagement that lets it tear also lets it stretch and hang.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"extracellular matrix organization\"], \"locations\": [\"skin of body\"]}}, {\"id\": \"Ovine ADAMTS2 catalytic-domain missense model (V15M)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A naturally occurring missense allele identified in a commercial sheep flock with clinical dermatosparaxis. Unlike the bovine and mouse models already in this entry, both of which are null alleles, this substitution falls within the catalytic domain itself, and its damaging effect is predicted computationally rather than shown by a direct enzymatic assay.\"}, {\"id\": \"Skin Protection and Wound Care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"No therapy addresses the enzymatic defect, and that is a documented position rather than an absence of searching: the EDS care-pathway review states there is no specific treatment for non-vascular EDS and that management is symptomatic, multidisciplinary and personalised. In practice that means avoiding trauma, careful consideration of skin closure techniques and manual handling, thorough investigation of acute pain, and caution with adhesive dressings, which can themselves tear the skin.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Surgical Resection of Redundant Skin Folds\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Redundant skin folds often grow enough in adulthood to require surgical resection. Recorded as its own treatment because it is an intervention performed on the tissue consequence, in a disease whose skin tears easily and heals atrophically - so the operation carries the disease\u0027s own risk. Hernia repair falls in the same category.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"pNalpha1(I) and pNalpha2(I) procollagen accumulation in dermal fibroblasts\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cultured dermal fibroblast\"], \"presence\": \"INCREASED\", \"readouts\": [{\"target\": \"Failure of Procollagen N-Propeptide Excision\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Direct biochemical demonstration, in patient-derived cells, of the unprocessed procollagen species that the enzymatic defect is predicted to leave behind.\"}]}}], \"edges\": [{\"source\": \"Biallelic ADAMTS2 Loss of Function\", \"target\": \"Failure of Procollagen N-Propeptide Excision\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of Procollagen N-Propeptide Excision\", \"target\": \"Hieroglyphic Collagen Fibril Assembly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hieroglyphic Collagen Fibril Assembly\", \"target\": \"Loss of Dermal Tensile Strength\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Dermal Tensile Strength\", \"target\": \"Generalised Connective Tissue Fragility\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Skin Protection and Wound Care\", \"target\": \"Loss of Dermal Tensile Strength\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Surgical Resection of Redundant Skin Folds\", \"target\": \"Generalised Connective Tissue Fragility\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Dermatosparactic calf\", \"target\": \"Hieroglyphic Collagen Fibril Assembly\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The calf reproduces the human fibril pathology and is the system in which it was quantified - dermal fibrils containing 57% pN-collagen, irregularly bundled and hieroglyphic in cross-section.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"The bovine allele is a 17-bp deletion causing a reading-frame shift, so it models complete loss of function specifically. It says nothing about the milder human phenotypes reported in 2016, whose molecular basis is not a different class of allele but is not fully explained either.\"}, {\"source\": \"Adamts2/Adamts14 double-deficient mouse\", \"target\": \"Failure of Procollagen N-Propeptide Excision\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces the processing defect and the fibril alterations, and adds the paralogue test that human genetics cannot supply.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"The double-knockout develops a spontaneous atopic-dermatitis-like phenotype from about two months of age, driven by abnormal Th1 T-lymphocyte activation. That is not a reported feature of human dermatosparaxis EDS, so any skin finding in aged animals of this genotype has to be read against an immune phenotype the human disease does not have.\"}, {\"source\": \"Ovine ADAMTS2 catalytic-domain missense model (V15M)\", \"target\": \"Biallelic ADAMTS2 Loss of Function\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"A catalytic-domain missense allele, complementing the null alleles carried by the bovine and mouse models. The source does not claim priority for it, so none is asserted here.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Pathogenicity rests on SIFT/PolyPhen-2 prediction and three-dimensional structural modelling rather than a measured enzymatic or fibril-ultrastructure readout, making this a weaker evidentiary class than the bovine and mouse models, both of which have direct biochemical or histological confirmation.\"}, {\"source\": \"Canine dermatosparaxis (ADAMTS2 c.10delC truncating allele)\", \"target\": \"Hieroglyphic Collagen Fibril Assembly\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Post-mortem dermal, tendon, and ligament collagen from affected puppies showed the same abnormal fibril cross-sectional ultrastructure as the human and bovine disease, extending the ultrastructural phenotype beyond dermis to tendon and ligament.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"The truncating-allele dogs were all euthanized in early puppyhood at owner discretion once skin fragility became apparent, so the natural adult course of this specific genotype is unknown; the paper explicitly states it is unclear whether these puppies would have eventually developed life-threatening injuries or continued to accrue manageable wounds. The milder missense-allele dog\u0027s long survival is presented as a plausible but unproven case for residual enzyme activity as a severity determinant.\"}, {\"source\": \"Failure of Procollagen N-Propeptide Excision\", \"target\": \"pNalpha1(I) and pNalpha2(I) procollagen accumulation in dermal fibroblasts\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Direct biochemical demonstration, in patient-derived cells, of the unprocessed procollagen species that the enzymatic defect is predicted to leave behind.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"In-frame exon-skipping genomic deletions (exons 3-5, exons 14-16)\", \"target\": \"ADAMTS2\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ADAMTS2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ADAMTS2\"], \"gene_terms\": [{\"label\": \"ADAMTS2\", \"id\": \"hgnc:218\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Adamts2/Adamts14 double-deficient mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Built to ask whether the closest paralogue of ADAMTS2 compensates for it. The answer is that it does not: Adamts14-deficient mice are healthy with normal aminoprocollagen processing, and removing both enzymes produces no worse procollagen processing and no worse fibril pathology than removing ADAMTS2 alone. That negative result is what licenses this entry to describe ADAMTS2 as the non-redundant dermal N-proteinase rather than merely the principal one.\"}, {\"id\": \"Biallelic ADAMTS2 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Both ADAMTS2 alleles carry variants that abolish procollagen I N-proteinase activity. The reported alleles are overwhelmingly truncating - nonsense, frameshift and splice variants distributed across the gene rather than clustered in one domain - which is consistent with the mechanism being simple loss of the enzyme rather than any position-specific effect on how it behaves. Five of the first six patients identified were homozygous for the same nonsense allele, Q225X.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"dermal fibroblast\"], \"molecular_functions\": [\"procollagen I N-proteinase activity\"], \"genetic_context\": {\"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"gene_terms\": [{\"label\": \"ADAMTS2\", \"id\": \"hgnc:218\"}]}, \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Ovine ADAMTS2 catalytic-domain missense model (V15M)\", \"species\": \"Sheep\", \"genotype\": \"ADAMTS2 p.Val15Met (catalytic-domain missense)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"A catalytic-domain missense allele, complementing the null alleles carried by the bovine and mouse models. The source does not claim priority for it, so none is asserted here.\"}, {\"name\": \"Dermatosparactic White Dorper sheep (ADAMTS2 nonsense allele)\", \"species\": \"Sheep\", \"genotype\": \"ADAMTS2 nonsense variant (zygosity not recorded in the available source)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"UNKNOWN\", \"description\": \"A naturally occurring ovine ADAMTS2 nonsense allele, independently confirming loss-of-function ADAMTS2 mutation as causative outside the bovine and canine truncating-allele models.\"}]}}, {\"id\": \"Canine dermatosparaxis (ADAMTS2 c.10delC truncating allele)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A naturally occurring truncating allele found in six Alapaha Blue Blood Bulldog and Pit Bull Terrier puppies, all euthanized for severe skin fragility by 13 weeks of age. The same report also describes an adult Catahoula Leopard Dog homozygous for a distinct catalytic-domain missense allele (p.Arg966His) with a much milder course, surviving at least 9 years -- a within-species severity contrast the paper itself declines to attribute conclusively to residual enzyme activity, since euthanasia timing for the truncating-allele puppies also reflected owner decision-making rather than a measured biological endpoint.\"}, {\"id\": \"Dermatosparactic White Dorper sheep (ADAMTS2 nonsense allele)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A naturally occurring ADAMTS2 nonsense allele reported in a White Dorper flock in Switzerland. It is a second, independent ovine allele alongside the V15M catalytic-domain missense model above, and a null rather than a missense one -- so the two together give a within-species contrast between a null allele and a catalytic-domain missense one.\"}, {\"id\": \"Dermatosparactic calf\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"Bovine dermatosparaxis is the disease in which the enzymatic defect was first characterised, decades before the human condition was recognised. It is a naturally occurring homologue rather than an engineered model, and the causative allele was identified in the same study that solved the human disease.\"}, {\"id\": \"Failure of Procollagen N-Propeptide Excision\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ADAMTS2 normally cleaves the aminoterminal propeptide from types I, II and III procollagen. Without it the N-propeptide is retained and the secreted molecule remains pN-collagen. This is a processing defect, not a synthesis defect: the amount of collagen protein reaching the matrix is not reduced, only its maturation state. ADAMTS3 and ADAMTS14 are homologous N-proteinases but do not compensate in skin, which is why the phenotype is dermatological even though the substrate is ubiquitous.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"protein processing\", \"collagen biosynthetic process\"], \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Adamts2/Adamts14 double-deficient mouse\", \"species\": \"Mouse\", \"genotype\": \"Adamts2 and Adamts14 double-deficient\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Reproduces the processing defect and the fibril alterations, and adds the paralogue test that human genetics cannot supply.\"}]}}, {\"id\": \"Generalised Connective Tissue Fragility\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Type I collagen is not confined to skin, so the processing defect is expressed wherever fibrillar collagen carries load. Clinically this appears as umbilical and inguinal herniation, joint laxity, craniofacial features reflecting a soft cranial vault with wide sutures and large fontanelles, and - in the more severely affected - visceral and vascular fragility including bladder and diaphragmatic rupture. The severity of this systemic component is what the 2016 expansion of the phenotype turned on: three of five newly reported patients were substantially milder than every previously published case, so the multisystem burden is variable rather than obligate.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"extracellular matrix organization\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Hieroglyphic Collagen Fibril Assembly\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Retained N-propeptides end up on the surface of the assembling fibril, in the overlap zone of the D-period. Being there, they prevent the fibril from achieving a circular cross-section, and the fibril grows as a flattened, branching ribbon - \\\"hieroglyphic\\\" in transverse section, and in the most severely affected skin appearing as sheets rather than discrete fibrils. The dermatosparactic calf, in which this was quantified, carried 57% pN-collagen in its dermal fibrils. Notably the propeptides on such fibrils can no longer be removed even by exogenous N-proteinase, so the lesion is self-locking once assembly has occurred.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"collagen fibril organization\", \"extracellular matrix organization\"], \"locations\": [\"dermis\"], \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Dermatosparactic calf\", \"species\": \"Cattle\", \"genotype\": \"ADAMTS2 17-bp deletion, homozygous\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"The calf reproduces the human fibril pathology and is the system in which it was quantified - dermal fibrils containing 57% pN-collagen, irregularly bundled and hieroglyphic in cross-section.\"}, {\"name\": \"Canine dermatosparaxis (ADAMTS2 c.10delC truncating allele)\", \"species\": \"Dog\", \"genotype\": \"ADAMTS2 c.10delC, p.(Pro4ArgfsTer175), homozygous\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Post-mortem dermal, tendon, and ligament collagen from affected puppies showed the same abnormal fibril cross-sectional ultrastructure as the human and bovine disease, extending the ultrastructural phenotype beyond dermis to tendon and ligament.\"}]}}, {\"id\": \"In-frame exon-skipping genomic deletions (exons 3-5, exons 14-16)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A distinct allele class alongside the predominant truncating (nonsense/frameshift/splice) alleles. Genomic deletions remove exons 3-5 or exons 14-16 from the transcript without shifting the reading frame, so the resulting ADAMTS2 protein is missing an internal domain rather than being absent or grossly truncated. Neither deleted region had previously been recognised as functionally critical, but aminoprocollagen processing was still strongly impaired, so this class extends the requirement for intact enzyme structure beyond the domains already implicated by nonsense alleles.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"ADAMTS2\"], \"gene_terms\": [{\"label\": \"ADAMTS2\", \"id\": \"hgnc:218\"}], \"variant_type\": \"in-frame deletion (exon skipping)\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Loss of Dermal Tensile Strength\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The tensile strength of dermis depends on near-cylindrical fibrils packing closely enough to interact along their length. Ribbon-shaped fibrils cannot do that, so load is no longer distributed between fibrils and the tissue tears at low force. This is the step at which a molecular processing defect becomes a mechanical one, and it explains why the skin is simultaneously fragile and redundant - the same loss of fibril-fibril engagement that lets it tear also lets it stretch and hang.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"extracellular matrix organization\"], \"locations\": [\"skin of body\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Ovine ADAMTS2 catalytic-domain missense model (V15M)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A naturally occurring missense allele identified in a commercial sheep flock with clinical dermatosparaxis. Unlike the bovine and mouse models already in this entry, both of which are null alleles, this substitution falls within the catalytic domain itself, and its damaging effect is predicted computationally rather than shown by a direct enzymatic assay.\"}, {\"id\": \"Skin Protection and Wound Care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"No therapy addresses the enzymatic defect, and that is a documented position rather than an absence of searching: the EDS care-pathway review states there is no specific treatment for non-vascular EDS and that management is symptomatic, multidisciplinary and personalised. In practice that means avoiding trauma, careful consideration of skin closure techniques and manual handling, thorough investigation of acute pain, and caution with adhesive dressings, which can themselves tear the skin.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Surgical Resection of Redundant Skin Folds\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Redundant skin folds often grow enough in adulthood to require surgical resection. Recorded as its own treatment because it is an intervention performed on the tissue consequence, in a disease whose skin tears easily and heals atrophically - so the operation carries the disease\u0027s own risk. Hernia repair falls in the same category.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"pNalpha1(I) and pNalpha2(I) procollagen accumulation in dermal fibroblasts\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cultured dermal fibroblast\"], \"presence\": \"INCREASED\", \"readouts\": [{\"target\": \"Failure of Procollagen N-Propeptide Excision\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Direct biochemical demonstration, in patient-derived cells, of the unprocessed procollagen species that the enzymatic defect is predicted to leave behind.\"}]}}], \"edges\": [{\"source\": \"Biallelic ADAMTS2 Loss of Function\", \"target\": \"Failure of Procollagen N-Propeptide Excision\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of Procollagen N-Propeptide Excision\", \"target\": \"Hieroglyphic Collagen Fibril Assembly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hieroglyphic Collagen Fibril Assembly\", \"target\": \"Loss of Dermal Tensile Strength\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Dermal Tensile Strength\", \"target\": \"Generalised Connective Tissue Fragility\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Skin Protection and Wound Care\", \"target\": \"Loss of Dermal Tensile Strength\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Surgical Resection of Redundant Skin Folds\", \"target\": \"Generalised Connective Tissue Fragility\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Dermatosparactic calf\", \"target\": \"Hieroglyphic Collagen Fibril Assembly\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The calf reproduces the human fibril pathology and is the system in which it was quantified - dermal fibrils containing 57% pN-collagen, irregularly bundled and hieroglyphic in cross-section.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"The bovine allele is a 17-bp deletion causing a reading-frame shift, so it models complete loss of function specifically. It says nothing about the milder human phenotypes reported in 2016, whose molecular basis is not a different class of allele but is not fully explained either.\"}, {\"source\": \"Adamts2/Adamts14 double-deficient mouse\", \"target\": \"Failure of Procollagen N-Propeptide Excision\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces the processing defect and the fibril alterations, and adds the paralogue test that human genetics cannot supply.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"The double-knockout develops a spontaneous atopic-dermatitis-like phenotype from about two months of age, driven by abnormal Th1 T-lymphocyte activation. That is not a reported feature of human dermatosparaxis EDS, so any skin finding in aged animals of this genotype has to be read against an immune phenotype the human disease does not have.\"}, {\"source\": \"Ovine ADAMTS2 catalytic-domain missense model (V15M)\", \"target\": \"Biallelic ADAMTS2 Loss of Function\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"A catalytic-domain missense allele, complementing the null alleles carried by the bovine and mouse models. The source does not claim priority for it, so none is asserted here.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Pathogenicity rests on SIFT/PolyPhen-2 prediction and three-dimensional structural modelling rather than a measured enzymatic or fibril-ultrastructure readout, making this a weaker evidentiary class than the bovine and mouse models, both of which have direct biochemical or histological confirmation.\"}, {\"source\": \"Canine dermatosparaxis (ADAMTS2 c.10delC truncating allele)\", \"target\": \"Hieroglyphic Collagen Fibril Assembly\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Post-mortem dermal, tendon, and ligament collagen from affected puppies showed the same abnormal fibril cross-sectional ultrastructure as the human and bovine disease, extending the ultrastructural phenotype beyond dermis to tendon and ligament.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"The truncating-allele dogs were all euthanized in early puppyhood at owner discretion once skin fragility became apparent, so the natural adult course of this specific genotype is unknown; the paper explicitly states it is unclear whether these puppies would have eventually developed life-threatening injuries or continued to accrue manageable wounds. The milder missense-allele dog\u0027s long survival is presented as a plausible but unproven case for residual enzyme activity as a severity determinant.\"}, {\"source\": \"Dermatosparactic White Dorper sheep (ADAMTS2 nonsense allele)\", \"target\": \"Biallelic ADAMTS2 Loss of Function\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"A naturally occurring ovine ADAMTS2 nonsense allele, independently confirming loss-of-function ADAMTS2 mutation as causative outside the bovine and canine truncating-allele models.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"UNKNOWN\", \"limitations\": \"No abstract is available for this record, so nothing beyond the title and indexed subject terms could be verified. No phenotypic, biochemical, or ultrastructural detail is recorded here, no evidence quote is attached to this link, and `fidelity` is left UNKNOWN rather than asserted. The breed-level phenotype is therefore not established from this entry\u0027s sources, and the link records only the causative allele class.\"}, {\"source\": \"Failure of Procollagen N-Propeptide Excision\", \"target\": \"pNalpha1(I) and pNalpha2(I) procollagen accumulation in dermal fibroblasts\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Direct biochemical demonstration, in patient-derived cells, of the unprocessed procollagen species that the enzymatic defect is predicted to leave behind.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"In-frame exon-skipping genomic deletions (exons 3-5, exons 14-16)\", \"target\": \"ADAMTS2\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -7300,6 +7392,9 @@ This disease-associated gene is ADAMTS2 (hgnc:218). hgnc:218 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7361,6 +7456,7 @@ This disease-associated gene is ADAMTS2 (hgnc:218). hgnc:218 is a gene from the 
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -7380,11 +7476,17 @@ This variant is in ADAMTS2 (hgnc:218). hgnc:218 is a gene from the HUGO Gene Nom
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">in-frame deletion (exon skipping)</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A distinct allele class alongside the predominant truncating (nonsense/frameshift/splice) alleles. Genomic deletions remove exons 3-5 or exons 14-16 from the transcript without shifting the reading frame, so the resulting ADAMTS2 protein is missing an internal domain rather than being absent or grossly truncated. Neither deleted region had previously been recognised as functionally critical, but aminoprocollagen processing was still strongly impaired, so this class extends the requirement for intact enzyme structure beyond the domains already implicated by nonsense alleles.</div>
@@ -8659,7 +8761,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
             <div class="card-header">
                 <div class="card-icon" style="background: #f5f3ff; color: #8b5cf6;">🐁</div>
                 <h2 class="card-title">Animal Models</h2>
-                <span class="card-count">4</span>
+                <span class="card-count">5</span>
             </div>
 
 
@@ -9372,6 +9474,88 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                 <div style="margin-top: 8px; font-style: italic; font-size: 0.85rem; color: var(--text-muted);">Reported by the same group that authored the sheep V15M report above. Genotyping of archived DNA found the truncating deletion allele at a frequency of 0.27 in a tested Alapaha Blue Blood Bulldog cohort, indicating the allele is not vanishingly rare within that breed.</div>
+
+
+
+
+            </div>
+
+
+            <div class="item-box exp-model-box anchor-target" id="animal-model-dermatosparactic-white-dorper-sheep-adamts2-nonsense-allele" data-dismech-node="Dermatosparactic White Dorper sheep (ADAMTS2 nonsense allele)" data-dismech-type="animal_model">
+                <div class="item-name">
+                    Dermatosparactic White Dorper sheep (ADAMTS2 nonsense allele)
+
+                </div>
+
+                <div class="item-desc">A naturally occurring ADAMTS2 nonsense allele reported in a White Dorper flock in Switzerland. It is a second, independent ovine allele alongside the V15M catalytic-domain missense model above, and a null rather than a missense one -- so the two together give a within-species contrast between a null allele and a catalytic-domain missense one.</div>
+
+
+
+                <div class="model-detail-list">
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Species</div>
+                        <div class="model-detail-value">Sheep</div>
+                    </div>
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Genotype</div>
+                        <div class="model-detail-value">ADAMTS2 nonsense variant (zygosity not recorded in the available source)</div>
+                    </div>
+
+
+
+
+
+                    <div class="model-detail-row">
+                        <div class="model-detail-label">Publication</div>
+                        <div class="model-detail-value">
+
+
+
+    <a href="http://www.ncbi.nlm.nih.gov/pubmed/28856769" target="_blank" class="curie-chip curie-chip-pmid" title="Open PMID:28856769">PMID:28856769</a>
+
+
+                        </div>
+                    </div>
+
+                </div>
+
+
+
+    <div class="crosslink-block">
+        <div class="crosslink-title">Pathograph links</div>
+        <div class="crosslink-list">
+
+            <div class="crosslink-item">
+                <a href="#pathophysiology-biallelic-adamts2-loss-of-function">Biallelic ADAMTS2 Loss of Function</a>
+
+                <span class="crosslink-meta">recapitulates</span>
+
+
+                <span class="crosslink-meta">fidelity: unknown</span>
+
+
+                <span class="crosslink-desc">A naturally occurring ovine ADAMTS2 nonsense allele, independently confirming loss-of-function ADAMTS2 mutation as causative outside the bovine and canine truncating-allele models.</span>
+
+
+                <div class="mapping-notes">Limitations: No abstract is available for this record, so nothing beyond the title and indexed subject terms could be verified. No phenotypic, biochemical, or ultrastructural detail is recorded here, no evidence quote is attached to this link, and `fidelity` is left UNKNOWN rather than asserted. The breed-level phenotype is therefore not established from this entry&#39;s sources, and the link records only the causative allele class.</div>
+
+
+
+
+
+            </div>
+
+        </div>
+    </div>
+
+
+
+                <div style="margin-top: 8px; font-style: italic; font-size: 0.85rem; color: var(--text-muted);">Carried at title-and-MeSH level only. `references_cache/PMID_28856769.md` has no abstract, so per the evidence SOP no snippet was manufactured from the title; the model is recorded with its limitation disclosed instead of being dropped, since the allele class it contributes is not otherwise represented in the ovine models here.
+Zygosity is unsourced. Dermatosparaxis EDS is autosomal recessive, so a homozygous nonsense genotype is the expected finding, but neither the title nor the indexed MeSH terms state it, so `genotype` records the allele class only rather than asserting a zygosity this entry&#39;s sources cannot support.
+Opposing view on record. PR #10177 deliberately omitted this model, on the grounds that a model with no quotable evidence should wait until someone can quote it. That argument is recorded here so a future curator can act on it by deleting this one list entry, rather than having to re-derive it.</div>
 
 
 
@@ -10561,6 +10745,47 @@ animal_models:
     Reported by the same group that authored the sheep V15M report above. Genotyping of archived
     DNA found the truncating deletion allele at a frequency of 0.27 in a tested Alapaha Blue Blood
     Bulldog cohort, indicating the allele is not vanishingly rare within that breed.
+- name: Dermatosparactic White Dorper sheep (ADAMTS2 nonsense allele)
+  species: Sheep
+  genotype: ADAMTS2 nonsense variant (zygosity not recorded in the available source)
+  publication: PMID:28856769
+  description: &gt;-
+    A naturally occurring ADAMTS2 nonsense allele reported in a White Dorper
+    flock in Switzerland. It is a second, independent ovine allele alongside the
+    V15M catalytic-domain missense model above, and a null rather than a
+    missense one -- so the two together give a within-species contrast between
+    a null allele and a catalytic-domain missense one.
+  modeled_mechanisms:
+  - target: Biallelic ADAMTS2 Loss of Function
+    relationship: RECAPITULATES
+    fidelity: UNKNOWN
+    description: &gt;-
+      A naturally occurring ovine ADAMTS2 nonsense allele, independently
+      confirming loss-of-function ADAMTS2 mutation as causative outside the
+      bovine and canine truncating-allele models.
+    limitations: &gt;-
+      No abstract is available for this record, so nothing beyond the title and
+      indexed subject terms could be verified. No phenotypic, biochemical, or
+      ultrastructural detail is recorded here, no evidence quote is attached to
+      this link, and `fidelity` is left UNKNOWN rather than asserted. The
+      breed-level phenotype is therefore not established from this entry&#39;s
+      sources, and the link records only the causative allele class.
+  notes: &gt;-
+    Carried at title-and-MeSH level only. `references_cache/PMID_28856769.md`
+    has no abstract, so per the evidence SOP no snippet was manufactured from
+    the title; the model is recorded with its limitation disclosed instead of
+    being dropped, since the allele class it contributes is not otherwise
+    represented in the ovine models here.
+
+    Zygosity is unsourced. Dermatosparaxis EDS is autosomal recessive, so a
+    homozygous nonsense genotype is the expected finding, but neither the title
+    nor the indexed MeSH terms state it, so `genotype` records the allele class
+    only rather than asserting a zygosity this entry&#39;s sources cannot support.
+
+    Opposing view on record. PR #10177 deliberately omitted this model, on the
+    grounds that a model with no quotable evidence should wait until someone can
+    quote it. That argument is recorded here so a future curator can act on it by
+    deleting this one list entry, rather than having to re-derive it.
 definitions:
 - name: 2016 revised clinical diagnostic criteria for dermatosparaxis EDS
   definition_type: DIAGNOSTIC_CRITERIA
@@ -10731,6 +10956,11 @@ references:
 - reference: PMID:25354687
   title: In silico identification and three-dimensional modelling of the missense mutation in ADAMTS2 in
     a sheep flock with dermatosparaxis.
+- reference: PMID:28856769
+  title: &#39;Dermatosparaxis in White Dorper sheep: confirmation of a causative nonsense mutation in ADAMTS2.&#39;
+- reference: PMID:36421833
+  title: Novel Homozygous ADAMTS2 Variants and Associated Disease Phenotypes in Dogs with Dermatosparactic
+    Ehlers-Danlos Syndrome.
 notes: &#39;This entry is deliberately separate from the umbrella Ehlers-Danlos_Syndrome entry, which lists Dermatosparaxis
   EDS among its has_subtypes. That follows the repository&#39;&#39;s existing practice, where Vascular, Hypermobile,
   Musculocontractural, Spondylodysplastic and Cardiac Valvular EDS all carry their own entries in addition
@@ -10831,7 +11061,7 @@ datasets:
             <div class="grouped-section anchor-target" id="references">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">References</h3>
-                    <span class="card-count">11</span>
+                    <span class="card-count">13</span>
                 </div>
 
                 <div class="reference-entry">
@@ -11012,6 +11242,40 @@ datasets:
                             </div>
 
                             <div class="reference-title">In silico identification and three-dimensional modelling of the missense mutation in ADAMTS2 in a sheep flock with dermatosparaxis.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/28856769" target="_blank">PMID:28856769</a>
+                            </div>
+
+                            <div class="reference-title">Dermatosparaxis in White Dorper sheep: confirmation of a causative nonsense mutation in ADAMTS2.</div>
+
+                        </div>
+
+                    </div>
+
+                    <div class="reference-empty">No top-level findings curated for this source.</div>
+
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/36421833" target="_blank">PMID:36421833</a>
+                            </div>
+
+                            <div class="reference-title">Novel Homozygous ADAMTS2 Variants and Associated Disease Phenotypes in Dogs with Dermatosparactic Ehlers-Danlos Syndrome.</div>
 
                         </div>
 
@@ -12829,7 +13093,7 @@ visceral/vascular/skeletal fragility (clinical dEDS)
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Dermatosparaxis Ehlers-Danlos Syndrome", "mondoId": "MONDO:0009161", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Dermatosparaxis_Ehlers-Danlos_Syndrome", "yamlRevision": "14cfa02ad6c0"};
+        const OS_CONFIG = {"diseaseName": "Dermatosparaxis Ehlers-Danlos Syndrome", "mondoId": "MONDO:0009161", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Dermatosparaxis_Ehlers-Danlos_Syndrome", "yamlRevision": "fbba3f3cc497"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

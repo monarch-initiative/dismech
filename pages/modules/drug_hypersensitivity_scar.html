@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1056,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1071,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1125,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1138,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1296,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1306,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1347,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2004,11 +2041,13 @@ This mechanism module involves increased cell death (GO:0008219). GO:0008219 is 
             
             <div class="item-box anchor-target" id="module-pathophysiology-hla-restricted-drug-presentation-to-drug-specific-t-cells" data-dismech-node="HLA-Restricted Drug Presentation to Drug-Specific T Cells" data-dismech-type="pathophysiology">
                 <div class="item-name">HLA-Restricted Drug Presentation to Drug-Specific T Cells</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The conserved initiating lesion is immunological recognition of the drug: the drug or its metabolite is presented in an HLA class I-restricted manner to drug-specific T cells (via hapten, p-i, or altered-peptide mechanisms). Risk arises from the combination of drug structure/metabolism, HLA alleles, and the T-cell receptor repertoire — a type IV (delayed) hypersensitivity reaction.</div>
                 
@@ -2149,11 +2188,13 @@ This pathophysiological event involves increased antigen processing and presenta
             
             <div class="item-box anchor-target" id="module-pathophysiology-drug-specific-cytotoxic-t-cell-and-nk-cell-activation" data-dismech-node="Drug-Specific Cytotoxic T-Cell and NK-Cell Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Drug-Specific Cytotoxic T-Cell and NK-Cell Activation</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">amplifier</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Drug-specific CD8 T cells and natural killer cells are activated and expand, becoming the effector population that targets keratinocytes — the amplifying step linking antigen recognition to tissue injury.</div>
                 
@@ -2294,11 +2335,13 @@ This pathophysiological event involves increased T cell activation (GO:0042110).
             
             <div class="item-box anchor-target" id="module-pathophysiology-cytotoxic-mediator-release-and-keratinocyte-death" data-dismech-node="Cytotoxic Mediator Release and Keratinocyte Death" data-dismech-type="pathophysiology">
                 <div class="item-name">Cytotoxic Mediator Release and Keratinocyte Death</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">central effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Activated cytotoxic lymphocytes release soluble mediators — granulysin, Fas ligand, perforin/granzyme — that drive keratinocyte apoptosis and necroptosis. This is the central effector lesion and the key conformance target; conforming disorder nodes substitute the drug-specific culprit but converge here.</div>
                 
@@ -2441,11 +2484,13 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
             
             <div class="item-box anchor-target" id="module-pathophysiology-epidermal-necrolysis-and-detachment" data-dismech-node="Epidermal Necrolysis and Detachment" data-dismech-type="pathophysiology">
                 <div class="item-name">Epidermal Necrolysis and Detachment</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Confluent keratinocyte death produces full-thickness epidermal necrosis that separates the epidermis from the dermis, the histopathologic hallmark of SJS/TEN that manifests as widespread skin and mucosal detachment.</div>
                 
@@ -2560,11 +2605,13 @@ This pathophysiological event involves increased cell death (GO:0008219). GO:000
             
             <div class="item-box anchor-target" id="module-pathophysiology-mucocutaneous-failure-and-systemic-complications" data-dismech-node="Mucocutaneous Failure and Systemic Complications" data-dismech-type="pathophysiology">
                 <div class="item-name">Mucocutaneous Failure and Systemic Complications</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Extensive epidermal and mucosal detachment causes failure of the skin barrier, with fluid loss, infection risk, and multi-organ involvement, producing the high mortality of SJS/TEN — the defining consequence of the module.</div>
                 

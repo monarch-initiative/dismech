@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4972,6 +5011,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-demyelination" data-dismech-node="Demyelination" data-dismech-type="pathophysiology">
                 <div class="item-name">Demyelination</div>
 
+
                 <div class="item-desc">The immune system attacks and destroys myelin, the protective sheath around nerve fibers, disrupting nerve signal transmission.</div>
 
 
@@ -5584,6 +5624,7 @@ This pathophysiological event occurs in Spinal cord (UBERON:0002240). UBERON:000
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-axonal-damage" data-dismech-node="Axonal Damage" data-dismech-type="pathophysiology">
                 <div class="item-name">Axonal Damage</div>
 
+
                 <div class="item-desc">Along with demyelination, damage to the axons themselves contributes to the permanent neurological deficits.</div>
 
 
@@ -5690,6 +5731,7 @@ This pathophysiological event occurs in Spinal cord (UBERON:0002240). UBERON:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ebna1-glialcam-molecular-mimicry" data-dismech-node="EBNA1-GlialCAM Molecular Mimicry" data-dismech-type="pathophysiology">
                 <div class="item-name">EBNA1-GlialCAM Molecular Mimicry</div>
+
 
                 <div class="item-desc">Antibodies raised against the Epstein-Barr virus nuclear antigen 1 (EBNA1) cross-react with the CNS protein glial cell adhesion molecule (GlialCAM), supplying a molecular route from EBV infection of B cells to a CNS-directed adaptive response. The cross-reactivity was found in clonally expanded cerebrospinal-fluid B cells of people with MS and is structurally resolved at the EBNA1 AA386-405 epitope; anti-EBNA1 and anti-GlialCAM responses are elevated in MS and interact with the HLA-DRB1*15:01 risk allele. Whether this mimicry is sufficient to initiate disease, or one of several routes (bystander activation, immortalization of autoreactive B cells) is unresolved.</div>
 
@@ -5965,6 +6007,7 @@ This pathophysiological event occurs in Central nervous system (UBERON:0001017).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-th1-th17-mediated-neuroinflammation" data-dismech-node="Th1/Th17-Mediated Neuroinflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">Th1/Th17-Mediated Neuroinflammation</div>
+
 
                 <div class="item-desc">MS immunopathology is mediated by myelin-reactive CD4+ T cells of Th1 and Th17 lineage. Th17 cells produce IL-17, IL-22, and other proinflammatory cytokines that disrupt blood-brain barrier tight junction proteins and recruit neutrophils into the CNS. The IL-23/IL-17 axis amplifies neuroinflammation.</div>
 
@@ -6519,6 +6562,7 @@ This pathophysiological event involves Inflammatory response (GO:0006954). GO:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-inflammatory-lesions" data-dismech-node="Inflammatory Lesions" data-dismech-type="pathophysiology">
                 <div class="item-name">Inflammatory Lesions</div>
 
+
                 <div class="item-desc">Immune cells crossing the blood-brain barrier create focal areas of inflammation in the central nervous system.</div>
 
 
@@ -6786,6 +6830,7 @@ This pathophysiological event involves Inflammatory response (GO:0006954). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-compartmentalized-cns-inflammation" data-dismech-node="Compartmentalized CNS Inflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">Compartmentalized CNS Inflammation</div>
+
 
                 <div class="item-desc">Chronic inflammation behind a relatively closed blood-brain barrier, including chronic active lesions, meningeal inflammation, and innate immune activation, contributes to smoldering tissue injury and disability progression not fully captured by conventional relapse-focused MRI outcomes.
 </div>
@@ -7064,6 +7109,7 @@ This pathophysiological event occurs in Gray matter (UBERON:0002020). UBERON:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-oligodendrocyte-precursor-and-microglial-autophagic-mitophagic-dysregulation" data-dismech-node="Oligodendrocyte Precursor and Microglial Autophagic-Mitophagic Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Oligodendrocyte Precursor and Microglial Autophagic-Mitophagic Dysregulation</div>
+
 
                 <div class="item-desc">Autophagic and mitophagic flux is dysregulated in MS lesions: microglial autophagy declines with age and disease-associated activation, impairing phagocytic clearance of myelin debris, while autophagy and mitophagy marker levels rise in patients&#39; biofluids during active disease and in demyelinating models, where the resulting autophagic flux itself contributes to impaired mitochondrial function and defective myelin production. The pathway&#39;s core ATG-mediated cytoplasmic quality-control function is lost either way, so this node conforms to the disabled macroautophagy hallmark-of-aging module rather than asserting a single direction of dysregulation.</div>
 
@@ -7372,6 +7418,7 @@ This pathophysiological event involves increased Mitophagy, annotated with autop
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chronic-inflammation-induced-oligodendroglial-and-glial-senescence" data-dismech-node="Chronic Inflammation-Induced Oligodendroglial and Glial Senescence" data-dismech-type="pathophysiology">
                 <div class="item-name">Chronic Inflammation-Induced Oligodendroglial and Glial Senescence</div>
 
+
                 <div class="item-desc">p16INK4a+ and 53BP1+ senescent cells accumulate within actively demyelinating white- and gray-matter lesions, with co-localization to oligodendrocytes, astrocytes, microglia, macrophages, and neurons. Senescence-associated secretory phenotype (SASP) factors are elevated in the CSF of affected patients, and a higher senescent-cell burden is associated with faster disability progression. Inflammation-induced senescence markers can also be induced in human oligodendrocyte-lineage cells directly by pro-inflammatory microglial secretions.</div>
 
 
@@ -7667,6 +7714,7 @@ This pathophysiological event occurs in Gray matter (UBERON:0002020). UBERON:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-microglial-nlrp3-inflammasome-activation" data-dismech-node="Microglial NLRP3 Inflammasome Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Microglial NLRP3 Inflammasome Activation</div>
+
 
                 <div class="item-desc">NLRP3, PYCARD (ASC), CASP1, IL1B, and IL18 transcripts are elevated specifically within chronic active lesions in progressive MS, and NLRP3 inflammasome activity (NLRP3-dependent IL-1beta release; NLRP3, IL1B, and GSDMD expression) is elevated in circulating immune cells from people with MS relative to healthy controls, indicating dysregulated NLRP3 inflammasome assembly both centrally and peripherally.</div>
 
@@ -10248,6 +10296,9 @@ This disease-associated gene is HLA-DRB1 (hgnc:4948). hgnc:4948 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -10366,6 +10417,9 @@ This disease-associated gene is IL7R (hgnc:6024). hgnc:6024 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10432,6 +10486,9 @@ This disease-associated gene is IL2RA (hgnc:6008). hgnc:6008 is a gene from the 
 
 
                 </div>
+
+
+
 
 
 
@@ -10508,6 +10565,9 @@ This disease-associated gene is TYK2 (hgnc:12440). hgnc:12440 is a gene from the
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-cd40" data-dismech-node="CD40" data-dismech-type="genetic">
@@ -10539,6 +10599,9 @@ This disease-associated gene is CD40 (hgnc:11919). hgnc:11919 is a gene from the
 
 
                 </div>
+
+
+
 
 
 
@@ -10582,6 +10645,9 @@ This disease-associated gene is TNFRSF1A (hgnc:11916). hgnc:11916 is a gene from
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-bach2" data-dismech-node="BACH2" data-dismech-type="genetic">
@@ -10613,6 +10679,9 @@ This disease-associated gene is BACH2 (hgnc:14078). hgnc:14078 is a gene from th
 
 
                 </div>
+
+
+
 
 
 
@@ -10656,6 +10725,9 @@ This disease-associated gene is TNFAIP3 (hgnc:11896). hgnc:11896 is a gene from 
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-stat3" data-dismech-node="STAT3" data-dismech-type="genetic">
@@ -10687,6 +10759,9 @@ This disease-associated gene is STAT3 (hgnc:11364). hgnc:11364 is a gene from th
 
 
                 </div>
+
+
+
 
 
 
@@ -10730,6 +10805,9 @@ This disease-associated gene is IL10 (hgnc:5962). hgnc:5962 is a gene from the H
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-cd28" data-dismech-node="CD28" data-dismech-type="genetic">
@@ -10761,6 +10839,9 @@ This disease-associated gene is CD28 (hgnc:1653). hgnc:1653 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -10804,6 +10885,9 @@ This disease-associated gene is EGR2 (hgnc:3239). hgnc:3239 is a gene from the H
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-ets1" data-dismech-node="ETS1" data-dismech-type="genetic">
@@ -10835,6 +10919,9 @@ This disease-associated gene is ETS1 (hgnc:3488). hgnc:3488 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -10878,6 +10965,9 @@ This disease-associated gene is IRF8 (hgnc:5358). hgnc:5358 is a gene from the H
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-satb1" data-dismech-node="SATB1" data-dismech-type="genetic">
@@ -10909,6 +10999,9 @@ This disease-associated gene is SATB1 (hgnc:10541). hgnc:10541 is a gene from th
 
 
                 </div>
+
+
+
 
 
 
@@ -10952,6 +11045,9 @@ This disease-associated gene is IKZF1 (hgnc:13176). hgnc:13176 is a gene from th
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-rel" data-dismech-node="REL" data-dismech-type="genetic">
@@ -10989,6 +11085,9 @@ This disease-associated gene is REL (hgnc:9954). hgnc:9954 is a gene from the HU
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-ptpn22" data-dismech-node="PTPN22" data-dismech-type="genetic">
@@ -11020,6 +11119,9 @@ This disease-associated gene is PTPN22 (hgnc:9652). hgnc:9652 is a gene from the
 
 
                 </div>
+
+
+
 
 
 

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1056,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1071,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1125,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1138,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1296,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1306,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1347,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -1963,11 +2000,13 @@ This mechanism module involves dysregulated Regulation of Vascular Permeability 
             
             <div class="item-box anchor-target" id="module-pathophysiology-uncontrolled-immune-activation-trigger" data-dismech-node="Uncontrolled Immune Activation Trigger" data-dismech-type="pathophysiology">
                 <div class="item-name">Uncontrolled Immune Activation Trigger</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">An immune stimulus that is either too large to be cleared proportionately or cannot be terminated. Three routes converge here. In sepsis, a systemic pathogen load presents an overwhelming quantity of pathogen-associated molecular patterns. In cytokine release syndrome, adoptively transferred engineered T cells engage tumour antigen at high burden and activate bystander myeloid cells. In haemophagocytic lymphohistiocytosis, the trigger is a defect in the killing machinery itself: impaired perforin- or granule-mediated cytotoxicity leaves antigen-presenting cells alive, so the activating stimulus is never removed and lymphocyte-macrophage activation continues without a termination signal. What is shared is not the stimulus but the loss of proportionality between stimulus and response.</div>
                 
@@ -2041,11 +2080,13 @@ This pathophysiological event involves T Cell (CL:0000084). CL:0000084 is a cell
             
             <div class="item-box anchor-target" id="module-pathophysiology-unrestrained-myeloid-cytokine-amplification" data-dismech-node="Unrestrained Myeloid Cytokine Amplification" data-dismech-type="pathophysiology">
                 <div class="item-name">Unrestrained Myeloid Cytokine Amplification</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">amplifier</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Monocytes and macrophages are the dominant amplifying compartment. Activated through pattern-recognition receptors or by contact with activated T cells, they produce IL-6, IL-1 and TNF; these cytokines in turn recruit and activate further myeloid cells, which produce more cytokine. The loop is autoamplifying, so output rises disproportionately to the initiating signal rather than tracking it. Experimental depletion of monocytes prevents the syndrome, establishing this compartment as necessary rather than merely correlated.</div>
                 
@@ -2163,11 +2204,13 @@ This pathophysiological event involves increased Positive Regulation of Interleu
             
             <div class="item-box anchor-target" id="module-pathophysiology-il-6-driven-systemic-cytokine-storm" data-dismech-node="IL-6-Driven Systemic Cytokine Storm" data-dismech-type="pathophysiology">
                 <div class="item-name">IL-6-Driven Systemic Cytokine Storm</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">central effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Cytokine production escapes local control and becomes systemic, with IL-6 as the dominant circulating mediator acting on distant tissues through both classical and trans-signalling. At this point the cytokine response, not the inciting trigger, is the proximate cause of illness: fever, acute-phase response, and the systemic effects that follow are driven by the mediators themselves. This is the disorder-agnostic, rate-limiting step of the module - every conforming disease funnels through it whatever its trigger - and it is the step at which IL-6-axis blockade acts, making it the key conformance target.</div>
                 
@@ -2257,11 +2300,13 @@ This pathophysiological event involves increased Inflammatory Response (GO:00069
             
             <div class="item-box anchor-target" id="module-pathophysiology-endothelial-activation-and-capillary-leak" data-dismech-node="Endothelial Activation and Capillary Leak" data-dismech-type="pathophysiology">
                 <div class="item-name">Endothelial Activation and Capillary Leak</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Circulating cytokines act on vascular endothelium throughout the body. The endothelium is both a target and a further source of cytokines, so its activation extends the storm. Activated endothelium loses barrier integrity, producing capillary leak with interstitial oedema and intravascular volume depletion; loses vasomotor tone, producing distributive hypotension; and loses thromboresistance, producing microvascular thrombosis and consumptive coagulopathy. This is the step that converts a circulating cytokine abnormality into distributed tissue hypoperfusion.</div>
                 
@@ -2367,11 +2412,13 @@ This pathophysiological event involves dysregulated Regulation of Vascular Perme
             
             <div class="item-box anchor-target" id="module-pathophysiology-shock-and-multiorgan-dysfunction" data-dismech-node="Shock and Multiorgan Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Shock and Multiorgan Dysfunction</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The clinical endpoint of the chain: vasodilatory and capillary-leak shock with tissue hypoperfusion, progressing to dysfunction of organs remote from any site of infection or tumour - acute kidney injury, acute respiratory distress, hepatic dysfunction, encephalopathy and disseminated intravascular coagulation. Organ failure here is a consequence of the host response, which is why it occurs in sterile triggers such as CAR-T cytokine release syndrome and familial haemophagocytic lymphohistiocytosis exactly as it does in sepsis.</div>
                 

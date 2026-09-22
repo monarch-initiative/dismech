@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4853,6 +4892,13 @@ Nothing published distinguishes these. Recorded as a mismatch rather than resolv
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sqstm1-uba-domain-variant-impairs-selective-autophagy" data-dismech-node="SQSTM1 UBA-Domain Variant Impairs Selective Autophagy" data-dismech-type="pathophysiology">
                 <div class="item-name">SQSTM1 UBA-Domain Variant Impairs Selective Autophagy</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">p62/sequestosome-1 uses its UBA domain to bind ubiquitinated cargo, which is how it links that cargo both to autophagic degradation and to NF-kB signalling. UBA-domain variants impair ubiquitin binding, so damaged protein is cleared less efficiently and the NF-kB arm loses a regulator. The consequence is a corruption of two coupled housekeeping functions rather than the loss of a single enzyme activity, which is part of why the resulting disease is focal and late rather than congenital and generalised.</div>
 
 
@@ -4987,7 +5033,12 @@ This genetic context concerns SQSTM1 (hgnc:11280). hgnc:11280 is a gene from the
 
 
 
+
+
     </div>
+
+
+
 
 
 
@@ -5153,6 +5204,13 @@ This pathophysiological event involves increased positive regulation of canonica
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-osteoclast-precursor-hypersensitivity-to-rankl" data-dismech-node="Osteoclast Precursor Hypersensitivity to RANKL" data-dismech-type="pathophysiology">
                 <div class="item-name">Osteoclast Precursor Hypersensitivity to RANKL</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Osteoclast differentiation is governed by the RANK-RANKL-OPG triad: RANKL from osteoblasts and marrow stroma drives differentiation through RANK on precursors, and OPG restrains it as a decoy receptor. Pagetic precursors are hypersensitive to RANKL, and the susceptibility loci that emerged from association studies sit largely in this pathway - RANK itself, CSF1, and DCSTAMP, which mediates precursor fusion. The most direct evidence that this axis is the disease&#39;s centre of gravity comes from a different disease: loss of OPG causes juvenile Paget disease, a generalised recessive disorder of the same remodelling machinery.</div>
 
@@ -5387,6 +5445,13 @@ This pathophysiological event involves increased positive regulation of osteocla
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-giant-hypernucleated-hyperactive-osteoclasts" data-dismech-node="Giant Hypernucleated Hyperactive Osteoclasts" data-dismech-type="pathophysiology">
                 <div class="item-name">Giant Hypernucleated Hyperactive Osteoclasts</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The cellular signature of the disease, and the finding that makes a pagetic biopsy recognisable. Osteoclasts at affected sites are larger, more numerous and contain many more nuclei than normal, and they carry characteristic nuclear inclusion bodies. Everything downstream is a consequence of what these cells do; nothing about the osteoblast is primarily abnormal.</div>
 
@@ -5650,6 +5715,13 @@ This pathophysiological event involves PFN1 (hgnc:8881). hgnc:8881 is a gene fro
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-focal-accelerated-bone-resorption" data-dismech-node="Focal Accelerated Bone Resorption" data-dismech-type="pathophysiology">
                 <div class="item-name">Focal Accelerated Bone Resorption</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Intense, localised resorption produces the early lytic phase - osteoporosis circumscripta in the skull, and in long bones an advancing flame-shaped lytic front that begins at one end and travels along the shaft. The focality is the part that is still unexplained: the genetic lesion is in every cell, but only a few sites are affected, and lesions do not cross joint spaces.</div>
 
 
@@ -5837,6 +5909,13 @@ This pathophysiological event occurs in bone element (UBERON:0001474). UBERON:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disorganised-compensatory-bone-formation" data-dismech-node="Disorganised Compensatory Bone Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Disorganised Compensatory Bone Formation</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">Osteoblasts respond to the resorption by forming bone rapidly and without the normal lamellar organisation. The result is the mosaic of woven and lamellar bone with irregular cement lines that is the pathological signature. The osteoblast is behaving normally here - it is coupling to resorption as it should - which is why the disease is properly described as osteoclast-driven rather than as a disorder of formation.</div>
 
 
@@ -5982,6 +6061,13 @@ This pathophysiological event involves increased ossification (GO:0001503). GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-expanded-structurally-weak-hypervascular-bone" data-dismech-node="Expanded Structurally Weak Hypervascular Bone" data-dismech-type="pathophysiology">
                 <div class="item-name">Expanded Structurally Weak Hypervascular Bone</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The remodelled bone is enlarged in diameter, mechanically inferior and highly vascular. That combination generates the entire clinical burden: pain, bowing deformity of weight-bearing long bones, secondary osteoarthritis at adjacent joints, pathological fracture, cranial nerve compression with hearing loss where the skull is involved, and - in extensive polyostotic disease - a high-output cardiac state from the vascularity. Rarely the same site undergoes neoplastic transformation.</div>
 
@@ -6188,7 +6274,7 @@ This pathophysiological event occurs in vertebral column (UBERON:0001130). UBERO
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Disorganised Compensatory Bone Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Osteoblasts respond to the resorption by forming bone rapidly and without the normal lamellar organisation. The result is the mosaic of woven and lamellar bone with irregular cement lines that is the pathological signature. The osteoblast is behaving normally here - it is coupling to resorption as it should - which is why the disease is properly described as osteoclast-driven rather than as a disorder of formation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"osteoblast\"], \"biological_processes\": [\"ossification\"]}}, {\"id\": \"Expanded Structurally Weak Hypervascular Bone\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The remodelled bone is enlarged in diameter, mechanically inferior and highly vascular. That combination generates the entire clinical burden: pain, bowing deformity of weight-bearing long bones, secondary osteoarthritis at adjacent joints, pathological fracture, cranial nerve compression with hearing loss where the skull is involved, and - in extensive polyostotic disease - a high-output cardiac state from the vascularity. Rarely the same site undergoes neoplastic transformation.\", \"meta\": {\"evidence_count\": 3, \"locations\": [\"bony pelvis\", \"femur\", \"cranium\", \"vertebral column\"]}}, {\"id\": \"Focal Accelerated Bone Resorption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Intense, localised resorption produces the early lytic phase - osteoporosis circumscripta in the skull, and in long bones an advancing flame-shaped lytic front that begins at one end and travels along the shaft. The focality is the part that is still unexplained: the genetic lesion is in every cell, but only a few sites are affected, and lesions do not cross joint spaces.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"osteoclast\"], \"biological_processes\": [\"bone resorption\"], \"locations\": [\"bone element\"], \"animal_models\": [{\"name\": \"P394L Sqstm1 knock-in mouse\", \"species\": \"Mouse\", \"genotype\": \"Sqstm1 p.Pro394Leu knock-in, heterozygous and homozygous\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Focal lesions accumulate with age - 77% of heterozygotes and 95% of homozygotes by 12 months against none in wild-type littermates - and predominantly affect the lower limbs asymmetrically, reproducing the focality and asymmetry that a germline allele does not obviously explain.\"}]}}, {\"id\": \"Giant Hypernucleated Hyperactive Osteoclasts\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The cellular signature of the disease, and the finding that makes a pagetic biopsy recognisable. Osteoclasts at affected sites are larger, more numerous and contain many more nuclei than normal, and they carry characteristic nuclear inclusion bodies. Everything downstream is a consequence of what these cells do; nothing about the osteoblast is primarily abnormal.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"multinuclear osteoclast\"], \"genes\": [\"ZNF687\", \"PFN1\"], \"gene_terms\": [{\"label\": \"ZNF687\", \"id\": \"hgnc:29277\"}, {\"label\": \"PFN1\", \"id\": \"hgnc:8881\"}], \"animal_models\": [{\"name\": \"P394L Sqstm1 knock-in mouse\", \"species\": \"Mouse\", \"genotype\": \"Sqstm1 p.Pro394Leu knock-in, heterozygous and homozygous\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Osteoclasts within murine lesions are larger and more nucleated than normal and some carry the nuclear inclusion bodies seen in human pagetic osteoclasts - the cellular signature of the disease reproduced in full.\"}]}}, {\"id\": \"Neridronate\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"An alternative aminobisphosphonate, and the practically useful thing about it is the route: a 200 mg course given intramuscularly performed as well as the same dose intravenously - 96.5% versus 92.6% therapeutic response at 6 months - which matters for patients who cannot or will not have an infusion. Response was not durable in the way a single zoledronic acid infusion is; it held at 12 months and fell progressively at 24 and 36.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Osteoclast Precursor Hypersensitivity to RANKL\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Osteoclast differentiation is governed by the RANK-RANKL-OPG triad: RANKL from osteoblasts and marrow stroma drives differentiation through RANK on precursors, and OPG restrains it as a decoy receptor. Pagetic precursors are hypersensitive to RANKL, and the susceptibility loci that emerged from association studies sit largely in this pathway - RANK itself, CSF1, and DCSTAMP, which mediates precursor fusion. The most direct evidence that this axis is the disease\u0027s centre of gravity comes from a different disease: loss of OPG causes juvenile Paget disease, a generalised recessive disorder of the same remodelling machinery.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"osteoclast precursor\"], \"biological_processes\": [\"positive regulation of osteoclast differentiation\"], \"genes\": [\"TNFRSF11A\"], \"gene_terms\": [{\"label\": \"TNFRSF11A\", \"id\": \"hgnc:11908\"}], \"animal_models\": [{\"name\": \"P394L Sqstm1 knock-in mouse\", \"species\": \"Mouse\", \"genotype\": \"Sqstm1 p.Pro394Leu knock-in, heterozygous and homozygous\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Osteoclast precursors from mutant mice are measurably more sensitive to RANKL than wild-type, and the sensitivity increases further with age - which is what makes this model an explanation for the age-dependence of human penetrance rather than only a phenocopy.\"}]}}, {\"id\": \"P394L Sqstm1 knock-in mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The murine equivalent of the human SQSTM1 p.Pro392Leu allele, and the model that carries most of the mechanistic weight in this disease. It reproduces the focal, asymmetric, age-accumulating lesions of human PDB, the giant hypernucleated osteoclasts with nuclear inclusions, the RANKL hypersensitivity of osteoclast precursors, and the autophagy dysregulation - four of this entry\u0027s six nodes, in one model.\\n\\nIt is also the source of this entry\u0027s most awkward evidence. Human PDB is focal and its incidence is falling, which argues for an environmental co-factor; this mouse develops the disease with no trigger at all. See the HUMAN_MODEL_MISMATCH discussion.\"}, {\"id\": \"PFN1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PFN1\"], \"gene_terms\": [{\"label\": \"PFN1\", \"id\": \"hgnc:8881\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"SQSTM1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"SQSTM1\"], \"gene_terms\": [{\"label\": \"SQSTM1\", \"id\": \"hgnc:11280\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"SQSTM1 UBA-Domain Variant Impairs Selective Autophagy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"p62/sequestosome-1 uses its UBA domain to bind ubiquitinated cargo, which is how it links that cargo both to autophagic degradation and to NF-kB signalling. UBA-domain variants impair ubiquitin binding, so damaged protein is cleared less efficiently and the NF-kB arm loses a regulator. The consequence is a corruption of two coupled housekeeping functions rather than the loss of a single enzyme activity, which is part of why the resulting disease is focal and late rather than congenital and generalised.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"osteoclast precursor\"], \"biological_processes\": [\"autophagy\", \"positive regulation of canonical NF-kappaB signal transduction\"], \"genes\": [\"SQSTM1\"], \"gene_terms\": [{\"label\": \"SQSTM1\", \"id\": \"hgnc:11280\"}], \"genetic_context\": {\"gene_terms\": [{\"label\": \"SQSTM1\", \"id\": \"hgnc:11280\"}]}}}, {\"id\": \"Symptom-Directed Rather Than Turnover-Directed Management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"This is a treatment-strategy entry rather than an agent, because the strategy question has been answered directly and the answer is counterintuitive. The PRISM-EZ trial randomised 502 patients to intensive bisphosphonate therapy aimed at normalising bone turnover versus bisphosphonates given only for pain. Intensive treatment achieved markedly better biochemistry and produced no reduction in fracture, no fewer orthopaedic procedures, and no better quality of life - with a non-significant increase in fractures, orthopaedic events and serious adverse events. In established disease, therefore, the target is symptoms, not the ALP.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"TNFRSF11A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TNFRSF11A\"], \"gene_terms\": [{\"label\": \"TNFRSF11A\", \"id\": \"hgnc:11908\"}], \"relationship_type\": \"SUSCEPTIBILITY\"}}, {\"id\": \"Unidentified declining environmental exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Something environmental is strongly implicated, and it is going away. Standardised UK incidence fell from 0.75 to 0.20 per 10,000 person-years between 1999 and 2015 - far too fast to be genetic drift - and the same decline has been reported in other countries. Together with the focality of lesions and the incomplete penetrance within families, that is the case for an environmental co-factor acting on a genetically susceptible osteoclast lineage. Its identity is unknown.\\n\\nThis entry says \\\"strongly implicated\\\" rather than \\\"required\\\" on purpose. The P394L Sqstm1 knock-in mouse develops a PDB-like focal skeletal disorder with no additional trigger, which is direct evidence against strict necessity. The human epidemiology and the mouse disagree, and the disagreement is recorded as a HUMAN_MODEL_MISMATCH discussion rather than resolved in favour of either. The long-standing paramyxovirus hypothesis is discussed separately and is not currently supported.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"ZNF687\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ZNF687\"], \"gene_terms\": [{\"label\": \"ZNF687\", \"id\": \"hgnc:29277\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Zoledronic Acid\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A single 5 mg intravenous infusion, and the most effective bisphosphonate tested in this disease by a wide margin. Therapeutic response was 97% against 45% for pamidronate in a head-to-head randomised comparison, and over 6.5 years of follow-up without retreatment relapse occurred in 1 of 152 patients given zoledronate against 23 of 115 given risedronate.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"zoledronic acid\"]}}], \"edges\": [{\"source\": \"SQSTM1 UBA-Domain Variant Impairs Selective Autophagy\", \"target\": \"Osteoclast Precursor Hypersensitivity to RANKL\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Osteoclast Precursor Hypersensitivity to RANKL\", \"target\": \"Giant Hypernucleated Hyperactive Osteoclasts\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Giant Hypernucleated Hyperactive Osteoclasts\", \"target\": \"Focal Accelerated Bone Resorption\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Focal Accelerated Bone Resorption\", \"target\": \"Disorganised Compensatory Bone Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disorganised Compensatory Bone Formation\", \"target\": \"Expanded Structurally Weak Hypervascular Bone\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Unidentified declining environmental exposure\", \"target\": \"Osteoclast Precursor Hypersensitivity to RANKL\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Modelled as a co-factor that converts inherited susceptibility into focal disease. The link is inferred from epidemiology and penetrance, not from a demonstrated exposure-to-osteoclast mechanism, and the target is the pathway the genetics implicate rather than a measured one. It is not modelled as necessary: see the HUMAN_MODEL_MISMATCH discussion for the mouse evidence against that.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Zoledronic Acid\", \"target\": \"Giant Hypernucleated Hyperactive Osteoclasts\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Neridronate\", \"target\": \"Giant Hypernucleated Hyperactive Osteoclasts\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Symptom-Directed Rather Than Turnover-Directed Management\", \"target\": \"Expanded Structurally Weak Hypervascular Bone\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"P394L Sqstm1 knock-in mouse\", \"target\": \"Osteoclast Precursor Hypersensitivity to RANKL\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Osteoclast precursors from mutant mice are measurably more sensitive to RANKL than wild-type, and the sensitivity increases further with age - which is what makes this model an explanation for the age-dependence of human penetrance rather than only a phenocopy.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"The sensitivity is measured in vitro on precursors from the mouse, so it establishes a cell-autonomous property of the mutant lineage rather than the in vivo trigger sequence.\"}, {\"source\": \"P394L Sqstm1 knock-in mouse\", \"target\": \"Giant Hypernucleated Hyperactive Osteoclasts\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Osteoclasts within murine lesions are larger and more nucleated than normal and some carry the nuclear inclusion bodies seen in human pagetic osteoclasts - the cellular signature of the disease reproduced in full.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"Inclusion bodies are reported in some but not all lesional osteoclasts, as in humans; the model does not resolve what they are.\"}, {\"source\": \"P394L Sqstm1 knock-in mouse\", \"target\": \"Focal Accelerated Bone Resorption\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Focal lesions accumulate with age - 77% of heterozygotes and 95% of homozygotes by 12 months against none in wild-type littermates - and predominantly affect the lower limbs asymmetrically, reproducing the focality and asymmetry that a germline allele does not obviously explain.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Penetrance is far higher than in human heterozygotes, and the lesion distribution is limb-predominant rather than matching the human axial preference for pelvis, spine and skull.\"}, {\"source\": \"SQSTM1\", \"target\": \"SQSTM1 UBA-Domain Variant Impairs Selective Autophagy\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ZNF687\", \"target\": \"Giant Hypernucleated Hyperactive Osteoclasts\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TNFRSF11A\", \"target\": \"Osteoclast Precursor Hypersensitivity to RANKL\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PFN1\", \"target\": \"Giant Hypernucleated Hyperactive Osteoclasts\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Disorganised Compensatory Bone Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Osteoblasts respond to the resorption by forming bone rapidly and without the normal lamellar organisation. The result is the mosaic of woven and lamellar bone with irregular cement lines that is the pathological signature. The osteoblast is behaving normally here - it is coupling to resorption as it should - which is why the disease is properly described as osteoclast-driven rather than as a disorder of formation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"osteoblast\"], \"biological_processes\": [\"ossification\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Expanded Structurally Weak Hypervascular Bone\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The remodelled bone is enlarged in diameter, mechanically inferior and highly vascular. That combination generates the entire clinical burden: pain, bowing deformity of weight-bearing long bones, secondary osteoarthritis at adjacent joints, pathological fracture, cranial nerve compression with hearing loss where the skull is involved, and - in extensive polyostotic disease - a high-output cardiac state from the vascularity. Rarely the same site undergoes neoplastic transformation.\", \"meta\": {\"evidence_count\": 3, \"locations\": [\"bony pelvis\", \"femur\", \"cranium\", \"vertebral column\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Focal Accelerated Bone Resorption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Intense, localised resorption produces the early lytic phase - osteoporosis circumscripta in the skull, and in long bones an advancing flame-shaped lytic front that begins at one end and travels along the shaft. The focality is the part that is still unexplained: the genetic lesion is in every cell, but only a few sites are affected, and lesions do not cross joint spaces.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"osteoclast\"], \"biological_processes\": [\"bone resorption\"], \"locations\": [\"bone element\"], \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"P394L Sqstm1 knock-in mouse\", \"species\": \"Mouse\", \"genotype\": \"Sqstm1 p.Pro394Leu knock-in, heterozygous and homozygous\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Focal lesions accumulate with age - 77% of heterozygotes and 95% of homozygotes by 12 months against none in wild-type littermates - and predominantly affect the lower limbs asymmetrically, reproducing the focality and asymmetry that a germline allele does not obviously explain.\"}]}}, {\"id\": \"Giant Hypernucleated Hyperactive Osteoclasts\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The cellular signature of the disease, and the finding that makes a pagetic biopsy recognisable. Osteoclasts at affected sites are larger, more numerous and contain many more nuclei than normal, and they carry characteristic nuclear inclusion bodies. Everything downstream is a consequence of what these cells do; nothing about the osteoblast is primarily abnormal.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"multinuclear osteoclast\"], \"genes\": [\"ZNF687\", \"PFN1\"], \"gene_terms\": [{\"label\": \"ZNF687\", \"id\": \"hgnc:29277\"}, {\"label\": \"PFN1\", \"id\": \"hgnc:8881\"}], \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"P394L Sqstm1 knock-in mouse\", \"species\": \"Mouse\", \"genotype\": \"Sqstm1 p.Pro394Leu knock-in, heterozygous and homozygous\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Osteoclasts within murine lesions are larger and more nucleated than normal and some carry the nuclear inclusion bodies seen in human pagetic osteoclasts - the cellular signature of the disease reproduced in full.\"}]}}, {\"id\": \"Neridronate\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"An alternative aminobisphosphonate, and the practically useful thing about it is the route: a 200 mg course given intramuscularly performed as well as the same dose intravenously - 96.5% versus 92.6% therapeutic response at 6 months - which matters for patients who cannot or will not have an infusion. Response was not durable in the way a single zoledronic acid infusion is; it held at 12 months and fell progressively at 24 and 36.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Osteoclast Precursor Hypersensitivity to RANKL\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Osteoclast differentiation is governed by the RANK-RANKL-OPG triad: RANKL from osteoblasts and marrow stroma drives differentiation through RANK on precursors, and OPG restrains it as a decoy receptor. Pagetic precursors are hypersensitive to RANKL, and the susceptibility loci that emerged from association studies sit largely in this pathway - RANK itself, CSF1, and DCSTAMP, which mediates precursor fusion. The most direct evidence that this axis is the disease\u0027s centre of gravity comes from a different disease: loss of OPG causes juvenile Paget disease, a generalised recessive disorder of the same remodelling machinery.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"osteoclast precursor\"], \"biological_processes\": [\"positive regulation of osteoclast differentiation\"], \"genes\": [\"TNFRSF11A\"], \"gene_terms\": [{\"label\": \"TNFRSF11A\", \"id\": \"hgnc:11908\"}], \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"P394L Sqstm1 knock-in mouse\", \"species\": \"Mouse\", \"genotype\": \"Sqstm1 p.Pro394Leu knock-in, heterozygous and homozygous\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Osteoclast precursors from mutant mice are measurably more sensitive to RANKL than wild-type, and the sensitivity increases further with age - which is what makes this model an explanation for the age-dependence of human penetrance rather than only a phenocopy.\"}]}}, {\"id\": \"P394L Sqstm1 knock-in mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The murine equivalent of the human SQSTM1 p.Pro392Leu allele, and the model that carries most of the mechanistic weight in this disease. It reproduces the focal, asymmetric, age-accumulating lesions of human PDB, the giant hypernucleated osteoclasts with nuclear inclusions, the RANKL hypersensitivity of osteoclast precursors, and the autophagy dysregulation - four of this entry\u0027s six nodes, in one model.\\n\\nIt is also the source of this entry\u0027s most awkward evidence. Human PDB is focal and its incidence is falling, which argues for an environmental co-factor; this mouse develops the disease with no trigger at all. See the HUMAN_MODEL_MISMATCH discussion.\"}, {\"id\": \"PFN1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PFN1\"], \"gene_terms\": [{\"label\": \"PFN1\", \"id\": \"hgnc:8881\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"SQSTM1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"SQSTM1\"], \"gene_terms\": [{\"label\": \"SQSTM1\", \"id\": \"hgnc:11280\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"SQSTM1 UBA-Domain Variant Impairs Selective Autophagy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"p62/sequestosome-1 uses its UBA domain to bind ubiquitinated cargo, which is how it links that cargo both to autophagic degradation and to NF-kB signalling. UBA-domain variants impair ubiquitin binding, so damaged protein is cleared less efficiently and the NF-kB arm loses a regulator. The consequence is a corruption of two coupled housekeeping functions rather than the loss of a single enzyme activity, which is part of why the resulting disease is focal and late rather than congenital and generalised.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"osteoclast precursor\"], \"biological_processes\": [\"autophagy\", \"positive regulation of canonical NF-kappaB signal transduction\"], \"genes\": [\"SQSTM1\"], \"gene_terms\": [{\"label\": \"SQSTM1\", \"id\": \"hgnc:11280\"}], \"genetic_context\": {\"gene_terms\": [{\"label\": \"SQSTM1\", \"id\": \"hgnc:11280\"}]}, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Symptom-Directed Rather Than Turnover-Directed Management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"This is a treatment-strategy entry rather than an agent, because the strategy question has been answered directly and the answer is counterintuitive. The PRISM-EZ trial randomised 502 patients to intensive bisphosphonate therapy aimed at normalising bone turnover versus bisphosphonates given only for pain. Intensive treatment achieved markedly better biochemistry and produced no reduction in fracture, no fewer orthopaedic procedures, and no better quality of life - with a non-significant increase in fractures, orthopaedic events and serious adverse events. In established disease, therefore, the target is symptoms, not the ALP.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"TNFRSF11A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TNFRSF11A\"], \"gene_terms\": [{\"label\": \"TNFRSF11A\", \"id\": \"hgnc:11908\"}], \"relationship_type\": \"SUSCEPTIBILITY\"}}, {\"id\": \"Unidentified declining environmental exposure\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Something environmental is strongly implicated, and it is going away. Standardised UK incidence fell from 0.75 to 0.20 per 10,000 person-years between 1999 and 2015 - far too fast to be genetic drift - and the same decline has been reported in other countries. Together with the focality of lesions and the incomplete penetrance within families, that is the case for an environmental co-factor acting on a genetically susceptible osteoclast lineage. Its identity is unknown.\\n\\nThis entry says \\\"strongly implicated\\\" rather than \\\"required\\\" on purpose. The P394L Sqstm1 knock-in mouse develops a PDB-like focal skeletal disorder with no additional trigger, which is direct evidence against strict necessity. The human epidemiology and the mouse disagree, and the disagreement is recorded as a HUMAN_MODEL_MISMATCH discussion rather than resolved in favour of either. The long-standing paramyxovirus hypothesis is discussed separately and is not currently supported.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"ZNF687\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ZNF687\"], \"gene_terms\": [{\"label\": \"ZNF687\", \"id\": \"hgnc:29277\"}], \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Zoledronic Acid\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A single 5 mg intravenous infusion, and the most effective bisphosphonate tested in this disease by a wide margin. Therapeutic response was 97% against 45% for pamidronate in a head-to-head randomised comparison, and over 6.5 years of follow-up without retreatment relapse occurred in 1 of 152 patients given zoledronate against 23 of 115 given risedronate.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"zoledronic acid\"]}}], \"edges\": [{\"source\": \"SQSTM1 UBA-Domain Variant Impairs Selective Autophagy\", \"target\": \"Osteoclast Precursor Hypersensitivity to RANKL\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Osteoclast Precursor Hypersensitivity to RANKL\", \"target\": \"Giant Hypernucleated Hyperactive Osteoclasts\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Giant Hypernucleated Hyperactive Osteoclasts\", \"target\": \"Focal Accelerated Bone Resorption\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Focal Accelerated Bone Resorption\", \"target\": \"Disorganised Compensatory Bone Formation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disorganised Compensatory Bone Formation\", \"target\": \"Expanded Structurally Weak Hypervascular Bone\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Unidentified declining environmental exposure\", \"target\": \"Osteoclast Precursor Hypersensitivity to RANKL\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Modelled as a co-factor that converts inherited susceptibility into focal disease. The link is inferred from epidemiology and penetrance, not from a demonstrated exposure-to-osteoclast mechanism, and the target is the pathway the genetics implicate rather than a measured one. It is not modelled as necessary: see the HUMAN_MODEL_MISMATCH discussion for the mouse evidence against that.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Zoledronic Acid\", \"target\": \"Giant Hypernucleated Hyperactive Osteoclasts\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Neridronate\", \"target\": \"Giant Hypernucleated Hyperactive Osteoclasts\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Symptom-Directed Rather Than Turnover-Directed Management\", \"target\": \"Expanded Structurally Weak Hypervascular Bone\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"P394L Sqstm1 knock-in mouse\", \"target\": \"Osteoclast Precursor Hypersensitivity to RANKL\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Osteoclast precursors from mutant mice are measurably more sensitive to RANKL than wild-type, and the sensitivity increases further with age - which is what makes this model an explanation for the age-dependence of human penetrance rather than only a phenocopy.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"The sensitivity is measured in vitro on precursors from the mouse, so it establishes a cell-autonomous property of the mutant lineage rather than the in vivo trigger sequence.\"}, {\"source\": \"P394L Sqstm1 knock-in mouse\", \"target\": \"Giant Hypernucleated Hyperactive Osteoclasts\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Osteoclasts within murine lesions are larger and more nucleated than normal and some carry the nuclear inclusion bodies seen in human pagetic osteoclasts - the cellular signature of the disease reproduced in full.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"Inclusion bodies are reported in some but not all lesional osteoclasts, as in humans; the model does not resolve what they are.\"}, {\"source\": \"P394L Sqstm1 knock-in mouse\", \"target\": \"Focal Accelerated Bone Resorption\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Focal lesions accumulate with age - 77% of heterozygotes and 95% of homozygotes by 12 months against none in wild-type littermates - and predominantly affect the lower limbs asymmetrically, reproducing the focality and asymmetry that a germline allele does not obviously explain.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Penetrance is far higher than in human heterozygotes, and the lesion distribution is limb-predominant rather than matching the human axial preference for pelvis, spine and skull.\"}, {\"source\": \"SQSTM1\", \"target\": \"SQSTM1 UBA-Domain Variant Impairs Selective Autophagy\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ZNF687\", \"target\": \"Giant Hypernucleated Hyperactive Osteoclasts\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TNFRSF11A\", \"target\": \"Osteoclast Precursor Hypersensitivity to RANKL\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PFN1\", \"target\": \"Giant Hypernucleated Hyperactive Osteoclasts\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6912,6 +6998,9 @@ This disease-associated gene is SQSTM1 (hgnc:11280). hgnc:11280 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6980,6 +7069,9 @@ This disease-associated gene is ZNF687 (hgnc:29277). hgnc:29277 is a gene from t
 
 
                 </div>
+
+
+
 
 
 
@@ -7056,6 +7148,9 @@ This disease-associated gene is TNFRSF11A (hgnc:11908). hgnc:11908 is a gene fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7124,6 +7219,9 @@ This disease-associated gene is PFN1 (hgnc:8881). hgnc:8881 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 

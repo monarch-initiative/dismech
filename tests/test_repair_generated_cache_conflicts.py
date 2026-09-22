@@ -324,8 +324,16 @@ def test_clean_merge_does_not_create_a_branch_freshness_update(repo: Path):
     assert caller_state(repo) == before
 
 
-@pytest.mark.parametrize("changed_side", ["head", "base"])
-@pytest.mark.parametrize("change", ["modify", "delete", "add"])
+@pytest.mark.parametrize(
+    "changed_side,change",
+    [
+        ("head", "modify"),
+        ("base", "modify"),
+        ("head", "delete"),
+        ("head", "add"),
+        ("base", "add"),
+    ],
+)
 def test_root_json_changes_refuse_before_merge_or_blob_reads(
     repo: Path, monkeypatch, changed_side, change
 ):
@@ -352,6 +360,48 @@ def test_root_json_changes_refuse_before_merge_or_blob_reads(
     before = caller_state(repo)
     with pytest.raises(repair.UnsafeMerge, match="protected cache"):
         repair.build_merge(local, head, base)
+    assert caller_state(repo) == before
+
+
+@pytest.mark.parametrize("head_change", ["unchanged", "delete", "modify"])
+def test_trusted_main_deletion_survives_csv_repair_unless_pr_modified_json(
+    repo: Path, monkeypatch, head_change
+):
+    protected = "cache/legacy.json"
+    head_changes = {LABEL_PATH: labels(1, 2)}
+    if head_change != "unchanged":
+        head_changes[protected] = None if head_change == "delete" else "changed\n"
+    head, base = diverge(
+        repo,
+        {LABEL_PATH: labels(1), protected: "retired fixture\n"},
+        head_changes,
+        {LABEL_PATH: labels(1, 3), protected: None},
+    )
+    local = repair.GitRepo(repo)
+    ancestor = git(repo, "merge-base", head, base).decode().strip()
+    protected_blobs = {
+        tree[protected][1]
+        for tree in (local.tree(ancestor), local.tree(head))
+        if protected in tree
+    }
+    original_git = local.git
+
+    def no_protected_blob_reads(*args, **kwargs):
+        if head_change == "modify":
+            assert "merge-tree" not in args
+        if "cat-file" in args:
+            assert args[-1] not in protected_blobs
+        return original_git(*args, **kwargs)
+
+    monkeypatch.setattr(local, "git", no_protected_blob_reads)
+    before = caller_state(repo)
+    if head_change == "modify":
+        with pytest.raises(repair.UnsafeMerge, match="protected cache"):
+            repair.build_merge(local, head, base)
+    else:
+        plan = repair.build_merge(local, head, base)
+        assert protected not in local.tree(plan.tree)
+        assert tree_file(repo, plan.tree, LABEL_PATH) == labels(1, 2, 3)
     assert caller_state(repo) == before
 
 

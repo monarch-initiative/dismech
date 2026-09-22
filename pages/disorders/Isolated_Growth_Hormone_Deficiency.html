@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -5057,6 +5096,7 @@ This subtype is caused by variation in SOX3 (hgnc:11199). hgnc:11199 is a gene f
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ghrhr-or-gh1-partial-loss-of-function-variant" data-dismech-node="GHRHR or GH1 Partial Loss-of-Function Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">GHRHR or GH1 Partial Loss-of-Function Variant</div>
 
+
                 <div class="item-desc">Most commonly a biallelic inactivating GHRHR variant (the founding description is a nonsense mutation, Glu50Stop, in the receptor&#39;s extracellular domain, in a consanguineous Pakistani kindred); much less commonly an intrinsic GH1 variant, which a systematic sequencing survey found in only 1.7% of type IB subjects. Both converge on the same clinical picture - low but detectable GH, unlike type IA&#39;s complete absence.</div>
 
 
@@ -5191,6 +5231,8 @@ This genetic context concerns GHRHR (hgnc:4266). hgnc:4266 is a gene from the HU
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -5203,6 +5245,9 @@ This genetic context concerns GHRHR (hgnc:4266). hgnc:4266 is a gene from the HU
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Modeled on the GHRHR route, the better-characterized of the two genetic causes; a rarer intrinsic GH1 defect can produce the same downstream state by a distinct mechanism not captured by this genetic_context block.</div>
 
@@ -5338,6 +5383,7 @@ This pathophysiological event involves growth hormone-releasing hormone receptor
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-somatotroph-growth-hormone-synthesis-and-secretion" data-dismech-node="Reduced Somatotroph Growth Hormone Synthesis and Secretion" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Somatotroph Growth Hormone Synthesis and Secretion</div>
+
 
                 <div class="item-desc">Somatotrophs are present and capable of secretion, unlike the somatotroph loss modeled for type II below; without the GHRH signal (or with an intrinsic GH1 defect) they simply make and release less hormone.</div>
 
@@ -5485,6 +5531,7 @@ This pathophysiological event involves decreased growth hormone secretion (GO:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-gh1-intron-3-splice-site-or-splicing-enhancer-variant" data-dismech-node="GH1 Intron-3 Splice-Site or Splicing-Enhancer Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">GH1 Intron-3 Splice-Site or Splicing-Enhancer Variant</div>
 
+
                 <div class="item-desc">A single mutant GH1 allele produces a mixture of normal transcript and an aberrantly spliced transcript lacking exon 3, while the other allele continues to produce normal transcript - the genetic basis of the dominant-negative phenotype elaborated in the nodes below.</div>
 
 
@@ -5580,6 +5627,8 @@ This genetic context concerns GH1 (hgnc:4261). hgnc:4261 is a gene from the HUGO
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -5592,6 +5641,9 @@ This genetic context concerns GH1 (hgnc:4261). hgnc:4261 is a gene from the HUGO
         <span class="tag tag-classification">functional_impact_category: DOMINANT_NEGATIVE</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Most frequently the recurrent intron-3 donor splice-site variant IVS3+1G&gt;A; other reported lesions weaken exon-3 splicing enhancers (dual enhancers are normally required for exon-3 definition) rather than disrupting the canonical splice site itself.</div>
 
@@ -5687,6 +5739,7 @@ This genetic context concerns GH1 (hgnc:4261). hgnc:4261 is a gene from the HUGO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-exon-3-skipping-and-dominant-negative-17-5-kda-gh-isoform-production" data-dismech-node="Exon 3 Skipping and Dominant-Negative 17.5-kDa GH Isoform Production" data-dismech-type="pathophysiology">
                 <div class="item-name">Exon 3 Skipping and Dominant-Negative 17.5-kDa GH Isoform Production</div>
+
 
                 <div class="item-desc">The mutant allele&#39;s transcript skips exon 3, yielding a 17.5-kDa GH isoform lacking the residues exon 3 would have encoded (also described as del32-71 GH), co-expressed with normal 22-kDa GH from the wild-type allele. This isoform is not simply inactive - it actively interferes with the wild-type hormone&#39;s normal secretion, which is what makes the variant dominant-negative rather than a simple loss-of-function allele. Splicing-enhancer variants that only partially weaken exon-3 recognition produce variable amounts of the 17.5-kDa isoform, offering a candidate explanation for the clinical variability seen among type II patients.</div>
 
@@ -5792,6 +5845,7 @@ This genetic context concerns GH1 (hgnc:4261). hgnc:4261 is a gene from the HUGO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disruption-of-gh-secretory-granules" data-dismech-node="Disruption of GH Secretory Granules" data-dismech-type="pathophysiology">
                 <div class="item-name">Disruption of GH Secretory Granules</div>
+
 
                 <div class="item-desc">Expression of the 17.5-kDa isoform causes a dose-dependent disruption of GH secretory vesicles, directly impairing regulated release of the co-packaged normal hormone independent of the apoptotic arm below.</div>
 
@@ -5925,6 +5979,7 @@ This pathophysiological event involves secretory granule (GO:0030141). GO:003014
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-endoplasmic-reticulum-stress-and-somatotroph-apoptosis" data-dismech-node="Endoplasmic Reticulum Stress and Somatotroph Apoptosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Endoplasmic Reticulum Stress and Somatotroph Apoptosis</div>
+
 
                 <div class="item-desc">Unfolded 17.5-kDa isoform accumulates in the endoplasmic reticulum and activates all three canonical ER stress-response arms (PERK, ATF6, and IRE1), with downstream caspase-3/7 activation and, in a subset of cell models, DNA fragmentation - a second, apoptotic route to reduced GH output that is independent of the granule-disruption arm above. Overexpressing the IRE1-downstream transcription factor XBP1(S) reversed the caspase activation in this system, identifying IRE1 signalling as load-bearing for the apoptotic effect rather than merely correlated with it.</div>
 
@@ -6097,6 +6152,7 @@ This pathophysiological event involves increased intrinsic apoptotic signaling p
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-anterior-pituitary-somatotroph-loss" data-dismech-node="Anterior Pituitary Somatotroph Loss" data-dismech-type="pathophysiology">
                 <div class="item-name">Anterior Pituitary Somatotroph Loss</div>
 
+
                 <div class="item-desc">In transgenic mice, overexpression of the dominant-negative 17.5-kDa isoform destroyed the majority of somatotrophs and produced anterior pituitary hypoplasia. This structural consequence has been demonstrated in the mouse model rather than directly imaged in human type II patients; see the discussion below.</div>
 
 
@@ -6171,6 +6227,7 @@ This pathophysiological event involves increased intrinsic apoptotic signaling p
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-btk-region-xq21-3-q22-genetic-lesion" data-dismech-node="BTK-Region Xq21.3-q22 Genetic Lesion" data-dismech-type="pathophysiology">
                 <div class="item-name">BTK-Region Xq21.3-q22 Genetic Lesion</div>
 
+
                 <div class="item-desc">Named for the BTK locus because that is the established cause of the co-occurring agammaglobulinemia (Bruton&#39;s X-linked agammaglobulinemia, kb/disorders/X-linked_Agammaglobulinemia.yaml), not because BTK itself has been shown to cause the GH deficiency.</div>
 
 
@@ -6223,6 +6280,8 @@ This genetic context concerns BTK (hgnc:1133). hgnc:1133 is a gene from the HUGO
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -6231,6 +6290,9 @@ This genetic context concerns BTK (hgnc:1133). hgnc:1133 is a gene from the HUGO
 
 
     </div>
+
+
+
 
     <div class="context-detail">X-linked segregation of GH deficiency together with agammaglobulinemia is well established clinically in this region, but the specific genetic lesion responsible for the GHD component has not been identified: in the originally described kindred BTK mRNA and protein were both present at normal levels and the BTK coding sequence was normal, and a contiguous deletion spanning the region was explicitly excluded in three further XLA/GHD patients. This is a genuine knowledge gap (see discussions below), not a settled BTK mechanism.</div>
 
@@ -6328,6 +6390,7 @@ This genetic context concerns BTK (hgnc:1133). hgnc:1133 is a gene from the HUGO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sox3-dosage-alteration" data-dismech-node="SOX3 Dosage Alteration" data-dismech-type="pathophysiology">
                 <div class="item-name">SOX3 Dosage Alteration</div>
+
 
                 <div class="item-desc">A molecularly distinct second route into the X-linked subtype, acting through hypothalamic-pituitary developmental patterning rather than through a locus linked to agammaglobulinemia.</div>
 
@@ -6429,7 +6492,12 @@ This genetic context concerns SOX3 (hgnc:11199). hgnc:11199 is a gene from the H
 
 
 
+
+
     </div>
+
+
+
 
     <div class="context-detail">Duplication or deletion of the dosage-sensitive transcription factor SOX3 at Xq26-27; either direction of dosage change has been reported with infundibular hypoplasia and hypopituitarism, more typically combined pituitary hormone deficiency rather than a strictly isolated GH deficit.</div>
 
@@ -6502,6 +6570,7 @@ This genetic context concerns SOX3 (hgnc:11199). hgnc:11199 is a gene from the H
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-insufficient-circulating-growth-hormone" data-dismech-node="Insufficient Circulating Growth Hormone" data-dismech-type="pathophysiology">
                 <div class="item-name">Insufficient Circulating Growth Hormone</div>
+
 
                 <div class="item-desc">The convergent state shared by types IB, II, and III: circulating GH is reduced by disruption of its synthesis, secretion, or the somatotroph population producing it - in contrast to type IA, where the GH1 gene product is absent altogether (curated separately). The route into this state differs by subtype (see the arms above), but the downstream consequence for growth is the same.</div>
 
@@ -6576,6 +6645,7 @@ This genetic context concerns SOX3 (hgnc:11199). hgnc:11199 is a gene from the H
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-growth-hormone-receptor-signalling" data-dismech-node="Loss of Growth Hormone Receptor Signalling" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Growth Hormone Receptor Signalling</div>
+
 
                 <div class="item-desc">With less ligand available, growth hormone receptor signalling in peripheral target tissues (chiefly liver, driving IGF-1 generation) is correspondingly reduced. The receptor itself is normal throughout this entry, which is what distinguishes it mechanistically from Growth_Hormone_Insensitivity_Syndrome.</div>
 
@@ -6688,6 +6758,7 @@ This pathophysiological event involves decreased growth hormone receptor signali
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-longitudinal-growth" data-dismech-node="Impaired Longitudinal Growth" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Longitudinal Growth</div>
+
 
                 <div class="item-desc">Reduced GH-dependent IGF-1 generation slows linear growth, producing proportionate short stature with delayed skeletal maturation - milder and later-declaring than type IA&#39;s universal severe dwarfism by six months, consistent with GH being reduced rather than absent.</div>
 
@@ -7423,6 +7494,9 @@ This disease-associated gene is GH1 (hgnc:4261). hgnc:4261 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7493,6 +7567,9 @@ This disease-associated gene is GHRHR (hgnc:4266). hgnc:4266 is a gene from the 
 
 
                 </div>
+
+
+
 
 
 
@@ -7571,6 +7648,9 @@ This disease-associated gene is BTK (hgnc:1133). hgnc:1133 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7641,6 +7721,9 @@ This disease-associated gene is SOX3 (hgnc:11199). hgnc:11199 is a gene from the
 
 
                 </div>
+
+
+
 
 
 
