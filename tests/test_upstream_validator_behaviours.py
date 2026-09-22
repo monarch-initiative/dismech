@@ -38,7 +38,10 @@ from pathlib import Path
 
 import pytest
 from linkml_reference_validator.etl.extract.xml import XMLExtractor
-from linkml_reference_validator.etl.reference_fetcher import ReferenceFetcher
+from linkml_reference_validator.etl.reference_fetcher import (
+    EXTRACTOR_CACHE_VERSION,
+    ReferenceFetcher,
+)
 from linkml_reference_validator.matching import split_supporting_text
 from linkml_reference_validator.models import ReferenceValidationConfig
 from linkml_reference_validator.validation.supporting_text_validator import (
@@ -421,3 +424,98 @@ def test_retired_patches_are_not_reimported():
         if path.name != "patch_reference_validator.py" and offends(path)
     ]
     assert not offenders, f"importing retired helpers: {offenders}"
+
+
+def test_a_refresh_may_not_replace_cached_full_text_with_an_abstract(tmp_path):
+    """Upstream #85: a refresh may improve an entry, never demote one.
+
+    Full-text retrieval fails transiently and silently -- a rate-limited PMC
+    request answers with a reCAPTCHA interstitial on an HTTP 200 -- so a record
+    that really has full text can come back abstract-only. Before #85 that was
+    written straight over the cache, destroying what the entry held. dismech
+    relies on this: 4,571 of its cache entries are ``full_text_pdf`` alone.
+
+    The refresh is simulated rather than fetched, so this pins
+    ``_preserve_cached_full_text`` specifically. Letting the fetch simply fail
+    would exercise ``_stale_fallback`` instead -- a different guarantee that
+    holds even without #85.
+    """
+    from linkml_reference_validator.models import ReferenceContent
+
+    cache = tmp_path / "cache"
+    cache.mkdir()
+    entry = cache / "PMID_15034580.md"
+    entry.write_text(
+        "---\n"
+        "reference_id: PMID:15034580\n"
+        f"extractor_version: {EXTRACTOR_CACHE_VERSION}\n"
+        "content_type: full_text_pdf\n"
+        "---\n\n# T\n\n## Content\n\nFULL TEXT BODY THAT MUST SURVIVE.\n",
+        encoding="utf-8",
+    )
+    fetcher = ReferenceFetcher(
+        ReferenceValidationConfig(cache_dir=cache, email="test@example.org")
+    )
+
+    abstract_only = ReferenceContent(
+        reference_id="PMID:15034580",
+        title="A record whose full text did not come back",
+        content="Only the abstract this time.",
+        content_type="abstract_only",
+    )
+    preserved = fetcher._preserve_cached_full_text(
+        "PMID:15034580", abstract_only, force_refresh=False
+    )
+
+    assert preserved is not None, "a refresh losing full text must be refused"
+    kept = entry.read_text(encoding="utf-8")
+    assert "FULL TEXT BODY THAT MUST SURVIVE." in kept
+    assert "content_type: full_text_pdf" in kept
+    assert "Only the abstract this time." not in kept
+
+
+def test_a_lowercased_doi_reuses_its_mixed_case_cache_file(tmp_path):
+    """Upstream #87, for dismech#9112 and #11204.
+
+    ``canonical_ref`` lowercases DOIs; the cache lookup must not, or a DOI
+    fetched in two capitalizations writes two files. On a case-insensitive
+    filesystem those collide and git reports one as permanently modified, which
+    is what #11204 was. This used to be ``src/dismech/doi_cache_case.py``.
+    """
+    cache = tmp_path / "cache"
+    cache.mkdir()
+    mixed = cache / "DOI_10.1016_S0002-9440(10)63332-9.md"
+    mixed.write_text(
+        "---\nreference_id: DOI:10.1016/S0002-9440(10)63332-9\n"
+        "content_type: abstract_only\n---\n\n## Content\n\nBody.\n",
+        encoding="utf-8",
+    )
+    fetcher = ReferenceFetcher(
+        ReferenceValidationConfig(cache_dir=cache, email="test@example.org")
+    )
+    fetcher.forget_cache_listing()
+
+    resolved = fetcher.get_cache_path("doi:10.1016/s0002-9440(10)63332-9")
+    assert resolved == mixed, f"lowercased DOI resolved to {resolved}, not {mixed}"
+
+
+def test_an_abstract_stored_in_other_abstract_is_read(tmp_path):
+    """Upstream #88: PubMed keeps some abstracts outside ``<Abstract>``.
+
+    PIP/KIE/NASA/AIDS abstracts, mostly on pre-1990 records, live in
+    ``OtherAbstract``. Reading only ``Abstract`` reported no content for them,
+    and a refresh then deleted the abstract the cache already held -- 967 and
+    1175 characters lost from two references cited in ``kb/``.
+    """
+    from bs4 import BeautifulSoup
+    from linkml_reference_validator.etl.sources.pmid import PMIDSource
+
+    soup = BeautifulSoup(
+        '<OtherAbstract Type="PIP" Language="eng">'
+        "<AbstractText>Glucose absorption raises sodium uptake.</AbstractText>"
+        "</OtherAbstract>",
+        "xml",
+    )
+    assert (
+        PMIDSource()._parse_abstract(soup) == "Glucose absorption raises sodium uptake."
+    )

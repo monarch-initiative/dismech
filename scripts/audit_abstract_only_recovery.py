@@ -370,8 +370,11 @@ def phase_recoverability(out_dir: str, sleep_seconds: float) -> None:
         except Exception:
             return body_text, 0, "" if body_text else "soup_parse_error"
 
-        tables_text = ""  # upstream's XMLExtractor appends tables itself
-        num_tables = tables_text.count("\n\n## ") + (1 if tables_text.startswith("## ") else 0)
+        # Upstream's XMLExtractor appends tables to the body itself, so count
+        # them where they now land rather than re-extracting. A hardcoded 0 here
+        # reported "tables found: 0" for every record and wrote a dead CSV
+        # column.
+        num_tables = len(re.findall(r"^## Table ", body_text or "", re.MULTILINE))
 
         if body_text:
             return body_text, num_tables, ""

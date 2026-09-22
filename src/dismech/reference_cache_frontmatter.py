@@ -372,8 +372,10 @@ def main(argv: list[str] | None = None) -> int:
         # Printed regardless of the gating outcome -- an advisory is no less
         # true when the contract check also found something.
         print(
-            f"note: {len(advisories)} file(s) are readable only because of the "
-            "local delimiter-aware patch (issue #7697)",
+            f"note: {len(advisories)} file(s) carry a frontmatter value that "
+            "only a delimiter-aware reader survives; the current validator is "
+            "one (linkml/linkml-reference-validator#71), but other consumers "
+            "are not (issue #7697)",
             file=sys.stderr,
         )
 
