@@ -3160,7 +3160,7 @@ Non-negotiable rules:
 
 - A `snippet` must be an exact source substring that substantively supports the
   precise claim. Never fabricate or paraphrase it; a title is usually not a
-  finding.
+  finding. "Exact" means exact *after normalization, on both sides* — see below.
 - `evidence_source` classifies the cited study, not the curator or claim.
 - Treat deep-research reports as leads. Read their reference-validation results
   and run `just preflight-dr <report> <MONDO_ID>` before using their content.
@@ -3174,6 +3174,21 @@ Non-negotiable rules:
   it out. Re-run `just count-verified-snippets` on the pushed tree afterwards,
   and re-read `notes:` for any sentence that called a pruned reference "cached" —
   prose describing repository state is content, and it rots.
+
+**Publisher typography folds — a snippet need not be byte-identical.** Both
+sides of the comparison are normalized (`normalize_text` maps every non-word
+non-space character to a space, then collapses whitespace with `\s+`, which in
+Python matches Unicode whitespace). So an ordinary space matches the U+2009 thin
+spaces Nature journals put around `=`, and a hyphen matches an en dash or
+unicode minus in a range: `"AUC = 0.933"` typed normally matches the source. In
+the #9308 tranche 8 of 15 snippets were not byte-exact and all 15 verified.
+
+Prefer plain ASCII in new snippets anyway — an invisible character in a quote is
+a trap for the next curator, and it buys nothing. Existing snippets that copied
+the source's thin spaces and en dashes verbatim are equally valid and need no
+repair. The characters that do **not** fold are `x` typed for `×`, mid-word soft
+hyphens and zero-width spaces, `ﬁ`-style ligatures, and the U+00B5 micro sign.
+Full detail, including why this matters, in `.claude/skills/dismech-references`.
 
 Example:
 
