@@ -395,6 +395,7 @@ the table below mirrors it.
 | Chemicals / drugs | ChEBI | `CHEBI:` |
 | Genes | HGNC | `hgnc:` (canonical lowercase), `HGNC:` (legacy) |
 | Inheritance / variant effects | Genotype Ontology | `GENO:` |
+| Physical variant classes / genomic sequence contexts | Sequence Ontology | `SO:` |
 | Treatments / clinical interventions | NCI Thesaurus | `NCIT:` |
 | Exposures | ECTO, ExO, XCO | `ECTO:`, `ExO:`, `XCO:` |
 | Environment | ENVO | `ENVO:` |
@@ -1304,7 +1305,8 @@ This section details decisions we have **not yet made or formalized**.
 | Area | Status | Tracking |
 |---|---|---|
 | Experiment-grounded evidence (`experiment.design` / `inference.role`) | Design exploration, **not yet a schema change.** The `EvidenceItem` model is a validated citation-pointer (real reference + exact snippet + validator = citation integrity) with a thin appraisal layer — `supports` is polarity, `evidence_source` is a coarse organism bucket, and neither records *what experiment* produced a claim or *how* the mechanistic edge was inferred from it. Proposal: an optional `experiment{design, system, perturbation, readout, result, inference}` block plus two small closed enums — `experiment.design` (*how it was shown*) and `inference.role` (*necessity / sufficiency / rescue / direct-physical / therapeutic-rescue*, what the result licenses about the edge), mutually constraining so strength is *derived, not authored* and `experiment.result.snippet` stays substring-validated. Bespoke enum preferred over ECO (which types entity→term annotations, not causal-graph assertions); SEPIO reserved for the export layer. Worked on the FH PCSK9 sub-graph. | [The Evidence Model](evidence-model.md) · [FH worked example](../reports/fh-experiment-grounded-evidence-2026-07-30.md) |
-| Chromosomal-disorder curation guidelines | Not yet written; domain-specific extension of this register | [#3756](https://github.com/monarch-initiative/dismech/issues/3756) |
+| Chromosomal-disorder curation guidelines | **Partly addressed (§15, PR #11943).** Optional named regions, cytoband syntax, and qualitative gene landmarks represent affected intervals without patient-specific coordinates. The noncoding-variant-impact skill covers their use; a dedicated chromosomal-disorder skill and the wider formation-mechanism guidance remain open. | [#3756](https://github.com/monarch-initiative/dismech/issues/3756) |
+| Noncoding region–disease representation | **Qualitative representation added (§15, PR #11943).** Regional `Genetic` records can name affected enhancers and intervals without substituting a host gene. Stable region identifiers and dedicated region nodes in external knowledge graphs remain separate follow-ups. | [#4394](https://github.com/monarch-initiative/dismech/issues/4394) |
 | Structural `knowledge_gaps:` schema slot | Deferred; knowledge gaps currently modeled via `discussions` (`kind: KNOWLEDGE_GAP`) | schema follow-up |
 | Measurement context on `ExperimentalReadout` (spatial position, sampling rate, named comparator) | **Open; narrower than first recorded.** `model_scale` and `divergences` now cover the *scale* and *shortfall* axes on `ModelMechanismLink`, and a NAM curation pass populated both across eight links. What they do not cover is positive metadata about how a measurement was made: an **internal spatial comparator** (organoid interior vs. edge in the same construct — `STRUCTURAL_IDEALIZATION` is the wrong shape, since the spatial structure is the model's strength), a **sampling rate** (20 ms light-sheet calcium imaging, currently in free-text `culture_system`; `TEMPORAL_SCOPE` types a mismatch, not a rate), and the **comparator arm** that `ModelReadoutDirectionEnum` is explicitly defined against but which no slot names — a readout reading `DECREASED` against epicardium-free tissue rather than untreated tissue is nearly meaningless without its prose. The comparator is the narrowest and most tractable piece and every readout in the KB inherits it. Weigh against sparse population of the slots that already exist. `assays` is populated on several hundred readouts but is **never ontology-bound**: every entry carries a bare `preferred_term` and not one carries a `term:`, because `OBI` is absent from `conf/oak_config.yaml` and has no `cache/enums/` membership cache, so a curator who tried could not validate it. Scale is near-universally `UNDETERMINED`. Both counts move with every curation pass and are deliberately not pinned in this register — read them from `just model-scale-audit` and from a `term:`-under-`assays:` scan of `kb/`. (An earlier revision of this row said `assays` was used on 0 of 289 readouts; the slot is used, it is the ontology binding that is at zero.) | [Spatially resolved in vitro models](../reports/spatially-resolved-in-vitro-models-2026-09-02.md) |
 | `would_support` / `would_refute` range | **ENACTED (#9224).** These two `Experiment` slots hold **entity references only** — the `[<file>:]<kind>#<name>` grammar shared with `attaches_to` — and name *what a result bears on*. A prose statement of *what would be observed* goes in the sibling `supporting_outcome` / `refuting_outcome` slots. The alternative (widen the reference slots to accept both forms and split on whitespace at render time) was rejected: the two are different **types**, not two spellings of one. "No enrichment of these lesions in tissue would indicate that the dominant clinical resistance mechanism lies outside the bypass lesions currently modeled at this node" is a conditional inference with no referent, and a slot whose meaning turns on whether its value contains a space cannot be exported. The ~51 prose values that motivated the issue have been migrated (zero remain across `kb/`), and the anchors now resolve: `render._build_semantic_ref_index` is driven by `entity_refs.SECTION_KEYS` (#9193), so **562 of 564** references in these slots render as live in-page links rather than dead chips — the 2 exceptions name `diagnosis` and `prevalence`, sections the disorder page renders no card for, which is a page-coverage gap rather than a modeling one. Gated by `check_entity_ref_foreign_keys`, which now fails a prose value, an unknown `<kind>`, or a dangling anchor in these slots, with **no baseline** — the backlog is zero, so a finding is always newly introduced. **Not precluded:** if a structural `knowledge_gaps:` slot (#2617) later wants a `ModelMechanismLink`-shaped object carrying a target *plus* qualifying prose *plus* its own evidence, this decision is compatible with it — the prose lives in a named slot either way. | [#9224](https://github.com/monarch-initiative/dismech/issues/9224) · [#9193](https://github.com/monarch-initiative/dismech/issues/9193) |
@@ -1576,3 +1578,61 @@ retiring the hand-labelled GO rows. Both wait on the leaf set stabilising. The d
 record is
 [`docs/superpowers/specs/2026-08-16-pathograph-node-classification-brainstorm.md`](../superpowers/specs/2026-08-16-pathograph-node-classification-brainstorm.md);
 the tree's own build notes record what each draw forced.
+
+## 15. Affected genomic regions use names and qualitative landmarks (2026-09-21)
+
+**Decision.** `affected_regions` is an optional list of `GenomicRegion` objects
+on `GeneticContext`, `Variant`, and `Genetic`. Each region has a required name
+and optional description, cytoband (`chromosomal_region`), regulatory-element
+class, and typed gene landmarks. A named region may be the full affected
+interval or a relevant element within it; the description makes that scope
+explicit. Neither an ontology identifier nor a nucleotide coordinate pair is
+required. Existing free-text records remain valid, so this introduces no bulk
+migration.
+
+**Why qualitative regions.** Disease entries often summarize multiple alleles
+with different breakpoints. Copying one patient's coordinates onto the disease
+would manufacture precision, while a gene list loses the affected enhancer,
+boundary, or multigene interval. The pilots therefore identify the EPHA4-PAX3
+regulatory boundary, ZRS within LMBR1, and the variable 16p12.2-p11.2 deletion
+interval at the level their shared evidence supports. Specific cited variants
+can still retain genome build, coordinates, and breakpoint resolution in their
+descriptions.
+
+**Relations describe linear reference-genome placement.** `between_genes`
+contains exactly two distinct, unordered gene descriptors flanking the named
+region without overlapping it; they need not be nearest neighbors or coincide
+with its endpoints.
+`within_gene` identifies a containing gene span. `overlaps_genes` records
+overlap without claiming the list is exhaustive. `adjacent_to_genes` means
+sharing a sequence boundary without overlap, following the Sequence Ontology
+[`adjacent_to` definition](https://github.com/The-Sequence-Ontology/SO-Ontologies/blob/master/Ontology_Files/so.obo);
+it does not mean merely nearby. Left/right relations are deferred because
+reference-coordinate direction and transcriptional direction are different,
+and the current cases need neither. These relations do not describe contacts
+in three-dimensional chromatin or adjacency on a rearranged allele.
+
+**The subject matters.** The EPHA4-PAX3 boundary lies between the gene landmarks;
+the whole deletion also removes EPHA4 and cannot be described as confined
+between those genes. ZRS lies within LMBR1; a duplication containing ZRS can
+extend beyond LMBR1. Positional landmarks do not assert causal-gene involvement
+or a regulatory target. Target genes, expression changes, and their confidence
+remain separately curated. A regional `Genetic` record need not have a
+`gene_term`; using LMBR1 solely as a stand-in for ZRS would recreate the
+conflation the region object resolves.
+
+**Relationship to earlier work.** [Issue #3756](https://github.com/monarch-initiative/dismech/issues/3756)
+requested structured chromosomal regions and curation guidance, and
+[#4394](https://github.com/monarch-initiative/dismech/issues/4394) raised the
+noncoding region–disease gap. Their proposed models had not been implemented.
+[PR #8996](https://github.com/monarch-initiative/dismech/pull/8996) fixed a
+different problem: the KGX exporter no longer invents HGNC identifiers from
+arbitrary `genetic[].name` strings. That protection remains. Region names and
+positional gene landmarks are metadata, not a reason to emit a gene–disease
+causal edge. Stable region identifiers and external region-node modeling can
+be considered if an actual integration requires them.
+
+Population guidance and worked examples live in the
+[noncoding-variant-impact skill](../../.claude/skills/noncoding-variant-impact/SKILL.md),
+with the schema, rendering, and export support implemented in
+[PR #11943](https://github.com/monarch-initiative/dismech/pull/11943).
