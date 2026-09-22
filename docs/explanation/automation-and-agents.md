@@ -40,15 +40,17 @@ can load its Python dependencies.
 run attempt, and job. For example, filter on `workflow:curation-scanner` to
 inspect that scanner; the `run:<id>` tag maps to
 `https://github.com/monarch-initiative/dismech/actions/runs/<id>`.
+The curation scanner also adds `tier:<effort>` to distinguish its matrix jobs
+within the same run (for example, `tier:high_effort`).
 The upstream Claude action installs the plugin through its marketplace inputs.
 The CLI-based mention responder and local Claude action install it before
-starting the agent.
+starting the agent. These explicit installation steps are non-blocking: a
+marketplace or plugin-install failure leaves the agent running without tracing.
 
 PR Shepherd keeps `show_full_output: false`. Other workflows retain their
 existing GitHub log and artifact settings while Langfuse coverage is established.
 Retiring their direct collection in agent-watcher is a separate cutover after
-verifying traces from successful runs. Native traces include the checkout's
-`cwd` metadata for the watcher/archive's repository selection.
+verifying traces from successful runs.
 
 ## The stance: agent-forward, with a human *window* rather than a sign-off
 
