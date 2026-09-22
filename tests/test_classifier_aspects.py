@@ -30,6 +30,7 @@ def test_questions_follow_present_fields_and_schema_semantics():
     properties = aspect_output_schema(claim())["properties"]
     assert set(properties) == {
         "/",
+        "/about/disease",
         "/assertion/description",
         "/assertion/frequency",
         "/assertion/phenotype_term/term",
@@ -48,6 +49,25 @@ def test_questions_follow_present_fields_and_schema_semantics():
     assert aspect_output_schema(other) == aspect_output_schema(
         {k: v for k, v in other.items() if k != "reviews"}
     )
+
+
+@pytest.mark.parametrize("direction", ["SUPPORT", "REFUTE", "NO_EVIDENCE"])
+def test_disease_attribution_is_independent_of_assertion_profile_and_direction(
+    direction,
+):
+    c = claim()
+    c["about"]["disease"]["disease_term"] = {
+        "term": {"id": "MONDO:0000001", "label": "Probe disease"}
+    }
+    c["selected_evidence"]["supports"] = direction
+    properties = aspect_output_schema(c, fields=())["properties"]
+    assert set(properties) == {"/", "/about/disease"}
+    assert (
+        "independently of the evidence direction"
+        in properties["/about/disease"]["description"]
+    )
+    assert structured_claim_task(c).state["about"]["disease"] == c["about"]["disease"]
+    assert not any(path.startswith("/about/disease/") for path in properties)
 
 
 def test_one_request_maps_all_answers_and_counts_usage_once():

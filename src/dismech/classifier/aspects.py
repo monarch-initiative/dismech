@@ -17,6 +17,16 @@ ID/label pair together. Do not penalize a term for unsupported details asserted
 only in a separate description or qualifier. Still respect disease/subtype,
 entity, population, anatomical and experimental scope: never transfer a finding
 between incompatible subjects. Other assertion fields are context, not evidence.
+At /about/disease assess whether the excerpt's relevant finding concerns the
+claimed disease, evaluating its name and any ontology binding together. This is
+disease attribution, not whether the disease exists or every assertion detail
+is supported. Synonyms, recognizable abbreviations and justified contextual
+implication are allowed; a literal disease name is not required. The claimed
+disease field itself cannot supply missing evidence of attribution. Use PARTIAL
+when the disease link is unclear, and MISMATCH for a clearly incompatible disease.
+SUPPORT, REFUTE and NO_EVIDENCE do not reverse this attribution check: a refuting
+observation must still concern the claimed disease. Additional subtype and
+population restrictions remain in scope at / and the relevant assertion aspects.
 At / evaluate all substantive fields together. At other paths judge only the
 specified aspect. A description may bundle multiple assertions; all substantive
 components need support. A broader faithful abstraction of the excerpt is valid.
@@ -69,8 +79,9 @@ def _semantics(field):
 def aspect_output_schema(claim, fields=DEFAULT_FIELDS):
     """Create an output map for present fields; / is a deliberate root alias.
 
-    This initial profile selects term, description, frequency and temporality.
-    Other profiles can supply different field names without changing cases.
+    Every profile assesses disease attribution and the whole claim. The default
+    assertion fields are term, description, frequency and temporality; other
+    profiles can supply different field names without changing cases.
     A selected object (such as a term or quantity) is evaluated as one unit.
     """
     state = structured_claim_task(claim).state
@@ -84,6 +95,15 @@ def aspect_output_schema(claim, fields=DEFAULT_FIELDS):
         }
 
     add("/", "This is the complete claim, including every substantive field.")
+    add(
+        "/about/disease",
+        "Does the selected excerpt's relevant finding concern the disease in "
+        "about.disease? Assess its name and any disease_term binding together. "
+        "Check disease attribution independently of the evidence direction and "
+        "of support for other assertion details. The claim's disease name is "
+        "not independent evidence; allow synonyms and justified implications, "
+        "and defer unclear attribution as PARTIAL.",
+    )
 
     def walk(value, path):
         if isinstance(value, dict):
@@ -107,4 +127,4 @@ def aspect_output_schema(claim, fields=DEFAULT_FIELDS):
 
 
 def aspect_prompt():
-    return dict(name="claim_aspects", version="3", instructions=INSTRUCTIONS)
+    return dict(name="claim_aspects", version="4", instructions=INSTRUCTIONS)

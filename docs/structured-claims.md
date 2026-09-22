@@ -96,7 +96,15 @@ JSON Pointers relative to the claim envelope, such as
 `/assertion/phenotype_term/term`. The slash root is a deliberate convention
 (RFC 6901 itself uses an empty string for the root).
 
-The default profile selects `term`, `description`, `frequency`, and `temporality`.
+Every profile includes `/about/disease`, assessing whether the excerpt's relevant
+finding concerns the claimed disease. Its name and ontology binding form one
+assessment. Recognizable synonyms, abbreviations and contextual implications are
+allowed; the claim's disease field is not independent evidence of attribution.
+Unclear attribution can be PARTIAL. REFUTE does not reverse this check: refuting
+evidence still needs to concern the claimed disease. Other inherited subtype and
+population restrictions remain in scope at `/` and relevant assertion aspects.
+
+The default assertion profile selects `term`, `description`, `frequency`, and `temporality`.
 A term's ID and label form one assessment. Absent fields produce no question;
 other profiles can select different field names. Slot and enum meanings come
 from the installed dismech schema, including numeric frequency bands. The whole
@@ -110,8 +118,9 @@ probabilities and confidence, not curator rationales. Existing single-question
 classification remains supported. Review records and target aggregation belong
 to the consuming benchmark, not to this model-input schema.
 
-The current structured-claim and aspect prompts use `three-valued-v1` (prompt
-version 3, with separate node/edge scope): MATCH for adequate justification, MISMATCH for a clear failure, and
+The current structured-claim and aspect prompts use `three-valued-v1`
+(whole-claim version 3; aspect version 4, with explicit disease attribution).
+Both keep node and edge evidence separate. The judgments are MATCH for adequate justification, MISMATCH for a clear failure, and
 PARTIAL for incomplete, weak, mixed or unsettled support. PARTIAL is an explicit
 deferral, including when both curator and model choose it. It does not change
 the source evidence direction (SUPPORT/REFUTE/NO_EVIDENCE). Missing assessments
