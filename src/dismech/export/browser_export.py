@@ -11,7 +11,7 @@ from typing import Any
 
 from oaklib import get_adapter
 
-from dismech import kb_cache
+from dismech import kb_cache, oak_db
 from dismech.export.utils import (
     count_classifications,
     count_comorbidities,
@@ -51,17 +51,100 @@ HPO_TOP_LEVEL_CATEGORIES: dict[str, str] = {
 }
 _HPO_TOP_LEVEL_IDS = set(HPO_TOP_LEVEL_CATEGORIES.keys())
 
+HP_ADAPTER = "sqlite:obo:hp"
+
+_REPO_ROOT = Path(__file__).resolve().parents[3]
+
+# The committed cache, read as a fallback when `sqlite:obo:hp` is not available.
+# `render` reads the same file (as `render._HPO_CATEGORY_CACHE_PATH`) to group
+# phenotypes by category, so the constant is shared rather than restated. Note
+# that a full export writes its result next to its own output, which is this
+# path only when exporting to `app/` -- as `just gen-browser-data` does.
+HPO_CATEGORY_CACHE_PATH = _REPO_ROOT / "app" / "hpo_category_cache.json"
+
+
+def _load_seed_categories() -> dict[str, list[str]]:
+    """The committed HP-to-category answers, or an empty map if unreadable.
+
+    A missing file is an ordinary state -- a checkout with no `app/`, a test in
+    a temp directory -- and is silent. A file that exists but cannot be read is
+    not: that degrades every phenotype into "Other", which is exactly the kind
+    of silent failure this module is being changed to stop having.
+    """
+    if not HPO_CATEGORY_CACHE_PATH.is_file():
+        return {}
+    try:
+        data = json.loads(HPO_CATEGORY_CACHE_PATH.read_text())
+    except Exception as exc:
+        print(
+            f"WARNING: could not read {HPO_CATEGORY_CACHE_PATH}: {exc}. "
+            "HP terms will fall back to the ontology, or to no category."
+        )
+        return {}
+    if not isinstance(data, dict):
+        print(
+            f"WARNING: {HPO_CATEGORY_CACHE_PATH} is not a JSON object; ignoring it."
+        )
+        return {}
+    return {
+        key: [str(v) for v in value]
+        for key, value in data.items()
+        if isinstance(key, str) and isinstance(value, list)
+    }
+
 
 class HPOCategoryResolver:
-    """Resolve HP term IDs to their broad top-level phenotype categories."""
+    """Resolve HP term IDs to their broad top-level phenotype categories.
+
+    `get_adapter("sqlite:obo:hp")` does not fail on a machine without the build
+    — semsql fetches it, 440 MB uncompressed, silently — and this class builds
+    its adapter directly, so `conf/oak_config.yaml` (which routes HP to `ols:hp`
+    precisely to avoid that build) never saw it, and neither did the test
+    fixture in `tests/conftest.py`, which only wraps `render._get_oak_adapter`.
+    That is how a 440 MB download came to be one constructor call away
+    (issue #11299). So the adapter is opened only when the build is already on
+    disk, and the committed `app/hpo_category_cache.json` answers when it is not.
+
+    **The committed cache is a fallback, not a first choice, and the ordering is
+    the whole point.** Consulting it first would be faster, and would also make
+    it self-perpetuating: this class writes back what it resolved, so a term
+    that entered the cache would never be re-derived, and an HPO reclassification
+    could never reach it. That is the same freezing this module's own history is
+    a case study in. Ordering the ontology first means a page build — which
+    fetches the build deliberately (`just fetch-ontology-dbs hp`) — re-derives
+    every term on every run, exactly as it did before any of this, and the cache
+    only decides what a machine without the build reports.
+    """
 
     def __init__(self):
         self._adapter = None
         self._cache: dict[str, list[str]] = {}
+        self._seed: dict[str, list[str]] | None = None
+        self._unresolved: set[str] = set()
+
+    @property
+    def seed(self) -> dict[str, list[str]]:
+        """The committed cache, parsed on first use.
+
+        Lazy because the fallback ordering made it dead weight on the fast path:
+        a page build has the ontology, so it never reads this, and parsing ~1,400
+        entries in every constructor bought nothing. Read once, then memoised.
+        """
+        if self._seed is None:
+            self._seed = _load_seed_categories()
+        return self._seed
+
+    @property
+    def unresolved_count(self) -> int:
+        """How many distinct HP terms this run could not resolve at all."""
+        return len(self._unresolved)
 
     def _get_adapter(self):
+        """The HP adapter, or None when its build would have to be downloaded."""
         if self._adapter is None:
-            self._adapter = get_adapter("sqlite:obo:hp")
+            if not oak_db.local_build_present(HP_ADAPTER):
+                return None
+            self._adapter = get_adapter(HP_ADAPTER)
         return self._adapter
 
     def resolve(self, hp_id: str) -> list[str]:
@@ -76,6 +159,22 @@ class HPOCategoryResolver:
             return result
 
         adapter = self._get_adapter()
+        if adapter is None:
+            seeded = self.seed.get(hp_id)
+            if seeded is not None:
+                self._cache[hp_id] = seeded
+                return seeded
+            # Deliberately not memoised into `self._cache`: that dict is what
+            # `_write_hpo_category_cache` commits, and writing "this term has no
+            # categories" because an ontology was missing would bake the gap in
+            # permanently. Note that a genuine empty list is a real answer the
+            # cache does hold — a MONDO CURIE bound in a `phenotype_term` sits
+            # under no HPO category — so "resolved to nothing" and "could not
+            # resolve" have to stay distinguishable. An unresolved term is left
+            # out, and counted so the caller can say so.
+            self._unresolved.add(hp_id)
+            return []
+
         ancestors = set(adapter.ancestors(
             hp_id, predicates=["rdfs:subClassOf"]))
         hits = ancestors & _HPO_TOP_LEVEL_IDS
@@ -401,6 +500,16 @@ class BrowserExporter:
             json.dump(self._hpo_resolver._cache, f, indent=2, sort_keys=True)
         print(
             f"Wrote HPO category cache ({len(self._hpo_resolver._cache)} terms) to {cache_path}")
+        unresolved = self._hpo_resolver.unresolved_count
+        if unresolved:
+            # Say it rather than let the cache quietly shrink. A page build is
+            # meant to run with the build present; this is what it looks like
+            # when the fetch step is missing.
+            print(
+                f"WARNING: {unresolved} HP term(s) had no cached category and "
+                f"no local {HP_ADAPTER} build to resolve them against. Run "
+                "`just fetch-ontology-dbs hp` first if this is a page build."
+            )
 
     def export_to_json(self, disorder_files: list[Path], output_path: Path) -> None:
         """Export all disorder files to a single JSON file."""

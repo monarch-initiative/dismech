@@ -132,10 +132,32 @@ def test_agent_lane_uses_a_bounded_deterministic_shortlist():
     assert "CANDIDATE_PRS: ${{ steps.pr-candidates.outputs.pr_numbers }}" in prompt
     assert "merge_base_commit.sha == $MAIN_SHA" in prompt
     assert "baseRefOid" in prompt and "NOT an ancestry signal" in prompt
-    assert "APPROVED + ALIGNED + RED/BLOCKED" in prompt
-    assert "Update at most ONE behind branch per run" in prompt
+    assert "APPROVED + RED/BLOCKED" in prompt
+    assert "Never refresh a branch solely because it is behind main" in prompt
+    assert "1. Stale CHANGES_REQUESTED PRs, oldest updated first" in prompt
     assert "Never merge a PR, enable auto-merge" in prompt
     assert "Squash merge it directly" not in prompt
+
+
+def test_agent_recovers_abandoned_code_prs_and_preserves_cache_and_history_guards():
+    job = workflow(SHEPHERD)["jobs"]["shepherd"]
+    prompt = step(job, "Run PR Shepherd")["with"]["prompt"]
+    assert "including Python under src/, scripts/, and tests/" in prompt
+    assert "Only edit curation-scope files" not in prompt
+    assert (
+        "continue through the" in prompt
+        and "shortlist until the budget is used" in prompt
+    )
+    assert "Never use a blanket ours/theirs resolution" in prompt
+    assert (
+        "Never read, write, edit, or stage the frozen dataset-accession JSON cache"
+        in prompt
+    )
+    assert "Never force-push, rebase, reset, or rewrite PR history" in prompt
+    assert "Never modify human-authored PRs" in prompt
+    assert "Never modify a PR that is assigned" in prompt
+    assert "verify the remote head and assignment again" in prompt
+    assert "reproduce\n  the failure" in prompt
 
 
 def test_scanner_no_longer_uses_draft_as_a_lifecycle_signal():
@@ -153,5 +175,39 @@ def test_workflow_policy_changes_run_the_python_test_job():
         ".github/workflows/pr-shepherd.yml",
         "scripts/auto_merge_ready_prs.py",
         "scripts/pr_shepherd_policy.py",
+        "scripts/expire_pr_assignments.py",
     ):
         assert f"- '{path}'" in text
+
+
+def test_assignment_inactivity_is_an_independent_trusted_job_with_scoped_writes():
+    data = workflow(SHEPHERD)
+    job = data["jobs"]["assignment-inactivity"]
+    assert "needs" not in job
+    assert "if" not in job  # Also runs during controller-only hours.
+    assert job["concurrency"] == {
+        "group": "pr-shepherd-assignment-inactivity",
+        "cancel-in-progress": False,
+    }
+    assert set(job["permissions"].values()) == {"read"}
+    checkout = step(job, "Checkout trusted default branch")
+    assert checkout["with"]["ref"] == "${{ github.event.repository.default_branch }}"
+    assert checkout["with"]["persist-credentials"] is False
+    token = step(job, "Generate scoped assignment token")
+    assert {k: v for k, v in token["with"].items() if k.startswith("permission-")} == {
+        "permission-pull-requests": "write",
+    }
+    assert "DRY_RUN != 'true'" in token["if"]
+    assert "ASSIGNMENT_LIMIT != '0'" in token["if"]
+    action = step(job, "Remind or release inactive assignments")
+    assert action["env"]["GH_TOKEN"] == "${{ github.token }}"
+    assert (
+        action["env"]["GH_ASSIGNMENT_TOKEN"]
+        == "${{ steps.assignment-token.outputs.token }}"
+    )
+    assert "args+=(--dry-run)" in action["run"]
+    assert 'args+=(--specific-pr "$SPECIFIC_PR")' in action["run"]
+    assert '--max-actions "$ASSIGNMENT_LIMIT"' in action["run"]
+    assert "python scripts/expire_pr_assignments.py" in action["run"]
+    assert "uv " not in action["run"]
+    assert not any("claude-code-action" in uses for uses in action_uses(job))

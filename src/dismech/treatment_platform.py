@@ -1,7 +1,8 @@
 """Display labels for the treatment-platform enums.
 
-`therapeutic_modality` and the `oligonucleotide_details` slots are enum-backed, so
-the raw values are upper-snake-case keys. Jinja's `| title` filter is not good
+`therapeutic_modality`, the `delivery_system` slots, and the
+`oligonucleotide_details` slots are enum-backed, so the raw values are
+upper-snake-case keys. Jinja's `| title` filter is not good
 enough for them: it renders SIRNA as "Sirna", GALNAC as "Galnac" and
 RNAI_KNOCKDOWN as "Rnai Knockdown". The labels here are editorial rather than
 derivable (2'-MOE, GalNAc, cEt), so they are curated by hand.
@@ -52,16 +53,20 @@ TREATMENT_PLATFORM_LABELS: dict[str, str] = {
     "TWO_PRIME_O_METHOXYETHYL": "2′-MOE",
     "LOCKED_NUCLEIC_ACID": "Locked nucleic acid (LNA)",
     "CONSTRAINED_ETHYL": "Constrained ethyl (cEt)",
-    # OligonucleotideConjugationEnum
+    # TargetingLigandEnum
     "UNCONJUGATED": "Unconjugated",
     "GALNAC": "GalNAc",
     "LIPID": "Lipid",
-    "ANTIBODY": "Antibody conjugate",
-    # OligonucleotideDeliveryPlatformEnum
+    "ANTIBODY": "Antibody",
+    "MANNOSE": "Mannose",
+    # DeliveryPlatformEnum
     "UNFORMULATED": "Unformulated (free uptake)",
     "CONJUGATE": "Ligand conjugate",
     "LIPID_NANOPARTICLE": "Lipid nanoparticle",
+    "LIPOSOME": "Liposome",
     "POLYMER_NANOPARTICLE": "Polymer nanoparticle",
+    "PROTEIN_NANOPARTICLE": "Albumin-bound nanoparticle",
+    "INORGANIC_NANOPARTICLE": "Inorganic nanoparticle",
     "VIRAL_VECTOR": "Viral vector",
     "EXOSOME": "Exosome",
     # Shared across several of the above
