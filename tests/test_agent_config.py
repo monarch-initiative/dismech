@@ -160,7 +160,9 @@ def test_cli_setup_stops_on_download_or_install_failure(tmp_path, download_fails
         "GITHUB_PATH": str(tmp_path / "path"),
         "GITHUB_STEP_SUMMARY": str(tmp_path / "summary"),
     }
-    result = subprocess.run(["bash", "-c", script], env=env, capture_output=True)
+    result = subprocess.run(
+        ["bash", "-c", script], env=env, capture_output=True, check=False
+    )
     assert result.returncode == (22 if download_fails else 42)
     assert not output.exists(), "failed install must not publish an executable"
 
