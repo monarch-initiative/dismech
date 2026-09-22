@@ -7760,6 +7760,88 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "ATF6-Related Retinopathy",
+    "disease_id": "MONDO:0100447",
+    "category": "Mendelian",
+    "parents": [],
+    "creation_date": "2026-08-03T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Classic Achromatopsia",
+      "Cone-Rod Dystrophy"
+    ],
+    "description": "ATF6-related retinopathy is an autosomal recessive cone photoreceptor disorder caused by biallelic pathogenic variants in ATF6, encoding activating transcription factor 6, a ubiquitously expressed ER-stress sensor and key regulator of the unfolded protein response (UPR). Unlike the five other achromatopsia genes (CNGA3, CNGB3, GNAT2, PDE6C, PDE6H), which encode components of the cone phototransduction cascade directly, ATF6 acts upstream through cone photoreceptor development: loss of normal ATF6 UPR signaling causes foveal hypoplasia and near-absent cone structure rather than simply disabling an intact phototransduction cascade. Most patients present with the classic achromatopsia phenotype (designated ACHM7 in the achromatopsia gene series), but ATF6 variants have also been reported to cause cone-rod dystrophy and macular involvement -- a yellow macular lesion with reduced fundus autofluorescence has been documented in at least one ATF6-associated patient -- so the clinical spectrum is broader than achromatopsia alone. This entry captures the ATF6-specific gene-disease mechanism and phenotypic spectrum; Achromatopsia.yaml models the ACHM7 subtype within the broader achromatopsia disease umbrella and should be consulted for cross-gene comparison within that phenotype.",
+    "pathophysiology": [
+      "ATF6 Unfolded Protein Response Impairment",
+      "Impaired Cone Photoreceptor Development",
+      "Foveal Hypoplasia and Near-Absent Cone Structure",
+      "Age- and Genotype-Dependent Rod Involvement"
+    ],
+    "cell_types": [
+      "retinal cone cell",
+      "retinal rod cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000573",
+      "CL:0000604"
+    ],
+    "biological_processes": [
+      "ATF6-mediated unfolded protein response",
+      "eye photoreceptor cell development"
+    ],
+    "phenotypes": [
+      "Reduced Visual Acuity",
+      "Color Vision Defect",
+      "Photophobia",
+      "Nystagmus",
+      "Foveal Hypoplasia",
+      "Abnormal Cone Electroretinogram",
+      "Yellow Macular Lesion",
+      "Abnormal Fundus Autofluorescence",
+      "Decreased Rod Response",
+      "Color Vision Defect"
+    ],
+    "phenotype_categories": [
+      "Eye"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0007663",
+      "HP:0000551",
+      "HP:0000613",
+      "HP:0012043",
+      "HP:0008060",
+      "HP:0008275",
+      "HP:0030500",
+      "HP:0030602",
+      "HP:0030469"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OBLIGATE"
+    ],
+    "genes": [
+      "ATF6"
+    ],
+    "treatments": [
+      "Supportive care and monitoring",
+      "Genetic counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "ATF6-Related_Retinopathy.yaml",
+    "page_url": "../pages/disorders/ATF6-Related_Retinopathy.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "ATR-X-Related Syndrome",
     "disease_id": "MONDO:0016980",
     "category": "Mendelian",
@@ -321832,15 +321914,15 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3070,
-  "total_subtypes": 3834,
-  "total_disorders_and_subtypes": 6904,
-  "total_unique_evidence_sources": 44310,
-  "total_unique_publications": 41687,
+  "total_disorder_pages": 3071,
+  "total_subtypes": 3836,
+  "total_disorders_and_subtypes": 6907,
+  "total_unique_evidence_sources": 44317,
+  "total_unique_publications": 41694,
   "total_unique_disease_categories": 62,
   "total_unique_phenotype_categories": 283,
-  "total_pathographs": 3065,
-  "total_unique_pathological_events": 19104,
+  "total_pathographs": 3066,
+  "total_unique_pathological_events": 19108,
   "total_modules": 178,
   "total_research_reports": 3175,
   "total_classifications": 20,
