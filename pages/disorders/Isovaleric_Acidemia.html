@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,18 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4155,6 +4232,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ivd-molecular-function-deficiency" data-dismech-node="IVD molecular function deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">IVD molecular function deficiency</div>
 
+
                 <div class="item-desc">Biallelic pathogenic variants in IVD reduce isovaleryl-CoA dehydrogenase catalytic activity in mitochondria.
 </div>
 
@@ -4306,6 +4384,7 @@ This pathophysiological event occurs in mitochondrion (GO:0005739). GO:0005739 i
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4331,6 +4410,7 @@ acid, isovaleryl (C5)-carnitine and isovalerylglycine in body fluids."</div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-deficient-leucine-catabolic-flux" data-dismech-node="Deficient leucine catabolic flux" data-dismech-type="pathophysiology">
                 <div class="item-name">Deficient leucine catabolic flux</div>
+
 
                 <div class="item-desc">IVD deficiency blocks leucine degradation at the mitochondrial isovaleryl-CoA to 3-methylcrotonyl-CoA step, causing upstream accumulation of isovaleryl-CoA, isovaleric acid, and characteristic secondary metabolites.
 </div>
@@ -4449,6 +4529,7 @@ This pathophysiological event involves leucine catabolic process, annotated with
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4472,6 +4553,7 @@ or degradation via multiple biochemical pathways for energy production."</div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-toxic-isovaleryl-coa-and-organic-acid-accumulation" data-dismech-node="Toxic isovaleryl-CoA and organic acid accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Toxic isovaleryl-CoA and organic acid accumulation</div>
+
 
                 <div class="item-desc">Blocked isovaleryl-CoA oxidation causes accumulation of isovaleryl-CoA, isovaleric acid, 3-hydroxyisovaleric acid, isovalerylcarnitine, and isovalerylglycine. This toxic organic acid burden drives the characteristic odor, secondary detoxification through carnitine and glycine conjugation, and downstream acute metabolic decompensation, hyperammonemia, mitochondrial stress, and direct neurotoxicity.
 </div>
@@ -4717,6 +4799,7 @@ This pathophysiological event occurs in mitochondrion (GO:0005739). GO:0005739 i
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4744,6 +4827,7 @@ acid, isovaleryl (C5)-carnitine and isovalerylglycine in body fluids."</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4767,6 +4851,7 @@ organic acids, such as isovalerylcarnitine and isovalerylglycine."</div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-catabolic-acute-metabolic-decompensation" data-dismech-node="Catabolic acute metabolic decompensation" data-dismech-type="pathophysiology">
                 <div class="item-name">Catabolic acute metabolic decompensation</div>
+
 
                 <div class="item-desc">Fasting, febrile illness, gastroenteritis, and increased protein intake increase leucine flux and toxic organic-acid burden, triggering acute metabolic decompensation with vomiting, encephalopathy, metabolic acidosis, ketosis, hyperammonemia, and neurologic deterioration.
 </div>
@@ -5036,6 +5121,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5059,6 +5145,7 @@ distinct odor of sweaty feet)."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5086,6 +5173,7 @@ increased protein intake."</div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-secondary-urea-cycle-impairment-and-hyperammonemia" data-dismech-node="Secondary urea cycle impairment and hyperammonemia" data-dismech-type="pathophysiology">
                 <div class="item-name">Secondary urea cycle impairment and hyperammonemia</div>
+
 
                 <div class="item-desc">Isovaleryl-CoA inhibits N-acetylglutamate synthase (NAGS), reducing N-acetylglutamate availability and impairing activation of carbamoyl phosphate synthetase 1 (CPS1), the rate-limiting entry enzyme of the urea cycle. Combined with acetyl-CoA depletion, this produces secondary hyperammonemia that contributes to encephalopathy and neurological complications.
 </div>
@@ -5261,6 +5349,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5283,6 +5372,7 @@ hyperammonemia is a characteristic OA biochemical finding."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5313,6 +5403,7 @@ asymptomatic only biochemical phenotype."</div>
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5337,6 +5428,7 @@ acetyl-CoA to inhibit the activity of NAGS"</div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mitochondrial-energy-depletion-and-oxidative-stress" data-dismech-node="Mitochondrial energy depletion and oxidative stress" data-dismech-type="pathophysiology">
                 <div class="item-name">Mitochondrial energy depletion and oxidative stress</div>
+
 
                 <div class="item-desc">Accumulated isovaleryl-CoA and isovaleric acid impair tricarboxylic acid cycle function, with evidence for inhibition of citrate synthase and reduced CO2 production from acetate in brain tissue. Chronic metabolite accumulation also increases oxidative stress, contributing to neurological morbidity. Oxidative stress from chronic persistent buildup of isovaleric acid may be more neurologically detrimental than acute buildup.
 </div>
@@ -5518,6 +5610,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5541,6 +5634,7 @@ prepared 24 h after injection."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5569,6 +5663,7 @@ production and increases oxidative stress."</div>
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5594,6 +5689,7 @@ stress by increasing levels of reactive oxygen species
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neuronal-membrane-dysfunction-via-na-k-atpase-inhibition" data-dismech-node="Neuronal membrane dysfunction via Na+,K+-ATPase inhibition" data-dismech-type="pathophysiology">
                 <div class="item-name">Neuronal membrane dysfunction via Na+,K+-ATPase inhibition</div>
+
 
                 <div class="item-desc">Isovaleric acid directly inhibits Na+,K+-ATPase activity in cerebral cortex, a crucial enzyme for maintaining membrane potential and normal neurotransmission. This inhibition is observed as early as 2 hours after exposure and persists at 24 hours, contributing to the acute encephalopathy seen during metabolic crises.
 </div>
@@ -5745,6 +5841,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5865,6 +5962,9 @@ This clinical feature is Pancytopenia (HP:0001876). HP:0001876 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5879,6 +5979,7 @@ This clinical feature is Pancytopenia (HP:0001876). HP:0001876 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5945,6 +6046,9 @@ This clinical feature is Vomiting (HP:0002013). HP:0002013 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5959,6 +6063,7 @@ This clinical feature is Vomiting (HP:0002013). HP:0002013 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6014,6 +6119,9 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6028,6 +6136,7 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6095,6 +6204,9 @@ This clinical feature is Metabolic acidosis (HP:0001942). HP:0001942 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6109,6 +6221,7 @@ This clinical feature is Metabolic acidosis (HP:0001942). HP:0001942 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6134,6 +6247,7 @@ hyperammonemia (71.4%), and hypoglycemia (14.3%)."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6193,6 +6307,9 @@ This clinical feature is Hyperammonemia (HP:0001987). HP:0001987 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6207,6 +6324,7 @@ This clinical feature is Hyperammonemia (HP:0001987). HP:0001987 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6232,6 +6350,7 @@ hyperammonemia (71.4%), and hypoglycemia (14.3%)."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6291,6 +6410,9 @@ This clinical feature is Hypoglycemia (HP:0001943). HP:0001943 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6305,6 +6427,7 @@ This clinical feature is Hypoglycemia (HP:0001943). HP:0001943 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6369,6 +6492,9 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6383,6 +6509,7 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6452,6 +6579,9 @@ This clinical feature is Acute encephalopathy (HP:0006846). HP:0006846 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6466,6 +6596,7 @@ This clinical feature is Acute encephalopathy (HP:0006846). HP:0006846 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6491,6 +6622,7 @@ encephalopathy occurred in 33.3%."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6547,6 +6679,9 @@ This clinical feature is Lethargy (HP:0001254). HP:0001254 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6561,6 +6696,7 @@ This clinical feature is Lethargy (HP:0001254). HP:0001254 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6616,6 +6752,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6630,6 +6769,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6688,6 +6828,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6702,6 +6845,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6728,6 +6872,7 @@ disorder (tremor, dysmetria, extrapyramidal movements)."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6784,6 +6929,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6798,6 +6946,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6824,6 +6973,7 @@ disorder (tremor, dysmetria, extrapyramidal movements)."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6883,6 +7033,9 @@ This clinical feature is Movement disorder, annotated with Abnormality of moveme
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6897,6 +7050,7 @@ This clinical feature is Movement disorder, annotated with Abnormality of moveme
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6964,6 +7118,9 @@ This clinical feature is Body odor (HP:0500001). HP:0500001 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6978,6 +7135,7 @@ This clinical feature is Body odor (HP:0500001). HP:0500001 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7044,6 +7202,9 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7058,6 +7219,7 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7082,6 +7244,7 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7179,6 +7342,9 @@ This disease-associated gene is IVD (hgnc:6186). hgnc:6186 is a gene from the HU
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive</span>
@@ -7201,6 +7367,7 @@ This disease-associated gene is IVD (hgnc:6186). hgnc:6186 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7231,6 +7398,7 @@ acid, isovaleryl (C5)-carnitine and isovalerylglycine in body fluids."</div>
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7254,6 +7422,7 @@ classical organic acidurias."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7288,6 +7457,12 @@ classical organic acidurias."</div>
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">The c.941C&gt;T (p.Ala314Val) variant in IVD is commonly associated with the attenuated or mild biochemical phenotype detected by newborn screening. Individuals homozygous for this variant may remain clinically asymptomatic.
 </div>
 
@@ -7313,6 +7488,7 @@ classical organic acidurias."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7349,6 +7525,12 @@ with an attenuated disease variant (so-called &#34;mild&#34; IVA)"</div>
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Multiple pathogenic variants in IVD have been described causing variable clinical severity from severe neonatal-onset to chronic intermittent forms. Biallelic pathogenic variants are required for disease manifestation.
 </div>
 
@@ -7374,6 +7556,7 @@ with an attenuated disease variant (so-called &#34;mild&#34; IVA)"</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7463,6 +7646,31 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Protein-restricted or leucine-restricted dietary management with specialized metabolic formula is the cornerstone of chronic IVA management. The goal is to reduce leucine flux and thereby limit isovaleryl-CoA production.
 </div>
 
@@ -7494,6 +7702,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7542,6 +7751,7 @@ treatment in catabolic episodes."</div>
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7565,6 +7775,7 @@ treatment in catabolic episodes."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7630,6 +7841,20 @@ This treatment is carnitine supplementation, annotated with Nutritional Support 
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">L-carnitine supplementation promotes formation and urinary excretion of isovalerylcarnitine, reducing the toxic free isovaleric acid pool and correcting secondary carnitine deficiency.
 </div>
 
@@ -7661,6 +7886,7 @@ This treatment is carnitine supplementation, annotated with Nutritional Support 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7711,6 +7937,7 @@ form of isovalerylglycine."</div>
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7734,6 +7961,7 @@ treatment in catabolic episodes."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7799,6 +8027,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Glycine supplementation promotes conjugation of isovaleryl-CoA to isovalerylglycine, a less toxic water-soluble metabolite excreted in urine. However, glycine supplementation should be carefully considered as increased glycine concentration does not proportionally increase N-isovalerylglycine formation.
 </div>
 
@@ -7830,6 +8072,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7877,6 +8120,7 @@ form of isovalerylglycine."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7942,6 +8186,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">N-carbamylglutamate is a synthetic analog of N-acetylglutamate approved for treatment of hyperammonemia in IVA. It directly activates CPS1, bypassing the NAGS inhibition caused by isovaleryl-CoA, and can rapidly normalize ammonia levels.
 </div>
 
@@ -7973,6 +8231,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8017,6 +8276,7 @@ ammonia levels by stimulating the first step of the urea cycle."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8082,6 +8342,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Emergency management during catabolic crises includes cessation of protein intake, high-calorie glucose infusion to reverse catabolism, correction of metabolic acidosis, and administration of ammonia scavengers when needed.
 </div>
 
@@ -8113,6 +8387,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8166,6 +8441,7 @@ acid esters, and correction of metabolic acidosis"</div>
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8211,6 +8487,7 @@ phenylbutyrate."</div>
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8234,6 +8511,7 @@ treatment in catabolic episodes."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8301,6 +8579,20 @@ This treatment is disease screening (NCIT:C15419). NCIT:C15419 is a clinical int
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">IVA is detectable by newborn screening via tandem mass spectrometry measuring C5 acylcarnitines. However, false positives from pivaloylcarnitine are an increasing problem, and second-tier chromatographic methods are needed to differentiate C5 isomers.
 </div>
 
@@ -8323,6 +8615,7 @@ This treatment is disease screening (NCIT:C15419). NCIT:C15419 is a clinical int
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8349,6 +8642,7 @@ false positive (C5: 0.5-8.2 μmol/L) due to the presence of pivaloylcarnitine."
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8414,6 +8708,20 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Genetic counseling for affected families includes discussion of autosomal recessive inheritance, 25% recurrence risk, carrier testing for relatives, prenatal diagnosis options, and distinction between severe and mild IVA genotypes.
 </div>
 
@@ -8436,6 +8744,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8537,6 +8846,7 @@ metabolism caused by a deficiency of isovaleryl-CoA dehydrogenase (IVD)"</div>
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8561,6 +8871,7 @@ acid, isovaleryl (C5)-carnitine and isovalerylglycine in body fluids."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8647,6 +8958,7 @@ injection tandem mass spectrometry quantifying C5 carnitines (C5)."</div>
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8671,6 +8983,7 @@ acid, isovaleryl (C5)-carnitine and isovalerylglycine in body fluids."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8755,6 +9068,7 @@ substrates."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8843,6 +9157,7 @@ acid, isovaleryl (C5)-carnitine and isovalerylglycine in body fluids."</div>
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8867,6 +9182,7 @@ acid, isovaleryl (C5)-carnitine and isovalerylglycine in body fluids."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8954,6 +9270,7 @@ accumulation of isovaleric acid (IVA)."</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8976,6 +9293,7 @@ hyperammonemia (71.4%), and hypoglycemia (14.3%)."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9062,6 +9380,7 @@ hyperammonaemia and constitutes a metabolic emergency"</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9121,7 +9440,7 @@ and urine."</div>
                     </span>
 
 
-                    <span class="tag">1–9 per 100,000</span>
+                    <span class="tag">1–9 per 100,000 (births)</span>
 
                 </div>
 
@@ -9143,6 +9462,7 @@ and urine."</div>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10682,6 +11002,8 @@ notes: &#39;The clinical spectrum of IVA has broadened with the introduction of 
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3756,6 +3821,18 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -4051,6 +4128,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dopamine-transporter-loss-of-function" data-dismech-node="Dopamine Transporter Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Dopamine Transporter Loss of Function</div>
 
+
                 <div class="item-desc">Biallelic loss-of-function variants in SLC6A3 produce a mutant dopamine transporter (DAT) with multifaceted dysfunction: reduced transporter activity, impaired dopamine binding, reduced cell-surface expression, and aberrant posttranslational modification with impaired glycosylation. The net effect is a profound deficit in presynaptic reuptake of dopamine from the synaptic cleft.</div>
 
 
@@ -4250,6 +4328,7 @@ This pathophysiological event involves decreased Dopamine reuptake at the synaps
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4271,6 +4350,7 @@ This pathophysiological event involves decreased Dopamine reuptake at the synaps
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4296,6 +4376,7 @@ This pathophysiological event involves decreased Dopamine reuptake at the synaps
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysregulated-synaptic-dopamine-homeostasis" data-dismech-node="Dysregulated Synaptic Dopamine Homeostasis" data-dismech-type="pathophysiology">
                 <div class="item-name">Dysregulated Synaptic Dopamine Homeostasis</div>
+
 
                 <div class="item-desc">Impaired DAT-mediated reuptake reduces dopamine clearance, raising extracellular synaptic dopamine and increasing dopamine turnover. This is reflected biochemically as elevated cerebrospinal fluid homovanillic acid (HVA, a dopamine catabolite) with normal 5-hydroxyindoleacetic acid (5-HIAA), yielding a raised HVA:5-HIAA ratio, and by absent or markedly reduced presynaptic DAT tracer uptake in the basal ganglia on DaTscan.</div>
 
@@ -4419,6 +4500,7 @@ This pathophysiological event involves dysregulated Regulation of dopamine secre
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4440,6 +4522,7 @@ This pathophysiological event involves dysregulated Regulation of dopamine secre
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4465,6 +4548,7 @@ This pathophysiological event involves dysregulated Regulation of dopamine secre
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dopaminergic-neurodegeneration-and-nigrostriatal-dysfunction" data-dismech-node="Dopaminergic Neurodegeneration and Nigrostriatal Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Dopaminergic Neurodegeneration and Nigrostriatal Dysfunction</div>
+
 
                 <div class="item-desc">Excess synaptic dopamine and impaired handling lead to dopamine toxicity, oxidative/carbonyl stress, TNF-alpha-mediated inflammation, and apoptotic neurodegeneration of midbrain dopaminergic neurons, demonstrated in patient iPSC-derived midbrain dopaminergic neurons and in the DAT knockout mouse, which recapitulates tremor, bradykinesia, and premature death. The substantia nigra and striatum are the principal affected structures of the nigrostriatal system, and their dysfunction underlies the progressive parkinsonism-dystonia phenotype.</div>
 
@@ -4609,6 +4693,7 @@ This pathophysiological event involves increased Neuroinflammatory response (GO:
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4630,6 +4715,7 @@ This pathophysiological event involves increased Neuroinflammatory response (GO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4699,11 +4785,11 @@ This pathophysiological event involves increased Neuroinflammatory response (GO:
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Digestive<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Musculoskeletal<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Head and Neck<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Nervous System<span class="pill-count">(7)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Musculoskeletal<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Nervous System<span class="pill-count">(8)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -4773,6 +4859,9 @@ This clinical feature is Feeding difficulties (HP:0011968), qualified as infanti
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4787,6 +4876,7 @@ This clinical feature is Feeding difficulties (HP:0011968), qualified as infanti
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4818,13 +4908,13 @@ This clinical feature is Feeding difficulties (HP:0011968), qualified as infanti
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Musculoskeletal
-                    <span class="cat-count">2</span>
+                    Head and Neck
+                    <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-rigidity" data-dismech-node="Rigidity" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-decreased-facial-expression" data-dismech-node="Decreased Facial Expression" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Rigidity
+                        Decreased Facial Expression
 
 
 
@@ -4836,15 +4926,18 @@ This clinical feature is Feeding difficulties (HP:0011968), qualified as infanti
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002063" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0002063</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004673" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0004673</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Rigidity (HP:0002063). HP:0002063 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Reduced facial expression, annotated with Decreased facial expression (HP:0004673). HP:0004673 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -4864,6 +4957,88 @@ This clinical feature is Rigidity (HP:0002063). HP:0002063 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"bradykinesia (progressing to akinesia), dystonic posturing, distal tremor, rigidity, and reduced facial expression."</div>
+
+
+                <div class="evidence-explanation">GeneReviews lists reduced facial expression as a parkinsonian feature.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Musculoskeletal
+                    <span class="cat-count">2</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-rigidity" data-dismech-node="Rigidity" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Rigidity
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002063" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0002063</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Rigidity (HP:0002063). HP:0002063 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28749637" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28749637" target="_blank">PMID:28749637</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4904,10 +5079,10 @@ This clinical feature is Rigidity (HP:0002063). HP:0002063 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001252</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001252</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Axial hypotonia, annotated with Hypotonia (HP:0001252), qualified as infantile onset. HP:0001252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -4947,6 +5122,9 @@ This clinical feature is Axial hypotonia, annotated with Hypotonia (HP:0001252),
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4961,6 +5139,7 @@ This clinical feature is Axial hypotonia, annotated with Hypotonia (HP:0001252),
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4989,11 +5168,11 @@ This clinical feature is Axial hypotonia, annotated with Hypotonia (HP:0001252),
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-3">
+            <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">7</span>
+                    <span class="cat-count">8</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-parkinsonism-dystonia" data-dismech-node="Parkinsonism-Dystonia" data-dismech-type="phenotype">
@@ -5010,10 +5189,10 @@ This clinical feature is Axial hypotonia, annotated with Hypotonia (HP:0001252),
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001300" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001300</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001300" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001300</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Parkinsonism (HP:0001300), qualified as course progressive. HP:0001300 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5042,6 +5221,9 @@ This clinical feature is Parkinsonism (HP:0001300), qualified as course progress
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5056,6 +5238,7 @@ This clinical feature is Parkinsonism (HP:0001300), qualified as course progress
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5096,15 +5279,18 @@ This clinical feature is Parkinsonism (HP:0001300), qualified as course progress
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001332</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001332" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001332</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5124,6 +5310,7 @@ This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5164,10 +5351,10 @@ This clinical feature is Dystonia (HP:0001332). HP:0001332 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002067" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0002067</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002067" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0002067</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Bradykinesia (HP:0002067), qualified as course progressive. HP:0002067 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5196,6 +5383,9 @@ This clinical feature is Bradykinesia (HP:0002067), qualified as course progress
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5210,6 +5400,7 @@ This clinical feature is Bradykinesia (HP:0002067), qualified as course progress
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5250,15 +5441,18 @@ This clinical feature is Bradykinesia (HP:0002067), qualified as course progress
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001337" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001337</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001337" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001337</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Distal tremor, annotated with Tremor (HP:0001337). HP:0001337 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5278,6 +5472,7 @@ This clinical feature is Distal tremor, annotated with Tremor (HP:0001337). HP:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5320,15 +5515,18 @@ This clinical feature is Distal tremor, annotated with Tremor (HP:0001337). HP:0
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002072" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0002072</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002072" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0002072</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Chorea (HP:0002072). HP:0002072 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5351,6 +5549,7 @@ This clinical feature is Chorea (HP:0002072). HP:0002072 is a phenotype from the
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5359,6 +5558,78 @@ This clinical feature is Chorea (HP:0002072). HP:0002072 is a phenotype from the
 
 
                 <div class="evidence-explanation">GeneReviews documents the early hyperkinetic phase including chorea.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-oculogyric-crisis" data-dismech-node="Oculogyric Crisis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Oculogyric Crisis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010553" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0010553</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Oculogyric crisis (HP:0010553). HP:0010553 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40291937" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40291937" target="_blank">PMID:40291937</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"These rare syndromes manifest with movement disorders and neuropsychiatric symptoms."</div>
+
+
+                <div class="evidence-explanation">Comparative review of monoamine transport disorders (including DTDS) supports the movement-disorder spectrum; oculogyric crises are documented in DTDS case literature.</div>
 
 
 
@@ -5390,15 +5661,18 @@ This clinical feature is Chorea (HP:0002072). HP:0002072 is a phenotype from the
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002194" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0002194</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002194" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002194</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Delayed gross motor development (HP:0002194). HP:0002194 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5418,6 +5692,7 @@ This clinical feature is Delayed gross motor development (HP:0002194). HP:000219
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5458,10 +5733,10 @@ This clinical feature is Delayed gross motor development (HP:0002194). HP:000219
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000737" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000737</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000737" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000737</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Irritability (HP:0000737), qualified as infantile onset. HP:0000737 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5501,6 +5776,9 @@ This clinical feature is Irritability (HP:0000737), qualified as infantile onset
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5515,6 +5793,7 @@ This clinical feature is Irritability (HP:0000737), qualified as infantile onset
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5526,151 +5805,6 @@ This clinical feature is Irritability (HP:0000737), qualified as infantile onset
 
 
                 <div class="evidence-explanation">GeneReviews lists irritability as an early infantile finding.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-oculogyric-crisis" data-dismech-node="Oculogyric Crisis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Oculogyric Crisis
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0010553" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0010553</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Oculogyric crisis (HP:0010553). HP:0010553 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:40291937" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40291937" target="_blank">PMID:40291937</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"These rare syndromes manifest with movement disorders and neuropsychiatric symptoms."</div>
-
-
-                <div class="evidence-explanation">Comparative review of monoamine transport disorders (including DTDS) supports the movement-disorder spectrum; oculogyric crises are documented in DTDS case literature.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-decreased-facial-expression" data-dismech-node="Decreased Facial Expression" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Decreased Facial Expression
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004673" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0004673</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Reduced facial expression, annotated with Decreased facial expression (HP:0004673). HP:0004673 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:28749637" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28749637" target="_blank">PMID:28749637</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"bradykinesia (progressing to akinesia), dystonic posturing, distal tremor, rigidity, and reduced facial expression."</div>
-
-
-                <div class="evidence-explanation">GeneReviews lists reduced facial expression as a parkinsonian feature.</div>
 
 
 
@@ -5758,6 +5892,9 @@ This disease-associated gene is SLC6A3 (hgnc:11049). hgnc:11049 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5772,6 +5909,7 @@ This disease-associated gene is SLC6A3 (hgnc:11049). hgnc:11049 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5796,6 +5934,7 @@ This disease-associated gene is SLC6A3 (hgnc:11049). hgnc:11049 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5879,6 +6018,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Standard pharmacotherapy has limited efficacy in DTDS. Supportive management includes nutrition and feeding support, physical therapy to reduce contracture and fracture risk, management of respiratory infections, and treatment of pain that can exacerbate movement disorders. Care is largely supportive given the absence of disease-modifying therapy.</div>
 
 
@@ -5900,6 +6053,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5985,6 +6139,31 @@ This treatment uses tetrabenazine (CHEBI:9467). CHEBI:9467 is a therapeutic agen
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Tetrabenazine, a vesicular monoamine transporter 2 (VMAT2) inhibitor, is used to control chorea and dyskinesia in the early hyperkinetic stages of disease.</div>
 
 
@@ -6006,6 +6185,7 @@ This treatment uses tetrabenazine (CHEBI:9467). CHEBI:9467 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6091,6 +6271,31 @@ This treatment uses benzodiazepine (NCIT:C1012). NCIT:C1012 is a therapeutic age
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Benzodiazepines are used to control chorea and dyskinesia in early disease and for exacerbations of dystonia or status dystonicus.</div>
 
 
@@ -6112,6 +6317,7 @@ This treatment uses benzodiazepine (NCIT:C1012). NCIT:C1012 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6214,6 +6420,31 @@ This treatment uses dopamine agonist (NCIT:C66884). NCIT:C66884 is a therapeutic
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Dopamine agonists pramipexole and ropinirole are used as first-line agents for dystonia, which is more difficult to control than chorea. The older ergot dopamine agonists bromocriptine and pergolide are generally avoided because of fibrosis risk.</div>
 
 
@@ -6238,6 +6469,7 @@ This treatment uses dopamine agonist (NCIT:C66884). NCIT:C66884 is a therapeutic
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6259,6 +6491,7 @@ This treatment uses dopamine agonist (NCIT:C66884). NCIT:C66884 is a therapeutic
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6344,6 +6577,31 @@ This treatment uses levodopa, annotated with L-dopa (CHEBI:15765). CHEBI:15765 i
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Levodopa is generally ineffective in DTDS, with limited or no response reported, consistent with the presynaptic dopamine-handling defect rather than a dopamine synthesis deficiency.</div>
 
 
@@ -6365,6 +6623,7 @@ This treatment uses levodopa, annotated with L-dopa (CHEBI:15765). CHEBI:15765 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6428,6 +6687,31 @@ This treatment is Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Regular physical therapy and medical management of tone are used to reduce the risk of contractures and fractures.</div>
 
 
@@ -6449,6 +6733,7 @@ This treatment is Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6512,6 +6797,20 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Genetic counseling is offered given autosomal recessive inheritance; once the SLC6A3 variants are identified in a family member, prenatal and preimplantation genetic testing are possible.</div>
 
 
@@ -6533,6 +6832,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6597,6 +6897,31 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Gene therapy</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">AAV- and lentivirus-mediated gene therapy delivering wild-type SLC6A3 is in preclinical development. In patient iPSC-derived neurons and DAT knockout mice, SLC6A3 gene transfer restored DAT activity, prevented neurodegeneration, and improved motor phenotype and survival; targeted midbrain delivery avoided off-target toxicity. This approach is investigational and not yet an approved therapy.</div>
 
 
@@ -6621,6 +6946,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6642,6 +6968,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6706,6 +7033,7 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7510,6 +7838,8 @@ datasets: []
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

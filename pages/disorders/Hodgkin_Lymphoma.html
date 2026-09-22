@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3756,6 +3821,18 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3798,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 12</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 13</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Hodgkin%20Lymphoma"
@@ -3994,7 +4071,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">12</div>
+                <div class="stat-value">13</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4354,6 +4431,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4555,6 +4633,7 @@ This subtype is caused by variation in CIITA (hgnc:7067). hgnc:7067 is a gene fr
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4621,6 +4700,7 @@ This subtype is caused by variation in CIITA (hgnc:7067). hgnc:7067 is a gene fr
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4645,6 +4725,7 @@ This subtype is caused by variation in CIITA (hgnc:7067). hgnc:7067 is a gene fr
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4666,6 +4747,7 @@ This subtype is caused by variation in CIITA (hgnc:7067). hgnc:7067 is a gene fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4713,6 +4795,7 @@ This subtype is caused by variation in CIITA (hgnc:7067). hgnc:7067 is a gene fr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neoplastic-hodgkin-reed-sternberg-cell-origin-classic-hl" data-dismech-node="Neoplastic Hodgkin/Reed-Sternberg Cell Origin (Classic HL)" data-dismech-type="pathophysiology">
                 <div class="item-name">Neoplastic Hodgkin/Reed-Sternberg Cell Origin (Classic HL)</div>
+
 
                 <div class="item-desc">In classic Hodgkin lymphoma the malignant Hodgkin/Reed-Sternberg cell is derived from a germinal center B cell but loses most typical B-cell features during transformation.</div>
 
@@ -4800,6 +4883,7 @@ This pathophysiological event involves germinal center B cell (CL:0000844). CL:0
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4822,6 +4906,7 @@ This pathophysiological event involves germinal center B cell (CL:0000844). CL:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neoplastic-lymphocyte-predominant-lp-cell-origin-nlphl" data-dismech-node="Neoplastic Lymphocyte-Predominant (LP) Cell Origin (NLPHL)" data-dismech-type="pathophysiology">
                 <div class="item-name">Neoplastic Lymphocyte-Predominant (LP) Cell Origin (NLPHL)</div>
+
 
                 <div class="item-desc">In NLPHL the neoplastic lymphocyte-predominant (LP) cell is an infrequent large germinal-center-derived B cell that, unlike the HRS cell, retains a functional B-cell program and sits in a lymphocyte- and histiocyte-rich microenvironment.</div>
 
@@ -4909,6 +4994,7 @@ This pathophysiological event involves germinal center B cell (CL:0000844). CL:0
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4930,6 +5016,7 @@ This pathophysiological event involves germinal center B cell (CL:0000844). CL:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4957,6 +5044,7 @@ This pathophysiological event involves germinal center B cell (CL:0000844). CL:0
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4980,9 +5068,44 @@ This pathophysiological event involves germinal center B cell (CL:0000844). CL:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mutation-driven-jak-stat-activation-classic-hl" data-dismech-node="Mutation-Driven JAK/STAT Activation (Classic HL)" data-dismech-type="pathophysiology">
                 <div class="item-name">Mutation-Driven JAK/STAT Activation (Classic HL)</div>
 
+
                 <div class="item-desc">Recurrent somatic lesions in classic Hodgkin lymphoma activate JAK/STAT signaling that supports HRS-cell survival and cytokine-responsive growth.</div>
 
 
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-cell">
+                        germinal center B cell
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000844" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000844</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves germinal center B cell (CL:0000844). CL:0000844 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
 
 
 
@@ -5002,11 +5125,11 @@ This pathophysiological event involves germinal center B cell (CL:0000844). CL:0
         JAK2
 
 
-    <a href="https://bioregistry.io/hgnc:6192" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-9">hgnc:6192</a>
+    <a href="https://bioregistry.io/hgnc:6192" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:6192</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-9">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves JAK2 (hgnc:6192). hgnc:6192 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -5041,11 +5164,11 @@ This pathophysiological event involves JAK2 (hgnc:6192). hgnc:6192 is a gene fro
         STAT6
 
 
-    <a href="https://bioregistry.io/hgnc:11368" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:11368</a>
+    <a href="https://bioregistry.io/hgnc:11368" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-11">hgnc:11368</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-11">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves STAT6 (hgnc:11368). hgnc:11368 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -5070,6 +5193,31 @@ This pathophysiological event involves STAT6 (hgnc:11368). hgnc:11368 is a gene 
 
 
 
+    <div class="item-meta">
+        <span class="tag tag-classification">Genetic context</span>
+
+
+
+
+
+
+
+
+
+        <span class="tag tag-classification">variant_origin: SOMATIC</span>
+
+
+
+
+
+
+    </div>
+
+
+
+
+
+
 
 
 
@@ -5083,11 +5231,11 @@ This pathophysiological event involves STAT6 (hgnc:11368). hgnc:11368 is a gene 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007259" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0007259</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007259" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0007259</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased cell surface receptor signaling pathway via JAK-STAT (GO:0007259). GO:0007259 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5152,6 +5300,7 @@ This pathophysiological event involves increased cell surface receptor signaling
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5175,8 +5324,150 @@ This pathophysiological event involves increased cell surface receptor signaling
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mutation-driven-nf-kappab-activation-classic-hl" data-dismech-node="Mutation-Driven NF-kappaB Activation (Classic HL)" data-dismech-type="pathophysiology">
                 <div class="item-name">Mutation-Driven NF-kappaB Activation (Classic HL)</div>
 
+
                 <div class="item-desc">Destructive lesions in NF-kappaB negative regulators and gains in positive regulators drive constitutive NF-kappaB survival signaling in HRS cells.</div>
 
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-cell">
+                        germinal center B cell
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000844" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0000844</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves germinal center B cell (CL:0000844). CL:0000844 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        TNFAIP3
+
+
+    <a href="https://bioregistry.io/hgnc:11896" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-14">hgnc:11896</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-14">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TNFAIP3 (hgnc:11896). hgnc:11896 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        NFKBIA
+
+
+    <a href="https://bioregistry.io/hgnc:7797" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-15">hgnc:7797</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-15">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves NFKBIA (hgnc:7797). hgnc:7797 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+    <div class="item-meta">
+        <span class="tag tag-classification">Genetic context</span>
+
+
+
+
+
+
+
+
+
+        <span class="tag tag-classification">variant_origin: SOMATIC</span>
+
+
+
+
+
+
+    </div>
 
 
 
@@ -5196,11 +5487,11 @@ This pathophysiological event involves increased cell surface receptor signaling
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007249" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0007249</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007249" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0007249</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased canonical NF-kappaB signal transduction (GO:0007249). GO:0007249 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5273,6 +5564,7 @@ This pathophysiological event involves increased canonical NF-kappaB signal tran
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5296,6 +5588,7 @@ This pathophysiological event involves increased canonical NF-kappaB signal tran
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ebv-lmp1-mediated-nf-kappab-activation-ebv-positive-classic-hl" data-dismech-node="EBV LMP1-Mediated NF-kappaB Activation (EBV-positive Classic HL)" data-dismech-type="pathophysiology">
                 <div class="item-name">EBV LMP1-Mediated NF-kappaB Activation (EBV-positive Classic HL)</div>
 
+
                 <div class="item-desc">In Epstein-Barr-virus-positive classic Hodgkin lymphoma, viral latent membrane protein 1 mimics an active CD40 receptor and drives NF-kappaB activation in HRS cells.</div>
 
 
@@ -5317,11 +5610,11 @@ This pathophysiological event involves increased canonical NF-kappaB signal tran
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007249" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0007249</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007249" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0007249</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased canonical NF-kappaB signal transduction (GO:0007249). GO:0007249 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5386,6 +5679,7 @@ This pathophysiological event involves increased canonical NF-kappaB signal tran
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5409,6 +5703,7 @@ This pathophysiological event involves increased canonical NF-kappaB signal tran
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cytokine-and-chemokine-mediated-microenvironment-remodeling" data-dismech-node="Cytokine and Chemokine-Mediated Microenvironment Remodeling" data-dismech-type="pathophysiology">
                 <div class="item-name">Cytokine and Chemokine-Mediated Microenvironment Remodeling</div>
 
+
                 <div class="item-desc">Neoplastic Hodgkin cells persist within a dense inflammatory infiltrate that they actively recruit and shape through cytokine and chemokine signaling, the defining tissue architecture of Hodgkin lymphoma.</div>
 
 
@@ -5430,11 +5725,11 @@ This pathophysiological event involves increased canonical NF-kappaB signal tran
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0032602" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0032602</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0032602" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0032602</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased chemokine production (GO:0032602). GO:0032602 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5531,6 +5826,7 @@ This pathophysiological event involves increased chemokine production (GO:003260
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5554,6 +5850,7 @@ This pathophysiological event involves increased chemokine production (GO:003260
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pd-1-ligand-mediated-immune-evasion" data-dismech-node="PD-1 Ligand-Mediated Immune Evasion" data-dismech-type="pathophysiology">
                 <div class="item-name">PD-1 Ligand-Mediated Immune Evasion</div>
 
+
                 <div class="item-desc">Near-universal 9p24.1 copy gain in classic Hodgkin lymphoma HRS cells increases PD-1 ligand expression and contributes to immune escape, the basis for the disease&#39;s marked sensitivity to PD-1 blockade.</div>
 
 
@@ -5575,11 +5872,11 @@ This pathophysiological event involves increased chemokine production (GO:003260
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0002710" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0002710</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0002710" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-19">GO:0002710</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased Negative Regulation of T Cell Mediated Immunity (GO:0002710). GO:0002710 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5629,6 +5926,7 @@ This pathophysiological event involves increased Negative Regulation of T Cell M
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5653,6 +5951,7 @@ This pathophysiological event involves increased Negative Regulation of T Cell M
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5674,6 +5973,7 @@ This pathophysiological event involves increased Negative Regulation of T Cell M
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5738,6 +6038,7 @@ This pathophysiological event involves increased Negative Regulation of T Cell M
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5780,7 +6081,7 @@ This pathophysiological event involves increased Negative Regulation of T Cell M
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Cytokine and Chemokine-Mediated Microenvironment Remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Neoplastic Hodgkin cells persist within a dense inflammatory infiltrate that they actively recruit and shape through cytokine and chemokine signaling, the defining tissue architecture of Hodgkin lymphoma.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"chemokine production\"]}}, {\"id\": \"EBV LMP1-Mediated NF-kappaB Activation (EBV-positive Classic HL)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In Epstein-Barr-virus-positive classic Hodgkin lymphoma, viral latent membrane protein 1 mimics an active CD40 receptor and drives NF-kappaB activation in HRS cells.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"canonical NF-kappaB signal transduction\"]}}, {\"id\": \"Fever\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fever is a classical B symptom that may accompany nodal disease.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001945\"}}, {\"id\": \"Lymphadenopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hodgkin lymphoma classically presents with nodal enlargement and contiguous nodal spread.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002716\"}}, {\"id\": \"Mutation-Driven JAK/STAT Activation (Classic HL)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Recurrent somatic lesions in classic Hodgkin lymphoma activate JAK/STAT signaling that supports HRS-cell survival and cytokine-responsive growth.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cell surface receptor signaling pathway via JAK-STAT\"], \"genes\": [\"JAK2\", \"STAT6\"], \"gene_terms\": [{\"label\": \"JAK2\", \"id\": \"hgnc:6192\"}, {\"label\": \"STAT6\", \"id\": \"hgnc:11368\"}]}}, {\"id\": \"Mutation-Driven NF-kappaB Activation (Classic HL)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Destructive lesions in NF-kappaB negative regulators and gains in positive regulators drive constitutive NF-kappaB survival signaling in HRS cells.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"canonical NF-kappaB signal transduction\"]}}, {\"id\": \"Neoplastic Hodgkin/Reed-Sternberg Cell Origin (Classic HL)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In classic Hodgkin lymphoma the malignant Hodgkin/Reed-Sternberg cell is derived from a germinal center B cell but loses most typical B-cell features during transformation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"germinal center B cell\"]}}, {\"id\": \"Neoplastic Lymphocyte-Predominant (LP) Cell Origin (NLPHL)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In NLPHL the neoplastic lymphocyte-predominant (LP) cell is an infrequent large germinal-center-derived B cell that, unlike the HRS cell, retains a functional B-cell program and sits in a lymphocyte- and histiocyte-rich microenvironment.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"germinal center B cell\"]}}, {\"id\": \"Night Sweats\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Night sweats are part of the classical B-symptom complex at presentation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0030166\"}}, {\"id\": \"PD-1 Blockade (Nivolumab)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"PD-1 blockade is an established option in previously treated classic Hodgkin lymphoma and is tightly aligned to the disease\u0027s 9p24.1-driven checkpoint biology.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"nivolumab\"]}}, {\"id\": \"PD-1 Ligand-Mediated Immune Evasion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Near-universal 9p24.1 copy gain in classic Hodgkin lymphoma HRS cells increases PD-1 ligand expression and contributes to immune escape, the basis for the disease\u0027s marked sensitivity to PD-1 blockade.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"Negative Regulation of T Cell Mediated Immunity\"]}}, {\"id\": \"Weight Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Unintentional weight loss is a classical B symptom of active disease.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001824\"}}], \"edges\": [{\"source\": \"Neoplastic Hodgkin/Reed-Sternberg Cell Origin (Classic HL)\", \"target\": \"Cytokine and Chemokine-Mediated Microenvironment Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Transformed HRS cells recruit and shape a supportive inflammatory niche.\"}, {\"source\": \"Neoplastic Lymphocyte-Predominant (LP) Cell Origin (NLPHL)\", \"target\": \"Cytokine and Chemokine-Mediated Microenvironment Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Like the HRS cell, the LP cell actively manipulates and depends on its supportive lymphocyte- and histiocyte-rich microenvironment.\"}, {\"source\": \"Mutation-Driven JAK/STAT Activation (Classic HL)\", \"target\": \"Cytokine and Chemokine-Mediated Microenvironment Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"JAK/STAT signaling supports inflammatory niche formation.\"}, {\"source\": \"Mutation-Driven NF-kappaB Activation (Classic HL)\", \"target\": \"Cytokine and Chemokine-Mediated Microenvironment Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"NF-kappaB signaling sustains the inflammatory tumor niche.\"}, {\"source\": \"Mutation-Driven NF-kappaB Activation (Classic HL)\", \"target\": \"PD-1 Ligand-Mediated Immune Evasion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Constitutive NF-kappaB signaling cooperates with checkpoint-ligand upregulation to promote immune escape.\"}, {\"source\": \"EBV LMP1-Mediated NF-kappaB Activation (EBV-positive Classic HL)\", \"target\": \"Cytokine and Chemokine-Mediated Microenvironment Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"EBV-driven NF-kappaB activation reinforces the inflammatory tumor niche.\"}, {\"source\": \"Cytokine and Chemokine-Mediated Microenvironment Remodeling\", \"target\": \"PD-1 Ligand-Mediated Immune Evasion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The inflammatory niche is coupled to ineffective anti-tumor immunity.\"}, {\"source\": \"Cytokine and Chemokine-Mediated Microenvironment Remodeling\", \"target\": \"Lymphadenopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The tumor-supported inflammatory niche contributes to nodal enlargement.\"}, {\"source\": \"Cytokine and Chemokine-Mediated Microenvironment Remodeling\", \"target\": \"Fever\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cytokine-rich tumor inflammation contributes to B symptoms including fever.\"}, {\"source\": \"Cytokine and Chemokine-Mediated Microenvironment Remodeling\", \"target\": \"Night Sweats\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cytokine-rich tumor inflammation contributes to B symptoms including night sweats.\"}, {\"source\": \"Cytokine and Chemokine-Mediated Microenvironment Remodeling\", \"target\": \"Weight Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cytokine-rich tumor inflammation contributes to systemic B symptoms including weight loss.\"}, {\"source\": \"PD-1 Blockade (Nivolumab)\", \"target\": \"PD-1 Ligand-Mediated Immune Evasion\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Cytokine and Chemokine-Mediated Microenvironment Remodeling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Neoplastic Hodgkin cells persist within a dense inflammatory infiltrate that they actively recruit and shape through cytokine and chemokine signaling, the defining tissue architecture of Hodgkin lymphoma.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"chemokine production\"]}}, {\"id\": \"EBV LMP1-Mediated NF-kappaB Activation (EBV-positive Classic HL)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In Epstein-Barr-virus-positive classic Hodgkin lymphoma, viral latent membrane protein 1 mimics an active CD40 receptor and drives NF-kappaB activation in HRS cells.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"canonical NF-kappaB signal transduction\"]}}, {\"id\": \"Fever\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Fever is a classical B symptom that may accompany nodal disease.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001945\"}}, {\"id\": \"Lymphadenopathy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hodgkin lymphoma classically presents with nodal enlargement and contiguous nodal spread.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002716\"}}, {\"id\": \"Mutation-Driven JAK/STAT Activation (Classic HL)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Recurrent somatic lesions in classic Hodgkin lymphoma activate JAK/STAT signaling that supports HRS-cell survival and cytokine-responsive growth.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"germinal center B cell\"], \"biological_processes\": [\"cell surface receptor signaling pathway via JAK-STAT\"], \"genes\": [\"JAK2\", \"STAT6\"], \"gene_terms\": [{\"label\": \"JAK2\", \"id\": \"hgnc:6192\"}, {\"label\": \"STAT6\", \"id\": \"hgnc:11368\"}], \"genetic_context\": {\"variant_origin\": \"SOMATIC\"}}}, {\"id\": \"Mutation-Driven NF-kappaB Activation (Classic HL)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Destructive lesions in NF-kappaB negative regulators and gains in positive regulators drive constitutive NF-kappaB survival signaling in HRS cells.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"germinal center B cell\"], \"biological_processes\": [\"canonical NF-kappaB signal transduction\"], \"genes\": [\"TNFAIP3\", \"NFKBIA\"], \"gene_terms\": [{\"label\": \"TNFAIP3\", \"id\": \"hgnc:11896\"}, {\"label\": \"NFKBIA\", \"id\": \"hgnc:7797\"}], \"genetic_context\": {\"variant_origin\": \"SOMATIC\"}}}, {\"id\": \"Neoplastic Hodgkin/Reed-Sternberg Cell Origin (Classic HL)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In classic Hodgkin lymphoma the malignant Hodgkin/Reed-Sternberg cell is derived from a germinal center B cell but loses most typical B-cell features during transformation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"germinal center B cell\"]}}, {\"id\": \"Neoplastic Lymphocyte-Predominant (LP) Cell Origin (NLPHL)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In NLPHL the neoplastic lymphocyte-predominant (LP) cell is an infrequent large germinal-center-derived B cell that, unlike the HRS cell, retains a functional B-cell program and sits in a lymphocyte- and histiocyte-rich microenvironment.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"germinal center B cell\"]}}, {\"id\": \"Night Sweats\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Night sweats are part of the classical B-symptom complex at presentation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0030166\"}}, {\"id\": \"PD-1 Blockade (Nivolumab)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"PD-1 blockade is an established option in previously treated classic Hodgkin lymphoma and is tightly aligned to the disease\u0027s 9p24.1-driven checkpoint biology.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"nivolumab\"]}}, {\"id\": \"PD-1 Ligand-Mediated Immune Evasion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Near-universal 9p24.1 copy gain in classic Hodgkin lymphoma HRS cells increases PD-1 ligand expression and contributes to immune escape, the basis for the disease\u0027s marked sensitivity to PD-1 blockade.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"Negative Regulation of T Cell Mediated Immunity\"]}}, {\"id\": \"TNFAIP3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TNFAIP3\"], \"gene_terms\": [{\"label\": \"TNFAIP3\", \"id\": \"hgnc:11896\"}], \"association\": \"Somatic Loss-of-Function Mutation\"}}, {\"id\": \"Weight Loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Unintentional weight loss is a classical B symptom of active disease.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001824\"}}], \"edges\": [{\"source\": \"Neoplastic Hodgkin/Reed-Sternberg Cell Origin (Classic HL)\", \"target\": \"Cytokine and Chemokine-Mediated Microenvironment Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Transformed HRS cells recruit and shape a supportive inflammatory niche.\"}, {\"source\": \"Neoplastic Lymphocyte-Predominant (LP) Cell Origin (NLPHL)\", \"target\": \"Cytokine and Chemokine-Mediated Microenvironment Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Like the HRS cell, the LP cell actively manipulates and depends on its supportive lymphocyte- and histiocyte-rich microenvironment.\"}, {\"source\": \"Mutation-Driven JAK/STAT Activation (Classic HL)\", \"target\": \"Cytokine and Chemokine-Mediated Microenvironment Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"JAK/STAT signaling supports inflammatory niche formation.\"}, {\"source\": \"Mutation-Driven NF-kappaB Activation (Classic HL)\", \"target\": \"Cytokine and Chemokine-Mediated Microenvironment Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"NF-kappaB signaling sustains the inflammatory tumor niche.\"}, {\"source\": \"Mutation-Driven NF-kappaB Activation (Classic HL)\", \"target\": \"PD-1 Ligand-Mediated Immune Evasion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Constitutive NF-kappaB signaling cooperates with checkpoint-ligand upregulation to promote immune escape.\"}, {\"source\": \"EBV LMP1-Mediated NF-kappaB Activation (EBV-positive Classic HL)\", \"target\": \"Cytokine and Chemokine-Mediated Microenvironment Remodeling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"EBV-driven NF-kappaB activation reinforces the inflammatory tumor niche.\"}, {\"source\": \"Cytokine and Chemokine-Mediated Microenvironment Remodeling\", \"target\": \"PD-1 Ligand-Mediated Immune Evasion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The inflammatory niche is coupled to ineffective anti-tumor immunity.\"}, {\"source\": \"Cytokine and Chemokine-Mediated Microenvironment Remodeling\", \"target\": \"Lymphadenopathy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The tumor-supported inflammatory niche contributes to nodal enlargement.\"}, {\"source\": \"Cytokine and Chemokine-Mediated Microenvironment Remodeling\", \"target\": \"Fever\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cytokine-rich tumor inflammation contributes to B symptoms including fever.\"}, {\"source\": \"Cytokine and Chemokine-Mediated Microenvironment Remodeling\", \"target\": \"Night Sweats\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cytokine-rich tumor inflammation contributes to B symptoms including night sweats.\"}, {\"source\": \"Cytokine and Chemokine-Mediated Microenvironment Remodeling\", \"target\": \"Weight Loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cytokine-rich tumor inflammation contributes to systemic B symptoms including weight loss.\"}, {\"source\": \"PD-1 Blockade (Nivolumab)\", \"target\": \"PD-1 Ligand-Mediated Immune Evasion\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"TNFAIP3\", \"target\": \"Mutation-Driven NF-kappaB Activation (Classic HL)\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5832,15 +6133,18 @@ This pathophysiological event involves increased Negative Regulation of T Cell M
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0002716</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002716</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5860,6 +6164,7 @@ This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5909,15 +6214,18 @@ This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001945</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001945</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5937,6 +6245,7 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5986,15 +6295,18 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030166" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0030166</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030166" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0030166</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Night sweats (HP:0030166). HP:0030166 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6014,6 +6326,7 @@ This clinical feature is Night sweats (HP:0030166). HP:0030166 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6063,15 +6376,18 @@ This clinical feature is Night sweats (HP:0030166). HP:0030166 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001824</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001824</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6091,6 +6407,7 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6174,10 +6491,10 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
                         Gene: TNFAIP3
 
 
-    <a href="https://bioregistry.io/hgnc:11896" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-20">hgnc:11896</a>
+    <a href="https://bioregistry.io/hgnc:11896" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-24">hgnc:11896</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is TNFAIP3 (hgnc:11896). hgnc:11896 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -6185,6 +6502,9 @@ This disease-associated gene is TNFAIP3 (hgnc:11896). hgnc:11896 is a gene from 
 
 
                 </div>
+
+
+
 
 
 
@@ -6203,6 +6523,7 @@ This disease-associated gene is TNFAIP3 (hgnc:11896). hgnc:11896 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6245,10 +6566,10 @@ This disease-associated gene is TNFAIP3 (hgnc:11896). hgnc:11896 is a gene from 
                         Gene: B2M
 
 
-    <a href="https://bioregistry.io/hgnc:914" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-21">hgnc:914</a>
+    <a href="https://bioregistry.io/hgnc:914" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-25">hgnc:914</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is B2M (hgnc:914). hgnc:914 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -6256,6 +6577,9 @@ This disease-associated gene is B2M (hgnc:914). hgnc:914 is a gene from the HUGO
 
 
                 </div>
+
+
+
 
 
 
@@ -6274,6 +6598,7 @@ This disease-associated gene is B2M (hgnc:914). hgnc:914 is a gene from the HUGO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6309,6 +6634,9 @@ This disease-associated gene is B2M (hgnc:914). hgnc:914 is a gene from the HUGO
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6323,6 +6651,7 @@ This disease-associated gene is B2M (hgnc:914). hgnc:914 is a gene from the HUGO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6373,7 +6702,7 @@ This disease-associated gene is B2M (hgnc:914). hgnc:914 is a gene from the HUGO
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-22">chemotherapy<span class="pill-tip" role="tooltip" id="pill-tip-22">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-26">chemotherapy<span class="pill-tip" role="tooltip" id="pill-tip-26">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6403,7 +6732,7 @@ This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical interven
                     <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Regimen:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-23">ABVD regimen<span class="pill-tip" role="tooltip" id="pill-tip-23">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-27">ABVD regimen<span class="pill-tip" role="tooltip" id="pill-tip-27">NCI Thesaurus (NCIT)
 Relation: this regimen component is this clinical intervention
 This regimen component is ABVD regimen (NCIT:C9509). NCIT:C9509 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6445,11 +6774,11 @@ This regimen component is ABVD regimen (NCIT:C9509). NCIT:C9509 is a clinical in
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_28748" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-24">CHEBI:28748</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_28748" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-28">CHEBI:28748</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses doxorubicin (CHEBI:28748). CHEBI:28748 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
@@ -6462,11 +6791,11 @@ This treatment uses doxorubicin (CHEBI:28748). CHEBI:28748 is a therapeutic agen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_22907" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-25">CHEBI:22907</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_22907" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-29">CHEBI:22907</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses bleomycin (CHEBI:22907). CHEBI:22907 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
@@ -6479,11 +6808,11 @@ This treatment uses bleomycin (CHEBI:22907). CHEBI:22907 is a therapeutic agent 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_27375" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-26">CHEBI:27375</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_27375" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-30">CHEBI:27375</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses vinblastine, annotated with vincaleukoblastine (CHEBI:27375). CHEBI:27375 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
@@ -6496,16 +6825,30 @@ This treatment uses vinblastine, annotated with vincaleukoblastine (CHEBI:27375)
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_4305" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-27">CHEBI:4305</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_4305" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-31">CHEBI:4305</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses dacarbazine (CHEBI:4305). CHEBI:4305 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -6533,6 +6876,7 @@ This treatment uses dacarbazine (CHEBI:4305). CHEBI:4305 is a therapeutic agent 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6554,6 +6898,7 @@ This treatment uses dacarbazine (CHEBI:4305). CHEBI:4305 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6585,7 +6930,7 @@ This treatment uses dacarbazine (CHEBI:4305). CHEBI:4305 is a therapeutic agent 
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-28">Radiation Therapy<span class="pill-tip" role="tooltip" id="pill-tip-28">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-32">Radiation Therapy<span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Radiation Therapy (NCIT:C15313). NCIT:C15313 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6617,6 +6962,31 @@ This treatment is Radiation Therapy (NCIT:C15313). NCIT:C15313 is a clinical int
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Radiotherapy</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Radiotherapy is used with chemotherapy in selected Hodgkin lymphoma treatment strategies.</div>
 
 
@@ -6638,6 +7008,7 @@ This treatment is Radiation Therapy (NCIT:C15313). NCIT:C15313 is a clinical int
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6669,7 +7040,7 @@ This treatment is Radiation Therapy (NCIT:C15313). NCIT:C15313 is a clinical int
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-29">immunotherapy<span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-33">immunotherapy<span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6711,16 +7082,30 @@ This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical interve
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C66944" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-30">NCIT:C66944</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C66944" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-34">NCIT:C66944</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)
 Relation: this treatment uses this therapeutic agent
 This treatment uses brentuximab vedotin (NCIT:C66944). NCIT:C66944 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -6745,6 +7130,7 @@ This treatment uses brentuximab vedotin (NCIT:C66944). NCIT:C66944 is a therapeu
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6776,7 +7162,7 @@ This treatment uses brentuximab vedotin (NCIT:C66944). NCIT:C66944 is a therapeu
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-31">immunotherapy<span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-35">immunotherapy<span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6818,16 +7204,30 @@ This treatment is immunotherapy (NCIT:C15262). NCIT:C15262 is a clinical interve
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C68814" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-32">NCIT:C68814</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C68814" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-36">NCIT:C68814</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)
 Relation: this treatment uses this therapeutic agent
 This treatment uses nivolumab (NCIT:C68814). NCIT:C68814 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -6861,6 +7261,7 @@ This treatment uses nivolumab (NCIT:C68814). NCIT:C68814 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6904,6 +7305,7 @@ This treatment uses nivolumab (NCIT:C68814). NCIT:C68814 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6979,6 +7381,7 @@ This treatment uses nivolumab (NCIT:C68814). NCIT:C68814 is a therapeutic agent 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7021,11 +7424,11 @@ This treatment uses nivolumab (NCIT:C68814). NCIT:C68814 is a therapeutic agent 
         diagnostic procedure
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C18020" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-33">NCIT:C18020</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C18020" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-37">NCIT:C18020</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)</span>
     </span>
 
 
@@ -7065,6 +7468,7 @@ This treatment uses nivolumab (NCIT:C68814). NCIT:C68814 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7119,6 +7523,7 @@ This treatment uses nivolumab (NCIT:C68814). NCIT:C68814 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7177,7 +7582,7 @@ This treatment uses nivolumab (NCIT:C68814). NCIT:C68814 is a therapeutic agent 
                     </span>
 
 
-                    <span class="tag">1–9 per 100,000</span>
+                    <span class="tag">1–9 per 100,000 per year</span>
 
                 </div>
 
@@ -7199,6 +7604,7 @@ This treatment uses nivolumab (NCIT:C68814). NCIT:C68814 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7256,11 +7662,11 @@ This treatment uses nivolumab (NCIT:C68814). NCIT:C68814 is a therapeutic agent 
         Human gammaherpesvirus 4
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_10376" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-34">NCBITaxon:10376</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_10376" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-38">NCBITaxon:10376</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-34">NCBI Taxonomy (NCBITaxon)</span>
+        <span class="pill-tip" role="tooltip" id="pill-tip-38">NCBI Taxonomy (NCBITaxon)</span>
     </span>
 
 
@@ -7296,6 +7702,7 @@ This treatment uses nivolumab (NCIT:C68814). NCIT:C68814 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7395,6 +7802,7 @@ This treatment uses nivolumab (NCIT:C68814). NCIT:C68814 is a therapeutic agent 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7455,11 +7863,11 @@ This treatment uses nivolumab (NCIT:C68814). NCIT:C68814 is a therapeutic agent 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0002716</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0002716</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7482,6 +7890,7 @@ This clinical trial targets Lymphadenopathy (HP:0002716). HP:0002716 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7768,6 +8177,13 @@ pathophysiology:
       snippet: &#34;The malignant HRS and LP cells manipulate the microenvironment, permitting them to develop their malignant phenotype fully and evade host immune attack.&#34;
       explanation: Supports the LP cell, like the HRS cell, actively remodeling its microenvironment to sustain its malignant phenotype and evade host immunity.
 - name: Mutation-Driven JAK/STAT Activation (Classic HL)
+  genetic_context:
+    variant_origin: SOMATIC
+  cell_types:
+  - preferred_term: germinal center B cell
+    term:
+      id: CL:0000844
+      label: germinal center B cell
   description: &gt;-
     Recurrent somatic lesions in classic Hodgkin lymphoma activate JAK/STAT
     signaling that supports HRS-cell survival and cytokine-responsive growth.
@@ -7797,9 +8213,25 @@ pathophysiology:
   - target: Cytokine and Chemokine-Mediated Microenvironment Remodeling
     description: JAK/STAT signaling supports inflammatory niche formation.
 - name: Mutation-Driven NF-kappaB Activation (Classic HL)
+  genetic_context:
+    variant_origin: SOMATIC
+  cell_types:
+  - preferred_term: germinal center B cell
+    term:
+      id: CL:0000844
+      label: germinal center B cell
   description: &gt;-
     Destructive lesions in NF-kappaB negative regulators and gains in positive
     regulators drive constitutive NF-kappaB survival signaling in HRS cells.
+  genes:
+  - preferred_term: TNFAIP3
+    term:
+      id: hgnc:11896
+      label: TNFAIP3
+  - preferred_term: NFKBIA
+    term:
+      id: hgnc:7797
+      label: NFKBIA
   biological_processes:
   - preferred_term: canonical NF-kappaB signal transduction
     modifier: INCREASED
@@ -8282,6 +8714,25 @@ clinical_trials:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Enhance Hodgkin Lymphoma with DR-verified evidence and mappings</strong> · 2026-08-14T13:26:14Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Hodgkin_Lymphoma/2026-08-14T132614Z-claude-code-fa7951.yaml">View source</a></p>
+                        <p class="research-review-text">Ran real perplexity deep research report at research/Hodgkin_Lymphoma-deep-research-perplexity.md; 9 of 9 references resolved, 0.0 confabulation. Re-fetched key mechanistic PMIDs 31816062, 27221964, 29340061 and 34075767 over the network to confirm the offline-assembled cache was genuine; all 29 original snippets still verified against the freshly-fetched abstracts. Added a mappings block: MONDO:0004952 skos:exactMatch, NCIT:C9357 skos:exactMatch, ICD10CM:C81.9 skos:closeMatch, all OLS/OAK-verified. Strengthened the PD-1 Ligand-Mediated Immune Evasion node with the foundational Green et al. 2010 primary source PMID:20628145, adding two exact-quote snippets covering PD-L1/PD-L2 as 9p24.1 amplification targets and the co-amplified JAK2 driving PD-1 ligand transcription. Validation: schema OK with 31/31 snippets, term validation pass, term-cache-integrity and title-snippet gates pass, and the full batched validate-disorders CI sweep pass.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Hodgkin Lymphoma root with CHL and NLPHL subtypes</strong> · 2026-08-14T06:30:13Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Hodgkin_Lymphoma/2026-08-14T063013Z-claude-code-09443b.yaml">View source</a></p>
+                        <p class="research-review-text">De-novo root Hodgkin lymphoma entry MONDO:0004952 per issue 8456, CURATE_ROOT_WITH_SUBTYPES. Models two disease classes via has_subtypes: Classic HL MONDO:0009348 approx 95 percent, cross-referenced to existing kb/disorders/Classic_Hodgkin_Lymphoma.yaml, and NLPHL MONDO:0044778 approx 5 percent, previously uncurated. Pathophysiology: germinal-center-B-cell-derived HRS cells vs LP cells in a reactive inflammatory microenvironment; NF-kB and JAK-STAT signaling; EBV LMP1 in the EBV-positive CHL subset; near-universal 9p24.1/PD-L1 immune evasion. conforms_to viral_oncogenesis, tumor_promoting_inflammation, immune_checkpoint_blockade on CHL-specific nodes. Evidence reused from already-cached on-topic references PMIDs 34075767 34208705 27221964 29799516 31816062 32433447 31894937 29340061 26839195 39039881, plus NCIT:C411 and NCT02181738. ENVIRONMENTAL LIMITATION: no outbound access to NCBI eutils or EBI OLS in this session policy 403, so falcon deep research and new PubMed fetches were impossible; the existing asta CHL research report was used as a lead source. Offline validation: just validate-schema PASS no issues; just count-verified-snippets 29/29 verified against cached references; just compliance 87.0 percent. just validate-terms could not resolve MONDO:0004952 0009348 0044778 enum membership because OLS was unreachable; labels are cached and correct and these are real MONDO terms that validate in CI which has OLS access. No cache files were hand-edited per policy.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -8655,7 +9106,7 @@ clinical_trials:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Hodgkin Lymphoma", "mondoId": "MONDO:0004952", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hodgkin_Lymphoma", "yamlRevision": "16e7b5facf23"};
+        const OS_CONFIG = {"diseaseName": "Hodgkin Lymphoma", "mondoId": "MONDO:0004952", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hodgkin_Lymphoma", "yamlRevision": "6b922bd074fc"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

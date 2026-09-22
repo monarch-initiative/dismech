@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -467,6 +468,18 @@
         .tag-component {
             background: #f0fdf4;
             color: #166534;
+        }
+
+        /* Same values as disorder.html.j2 so a treatment chip looks identical
+           whether it is read on a disorder page or on a module page. */
+        .tag-treatment {
+            background: #ede9fe;
+            color: #5b21b6;
+        }
+
+        .tag-gene {
+            background: #dbeafe;
+            color: #1e40af;
         }
 
         .tag-role {
@@ -1044,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1059,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1113,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1126,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1284,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1294,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1335,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -1537,6 +1586,9 @@
 
     
 
+    
+
+    
     
 
     
@@ -1925,11 +1977,13 @@ This mechanism module involves decreased Bicarbonate secretion into the intestin
             
             <div class="item-box anchor-target" id="module-pathophysiology-loss-of-an-apical-intestinal-electrolyte-transport-step" data-dismech-node="Loss of an Apical Intestinal Electrolyte Transport Step" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of an Apical Intestinal Electrolyte Transport Step</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The shared upstream lesion. A single electrolyte-transporting activity is lost from the apical membrane of the ileal or colonic epithelium, while the mucosa remains structurally intact and the rest of the absorptive machinery continues to work. Two transporter identities are curated. Loss of the sodium-independent chloride/bicarbonate exchanger DRA abolishes the major chloride-absorbing step of the distal intestine. Loss of the sodium/proton exchanger NHE3 abolishes the principal route of electroneutral sodium absorption; notably this can arise either from direct loss-of-function variants in the exchanger or from an activating variant in guanylate cyclase C upstream, because NHE3 is a downstream target of GC-C and excess cyclic GMP inhibits it. That a gain-of-function lesion and a loss-of-function lesion converge on the same failed step is what establishes this node as a functional rather than a genetic category.</div>
                 
@@ -2031,11 +2085,13 @@ This pathophysiological event involves Apical plasma membrane (GO:0016324). GO:0
             
             <div class="item-box anchor-target" id="module-pathophysiology-luminal-electrolyte-retention-and-failure-of-net-ion-absorption" data-dismech-node="Luminal Electrolyte Retention and Failure of Net Ion Absorption" data-dismech-type="pathophysiology">
                 <div class="item-name">Luminal Electrolyte Retention and Failure of Net Ion Absorption</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">central effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The rate-limiting, disorder-agnostic node and the key conformance target. Whichever transporter is lost, the ion it handled accumulates in the intestinal lumen because no alternative route can clear it at physiological rates. The critical property distinguishing this node from its counterpart in diet_induced_osmotic_diarrhea is the source of the retained solute: it is an ion secreted and recycled by the body itself, not a nutrient that arrives only with feeding. Luminal ion load is therefore set by endogenous secretion and total salt turnover rather than by any single dietary constituent, which is why withholding feeds does not stop the diarrhea and why no elimination diet is therapeutic. In the GUCY2C arm, cGMP-driven CFTR hyperactivation adds actively secreted chloride to the retained load.</div>
                 
@@ -2181,11 +2237,13 @@ This pathophysiological event involves decreased Intestinal sodium absorption, a
             
             <div class="item-box anchor-target" id="module-pathophysiology-obligated-water-loss-and-feeding-independent-watery-diarrhea" data-dismech-node="Obligated Water Loss and Feeding-Independent Watery Diarrhea" data-dismech-type="pathophysiology">
                 <div class="item-name">Obligated Water Loss and Feeding-Independent Watery Diarrhea</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Retained luminal ions are osmotically active and obligate water, giving high-volume watery stool from the perinatal period. Fluid loss typically begins before birth, so both conformers can present prenatally with polyhydramnios and dilated fetal bowel loops that mimic intestinal obstruction. The stool osmotic gap is low - the measured stool osmolality is largely accounted for by the retained electrolytes themselves - which is the laboratory finding that separates this class from the diet-induced diarrheas at the bedside.</div>
                 
@@ -2249,11 +2307,13 @@ This pathophysiological event involves increased Transepithelial water movement 
             
             <div class="item-box anchor-target" id="module-pathophysiology-ion-specific-systemic-depletion-and-acid-base-derangement" data-dismech-node="Ion-Specific Systemic Depletion and Acid-Base Derangement" data-dismech-type="pathophysiology">
                 <div class="item-name">Ion-Specific Systemic Depletion and Acid-Base Derangement</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The second output, and the one that makes the module clinically discriminating. Continuous stool loss depletes the ion the failed transporter handled, and the acid-base consequence follows from that transporter&#39;s coupling partner rather than from the diarrhea itself. DRA absorbs chloride in exchange for secreted bicarbonate; when it fails, chloride is lost in stool and bicarbonate is retained, which with volume-contraction-driven secondary hyperaldosteronism gives a hypochloremic, hypokalemic metabolic ALKALOSIS. NHE3 absorbs sodium in exchange for a secreted proton; when it fails, sodium is lost and the proton is retained, giving hyponatremia with metabolic ACIDOSIS. The two conformers therefore diverge in opposite acid-base directions from one shared mechanism - a genuinely predictive consequence of the module rather than a descriptive coincidence, and the fastest way to tell the two disorders apart before genetic results return.</div>
                 
@@ -2364,11 +2424,13 @@ This pathophysiological event involves decreased Bicarbonate secretion into the 
             
             <div class="item-box anchor-target" id="module-pathophysiology-electrolyte-crisis-growth-failure-and-long-term-morbidity" data-dismech-node="Electrolyte Crisis, Growth Failure and Long-Term Morbidity" data-dismech-type="pathophysiology">
                 <div class="item-name">Electrolyte Crisis, Growth Failure and Long-Term Morbidity</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The clinical output. Untreated, both conformers are fatal in infancy from volume contraction and electrolyte imbalance; treated, both cause failure to thrive and carry long-term morbidity from chronic hypovolemia and electrolyte disturbance, including renal impairment. The therapeutic asymmetry is instructive and is preserved by the module&#39;s node structure: replacing the lost ions corrects the systemic arm and is life-saving, but does nothing to the luminal retention node, so stool volume is unchanged and the daily burden of diarrhea persists. Only an intervention acting on the transport step itself, such as butyrate in chloride diarrhea, reduces stool output.</div>
                 
@@ -2402,6 +2464,215 @@ This pathophysiological event involves decreased Bicarbonate secretion into the 
                 </div>
                 
 
+                
+            </div>
+            
+        </div>
+        
+
+        
+        
+        <div class="card" id="treatments">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
+                <h2 class="card-title">Treatments</h2>
+                <span class="card-count">2</span>
+            </div>
+            
+            <div class="item-box" data-dismech-node="Oral Electrolyte Substitution" data-dismech-type="treatment">
+                <div class="item-name">Oral Electrolyte Substitution</div>
+                
+                <div class="item-meta">
+                    
+                    
+                    
+                    
+                    <span class="tag tag-treatment">
+                        Nutritional Support
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15433" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-15">NCIT:C15433</a>
+    
+    
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Nutritional Support (NCIT:C15433). NCIT:C15433 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+                    
+                </div>
+                
+                
+                
+    
+    
+    
+    
+    
+    
+    
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+        
+        <span class="tag tag-treatment">Other</span>
+        
+        
+        
+        
+        
+    </div>
+    
+    
+    
+    
+    
+    
+    
+                
+                <div class="item-desc">The shared, life-saving supportive treatment across the class: oral or parenteral replacement of the ion lost in stool, with correction of the accompanying acid-base derangement - chloride and potassium salts in congenital chloride diarrhea, sodium with correction of acidosis in congenital sodium diarrhea. It is deliberately modelled as acting on the systemic node rather than the central effector, because that is precisely its scope and its limit: it normalises electrolytes and transforms survival while leaving luminal electrolyte retention, and therefore stool volume, untouched.</div>
+                
+                
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism target:</strong>
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">INHIBITS</span>
+                        
+                        
+                        <a href="#module-pathophysiology-ion-specific-systemic-depletion-and-acid-base-derangement"><strong>Ion-Specific Systemic Depletion and Acid-Base Derangement</strong></a>
+                        
+                        <span> — Replacing the lost ion offsets stool losses and prevents the systemic depletion and acid-base derangement, without acting on the intestinal transport defect.</span>
+                        
+                        <span class="tag" style="background:#ecfeff;color:#155e75;font-size:0.75rem;">Evidence: 1</span>
+                        
+                    </div>
+                    
+                </div>
+                
+                
+                
+            </div>
+            
+            <div class="item-box" data-dismech-node="Sodium Butyrate (Transporter-Directed Therapy)" data-dismech-type="treatment">
+                <div class="item-name">Sodium Butyrate (Transporter-Directed Therapy)</div>
+                
+                <div class="item-meta">
+                    
+                    
+                    
+                    
+                    <span class="tag tag-treatment">
+                        Pharmacotherapy
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15986" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-16">NCIT:C15986</a>
+    
+    
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+                    
+                </div>
+                
+                
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Agent:</strong>
+                    
+                    
+                    
+                    
+                    <span class="tag tag-treatment">
+                        butyrate
+                        
+    
+    
+    <a href="http://purl.obolibrary.org/obo/CHEBI_17968" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-17">CHEBI:17968</a>
+    
+    
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Chemical Entities of Biological Interest (CHEBI)
+Relation: this treatment uses this therapeutic agent
+This treatment uses butyrate (CHEBI:17968). CHEBI:17968 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
+                    </span>
+                    
+                </div>
+                
+                
+    
+    
+    
+    
+    
+    
+    
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+        
+        <span class="tag tag-treatment">Small molecule</span>
+        
+        
+        
+        
+        
+    </div>
+    
+    
+    
+    
+    
+    
+    
+                
+                <div class="item-desc">The one curated intervention that acts on the transport step itself rather than compensating for its consequences, and therefore the only one that reduces stool volume. In congenital chloride diarrhea, oral sodium butyrate increases SLC26A3 expression and reduces DRA mistrafficking and misfolding while also stimulating alternative chloride-absorbing transporters. Efficacy is genotype-dependent, best where a residual mutant protein exists to be rescued. This pattern is specific to the chloride conformer: no equivalent transporter-directed therapy is established for the sodium conformer, and conforming disorders do not inherit it.</div>
+                
+                
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism target:</strong>
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">ACTIVATES</span>
+                        
+                        
+                        <a href="#module-pathophysiology-loss-of-an-apical-intestinal-electrolyte-transport-step"><strong>Loss of an Apical Intestinal Electrolyte Transport Step</strong></a>
+                        
+                        <span> — Butyrate partially restores the failed apical exchange step by increasing transporter expression and reducing mistrafficking, and stimulates alternative chloride-absorbing routes.</span>
+                        
+                        <span class="tag" style="background:#ecfeff;color:#155e75;font-size:0.75rem;">Evidence: 2</span>
+                        
+                    </div>
+                    
+                </div>
+                
+                
                 
             </div>
             

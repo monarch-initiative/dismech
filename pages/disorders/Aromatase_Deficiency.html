@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3756,6 +3821,18 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3831,7 +3908,7 @@
             </div>
 
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
-                Aromatase deficiency is a rare autosomal recessive disorder caused by biallelic CYP19A1 loss-of-function variants. Deficient aromatase activity impairs conversion of androgen precursors to estrogens, producing congenital estrogen deficiency with androgen excess. The phenotype is sex- and age- dependent: 46,XX individuals can present with maternal antenatal virilization, ambiguous genitalia, hypergonadotropic hypogonadism, poor pubertal development, primary amenorrhea, and ovarian cysts, while 46,XY individuals can present later with tall stature, delayed skeletal maturation, osteoporosis, and metabolic impairment.
+                Aromatase deficiency is a rare autosomal recessive disorder caused by biallelic CYP19A1 loss-of-function variants. Deficient aromatase activity impairs conversion of androgen precursors to estrogens, producing congenital estrogen deficiency with androgen excess. The phenotype is sex- and age-dependent: 46,XX individuals can present with maternal antenatal virilization, ambiguous genitalia, hypergonadotropic hypogonadism, poor pubertal development, primary amenorrhea, and ovarian cysts, while 46,XY individuals can present later with tall stature, delayed skeletal maturation, osteoporosis, and metabolic impairment.
             </p>
 
         </header>
@@ -4079,6 +4156,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4100,6 +4178,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4149,6 +4228,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cyp19a1-loss-of-function-and-aromatase-deficiency" data-dismech-node="CYP19A1 Loss-of-Function and Aromatase Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">CYP19A1 Loss-of-Function and Aromatase Deficiency</div>
+
 
                 <div class="item-desc">Biallelic loss-of-function variants in CYP19A1 reduce or abolish aromatase activity. Aromatase normally catalyzes androgen-to-estrogen conversion in the placenta, gonads, adipose tissue, and other estrogen-producing tissues.</div>
 
@@ -4585,6 +4665,7 @@ This pathophysiological event occurs in adipose tissue (UBERON:0001013). UBERON:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4606,6 +4687,7 @@ This pathophysiological event occurs in adipose tissue (UBERON:0001013). UBERON:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4633,6 +4715,7 @@ This pathophysiological event occurs in adipose tissue (UBERON:0001013). UBERON:
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4655,6 +4738,7 @@ This pathophysiological event occurs in adipose tissue (UBERON:0001013). UBERON:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-estrogen-deficiency-and-androgen-excess" data-dismech-node="Estrogen Deficiency and Androgen Excess" data-dismech-type="pathophysiology">
                 <div class="item-name">Estrogen Deficiency and Androgen Excess</div>
+
 
                 <div class="item-desc">Loss of aromatase causes systemic estrogen deficiency and relative androgen excess. This disrupts genital differentiation, puberty, gonadotropin feedback, skeletal maturation, bone mass accrual, and metabolic regulation.</div>
 
@@ -4842,6 +4926,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4863,6 +4948,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4888,6 +4974,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-gonadotropin-feedback-and-reproductive-development-disruption" data-dismech-node="Gonadotropin Feedback and Reproductive Development Disruption" data-dismech-type="pathophysiology">
                 <div class="item-name">Gonadotropin Feedback and Reproductive Development Disruption</div>
+
 
                 <div class="item-desc">Insufficient estrogen signaling disrupts pubertal maturation and removes normal gonadotropin feedback, while androgen excess drives virilization in 46,XX individuals. Elevated FSH and ovarian cysts are frequent diagnostic clues in 46,XX aromatase deficiency.</div>
 
@@ -5127,6 +5214,7 @@ This pathophysiological event involves abnormal sex differentiation (GO:0007548)
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5148,6 +5236,7 @@ This pathophysiological event involves abnormal sex differentiation (GO:0007548)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5173,6 +5262,7 @@ This pathophysiological event involves abnormal sex differentiation (GO:0007548)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-skeletal-maturation-and-bone-remodeling" data-dismech-node="Impaired Skeletal Maturation and Bone Remodeling" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Skeletal Maturation and Bone Remodeling</div>
+
 
                 <div class="item-desc">Estrogen deficiency delays epiphyseal closure and skeletal maturation, extends linear growth, and impairs attainment of peak bone mass, producing tall stature, unfused epiphyses, delayed bone age, osteopenia, and osteoporosis.</div>
 
@@ -5439,6 +5529,7 @@ This pathophysiological event occurs in bone tissue (UBERON:0002481). UBERON:000
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5460,6 +5551,7 @@ This pathophysiological event occurs in bone tissue (UBERON:0002481). UBERON:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5485,6 +5577,7 @@ This pathophysiological event occurs in bone tissue (UBERON:0002481). UBERON:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-metabolic-effects-of-estrogen-deficiency" data-dismech-node="Metabolic Effects of Estrogen Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Metabolic Effects of Estrogen Deficiency</div>
+
 
                 <div class="item-desc">Aromatase-deficient individuals can show abnormalities of glucose-insulin physiology. The clinical literature supports metabolic involvement, but the precise intermediates between congenital estrogen deficiency and insulin resistance remain incompletely defined.</div>
 
@@ -5705,6 +5798,7 @@ This pathophysiological event occurs in adipose tissue (UBERON:0001013). UBERON:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5726,6 +5820,7 @@ This pathophysiological event occurs in adipose tissue (UBERON:0001013). UBERON:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5797,9 +5892,9 @@ This pathophysiological event occurs in adipose tissue (UBERON:0001013). UBERON:
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Endocrine<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Genitourinary<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Genitourinary<span class="pill-count">(8)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Integument<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Integument<span class="pill-count">(2)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Limbs<span class="pill-count">(1)</span></button>
 
@@ -5809,9 +5904,9 @@ This pathophysiological event occurs in adipose tissue (UBERON:0001013). UBERON:
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Constitutional<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Growth<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Growth<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-10">Other<span class="pill-count">(6)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-10">Other<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5854,6 +5949,9 @@ This clinical feature is Hepatic steatosis (HP:0001397). HP:0001397 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5868,6 +5966,7 @@ This clinical feature is Hepatic steatosis (HP:0001397). HP:0001397 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5892,6 +5991,7 @@ This clinical feature is Hepatic steatosis (HP:0001397). HP:0001397 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5955,6 +6055,9 @@ This clinical feature is Delayed puberty (HP:0000823). HP:0000823 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5969,6 +6072,7 @@ This clinical feature is Delayed puberty (HP:0000823). HP:0000823 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6025,6 +6129,9 @@ This clinical feature is Hypergonadotropic hypogonadism (HP:0000815). HP:0000815
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6039,6 +6146,7 @@ This clinical feature is Hypergonadotropic hypogonadism (HP:0000815). HP:0000815
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6063,6 +6171,7 @@ This clinical feature is Hypergonadotropic hypogonadism (HP:0000815). HP:0000815
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6119,6 +6228,9 @@ This clinical feature is Type II diabetes mellitus (HP:0005978). HP:0005978 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6133,6 +6245,7 @@ This clinical feature is Type II diabetes mellitus (HP:0005978). HP:0005978 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6165,8 +6278,86 @@ This clinical feature is Type II diabetes mellitus (HP:0005978). HP:0005978 is a
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Genitourinary
-                    <span class="cat-count">5</span>
+                    <span class="cat-count">8</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-ambiguous-genitalia" data-dismech-node="Ambiguous Genitalia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Ambiguous Genitalia
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Ambiguous genitalia, female</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000061" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0000061</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ambiguous genitalia, female (HP:0000061). HP:0000061 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">In 46,XX individuals.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32623730" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32623730" target="_blank">PMID:32623730</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The main characteristics were maternal antenatal virilization (21/29), ambiguous genitalia (mainly Prader IV or III, 19/23), delayed bone age (16/17), low bone mass (5/8), markedly elevated FSH levels and ovarian cysts (13/30)."</div>
+
+
+                <div class="evidence-explanation">Systematic review count supports ambiguous genitalia as very frequent in genetically confirmed 46,XX aromatase deficiency.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-clitoromegaly" data-dismech-node="Clitoromegaly" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -6184,15 +6375,18 @@ This clinical feature is Type II diabetes mellitus (HP:0005978). HP:0005978 is a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008665" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0008665</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008665" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0008665</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Clitoral hypertrophy (HP:0008665). HP:0008665 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Component of 46,XX virilization.</div>
@@ -6214,6 +6408,7 @@ This clinical feature is Clitoral hypertrophy (HP:0008665). HP:0008665 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6256,15 +6451,18 @@ This clinical feature is Clitoral hypertrophy (HP:0008665). HP:0008665 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000786" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0000786</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000786" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0000786</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Primary amenorrhea (HP:0000786). HP:0000786 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">In 46,XX individuals.</div>
@@ -6286,6 +6484,7 @@ This clinical feature is Primary amenorrhea (HP:0000786). HP:0000786 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6313,6 +6512,7 @@ This clinical feature is Primary amenorrhea (HP:0000786). HP:0000786 is a phenot
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6321,6 +6521,82 @@ This clinical feature is Primary amenorrhea (HP:0000786). HP:0000786 is a phenot
 
 
                 <div class="evidence-explanation">Orphanet supplies the very-frequent band.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-ovarian-cysts" data-dismech-node="Ovarian Cysts" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Ovarian Cysts
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000138" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0000138</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ovarian cyst (HP:0000138). HP:0000138 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">In 46,XX individuals.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32623730" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32623730" target="_blank">PMID:32623730</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The main characteristics were maternal antenatal virilization (21/29), ambiguous genitalia (mainly Prader IV or III, 19/23), delayed bone age (16/17), low bone mass (5/8), markedly elevated FSH levels and ovarian cysts (13/30)."</div>
+
+
+                <div class="evidence-explanation">The 13/30 ovarian-cyst frequency supports the FREQUENT band.</div>
 
 
 
@@ -6352,15 +6628,18 @@ This clinical feature is Primary amenorrhea (HP:0000786). HP:0000786 is a phenot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008222" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0008222</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008222" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0008222</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Female infertility (HP:0008222). HP:0008222 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">In 46,XX individuals.</div>
@@ -6382,6 +6661,7 @@ This clinical feature is Female infertility (HP:0008222). HP:0008222 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6424,15 +6704,18 @@ This clinical feature is Female infertility (HP:0008222). HP:0008222 is a phenot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003251" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0003251</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003251" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0003251</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Male infertility (HP:0003251). HP:0003251 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">In 46,XY individuals.</div>
@@ -6454,6 +6737,7 @@ This clinical feature is Male infertility (HP:0003251). HP:0003251 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6496,15 +6780,18 @@ This clinical feature is Male infertility (HP:0003251). HP:0003251 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000028" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0000028</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000028" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0000028</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">In affected 46,XY individuals.</div>
@@ -6526,6 +6813,7 @@ This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6553,6 +6841,7 @@ This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6576,14 +6865,193 @@ This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype 
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-postpubertal-macroorchidism" data-dismech-node="Postpubertal Macroorchidism" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Postpubertal Macroorchidism
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Macroorchidism, postpubertal</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002050" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0002050</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Macroorchidism, postpubertal (HP:0002050). HP:0002050 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">In affected postpubertal 46,XY individuals.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23748068" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23748068" target="_blank">PMID:23748068</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Abnormal spermatogenesis, oligospermia, increase in testis volume, and cryptorchidism are often present."</div>
+
+
+                <div class="evidence-explanation">The clinical review within the case report describes increased testicular volume.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:91" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:91" target="_blank">ORPHA:91</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0002050 | Macroorchidism, postpubertal | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet supplies the frequent band.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
 
             <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Integument
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-generalized-hirsutism" data-dismech-node="Generalized Hirsutism" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Generalized Hirsutism
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002230" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0002230</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Generalized hirsutism (HP:0002230). HP:0002230 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">Most relevant to the androgen-excess phenotype in 46,XX individuals.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:91" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:91" target="_blank">ORPHA:91</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0002230 | Generalized hirsutism | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet records generalized hirsutism as frequent.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-acanthosis-nigricans" data-dismech-node="Acanthosis Nigricans" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -6601,15 +7069,18 @@ This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000956" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0000956</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000956" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0000956</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Acanthosis nigricans (HP:0000956). HP:0000956 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6629,6 +7100,7 @@ This clinical feature is Acanthosis nigricans (HP:0000956). HP:0000956 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6653,6 +7125,7 @@ This clinical feature is Acanthosis nigricans (HP:0000956). HP:0000956 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6704,15 +7177,18 @@ This clinical feature is Acanthosis nigricans (HP:0000956). HP:0000956 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002857" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0002857</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002857" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0002857</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Genu valgum (HP:0002857). HP:0002857 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6732,6 +7208,7 @@ This clinical feature is Genu valgum (HP:0002857). HP:0002857 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6756,6 +7233,7 @@ This clinical feature is Genu valgum (HP:0002857). HP:0002857 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6807,15 +7285,18 @@ This clinical feature is Genu valgum (HP:0002857). HP:0002857 is a phenotype fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000855" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0000855</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000855" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0000855</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Insulin resistance (HP:0000855). HP:0000855 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6835,6 +7316,7 @@ This clinical feature is Insulin resistance (HP:0000855). HP:0000855 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6859,6 +7341,7 @@ This clinical feature is Insulin resistance (HP:0000855). HP:0000855 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6901,15 +7384,18 @@ This clinical feature is Insulin resistance (HP:0000855). HP:0000855 is a phenot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003077" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0003077</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003077" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0003077</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hyperlipidemia (HP:0003077). HP:0003077 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6929,6 +7415,7 @@ This clinical feature is Hyperlipidemia (HP:0003077). HP:0003077 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6953,6 +7440,7 @@ This clinical feature is Hyperlipidemia (HP:0003077). HP:0003077 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7004,15 +7492,18 @@ This clinical feature is Hyperlipidemia (HP:0003077). HP:0003077 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002750" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0002750</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002750" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0002750</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Delayed skeletal maturation (HP:0002750). HP:0002750 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7032,6 +7523,7 @@ This clinical feature is Delayed skeletal maturation (HP:0002750). HP:0002750 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7074,15 +7566,18 @@ This clinical feature is Delayed skeletal maturation (HP:0002750). HP:0002750 is
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002663" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0002663</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002663" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0002663</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Delayed epiphyseal ossification (HP:0002663). HP:0002663 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7102,6 +7597,7 @@ This clinical feature is Delayed epiphyseal ossification (HP:0002663). HP:000266
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7144,15 +7640,18 @@ This clinical feature is Delayed epiphyseal ossification (HP:0002663). HP:000266
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000939" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0000939</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000939" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0000939</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Osteoporosis (HP:0000939). HP:0000939 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7172,6 +7671,7 @@ This clinical feature is Osteoporosis (HP:0000939). HP:0000939 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7199,6 +7699,7 @@ This clinical feature is Osteoporosis (HP:0000939). HP:0000939 is a phenotype fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7220,6 +7721,7 @@ This clinical feature is Osteoporosis (HP:0000939). HP:0000939 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7262,15 +7764,18 @@ This clinical feature is Osteoporosis (HP:0000939). HP:0000939 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000938" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0000938</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000938" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0000938</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Osteopenia (HP:0000938). HP:0000938 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7290,6 +7795,7 @@ This clinical feature is Osteopenia (HP:0000938). HP:0000938 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7341,15 +7847,18 @@ This clinical feature is Osteopenia (HP:0000938). HP:0000938 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002653" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0002653</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002653" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0002653</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Bone pain (HP:0002653). HP:0002653 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7369,6 +7878,7 @@ This clinical feature is Bone pain (HP:0002653). HP:0002653 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7393,6 +7903,7 @@ This clinical feature is Bone pain (HP:0002653). HP:0002653 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7425,7 +7936,7 @@ This clinical feature is Bone pain (HP:0002653). HP:0002653 is a phenotype from 
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Growth
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-tall-stature" data-dismech-node="Tall Stature" data-dismech-type="phenotype">
@@ -7444,15 +7955,18 @@ This clinical feature is Bone pain (HP:0002653). HP:0002653 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000098" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0000098</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000098" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0000098</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Tall stature (HP:0000098). HP:0000098 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Most characteristic in affected 46,XY individuals.</div>
@@ -7474,6 +7988,7 @@ This clinical feature is Tall stature (HP:0000098). HP:0000098 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7501,11 +8016,113 @@ This clinical feature is Tall stature (HP:0000098). HP:0000098 is a phenotype fr
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
                 <div class="evidence-snippet">"HP:0000098 | Tall stature | Very frequent (99-80%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet supplies the very-frequent band.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-eunuchoid-habitus" data-dismech-node="Eunuchoid Habitus" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Eunuchoid Habitus
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003782" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0003782</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Eunuchoid habitus (HP:0003782). HP:0003782 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">Most characteristic in affected 46,XY adults.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19707181" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19707181" target="_blank">PMID:19707181</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"At presentation, all men with aromatase deficiency have tall stature, delayed bone maturation, osteopenia or osteoporosis and eunuchoid skeletal proportions."</div>
+
+
+                <div class="evidence-explanation">The male clinical review directly supports eunuchoid proportions.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:91" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:91" target="_blank">ORPHA:91</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0003782 | Eunuchoid habitus | Very frequent (99-80%)"</div>
 
 
                 <div class="evidence-explanation">Orphanet supplies the very-frequent band.</div>
@@ -7540,15 +8157,18 @@ This clinical feature is Tall stature (HP:0000098). HP:0000098 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001513" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0001513</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001513" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0001513</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Obesity (HP:0001513). HP:0001513 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7568,6 +8188,7 @@ This clinical feature is Obesity (HP:0001513). HP:0001513 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7592,6 +8213,7 @@ This clinical feature is Obesity (HP:0001513). HP:0001513 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7624,82 +8246,8 @@ This clinical feature is Obesity (HP:0001513). HP:0001513 is a phenotype from th
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Other
-                    <span class="cat-count">6</span>
+                    <span class="cat-count">1</span>
                 </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-ambiguous-genitalia" data-dismech-node="Ambiguous Genitalia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Ambiguous Genitalia
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Ambiguous genitalia, female</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000061" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0000061</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Ambiguous genitalia, female (HP:0000061). HP:0000061 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">In 46,XX individuals.</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:32623730" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32623730" target="_blank">PMID:32623730</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The main characteristics were maternal antenatal virilization (21/29), ambiguous genitalia (mainly Prader IV or III, 19/23), delayed bone age (16/17), low bone mass (5/8), markedly elevated FSH levels and ovarian cysts (13/30)."</div>
-
-
-                <div class="evidence-explanation">Systematic review count supports ambiguous genitalia as very frequent in genetically confirmed 46,XX aromatase deficiency.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-maternal-antenatal-virilization" data-dismech-node="Maternal Antenatal Virilization" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -7709,6 +8257,9 @@ This clinical feature is Ambiguous genitalia, female (HP:0000061). HP:0000061 is
 
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Maternal manifestation during pregnancy with an affected fetus.</div>
@@ -7730,6 +8281,7 @@ This clinical feature is Ambiguous genitalia, female (HP:0000061). HP:0000061 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7757,6 +8309,7 @@ This clinical feature is Ambiguous genitalia, female (HP:0000061). HP:0000061 is
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7765,344 +8318,6 @@ This clinical feature is Ambiguous genitalia, female (HP:0000061). HP:0000061 is
 
 
                 <div class="evidence-explanation">Case-report evidence documents maternal virilization during pregnancy in an infant with genetically confirmed aromatase deficiency.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-ovarian-cysts" data-dismech-node="Ovarian Cysts" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Ovarian Cysts
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000138" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0000138</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Ovarian cyst (HP:0000138). HP:0000138 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">In 46,XX individuals.</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:32623730" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32623730" target="_blank">PMID:32623730</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The main characteristics were maternal antenatal virilization (21/29), ambiguous genitalia (mainly Prader IV or III, 19/23), delayed bone age (16/17), low bone mass (5/8), markedly elevated FSH levels and ovarian cysts (13/30)."</div>
-
-
-                <div class="evidence-explanation">The 13/30 ovarian-cyst frequency supports the FREQUENT band.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-generalized-hirsutism" data-dismech-node="Generalized Hirsutism" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Generalized Hirsutism
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002230" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0002230</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Generalized hirsutism (HP:0002230). HP:0002230 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">Most relevant to the androgen-excess phenotype in 46,XX individuals.</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:91" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:91" target="_blank">ORPHA:91</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0002230 | Generalized hirsutism | Frequent (79-30%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet records generalized hirsutism as frequent.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-postpubertal-macroorchidism" data-dismech-node="Postpubertal Macroorchidism" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Postpubertal Macroorchidism
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Macroorchidism, postpubertal</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002050" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0002050</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Macroorchidism, postpubertal (HP:0002050). HP:0002050 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">In affected postpubertal 46,XY individuals.</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:23748068" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23748068" target="_blank">PMID:23748068</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Abnormal spermatogenesis, oligospermia, increase in testis volume, and cryptorchidism are often present."</div>
-
-
-                <div class="evidence-explanation">The clinical review within the case report describes increased testicular volume.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:91" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:91" target="_blank">ORPHA:91</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0002050 | Macroorchidism, postpubertal | Frequent (79-30%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet supplies the frequent band.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-eunuchoid-habitus" data-dismech-node="Eunuchoid Habitus" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Eunuchoid Habitus
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003782" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0003782</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Eunuchoid habitus (HP:0003782). HP:0003782 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">Most characteristic in affected 46,XY adults.</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:19707181" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19707181" target="_blank">PMID:19707181</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"At presentation, all men with aromatase deficiency have tall stature, delayed bone maturation, osteopenia or osteoporosis and eunuchoid skeletal proportions."</div>
-
-
-                <div class="evidence-explanation">The male clinical review directly supports eunuchoid proportions.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:91" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:91" target="_blank">ORPHA:91</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0003782 | Eunuchoid habitus | Very frequent (99-80%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet supplies the very-frequent band.</div>
 
 
 
@@ -8192,6 +8407,9 @@ This disease-associated gene is CYP19A1 (hgnc:2594). hgnc:2594 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8206,6 +8424,7 @@ This disease-associated gene is CYP19A1 (hgnc:2594). hgnc:2594 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8230,6 +8449,7 @@ This disease-associated gene is CYP19A1 (hgnc:2594). hgnc:2594 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8336,6 +8556,31 @@ This treatment uses estradiol (CHEBI:23965). CHEBI:23965 is a therapeutic agent 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Estradiol replacement restores estrogen exposure, supports skeletal maturation and epiphyseal closure, and is the central disease-directed therapy once aromatase deficiency is diagnosed.</div>
 
 
@@ -8366,6 +8611,7 @@ This treatment uses estradiol (CHEBI:23965). CHEBI:23965 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8413,6 +8659,7 @@ This treatment uses estradiol (CHEBI:23965). CHEBI:23965 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8515,6 +8762,7 @@ This treatment targets Osteoporosis (HP:0000939). HP:0000939 is a phenotype from
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8536,6 +8784,7 @@ This treatment targets Osteoporosis (HP:0000939). HP:0000939 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8627,6 +8876,7 @@ This treatment targets Osteoporosis (HP:0000939). HP:0000939 is a phenotype from
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8686,6 +8936,7 @@ This treatment targets Osteoporosis (HP:0000939). HP:0000939 is a phenotype from
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8728,6 +8979,7 @@ This treatment targets Osteoporosis (HP:0000939). HP:0000939 is a phenotype from
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8749,6 +9001,7 @@ This treatment targets Osteoporosis (HP:0000939). HP:0000939 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8825,6 +9078,7 @@ This treatment targets Osteoporosis (HP:0000939). HP:0000939 is a phenotype from
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8864,6 +9118,7 @@ This treatment targets Osteoporosis (HP:0000939). HP:0000939 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8940,6 +9195,7 @@ This treatment targets Osteoporosis (HP:0000939). HP:0000939 is a phenotype from
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8979,6 +9235,7 @@ This treatment targets Osteoporosis (HP:0000939). HP:0000939 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9055,6 +9312,7 @@ This treatment targets Osteoporosis (HP:0000939). HP:0000939 is a phenotype from
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9094,6 +9352,7 @@ This treatment targets Osteoporosis (HP:0000939). HP:0000939 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9165,6 +9424,7 @@ This treatment targets Osteoporosis (HP:0000939). HP:0000939 is a phenotype from
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9186,6 +9446,7 @@ This treatment targets Osteoporosis (HP:0000939). HP:0000939 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9254,6 +9515,7 @@ This treatment targets Osteoporosis (HP:0000939). HP:0000939 is a phenotype from
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9275,6 +9537,7 @@ This treatment targets Osteoporosis (HP:0000939). HP:0000939 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9349,6 +9612,7 @@ This treatment targets Osteoporosis (HP:0000939). HP:0000939 is a phenotype from
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9419,8 +9683,8 @@ description: &gt;-
   Aromatase deficiency is a rare autosomal recessive disorder caused by
   biallelic CYP19A1 loss-of-function variants. Deficient aromatase activity
   impairs conversion of androgen precursors to estrogens, producing congenital
-  estrogen deficiency with androgen excess. The phenotype is sex- and age-
-  dependent: 46,XX individuals can present with maternal antenatal virilization,
+  estrogen deficiency with androgen excess. The phenotype is sex- and age-dependent:
+  46,XX individuals can present with maternal antenatal virilization,
   ambiguous genitalia, hypergonadotropic hypogonadism, poor pubertal
   development, primary amenorrhea, and ovarian cysts, while 46,XY individuals
   can present later with tall stature, delayed skeletal maturation,
@@ -11154,6 +11418,19 @@ treatments:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Re-review: Aromatase Deficiency</strong> · 2026-07-21T04:13:56Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Aromatase_Deficiency/2026-07-21T041356Z-codex-02665f.yaml">View source</a></p>
+                        <p class="research-review-text">Confirmed MONDO:0013301, OMIM:613546, and CYP19A1 disease identity, and excluded a deep-research artifact misresolved to Netherton syndrome. Modernized inheritance, prevalence, genetic-association, biological-scale, biochemical-readout, and treatment metadata. Expanded the sex- and age-dependent reproductive, skeletal, and metabolic phenotype graph with calibrated Orphanet frequencies and exact cached evidence; refined ambiguous-genitalia and ovarian-cyst ontology mappings. Added four validator-generated HPO cache entries required by the revised phenotype annotations. Verified all evidence snippets against local caches.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -11409,7 +11686,7 @@ The rarity of confirmed CYP19A1 biallelic cases limits robust natural history an
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Aromatase Deficiency", "mondoId": "MONDO:0013301", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Aromatase_Deficiency", "yamlRevision": "2e740b0f24f5"};
+        const OS_CONFIG = {"diseaseName": "Aromatase Deficiency", "mondoId": "MONDO:0013301", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Aromatase_Deficiency", "yamlRevision": "c8aef2829219"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

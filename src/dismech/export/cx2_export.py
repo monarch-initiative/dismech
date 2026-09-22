@@ -27,6 +27,7 @@ from dismech.graph import (
     ENVIRONMENTAL_EFFECT_PREDICATES,
     ENVIRONMENTAL_PREDICATES,
     _build_section_lookup,
+    _descriptor_lookup_keys,
     _gene_lookup_keys,
     _genetic_item_infers_mechanism_edges,
     _resolve_descriptor_target,
@@ -40,8 +41,10 @@ from dismech.yaml_io import safe_load, safe_load_path
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_NDEX_VISIBILITY = "PUBLIC"
-DEFAULT_SOURCE_REPO_URL = "https://github.com/monarch-initiative/dismech/blob/main"
+DEFAULT_NDEX_VISIBILITY = "PRIVATE"
+DEFAULT_NDEX_INDEX_LEVEL = "META"
+DEFAULT_SOURCE_REPO_BLOB_BASE = "https://github.com/monarch-initiative/dismech/blob"
+DEFAULT_SOURCE_REPO_URL = f"{DEFAULT_SOURCE_REPO_BLOB_BASE}/main"
 _SCHEMA_PATH = Path(__file__).resolve().parents[1] / "schema" / "dismech.yaml"
 IQUERY_GENE_SYMBOL_PATTERN = re.compile(
     r"^(?:hgnc\.symbol:)?(?:[A-Z][A-Z0-9-]*|C[0-9]+orf[0-9]+)$"
@@ -260,6 +263,12 @@ EDGE_STYLE_BY_PREDICATE = {
     "variant_of": EdgeStyle(
         color="#7c3aed",
         line_style="solid",
+        target_arrow_shape="circle",
+        width=2,
+    ),
+    "has_regulatory_target": EdgeStyle(
+        color="#7c3aed",
+        line_style="dashed",
         target_arrow_shape="circle",
         width=2,
     ),
@@ -806,7 +815,7 @@ def _iquery_gene_symbols(
 ) -> list[str]:
     candidates: list[Any] = []
 
-    if node_type == "genetic":
+    if node_type == "genetic" and not meta.get("affected_regions"):
         candidates.append(node_name)
 
     genes = meta.get("genes")
@@ -888,14 +897,23 @@ def _node_width(style: NodeStyle, label: str) -> int:
     return estimated
 
 
-def _guess_source_url(yaml_path: Path | None) -> str | None:
+def _guess_source_url(
+    yaml_path: Path | None,
+    *,
+    source_revision: str | None = None,
+) -> str | None:
     if yaml_path is None:
         return None
     resolved = yaml_path.resolve()
     for parent in (resolved.parent, *resolved.parents):
         if (parent / ".git").exists():
             rel_path = resolved.relative_to(parent)
-            return f"{DEFAULT_SOURCE_REPO_URL}/{rel_path.as_posix()}"
+            source_base = (
+                f"{DEFAULT_SOURCE_REPO_BLOB_BASE}/{source_revision}"
+                if source_revision
+                else DEFAULT_SOURCE_REPO_URL
+            )
+            return f"{source_base}/{rel_path.as_posix()}"
     return None
 
 
@@ -1219,14 +1237,16 @@ def _build_edge_detail_lookup(
             continue
 
         genetic_targets: set[str] = set()
-        if parent_name:
+        if parent_name and not variant.get("regulatory_target_gene"):
             genetic_targets.add(parent_name)
         for gene_key in _gene_lookup_keys(variant):
             genetic_targets.update(genetic_nodes_by_gene_key.get(gene_key, set()))
 
         if genetic_targets:
             inference_basis = (
-                "nested_variant" if parent_name else "shared_gene_identifier"
+                "nested_variant"
+                if parent_name and not variant.get("regulatory_target_gene")
+                else "shared_gene_identifier"
             )
             for target_name in sorted(genetic_targets):
                 add_detail(
@@ -1240,18 +1260,45 @@ def _build_edge_detail_lookup(
                         "inference_basis": inference_basis,
                     },
                 )
-            continue
-
         mechanism_targets: set[str] = set()
-        for gene_key in _gene_lookup_keys(variant):
-            mechanism_targets.update(pathophysiology_by_gene_key.get(gene_key, set()))
+        if not genetic_targets:
+            for gene_key in _gene_lookup_keys(variant):
+                mechanism_targets.update(
+                    pathophysiology_by_gene_key.get(gene_key, set())
+                )
+
+        regulatory_keys = _descriptor_lookup_keys(variant.get("regulatory_target_gene"))
+        regulatory_targets: set[str] = set()
+        for gene_key in regulatory_keys:
+            regulatory_targets.update(genetic_nodes_by_gene_key.get(gene_key, set()))
+        if regulatory_targets:
+            for target_name in sorted(regulatory_targets):
+                add_detail(
+                    source_name,
+                    target_name,
+                    "has_regulatory_target",
+                    {
+                        "description": "Variant regulates the explicitly identified target gene.",
+                        "evidence": variant.get("evidence"),
+                    },
+                )
+        else:
+            for gene_key in regulatory_keys:
+                mechanism_targets.update(
+                    pathophysiology_by_gene_key.get(gene_key, set())
+                )
+
         for target_name in sorted(mechanism_targets):
             add_detail(
                 source_name,
                 target_name,
                 "contributes_to",
                 {
-                    "description": "Inferred from shared gene identifiers between the variant and pathophysiology node.",
+                    "description": (
+                        "Inferred from shared gene identifiers between the variant or its regulatory target and the pathophysiology node."
+                        if regulatory_keys
+                        else "Inferred from shared gene identifiers between the variant and pathophysiology node."
+                    ),
                     "evidence": variant.get("evidence"),
                     "inferred": True,
                     "inference_basis": "shared_gene_identifier",
@@ -1321,6 +1368,7 @@ def _node_attributes(
         "therapeutic_agents": "therapeutic_agents",
         "conditions": "conditions",
         "hypothesis_groups": "hypothesis_groups",
+        "genomic_contexts": "genomic_contexts",
     }
     simple_scalar_fields = {
         "evidence_count": "evidence_count",
@@ -1334,8 +1382,10 @@ def _node_attributes(
         "association": "association",
         "variant_count": "variant_count",
         "variant_type": "variant_type",
+        "variant_type_detail": "variant_type_detail",
         "clinical_significance": "clinical_significance",
         "regulatory_category": "regulatory_category",
+        "mechanism_confidence": "mechanism_confidence",
     }
 
     for source_key, target_key in simple_list_fields.items():
@@ -1347,6 +1397,44 @@ def _node_attributes(
         value = meta.get(source_key)
         if value is not None:
             attributes[target_key] = value
+
+    genetic_context = meta.get("genetic_context")
+    if isinstance(genetic_context, dict):
+        if genetic_context.get("variant_type"):
+            attributes["genetic_context_variant_type"] = genetic_context["variant_type"]
+        genomic_contexts = genetic_context.get("genomic_contexts")
+        if isinstance(genomic_contexts, list) and genomic_contexts:
+            attributes["genetic_context_genomic_contexts"] = genomic_contexts
+
+    # CX2 supports primitive attributes, so retain the full region objects as
+    # JSON alongside their searchable names. Do not promote landmark genes to
+    # iQuery gene annotations or inferred causal relationships.
+    for region_source, prefix in (
+        (meta, ""),
+        (genetic_context, "genetic_context_"),
+    ):
+        if not isinstance(region_source, dict):
+            continue
+        regions = region_source.get("affected_regions")
+        if isinstance(regions, list) and regions:
+            attributes[f"{prefix}affected_regions"] = [
+                region["name"]
+                for region in regions
+                if isinstance(region, dict) and region.get("name")
+            ]
+            attributes[f"{prefix}affected_regions_json"] = json.dumps(
+                regions, ensure_ascii=False, sort_keys=True
+            )
+
+    regulatory_target = meta.get("regulatory_target_gene")
+    if isinstance(regulatory_target, dict):
+        if regulatory_target.get("label"):
+            attributes["regulatory_target_gene"] = regulatory_target["label"]
+        if regulatory_target.get("id"):
+            attributes["regulatory_target_gene_id"] = regulatory_target["id"]
+            attributes["regulatory_target_gene_url"] = curie_to_url(
+                regulatory_target["id"]
+            )
 
     if isinstance(meta.get("term_id"), str):
         attributes["term_url"] = curie_to_url(meta["term_id"])
@@ -1684,6 +1772,8 @@ def disorder_to_cx2(
     *,
     source_path: Path | None = None,
     apply_dot_layout: bool = False,
+    release_metadata: dict[str, Any] | None = None,
+    source_revision: str | None = None,
 ) -> list[dict[str, Any]]:
     """
     Convert a dismech disorder record into a CX2 network.
@@ -1697,7 +1787,7 @@ def disorder_to_cx2(
 
     disease_term_entry = _extract_disorder_term_entry(disorder)
     disease_term_id = _extract_disorder_term_id(disorder)
-    source_url = _guess_source_url(source_path)
+    source_url = _guess_source_url(source_path, source_revision=source_revision)
     reference_html = _format_reference_entries(_collect_reference_entries(disorder))
     tissue_html = _format_network_term_links(_collect_network_tissue_entries(disorder))
 
@@ -1713,6 +1803,16 @@ def disorder_to_cx2(
             source_url=source_url,
         ),
     }
+    if release_metadata:
+        network_attributes.update(
+            {
+                key: value
+                for key, value in release_metadata.items()
+                if value is not None and str(value).strip()
+            }
+        )
+    if source_revision:
+        network_attributes["source_revision"] = source_revision
     if source_path:
         network_attributes["source_file"] = str(source_path)
     if disease_term_entry:
@@ -1799,6 +1899,8 @@ def dump_cx2(
     *,
     output_path: Path | None = None,
     apply_dot_layout: bool = False,
+    release_metadata: dict[str, Any] | None = None,
+    source_revision: str | None = None,
 ) -> list[dict[str, Any]]:
     """Convert a disorder YAML file to CX2 and optionally write it to disk."""
     disorder = load_disorder(disorder_path)
@@ -1806,6 +1908,8 @@ def dump_cx2(
         disorder,
         source_path=disorder_path,
         apply_dot_layout=apply_dot_layout,
+        release_metadata=release_metadata,
+        source_revision=source_revision,
     )
     if output_path is not None:
         output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -1822,6 +1926,7 @@ def upload_cx2_to_ndex(
     password: str | None = None,
     visibility: str = DEFAULT_NDEX_VISIBILITY,
     replace_existing: bool = False,
+    index_level: str = DEFAULT_NDEX_INDEX_LEVEL,
 ) -> str:
     """Upload a CX2 network to NDEx and return the network URL."""
     resolved_host = _normalize_ndex_host(host or os.getenv("NDEX_HOST"))
@@ -1860,14 +1965,17 @@ def upload_cx2_to_ndex(
         network_id = url.rsplit("/", 1)[-1]
 
     try:
-        client.set_network_system_properties(network_id, {"index_level": "META"})
+        client.set_network_system_properties(
+            network_id, {"index_level": str(index_level).upper()}
+        )
     except Exception as error:
         logger.warning(
-            "Uploaded network %s but failed to set NDEx index_level=META: %s",
+            "Uploaded network %s but failed to set NDEx index_level=%s: %s",
             network_id,
+            index_level,
             error,
         )
-    return _viewer_url_for_network(resolved_host, network_id, None)
+    return _viewer_url_for_network(resolved_host, network_id, "")
 
 
 def _cx2_network_name(cx2: list[dict[str, Any]]) -> str | None:
@@ -1921,18 +2029,43 @@ def main() -> None:
         default=DEFAULT_NDEX_VISIBILITY,
         help=f"NDEx visibility for uploads (default: {DEFAULT_NDEX_VISIBILITY})",
     )
+    parser.add_argument(
+        "--index-level",
+        choices=("NONE", "META", "ALL"),
+        default=DEFAULT_NDEX_INDEX_LEVEL,
+        help=f"NDEx indexing level (default: {DEFAULT_NDEX_INDEX_LEVEL}).",
+    )
     parser.add_argument("--ndex-host", help="Override NDEX_HOST for uploads.")
     parser.add_argument("--ndex-username", help="Override NDEX_USERNAME for uploads.")
     parser.add_argument("--ndex-password", help="Override NDEX_PASSWORD for uploads.")
+    parser.add_argument("--release-version", help="Version attached to the network.")
+    parser.add_argument("--source-revision", help="Immutable source git revision.")
+    parser.add_argument("--author", help="Network author metadata.")
+    parser.add_argument("--rights", help="Network rights or license metadata.")
+    parser.add_argument("--rights-holder", help="Network rights-holder metadata.")
+    parser.add_argument("--methods", help="Network generation methods metadata.")
+    parser.add_argument("--network-type", help="Network type metadata.")
+    parser.add_argument("--organism", help="Network organism metadata.")
     args = parser.parse_args()
 
     disorder_path = Path(args.path)
     output_path = Path(args.output) if args.output else None
+    release_metadata = {
+        "version": args.release_version,
+        "author": args.author,
+        "rights": args.rights,
+        "rightsHolder": args.rights_holder,
+        "methods": args.methods,
+        "networkType": args.network_type,
+        "organism": args.organism,
+    }
     try:
         cx2 = dump_cx2(
             disorder_path,
             output_path=output_path,
             apply_dot_layout=args.dot_layout,
+            release_metadata=release_metadata,
+            source_revision=args.source_revision,
         )
     except ValueError as error:
         if (
@@ -1952,6 +2085,7 @@ def main() -> None:
             password=args.ndex_password,
             visibility=args.visibility,
             replace_existing=args.ndex_replace_existing,
+            index_level=args.index_level,
         )
         print(url)
         return
