@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1056,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1071,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1125,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1138,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1296,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1306,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1347,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -2390,11 +2427,13 @@ Scope caveat: the strongest experimental evidence for the amplifier node (comple
             
             <div class="item-box anchor-target" id="module-pathophysiology-vessel-wall-immune-stimulus-deposition-and-endothelial-activation" data-dismech-node="Vessel Wall Immune Stimulus Deposition and Endothelial Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Vessel Wall Immune Stimulus Deposition and Endothelial Activation</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The proximal trigger is the localization of an immune stimulus to the wall of a small or medium vessel together with activation of the overlying endothelium. Two upstream routes converge here and are mutually exclusive in any one disease. In the pauci-immune route, a cytokine-primed neutrophil translocates its granule autoantigens (proteinase 3, myeloperoxidase) to the cell surface where circulating ANCA can bind them, engaging Fc-gamma receptors and converting a circulating cell into an adherent, activated one at the vessel wall. In the immune-complex route, preformed or in-situ immune complexes (galactose-deficient IgA1 in IgA vasculitis, cold-precipitable cryoglobulins in cryoglobulinaemic vasculitis, rheumatoid-factor complexes in rheumatoid vasculitis, drug- or infection-driven complexes in cutaneous leukocytoclastic angiitis) deposit in the wall. Either way the endothelium upregulates adhesion molecules and the vessel becomes a site of leukocyte arrest. The requirement for a priming inflammatory milieu is why neutrophil activation alone is not sufficient and why infection so often precedes onset.</div>
                 
@@ -2612,11 +2651,13 @@ This pathophysiological event involves increased neutrophil activation (GO:00421
             
             <div class="item-box anchor-target" id="module-pathophysiology-complement-c5a-amplification-and-neutrophil-recruitment" data-dismech-node="Complement C5a Amplification and Neutrophil Recruitment" data-dismech-type="pathophysiology">
                 <div class="item-name">Complement C5a Amplification and Neutrophil Recruitment</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">amplifier</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Complement is engaged in the vessel wall and generates the anaphylatoxin C5a. C5a acting through the neutrophil C5a receptor (C5aR1) both chemoattracts further neutrophils to the segment and primes them for a stronger response to the same stimulus, so a local activation event becomes a self-sustaining inflammatory amplification loop confined to the vessel wall. This is the step that converts a focal, potentially self-limited insult into destructive disease.
 The ENTRY ROUTE into complement differs between the two arms and is the one place where conformers should not copy this node verbatim. In the pauci-immune ANCA-associated forms the route is the ALTERNATIVE pathway: factors released by the ANCA-activated neutrophil trigger it, and factor B and C5 knockout mice develop no disease while C4 knockouts (classical and lectin pathways) develop disease comparable to wild type - so the requirement is specifically alternative-pathway. In the immune-complex forms (IgA vasculitis, cryoglobulinaemic vasculitis, cutaneous leukocytoclastic angiitis, rheumatoid vasculitis) deposited complexes engage the CLASSICAL pathway instead, which is why hypocomplementaemia with low C4 is a marker there and not in the pauci-immune forms. What is shared - and what this node is named for - is the convergent output: C5a acting on neutrophil C5aR1. The node therefore binds the parent process GO:0006956 complement activation alongside the alternative pathway, and a conformer in the immune-complex arm should substitute the classical pathway and cite its own complement evidence rather than inheriting the anti-MPO mouse citations below.
@@ -2824,11 +2865,13 @@ This pathophysiological event involves increased leukocyte migration involved in
             
             <div class="item-box anchor-target" id="module-pathophysiology-intramural-leukocyte-degranulation-and-oxidative-burst" data-dismech-node="Intramural Leukocyte Degranulation and Oxidative Burst" data-dismech-type="pathophysiology">
                 <div class="item-name">Intramural Leukocyte Degranulation and Oxidative Burst</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">central effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The key conformance target and the rate-limiting, disorder-agnostic step. Leukocytes that have adhered to and penetrated the vessel wall discharge their cytotoxic contents inside it: a respiratory burst generating reactive oxygen species, degranulation releasing serine proteases (proteinase 3, elastase, cathepsin G) and myeloperoxidase, and extrusion of neutrophil extracellular traps that both damage the wall and re-present MPO and PR3 to the immune system, closing a feed-forward loop back to the trigger. The effector leukocyte is the neutrophil in every member; EGPA adds the eosinophil, whose granule proteins contribute to the same intramural cytotoxicity. What defines this node is location, not cell identity - the same degranulation occurring in the lumen or the interstitium does not produce vasculitis. Mechanistically every member of the group passes through this step - it is what the Necrotizing Vasculitides Grouping asserts in its second membership criterion.
 That mechanistic claim is not yet matched by the wiring, and the gap is in the disorder entries rather than in the module. Only four of the eight members currently declare conformance here, because most of the others carry a single bundled node fusing this step with its neighbour: IgA vasculitis&#39;s &#34;Leukocytoclastic Vasculitis in Skin and Systemic Organs&#34; and Cryoglobulinemic Vasculitis&#39;s &#34;Immune-complex small-vessel vascular injury&#34; each describe neutrophil degranulation AND the resulting fibrinoid necrosis in one node, so they are wired to the effector, the more specific of the two claims they make. Splitting those bundled nodes - and giving Primary Polyarteritis Nodosa an intramural-injury node at all - is the follow-up that would let this node carry all eight; it is deliberately left out of the module&#39;s own PR rather than done as a drive-by restructuring of eight other curations.</div>
@@ -3021,11 +3064,13 @@ This pathophysiological event involves increased neutrophil extracellular trap f
             
             <div class="item-box anchor-target" id="module-pathophysiology-fibrinoid-necrosis-of-the-vessel-wall" data-dismech-node="Fibrinoid Necrosis of the Vessel Wall" data-dismech-type="pathophysiology">
                 <div class="item-name">Fibrinoid Necrosis of the Vessel Wall</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The defining histopathologic lesion. Endothelial and vascular smooth muscle cells die, the internal elastic lamina and mural extracellular matrix are degraded, and the loss of endothelial barrier integrity lets plasma proteins - fibrinogen above all - insudate into the necrotic wall, where they polymerize to give the smudgy, brightly eosinophilic &#34;fibrinoid&#34; appearance. The infiltrating neutrophils themselves die in place and fragment, scattering nuclear debris (&#34;nuclear dust&#34;, leukocytoclasia) through the wall. This is the lesion HP:6000253 Necrotizing vasculitis names and the finding that makes a biopsy report read &#34;necrotizing vasculitis&#34; without naming a disease; it is also the reason the Necrotizing Vasculitides Grouping is anchored on histopathology rather than aetiology. Conformers differ in calibre and site, not in the character of the lesion.</div>
                 
@@ -3227,11 +3272,13 @@ This pathophysiological event involves increased blood coagulation, fibrin clot 
             
             <div class="item-box anchor-target" id="module-pathophysiology-luminal-compromise-and-downstream-tissue-infarction" data-dismech-node="Luminal Compromise and Downstream Tissue Infarction" data-dismech-type="pathophysiology">
                 <div class="item-name">Luminal Compromise and Downstream Tissue Infarction</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">A wall that has become fibrinoid-necrotic can no longer do either of its jobs. It is thrombogenic, so the lumen occludes; it is mechanically weak, so it dilates into a microaneurysm or ruptures and bleeds; and inflammatory healing narrows it by fibrosis. The result is ischaemic and haemorrhagic injury to whatever the vessel supplied, and this is where the members diverge most visibly even though the lesion is the same: necrotizing crescentic glomerulonephritis and alveolar capillaritis with pulmonary haemorrhage in the ANCA-associated small-vessel forms, palpable purpura where dermal postcapillary venules are involved, mononeuritis multiplex from vasa nervorum occlusion, and mesenteric or renal microaneurysm with organ infarction in medium-vessel polyarteritis nodosa. Untreated, this node is what makes necrotizing vasculitis organ- and life-threatening, and it is the reason the shared therapeutic consequence across the group is prompt induction immunosuppression.</div>
                 

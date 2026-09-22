@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4321,6 +4360,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-respiratory-epithelial-infection-and-cytopathic-effect" data-dismech-node="Respiratory Epithelial Infection and Cytopathic Effect" data-dismech-type="pathophysiology">
                 <div class="item-name">Respiratory Epithelial Infection and Cytopathic Effect</div>
 
+
                 <div class="item-desc">Influenza viruses bind to sialic acid residues on respiratory epithelial cells via hemagglutinin, followed by endocytosis and viral replication in the nucleus. Viral neuraminidase facilitates release of new virions. This causes direct cytopathic damage to airway epithelium, leading to desquamation, impaired mucociliary clearance, and susceptibility to secondary bacterial infection.
 </div>
 
@@ -4565,6 +4605,7 @@ This pathophysiological event occurs in respiratory system (UBERON:0001004). UBE
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-toll-like-receptor-signaling-and-innate-immune-activation" data-dismech-node="Toll-like Receptor Signaling and Innate Immune Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Toll-like Receptor Signaling and Innate Immune Activation</div>
+
 
                 <div class="item-desc">Innate immune sensing of influenza occurs through endosomal TLR3, TLR7, and TLR8. TLR7/8 signal via MYD88 to activate IRF5/IRF7 and NF-kappaB, while TLR3 signals via TRIF to activate IRF3 via TBK1/IKK-epsilon. This dual signaling induces type I and III interferons, pro-inflammatory cytokines, and chemokines. The TLR response is a double-edged sword: necessary for viral control but capable of driving immunopathology when hyperactivated.
 </div>
@@ -4811,6 +4852,7 @@ This pathophysiological event involves response to type I interferon (GO:0034340
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-inflammasome-activation-and-cytokine-storm" data-dismech-node="Inflammasome Activation and Cytokine Storm" data-dismech-type="pathophysiology">
                 <div class="item-name">Inflammasome Activation and Cytokine Storm</div>
 
+
                 <div class="item-desc">IAV infection activates NLRP3 and AIM2 inflammasomes. AIM2, canonically a cytosolic dsDNA sensor, is activated by host mitochondrial DNA released after IAV-induced mitochondrial damage. Inflammasome activation leads to caspase-1-mediated processing of IL-1-beta and IL-18, and gasdermin D-mediated pyroptosis. Excessive inflammasome activation contributes to the cytokine storm associated with severe influenza.
 </div>
 
@@ -4983,6 +5025,7 @@ This pathophysiological event involves pyroptotic inflammatory response (GO:0070
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-panoptosis-and-inflammatory-cell-death" data-dismech-node="PANoptosis and Inflammatory Cell Death" data-dismech-type="pathophysiology">
                 <div class="item-name">PANoptosis and Inflammatory Cell Death</div>
 
+
                 <div class="item-desc">Influenza A virus triggers multiple regulated cell death pathways including apoptosis, necroptosis, and pyroptosis, integrated as PANoptosis. ZBP1 senses viral Z-RNA and coordinates these death pathways via RHIM-dependent interactions with RIPK3/RIPK1. MLKL-driven membrane rupture during necroptosis activates NLRP3 inflammasome. Caspase-3 can cleave gasdermin E, linking apoptosis to pyroptosis. This integrated cell death ensures viral clearance but can intensify tissue damage.
 </div>
 
@@ -5109,6 +5152,7 @@ This pathophysiological event involves programmed necrotic cell death (GO:009730
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-endothelial-dysfunction-and-thromboinflammation" data-dismech-node="Endothelial Dysfunction and Thromboinflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">Endothelial Dysfunction and Thromboinflammation</div>
 
+
                 <div class="item-desc">Severe influenza involves pulmonary microvascular endothelial infection and activation, leading to vascular leakage, adhesion molecule upregulation (ICAM-1, VCAM-1), and thromboinflammatory complications including venous thromboembolism. In critically ill influenza cohorts, VTE incidence has been reported at 9.37%.
 </div>
 
@@ -5203,6 +5247,7 @@ This pathophysiological event involves programmed necrotic cell death (GO:009730
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-triggering-of-acute-myocardial-infarction" data-dismech-node="Triggering of Acute Myocardial Infarction" data-dismech-type="pathophysiology">
                 <div class="item-name">Triggering of Acute Myocardial Infarction</div>
+
 
                 <div class="item-desc">Acute influenza is a recognized short-term trigger of acute myocardial infarction. Influenza-driven systemic inflammation, endothelial activation, platelet activation, and a procoagulant shift can destabilize vulnerable coronary atherosclerotic plaque and precipitate atherothrombotic occlusion, with the excess risk concentrated in the first 7 days after infection. In a self-controlled case-series of laboratory-confirmed influenza, the incidence of hospitalization for acute myocardial infarction was about six-fold higher during the 7-day risk interval than during the control interval, with no increased incidence after day 7. This makes acute MI an important downstream cardiovascular sequela of influenza beyond the respiratory tract, and underpins the cardioprotective rationale for influenza vaccination.
 </div>

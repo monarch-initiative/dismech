@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4798,6 +4837,7 @@ This subtype is caused by variation in SGCD (hgnc:10807). hgnc:10807 is a gene f
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sarcoglycan-sarcospan-subcomplex-assembly-at-the-sarcolemma" data-dismech-node="Sarcoglycan-Sarcospan Subcomplex Assembly at the Sarcolemma" data-dismech-type="pathophysiology">
                 <div class="item-name">Sarcoglycan-Sarcospan Subcomplex Assembly at the Sarcolemma</div>
 
+
                 <div class="item-desc">Alpha-, beta-, gamma-, and delta-sarcoglycan co-assemble with sarcospan into a subcomplex of the dystrophin-glycoprotein complex (DGC). A 2025 cryo-EM structure of the native complex revised the earlier biochemical assembly model: beta-, gamma- and delta-sarcoglycan co-fold on the extracellular side to form a tower-like structure that provides binding sites for alpha-sarcoglycan and for dystroglycan, while in the transmembrane region the sarcoglycans and sarcospan flank and stabilize dystroglycan&#39;s single transmembrane helix rather than forming a separate subcomplex as earlier biochemical assembly models proposed. On the intracellular side, sarcoglycans and dystroglycan engage the dystrophin-dystrobrevin subcomplex through the ZZ domain of dystrophin, completing a continuous mechanical link across the sarcolemma between the extracellular matrix and the intracellular cytoskeleton.</div>
 
 
@@ -5152,6 +5192,7 @@ This pathophysiological event involves sarcolemma (GO:0042383). GO:0042383 is a 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sarcoglycan-complex-loss-and-dgc-destabilization" data-dismech-node="Sarcoglycan Complex Loss and DGC Destabilization" data-dismech-type="pathophysiology">
                 <div class="item-name">Sarcoglycan Complex Loss and DGC Destabilization</div>
 
+
                 <div class="item-desc">Loss of one sarcoglycan subunit impairs assembly of the sarcoglycan subcomplex; the other three sarcoglycans, which depend on the missing subunit for stable membrane insertion, are secondarily reduced. Because the sarcoglycan-sarcospan subcomplex flanks and stabilizes dystroglycan within the DGC, its loss destabilizes the mechanical linkage of the whole complex between the muscle-fiber cytoskeleton and the basement membrane. Two lesion classes converge on this loss: null/frameshift variants (about a third of reported alleles) abolish the protein outright, while the more common missense variants (about two-thirds) typically produce a misfolded sarcoglycan that is recognized and prematurely degraded by the endoplasmic-reticulum-associated degradation (ERAD) quality-control pathway before it ever reaches the sarcolemma.</div>
 
 
@@ -5407,6 +5448,7 @@ This pathophysiological event involves decreased dystrophin-associated glycoprot
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-contraction-induced-sarcolemmal-membrane-damage" data-dismech-node="Contraction-Induced Sarcolemmal Membrane Damage" data-dismech-type="pathophysiology">
                 <div class="item-name">Contraction-Induced Sarcolemmal Membrane Damage</div>
 
+
                 <div class="item-desc">The intact sarcoglycan-DGC complex normally undergoes chemical modification in response to contraction and mechanically stabilizes the sarcolemma against contraction-induced stress. With the complex destabilized, contraction produces microtears and, as in dystrophinopathy, a fragile and leaky sarcolemma; this alters intracellular calcium homeostasis and can eventually lead to mitochondrial dysfunction, driving cycles of myofiber injury.</div>
 
 
@@ -5604,6 +5646,7 @@ This pathophysiological event involves abnormal calcium ion transport (GO:000681
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-myofiber-degeneration" data-dismech-node="Progressive Myofiber Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Myofiber Degeneration</div>
+
 
                 <div class="item-desc">Repeated contraction-induced membrane injury outpaces repair. Macrophages debride necrotic fibers and support satellite-cell-mediated regeneration, but when the degenerative process is massive or advanced, muscle stem cells can no longer sustain repair, so contractile tissue is progressively lost.</div>
 
@@ -5849,6 +5892,7 @@ This pathophysiological event involves increased inflammatory response (GO:00069
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fibrofatty-replacement-of-skeletal-muscle" data-dismech-node="Fibrofatty Replacement of Skeletal Muscle" data-dismech-type="pathophysiology">
                 <div class="item-name">Fibrofatty Replacement of Skeletal Muscle</div>
+
 
                 <div class="item-desc">Contractile muscle tissue that outpaces regenerative capacity is progressively replaced by fibrous and adipose tissue, producing calf pseudohypertrophy early and irreversible weakness later.</div>
 
@@ -6636,7 +6680,7 @@ This clinical feature is Calf muscle hypertrophy (HP:0008981). HP:0008981 is a p
 
                     <span class="phenotype-id">
 
-                        <span class="phenotype-term-label">Elevated circulating creatine kinase concentration</span>
+                        <span class="phenotype-term-label">Elevated circulating creatine kinase activity</span>
 
 
 
@@ -6646,7 +6690,7 @@ This clinical feature is Calf muscle hypertrophy (HP:0008981). HP:0008981 is a p
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Elevated circulating creatine kinase concentration (HP:0003236). HP:0003236 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Elevated circulating creatine kinase activity (HP:0003236). HP:0003236 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -7290,6 +7334,9 @@ This disease-associated gene is SGCA (hgnc:10805). hgnc:10805 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7356,6 +7403,9 @@ This disease-associated gene is SGCB (hgnc:10806). hgnc:10806 is a gene from the
 
 
                 </div>
+
+
+
 
 
 
@@ -7430,6 +7480,9 @@ This disease-associated gene is SGCG (hgnc:10809). hgnc:10809 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7496,6 +7549,9 @@ This disease-associated gene is SGCD (hgnc:10807). hgnc:10807 is a gene from the
 
 
                 </div>
+
+
+
 
 
 
@@ -10939,10 +10995,10 @@ phenotypes:
     Serum creatine kinase is markedly elevated across all four
     sarcoglycanopathy subtypes.
   phenotype_term:
-    preferred_term: Elevated circulating creatine kinase concentration
+    preferred_term: Elevated circulating creatine kinase activity
     term:
       id: HP:0003236
-      label: Elevated circulating creatine kinase concentration
+      label: Elevated circulating creatine kinase activity
   evidence:
   - reference: PMID:34404573
     reference_title: &#34;Sarcoglycanopathies: an update.&#34;
@@ -13153,7 +13209,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Sarcoglycanopathy", "mondoId": "MONDO:0016140", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Sarcoglycanopathy", "yamlRevision": "5238ea34838a"};
+        const OS_CONFIG = {"diseaseName": "Sarcoglycanopathy", "mondoId": "MONDO:0016140", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Sarcoglycanopathy", "yamlRevision": "8e3659d44f9a"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

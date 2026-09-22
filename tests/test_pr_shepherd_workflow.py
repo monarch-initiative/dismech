@@ -150,14 +150,43 @@ def test_agent_recovers_abandoned_code_prs_and_preserves_cache_and_history_guard
     )
     assert "Never use a blanket ours/theirs resolution" in prompt
     assert (
-        "Never read, write, edit, or stage the frozen dataset-accession JSON cache"
+        "Never read, recreate, or restore the retired dataset-accession JSON cache"
         in prompt
     )
     assert "Never force-push, rebase, reset, or rewrite PR history" in prompt
-    assert "Never modify human-authored PRs" in prompt
     assert "Never modify a PR that is assigned" in prompt
     assert "verify the remote head and assignment again" in prompt
     assert "reproduce\n  the failure" in prompt
+
+
+def test_agent_repairs_unassigned_prs_regardless_of_author():
+    job = workflow(SHEPHERD)["jobs"]["shepherd"]
+    prompt = step(job, "Run PR Shepherd")["with"]["prompt"]
+    assert "stuck unassigned pull requests by any author" in prompt
+    assert "Author identity does not affect eligibility" in prompt
+    assert "Author identity never excludes a PR from repair" in prompt
+    assert "Never modify human-authored PRs" not in prompt
+    assert "bot-author policy" not in prompt
+    assert "verified Bot identity" not in prompt
+    assert "duplicate an ongoing repair" in prompt
+    assert "fixed PR-age cutoff" in prompt
+    assert "Never modify a PR that is assigned" in prompt
+    assert "Separately managed automation PRs whose heads start with `auto/`" in prompt
+
+
+def test_agent_confirms_head_repository_before_executing_code_and_pushing():
+    job = workflow(SHEPHERD)["jobs"]["shepherd"]
+    prompt = step(job, "Run PR Shepherd")["with"]["prompt"]
+    assert "Fork heads and missing or" in prompt
+    assert "unknown head-repository metadata are ineligible" in prompt
+    checkout_guard = prompt.split("Before checking out a PR branch", 1)[1]
+    assert "or executing its code" in checkout_guard
+    assert "require `isCrossRepository == false`" in checkout_guard
+    assert "true, missing, or unknown, skip" in checkout_guard
+    push_guard = prompt.split("Before any push", 1)[1]
+    assert "Reconfirm `isCrossRepository == false`" in push_guard
+    assert "deterministic active-work hold" in prompt
+    assert "For unassigned PRs, assess ongoing work from recent activity" in prompt
 
 
 def test_scanner_no_longer_uses_draft_as_a_lifecycle_signal():
@@ -175,5 +204,39 @@ def test_workflow_policy_changes_run_the_python_test_job():
         ".github/workflows/pr-shepherd.yml",
         "scripts/auto_merge_ready_prs.py",
         "scripts/pr_shepherd_policy.py",
+        "scripts/expire_pr_assignments.py",
     ):
         assert f"- '{path}'" in text
+
+
+def test_assignment_inactivity_is_an_independent_trusted_job_with_scoped_writes():
+    data = workflow(SHEPHERD)
+    job = data["jobs"]["assignment-inactivity"]
+    assert "needs" not in job
+    assert "if" not in job  # Also runs during controller-only hours.
+    assert job["concurrency"] == {
+        "group": "pr-shepherd-assignment-inactivity",
+        "cancel-in-progress": False,
+    }
+    assert set(job["permissions"].values()) == {"read"}
+    checkout = step(job, "Checkout trusted default branch")
+    assert checkout["with"]["ref"] == "${{ github.event.repository.default_branch }}"
+    assert checkout["with"]["persist-credentials"] is False
+    token = step(job, "Generate scoped assignment token")
+    assert {k: v for k, v in token["with"].items() if k.startswith("permission-")} == {
+        "permission-pull-requests": "write",
+    }
+    assert "DRY_RUN != 'true'" in token["if"]
+    assert "ASSIGNMENT_LIMIT != '0'" in token["if"]
+    action = step(job, "Remind or release inactive assignments")
+    assert action["env"]["GH_TOKEN"] == "${{ github.token }}"
+    assert (
+        action["env"]["GH_ASSIGNMENT_TOKEN"]
+        == "${{ steps.assignment-token.outputs.token }}"
+    )
+    assert "args+=(--dry-run)" in action["run"]
+    assert 'args+=(--specific-pr "$SPECIFIC_PR")' in action["run"]
+    assert '--max-actions "$ASSIGNMENT_LIMIT"' in action["run"]
+    assert "python scripts/expire_pr_assignments.py" in action["run"]
+    assert "uv " not in action["run"]
+    assert not any("claude-code-action" in uses for uses in action_uses(job))

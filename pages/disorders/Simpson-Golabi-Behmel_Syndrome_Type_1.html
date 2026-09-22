@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4239,6 +4278,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-gpc3-loss-of-function" data-dismech-node="GPC3 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">GPC3 Loss of Function</div>
 
+
                 <div class="item-desc">Hemizygous loss of function of GPC3 through point mutation, intragenic microdeletion, whole gene deletion, or translocation breakpoint disruption removes functional glypican-3 from the cell surface of embryonic mesodermal tissues, where it is selectively expressed.</div>
 
 
@@ -4249,6 +4289,8 @@
 
     <div class="item-meta">
         <span class="tag tag-classification">Genetic context</span>
+
+
 
 
 
@@ -4268,6 +4310,9 @@
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Loss of function alleles of GPC3 spanning point mutations, intragenic and whole gene deletions, and X;autosome translocation breakpoints that disrupt the locus.</div>
 
@@ -4385,6 +4430,7 @@ This pathophysiological event involves cell surface glypican-3, annotated with c
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-glypican-3-competition-for-hedgehog-ligand" data-dismech-node="Loss of Glypican-3 Competition for Hedgehog Ligand" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Glypican-3 Competition for Hedgehog Ligand</div>
 
+
                 <div class="item-desc">Glypican-3 binds Hedgehog with high affinity and competes with Patched, the Hedgehog receptor, for that ligand, then routes the bound Hedgehog to endocytosis and degradation. Without glypican-3 this sink is gone and more ligand reaches Patched.</div>
 
 
@@ -4497,6 +4543,7 @@ This pathophysiological event involves decreased glypican-3 restraint of Hedgeho
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hedgehog-pathway-hyperactivation" data-dismech-node="Hedgehog Pathway Hyperactivation" data-dismech-type="pathophysiology">
                 <div class="item-name">Hedgehog Pathway Hyperactivation</div>
 
+
                 <div class="item-desc">Released Hedgehog signaling raises the growth set point in embryonic tissues. Hedgehog positively regulates body size, so its de-repression is the proposed proximate driver of the overgrowth phenotype.</div>
 
 
@@ -4608,6 +4655,7 @@ This pathophysiological event involves increased smoothened signaling pathway (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-excess-embryonic-cell-proliferation" data-dismech-node="Excess Embryonic Cell Proliferation" data-dismech-type="pathophysiology">
                 <div class="item-name">Excess Embryonic Cell Proliferation</div>
+
 
                 <div class="item-desc">Increased proliferation in developing mesodermal tissues. In the kidney this was localized to the ureteric bud and collecting system in the null mouse, giving an early and persistent developmental abnormality rather than a purely postnatal growth excess.</div>
 
@@ -4727,6 +4775,7 @@ This pathophysiological event involves increased cell population proliferation (
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-generalized-prenatal-and-postnatal-overgrowth" data-dismech-node="Generalized Prenatal and Postnatal Overgrowth" data-dismech-type="pathophysiology">
                 <div class="item-name">Generalized Prenatal and Postnatal Overgrowth</div>
 
+
                 <div class="item-desc">The organism level consequence, expressed as macrosomia, macrocephaly, visceromegaly, and the characteristic coarse facies.</div>
 
 
@@ -4839,6 +4888,7 @@ This pathophysiological event involves increased cell population proliferation (
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-persistence-of-embryonal-progenitor-tissue" data-dismech-node="Persistence of Embryonal Progenitor Tissue" data-dismech-type="pathophysiology">
                 <div class="item-name">Persistence of Embryonal Progenitor Tissue</div>
 
+
                 <div class="item-desc">Retained embryonal progenitor populations, notably nephrogenic rests in the kidney and hepatic progenitors in the liver, are the substrate on which the childhood embryonal tumors of this syndrome arise. This is why tumor surveillance is concentrated in the first years of life.</div>
 
 
@@ -4918,6 +4968,13 @@ This pathophysiological event involves increased cell population proliferation (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-igf2-sequestration-by-glypican-3" data-dismech-node="IGF2 Sequestration by Glypican-3" data-dismech-type="pathophysiology">
                 <div class="item-name">IGF2 Sequestration by Glypican-3</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
 
                 <div class="item-desc">The originally proposed mechanism, in which glypican-3 forms a complex with IGF2 and restrains its growth promoting action. It is recorded here because much of the older literature assumes it, but the ligand level data from the null mouse do not support a simple sequestration model. It is deliberately left unconnected to the downstream chain, since the evidence does not license an edge.</div>
 
@@ -5081,7 +5138,7 @@ This pathophysiological event involves insulin-like growth factor receptor signa
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Coarse Facial Features\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000280\"}}, {\"id\": \"Congenital Heart Defect\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Structural cardiac malformation. Cardiac involvement is singled out in the clinical utility gene card as needing longitudinal follow up beyond the detection of a defect at diagnosis, because conduction and rhythm problems develop later and contribute to premature death.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001627\"}}, {\"id\": \"Excess Embryonic Cell Proliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Increased proliferation in developing mesodermal tissues. In the kidney this was localized to the ureteric bud and collecting system in the null mouse, giving an early and persistent developmental abnormality rather than a purely postnatal growth excess.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cell population proliferation\"]}}, {\"id\": \"GPC3 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hemizygous loss of function of GPC3 through point mutation, intragenic microdeletion, whole gene deletion, or translocation breakpoint disruption removes functional glypican-3 from the cell surface of embryonic mesodermal tissues, where it is selectively expressed.\", \"meta\": {\"evidence_count\": 2, \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HEMIZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Loss of function alleles of GPC3 spanning point mutations, intragenic and whole gene deletions, and X;autosome translocation breakpoints that disrupt the locus.\"}}}, {\"id\": \"Generalized Prenatal and Postnatal Overgrowth\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The organism level consequence, expressed as macrosomia, macrocephaly, visceromegaly, and the characteristic coarse facies.\", \"meta\": {\"evidence_count\": 1, \"animal_models\": [{\"name\": \"Gpc3-null mouse\", \"species\": \"Mouse\", \"genotype\": \"Gpc3 knockout (GPC3-deficient)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"The null mouse reproduces the developmental overgrowth together with several other features of the human syndrome, including cystic and dysplastic kidneys and abnormal lung development.\"}]}}, {\"id\": \"Gpc3-null mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The loss of function mouse that established GPC3 as sufficient for the overgrowth phenotype and that produced the ligand level result which undercut the IGF2 sequestration model.\"}, {\"id\": \"Hedgehog Pathway Hyperactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Released Hedgehog signaling raises the growth set point in embryonic tissues. Hedgehog positively regulates body size, so its de-repression is the proposed proximate driver of the overgrowth phenotype.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"smoothened signaling pathway\"]}}, {\"id\": \"Hepatoblastoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002884\"}}, {\"id\": \"IGF2 Sequestration by Glypican-3\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The originally proposed mechanism, in which glypican-3 forms a complex with IGF2 and restrains its growth promoting action. It is recorded here because much of the older literature assumes it, but the ligand level data from the null mouse do not support a simple sequestration model. It is deliberately left unconnected to the downstream chain, since the evidence does not license an edge.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"insulin-like growth factor receptor signaling pathway\"], \"animal_models\": [{\"name\": \"Gpc3-null mouse\", \"species\": \"Mouse\", \"genotype\": \"Gpc3 knockout (GPC3-deficient)\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"The model does not reproduce what the IGF2 sequestration hypothesis predicts. If glypican-3 restrained IGF-II by binding it, removing glypican-3 should raise ligand levels; in the null mouse they are unchanged.\"}]}}, {\"id\": \"Longitudinal Cardiac Surveillance\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Detection of structural heart defects at diagnosis, followed by ongoing cardiac review for conduction and rhythm disturbance. This is the only condition specific longitudinal surveillance besides tumor screening, and the clinical utility gene card links it to premature death.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Loss of Glypican-3 Competition for Hedgehog Ligand\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Glypican-3 binds Hedgehog with high affinity and competes with Patched, the Hedgehog receptor, for that ligand, then routes the bound Hedgehog to endocytosis and degradation. Without glypican-3 this sink is gone and more ligand reaches Patched.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"glypican-3 restraint of Hedgehog signaling\"]}}, {\"id\": \"Macrocephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000256\"}}, {\"id\": \"Neonatal Hypoglycemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001998\"}}, {\"id\": \"Neonatal Hypoglycemia and Airway Management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The two urgent neonatal problems. Hypoglycemia requires prompt correction and glucose monitoring through the neonatal period; airway obstruction arises from micrognathia and glossoptosis and may require positioning or airway support.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Nephroblastoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Wilms tumor, the commonest embryonal tumor in this syndrome.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002667\"}}, {\"id\": \"Overgrowth\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pre- and postnatal macrosomia, the defining growth phenotype.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001548\"}}, {\"id\": \"Persistence of Embryonal Progenitor Tissue\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Retained embryonal progenitor populations, notably nephrogenic rests in the kidney and hepatic progenitors in the liver, are the substrate on which the childhood embryonal tumors of this syndrome arise. This is why tumor surveillance is concentrated in the first years of life.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Visceromegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Enlargement of the abdominal viscera, part of the generalized overgrowth and asserted in this entry\u0027s own description of the overgrowth node.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003271\"}}, {\"id\": \"Wilms Tumor and Hepatoblastoma Surveillance\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Abdominal ultrasound with serum alpha fetoprotein every three months from diagnosis to age three years for Wilms tumor and hepatoblastoma, then renal ultrasound every three months to age seven years. No protocol has been established for the rarer tumors in the spectrum, which are instead covered by six monthly review with a cancer predisposition specialist.\", \"meta\": {\"evidence_count\": 2}}], \"edges\": [{\"source\": \"GPC3 Loss of Function\", \"target\": \"Loss of Glypican-3 Competition for Hedgehog Ligand\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Glypican-3 Competition for Hedgehog Ligand\", \"target\": \"Hedgehog Pathway Hyperactivation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hedgehog Pathway Hyperactivation\", \"target\": \"Excess Embryonic Cell Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Excess Embryonic Cell Proliferation\", \"target\": \"Generalized Prenatal and Postnatal Overgrowth\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Excess Embryonic Cell Proliferation\", \"target\": \"Persistence of Embryonal Progenitor Tissue\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Generalized Prenatal and Postnatal Overgrowth\", \"target\": \"Overgrowth\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Generalized Prenatal and Postnatal Overgrowth\", \"target\": \"Macrocephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Generalized Prenatal and Postnatal Overgrowth\", \"target\": \"Coarse Facial Features\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Generalized Prenatal and Postnatal Overgrowth\", \"target\": \"Visceromegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Persistence of Embryonal Progenitor Tissue\", \"target\": \"Nephroblastoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Persistence of Embryonal Progenitor Tissue\", \"target\": \"Hepatoblastoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Wilms Tumor and Hepatoblastoma Surveillance\", \"target\": \"Persistence of Embryonal Progenitor Tissue\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Neonatal Hypoglycemia and Airway Management\", \"target\": \"Neonatal Hypoglycemia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Longitudinal Cardiac Surveillance\", \"target\": \"Congenital Heart Defect\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Gpc3-null mouse\", \"target\": \"Generalized Prenatal and Postnatal Overgrowth\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The null mouse reproduces the developmental overgrowth together with several other features of the human syndrome, including cystic and dysplastic kidneys and abnormal lung development.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"Perinatal death in a proportion of mutants limits the study of postnatal and later childhood phenotypes, and the tumor predisposition that defines the human syndrome is not part of the reported phenotype.\"}, {\"source\": \"Gpc3-null mouse\", \"target\": \"IGF2 Sequestration by Glypican-3\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"The model does not reproduce what the IGF2 sequestration hypothesis predicts. If glypican-3 restrained IGF-II by binding it, removing glypican-3 should raise ligand levels; in the null mouse they are unchanged.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"A negative ligand level result does not exclude a local or compartment specific effect on IGF-II availability that a whole animal measurement would miss, so this refutes simple sequestration rather than every possible IGF2 mechanism.\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Coarse Facial Features\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000280\"}}, {\"id\": \"Congenital Heart Defect\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Structural cardiac malformation. Cardiac involvement is singled out in the clinical utility gene card as needing longitudinal follow up beyond the detection of a defect at diagnosis, because conduction and rhythm problems develop later and contribute to premature death.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001627\"}}, {\"id\": \"Excess Embryonic Cell Proliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Increased proliferation in developing mesodermal tissues. In the kidney this was localized to the ureteric bud and collecting system in the null mouse, giving an early and persistent developmental abnormality rather than a purely postnatal growth excess.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"cell population proliferation\"]}}, {\"id\": \"GPC3 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hemizygous loss of function of GPC3 through point mutation, intragenic microdeletion, whole gene deletion, or translocation breakpoint disruption removes functional glypican-3 from the cell surface of embryonic mesodermal tissues, where it is selectively expressed.\", \"meta\": {\"evidence_count\": 2, \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HEMIZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Loss of function alleles of GPC3 spanning point mutations, intragenic and whole gene deletions, and X;autosome translocation breakpoints that disrupt the locus.\"}}}, {\"id\": \"Generalized Prenatal and Postnatal Overgrowth\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The organism level consequence, expressed as macrosomia, macrocephaly, visceromegaly, and the characteristic coarse facies.\", \"meta\": {\"evidence_count\": 1, \"animal_models\": [{\"name\": \"Gpc3-null mouse\", \"species\": \"Mouse\", \"genotype\": \"Gpc3 knockout (GPC3-deficient)\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"The null mouse reproduces the developmental overgrowth together with several other features of the human syndrome, including cystic and dysplastic kidneys and abnormal lung development.\"}]}}, {\"id\": \"Gpc3-null mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The loss of function mouse that established GPC3 as sufficient for the overgrowth phenotype and that produced the ligand level result which undercut the IGF2 sequestration model.\"}, {\"id\": \"Hedgehog Pathway Hyperactivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Released Hedgehog signaling raises the growth set point in embryonic tissues. Hedgehog positively regulates body size, so its de-repression is the proposed proximate driver of the overgrowth phenotype.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"smoothened signaling pathway\"]}}, {\"id\": \"Hepatoblastoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002884\"}}, {\"id\": \"IGF2 Sequestration by Glypican-3\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The originally proposed mechanism, in which glypican-3 forms a complex with IGF2 and restrains its growth promoting action. It is recorded here because much of the older literature assumes it, but the ligand level data from the null mouse do not support a simple sequestration model. It is deliberately left unconnected to the downstream chain, since the evidence does not license an edge.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"insulin-like growth factor receptor signaling pathway\"], \"mechanism_confidence\": \"HYPOTHETICAL\", \"animal_models\": [{\"name\": \"Gpc3-null mouse\", \"species\": \"Mouse\", \"genotype\": \"Gpc3 knockout (GPC3-deficient)\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"The model does not reproduce what the IGF2 sequestration hypothesis predicts. If glypican-3 restrained IGF-II by binding it, removing glypican-3 should raise ligand levels; in the null mouse they are unchanged.\"}]}}, {\"id\": \"Longitudinal Cardiac Surveillance\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Detection of structural heart defects at diagnosis, followed by ongoing cardiac review for conduction and rhythm disturbance. This is the only condition specific longitudinal surveillance besides tumor screening, and the clinical utility gene card links it to premature death.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Loss of Glypican-3 Competition for Hedgehog Ligand\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Glypican-3 binds Hedgehog with high affinity and competes with Patched, the Hedgehog receptor, for that ligand, then routes the bound Hedgehog to endocytosis and degradation. Without glypican-3 this sink is gone and more ligand reaches Patched.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"glypican-3 restraint of Hedgehog signaling\"]}}, {\"id\": \"Macrocephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000256\"}}, {\"id\": \"Neonatal Hypoglycemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001998\"}}, {\"id\": \"Neonatal Hypoglycemia and Airway Management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The two urgent neonatal problems. Hypoglycemia requires prompt correction and glucose monitoring through the neonatal period; airway obstruction arises from micrognathia and glossoptosis and may require positioning or airway support.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Nephroblastoma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Wilms tumor, the commonest embryonal tumor in this syndrome.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0002667\"}}, {\"id\": \"Overgrowth\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Pre- and postnatal macrosomia, the defining growth phenotype.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001548\"}}, {\"id\": \"Persistence of Embryonal Progenitor Tissue\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Retained embryonal progenitor populations, notably nephrogenic rests in the kidney and hepatic progenitors in the liver, are the substrate on which the childhood embryonal tumors of this syndrome arise. This is why tumor surveillance is concentrated in the first years of life.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Visceromegaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Enlargement of the abdominal viscera, part of the generalized overgrowth and asserted in this entry\u0027s own description of the overgrowth node.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0003271\"}}, {\"id\": \"Wilms Tumor and Hepatoblastoma Surveillance\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Abdominal ultrasound with serum alpha fetoprotein every three months from diagnosis to age three years for Wilms tumor and hepatoblastoma, then renal ultrasound every three months to age seven years. No protocol has been established for the rarer tumors in the spectrum, which are instead covered by six monthly review with a cancer predisposition specialist.\", \"meta\": {\"evidence_count\": 2}}], \"edges\": [{\"source\": \"GPC3 Loss of Function\", \"target\": \"Loss of Glypican-3 Competition for Hedgehog Ligand\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Glypican-3 Competition for Hedgehog Ligand\", \"target\": \"Hedgehog Pathway Hyperactivation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Hedgehog Pathway Hyperactivation\", \"target\": \"Excess Embryonic Cell Proliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Excess Embryonic Cell Proliferation\", \"target\": \"Generalized Prenatal and Postnatal Overgrowth\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Excess Embryonic Cell Proliferation\", \"target\": \"Persistence of Embryonal Progenitor Tissue\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Generalized Prenatal and Postnatal Overgrowth\", \"target\": \"Overgrowth\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Generalized Prenatal and Postnatal Overgrowth\", \"target\": \"Macrocephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Generalized Prenatal and Postnatal Overgrowth\", \"target\": \"Coarse Facial Features\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Generalized Prenatal and Postnatal Overgrowth\", \"target\": \"Visceromegaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Persistence of Embryonal Progenitor Tissue\", \"target\": \"Nephroblastoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Persistence of Embryonal Progenitor Tissue\", \"target\": \"Hepatoblastoma\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Wilms Tumor and Hepatoblastoma Surveillance\", \"target\": \"Persistence of Embryonal Progenitor Tissue\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Neonatal Hypoglycemia and Airway Management\", \"target\": \"Neonatal Hypoglycemia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Longitudinal Cardiac Surveillance\", \"target\": \"Congenital Heart Defect\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Gpc3-null mouse\", \"target\": \"Generalized Prenatal and Postnatal Overgrowth\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"The null mouse reproduces the developmental overgrowth together with several other features of the human syndrome, including cystic and dysplastic kidneys and abnormal lung development.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"Perinatal death in a proportion of mutants limits the study of postnatal and later childhood phenotypes, and the tumor predisposition that defines the human syndrome is not part of the reported phenotype.\"}, {\"source\": \"Gpc3-null mouse\", \"target\": \"IGF2 Sequestration by Glypican-3\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"The model does not reproduce what the IGF2 sequestration hypothesis predicts. If glypican-3 restrained IGF-II by binding it, removing glypican-3 should raise ligand levels; in the null mouse they are unchanged.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"A negative ligand level result does not exclude a local or compartment specific effect on IGF-II availability that a whole animal measurement would miss, so this refutes simple sequestration rather than every possible IGF2 mechanism.\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6697,6 +6754,9 @@ This disease-associated gene is GPC3 (hgnc:4451). hgnc:4451 is a gene from the H
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 

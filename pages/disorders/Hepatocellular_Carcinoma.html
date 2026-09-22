@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -6539,6 +6578,7 @@ This experiment is of type protein acetylation and metabolic switching mechanism
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chronic-liver-injury-and-cirrhosis" data-dismech-node="Chronic Liver Injury and Cirrhosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Chronic Liver Injury and Cirrhosis</div>
 
+
                 <div class="item-desc">Most HCC arises in the context of chronic liver disease and cirrhosis. Persistent hepatocyte death and regeneration in an inflammatory environment promotes accumulation of genetic alterations. Cirrhosis itself is a premalignant condition with ongoing oxidative stress and genomic instability.</div>
 
 
@@ -6676,6 +6716,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-telomere-dysfunction-and-genomic-instability" data-dismech-node="Telomere Dysfunction and Genomic Instability" data-dismech-type="pathophysiology">
                 <div class="item-name">Telomere Dysfunction and Genomic Instability</div>
 
+
                 <div class="item-desc">Chronic hepatocyte proliferation leads to telomere shortening, causing genomic instability. TERT promoter mutations, which are the most common HCC mutations, reactivate telomerase to enable unlimited replication. This creates a checkpoint bypass allowing survival of genetically unstable cells.</div>
 
 
@@ -6755,6 +6796,7 @@ This pathophysiological event involves abnormal telomere maintenance (GO:0000723
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-accumulation-of-driver-mutations" data-dismech-node="Accumulation of Driver Mutations" data-dismech-type="pathophysiology">
                 <div class="item-name">Accumulation of Driver Mutations</div>
 
+
                 <div class="item-desc">Multiple driver genes are recurrently mutated in HCC, including TERT promoter (60%), TP53 (30%), CTNNB1 (30%), AXIN1 (10%), and ARID1A (10%). These mutations affect telomere maintenance, cell cycle control, WNT signaling, and chromatin remodeling.</div>
 
 
@@ -6833,6 +6875,7 @@ This pathophysiological event involves decreased DNA repair (GO:0006281). GO:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-wnt-beta-catenin-pathway-activation" data-dismech-node="WNT/Beta-Catenin Pathway Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">WNT/Beta-Catenin Pathway Activation</div>
+
 
                 <div class="item-desc">Activating mutations in CTNNB1 (beta-catenin) or inactivating mutations in AXIN1 lead to constitutive WNT pathway activation. This drives cell proliferation and is associated with a distinct molecular subclass of HCC with specific clinical features including cholestasis and immune exclusion.</div>
 
@@ -6920,6 +6963,7 @@ This pathophysiological event involves increased Wnt signaling pathway (GO:00160
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hepatocyte-mlkl-upregulation" data-dismech-node="Hepatocyte MLKL Upregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Hepatocyte MLKL Upregulation</div>
+
 
                 <div class="item-desc">In MASLD-associated HCC, long-term Western diet raises hepatocyte MLKL protein. This is an abundance change, not a change in catalytic activity: MLKL is a catalytically dead pseudokinase whose established role is as the terminal executioner of necroptosis, and the observation here is that it accumulates. Hepatocyte-specific MLKL knockout mice on the same diet develop fewer and smaller tumours, so the accumulation is the entry point of this arm rather than a bystander finding. Elevated MLKL also marks worse outcome in human HCC, and pharmacological MLKL inhibition suppresses xenograft growth.</div>
 
@@ -7138,6 +7182,7 @@ This pathophysiological event involves MLKL (hgnc:26617). hgnc:26617 is a gene f
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-necroptosis-independent-mlkl-function" data-dismech-node="Necroptosis-Independent MLKL Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Necroptosis-Independent MLKL Function</div>
 
+
                 <div class="item-desc">The headline finding of this arm, and what separates it from the necroptotic cell-death route MLKL is normally invoked for: the diet-induced MLKL accumulation proceeds without detectable necroptosis activation, and removing hepatocyte MLKL leaves Western-diet inflammation, fibrosis and liver injury unchanged - the readouts a necroptosis-driven mechanism would be expected to move. MLKL instead localises to nuclear and mitochondrial compartments, consistent with the organelle-intrinsic function modelled downstream.</div>
 
 
@@ -7286,6 +7331,7 @@ This pathophysiological event involves absent necroptotic process (GO:0070266). 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mfn2-suppression-and-impaired-mitochondrial-fusion" data-dismech-node="MFN2 Suppression and Impaired Mitochondrial Fusion" data-dismech-type="pathophysiology">
                 <div class="item-name">MFN2 Suppression and Impaired Mitochondrial Fusion</div>
+
 
                 <div class="item-desc">Western diet suppresses the mitochondrial fusion protein and tumour suppressor MFN2, and hepatocyte MLKL is required for that suppression: MLKL deficiency restores MFN2 post-translationally. MFN2 is the fusion machinery itself, so its loss is a loss of mitochondrial fusion, and this node records that single molecular event. What the depleted mitochondrial network then fails to do is the node downstream.</div>
 
@@ -7444,6 +7490,7 @@ This pathophysiological event involves decreased mitochondrial fusion (GO:000805
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-mitochondrial-oxidative-phosphorylation" data-dismech-node="Impaired Mitochondrial Oxidative Phosphorylation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Mitochondrial Oxidative Phosphorylation</div>
 
+
                 <div class="item-desc">The bioenergetic consequence of the MFN2 loss above. Removing hepatocyte MLKL raises oxidative phosphorylation pathway expression in mouse liver and improves mitochondrial respiration in HCC cells, and deleting MFN2 reverses that improvement, which places the respiratory deficit downstream of the MLKL-MFN2 axis rather than beside it.</div>
 
 
@@ -7585,6 +7632,7 @@ This pathophysiological event involves decreased oxidative phosphorylation (GO:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aerobic-glycolytic-shift-in-masld-associated-hcc" data-dismech-node="Aerobic Glycolytic Shift in MASLD-Associated HCC" data-dismech-type="pathophysiology">
                 <div class="item-name">Aerobic Glycolytic Shift in MASLD-Associated HCC</div>
 
+
                 <div class="item-desc">The MFN2-dependent respiratory deficit accompanies increased glycolytic flux, the Warburg phenotype of this arm. MLKL deletion in HCC cells decreases glycolysis and reduces proliferation, and MFN2 deletion reverses both, placing the glycolytic shift downstream of the MLKL-MFN2 axis rather than beside it.</div>
 
 
@@ -7698,6 +7746,7 @@ This pathophysiological event involves increased glycolytic process (GO:0006096)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pi3k-akt-mtor-pathway-activation" data-dismech-node="PI3K/AKT/mTOR Pathway Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">PI3K/AKT/mTOR Pathway Activation</div>
+
 
                 <div class="item-desc">PI3K/AKT/mTOR signaling is a recurrent oncogenic axis in HCC. PI3K/Akt activation is reported in 40-60% of HCC tissue, and dysregulated pathway-associated genes and upstream receptor inputs increase AKT/TOR signaling, supporting hepatocyte survival, anabolic growth, proliferation, and immune infiltration patterns relevant to targeted therapy and immunotherapy response.</div>
 
@@ -7888,6 +7937,7 @@ This pathophysiological event involves increased phosphatidylinositol-mediated s
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tp53-pathway-inactivation" data-dismech-node="TP53 Pathway Inactivation" data-dismech-type="pathophysiology">
                 <div class="item-name">TP53 Pathway Inactivation</div>
 
+
                 <div class="item-desc">TP53 mutations are common in HCC, particularly in HBV-associated and aflatoxin-associated tumors. Loss of p53 function removes a critical checkpoint, allowing survival of cells with DNA damage and promoting genomic instability.</div>
 
 
@@ -7952,6 +8002,7 @@ This pathophysiological event involves decreased apoptotic process (GO:0006915).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-enhanced-hepatocyte-proliferation" data-dismech-node="Enhanced Hepatocyte Proliferation" data-dismech-type="pathophysiology">
                 <div class="item-name">Enhanced Hepatocyte Proliferation</div>
 
+
                 <div class="item-desc">Combined effects of telomerase reactivation, cell cycle checkpoint loss, and mitogenic signaling drive uncontrolled hepatocyte proliferation and tumor growth.</div>
 
 
@@ -8015,6 +8066,7 @@ This pathophysiological event involves increased cell population proliferation (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-angiogenesis-and-vegf-signaling" data-dismech-node="Angiogenesis and VEGF Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Angiogenesis and VEGF Signaling</div>
+
 
                 <div class="item-desc">HCC is a highly vascular tumor dependent on angiogenesis. VEGF signaling promotes new blood vessel formation supplying the tumor. VEGF also has immunosuppressive effects, contributing to the immune-excluded microenvironment. This provides the rationale for anti-VEGF therapy in combination with immunotherapy.</div>
 
@@ -8127,6 +8179,7 @@ This pathophysiological event involves increased angiogenesis (GO:0001525). GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-immune-evasion-and-immunosuppressive-microenvironment" data-dismech-node="Immune Evasion and Immunosuppressive Microenvironment" data-dismech-type="pathophysiology">
                 <div class="item-name">Immune Evasion and Immunosuppressive Microenvironment</div>
+
 
                 <div class="item-desc">HCC develops in a chronically inflamed liver with an inherently immunosuppressive microenvironment. Tumor cells upregulate PD-L1, VEGF-mediated immunosuppression excludes effector T cells, and recruitment of regulatory T cells, myeloid-derived suppressor cells, and tumor-associated macrophages creates an immune-tolerant niche. The combination of anti-PD-L1 with anti-VEGF addresses both the checkpoint-mediated and VEGF-mediated immunosuppression.</div>
 
@@ -8286,6 +8339,7 @@ This pathophysiological event involves increased Negative Regulation of T Cell M
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aerobic-glycolysis-and-metabolic-reprogramming" data-dismech-node="Aerobic Glycolysis and Metabolic Reprogramming" data-dismech-type="pathophysiology">
                 <div class="item-name">Aerobic Glycolysis and Metabolic Reprogramming</div>
 
+
                 <div class="item-desc">HCC cells reprogram metabolism from oxidative phosphorylation to aerobic glycolysis (Warburg effect), enabling rapid ATP regeneration and providing carbon intermediates for biosynthesis. This metabolic shift is driven by oncogenic signaling (PI3K/AKT, MYC) and supports the high proliferative rate of hepatocellular carcinomas. The mechanism linking mitochondrial acetyl-CoA homeostasis to pyruvate transport and glycolytic switching remains incompletely characterized.</div>
 
 
@@ -8424,6 +8478,7 @@ This pathophysiological event involves increased Glycolytic Process (GO:0006096)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-portal-vein-invasion-and-tumor-thrombus" data-dismech-node="Portal Vein Invasion and Tumor Thrombus" data-dismech-type="pathophysiology">
                 <div class="item-name">Portal Vein Invasion and Tumor Thrombus</div>
+
 
                 <div class="item-desc">Vascular invasion is a defining step in metastatic HCC. Tumor cells leave the cancer nest, traverse extracellular matrix and vascular barriers, and colonize the portal vein, creating portal vein tumor thrombus and enabling dissemination.</div>
 
@@ -9119,6 +9174,9 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9191,6 +9249,9 @@ This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9259,6 +9320,9 @@ This disease-associated gene is CTNNB1 (hgnc:2514). hgnc:2514 is a gene from the
 
 
                 </div>
+
+
+
 
 
 
@@ -9337,6 +9401,9 @@ This disease-associated gene is AXIN1 (hgnc:903). hgnc:903 is a gene from the HU
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-arid1a" data-dismech-node="ARID1A" data-dismech-type="genetic">
@@ -9368,6 +9435,9 @@ This disease-associated gene is ARID1A (hgnc:11110). hgnc:11110 is a gene from t
 
 
                 </div>
+
+
+
 
 
 

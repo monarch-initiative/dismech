@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4723,6 +4762,7 @@ Penetrance is recorded as incomplete, and the reason is specific to this entity 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bi-allelic-hypomorphic-snf8-variants" data-dismech-node="Bi-allelic Hypomorphic SNF8 Variants" data-dismech-type="pathophysiology">
                 <div class="item-name">Bi-allelic Hypomorphic SNF8 Variants</div>
 
+
                 <div class="item-desc">The primary lesion is bi-allelic damage to SNF8 at 17q21.32, reported against transcript NM_007241.4. Genotype maps onto severity: the mild NEDOA phenotype curated here occurs only in individuals who carry the hypomorphic missense allele c.304G&gt;A (p.Val102Ile), which is inferred to leave residual SNF8 function, whereas the severe allelic encephalopathy arises from more damaging genotypes. Functional testing in vivo reproduced this graded effect, with different SNF8 alleles having different impacts on embryonic development, which is the mechanistic basis for the clinical heterogeneity across the spectrum.</div>
 
 
@@ -4874,6 +4914,7 @@ This pathophysiological event involves SNF8 (hgnc:17028). hgnc:17028 is a gene f
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-the-escrt-ii-complex" data-dismech-node="Loss of the ESCRT-II Complex" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of the ESCRT-II Complex</div>
+
 
                 <div class="item-desc">ESCRT-II is an obligate heterotetramer built from one copy of SNF8/VPS22, one copy of VPS36, and two copies of VPS25, arranged as a trilobal assembly of winged-helix domains. Because the subunits are mutually stabilising, damaging one of them destabilises the whole complex rather than removing a single activity: patient-derived fibroblasts carrying bi-allelic SNF8 variants show loss of ESCRT-II subunits, plural. SNF8 is not a peripheral subunit in this assembly - the first helix of VPS22 contributes directly, alongside the VPS36 GLUE domain, to targeting ESCRT-II onto the endosomal membrane - so its loss removes both the structural core and part of the membrane-recruitment activity.</div>
 
@@ -5122,6 +5163,13 @@ This pathophysiological event involves endosome membrane (GO:0010008). GO:001000
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-stability-independent-impairment-by-the-p-val102ile-hypomorph" data-dismech-node="Stability-Independent Impairment by the p.Val102Ile Hypomorph" data-dismech-type="pathophysiology">
                 <div class="item-name">Stability-Independent Impairment by the p.Val102Ile Hypomorph</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">This node exists because the mechanism that produces NEDOA is not the mechanism that produces the severe allelic encephalopathy. Every mildly affected individual carries c.304G&gt;A (p.Val102Ile) in trans to a more damaging allele, and in fibroblasts from two of them the ESCRT-II subunits were not significantly depleted. The authors&#39; reading is that this allele impairs ESCRT-II function by a route independent of protein stability - a partially functional complex is assembled in normal amounts but works less well - rather than by removing the complex. That is what sets the severity floor for this entity: enough residual ESCRT-II activity to permit survival into adulthood and mild rather than absent development, but not enough to protect the anterior visual pathway. The distinction also predicts that a proteomic assay of ESCRT-II subunit abundance, which is informative for the severe pole, will look near-normal in NEDOA and cannot be used to confirm this diagnosis.</div>
 
 
@@ -5226,6 +5274,7 @@ This pathophysiological event involves abnormal ESCRT II complex (GO:0000814). G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-escrt-iii-nucleation-and-multivesicular-body-biogenesis" data-dismech-node="Failure of ESCRT-III Nucleation and Multivesicular Body Biogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of ESCRT-III Nucleation and Multivesicular Body Biogenesis</div>
+
 
                 <div class="item-desc">ESCRT-0, -I, -II and -III act as a sequential relay on the endosomal membrane. ESCRT-II is the hand-off point: it binds the ESCRT-I VPS28 C-terminal domain on one side and, through VPS25, directly recruits and nucleates the ESCRT-III subunit VPS20/CHMP6 on the other. Losing ESCRT-II therefore breaks the cascade in the middle, so ubiquitinated cargo is not packaged into intralumenal vesicles, multivesicular bodies fail to mature, and surface receptors are not downregulated. This step is the mechanistic junction with the ESCRT-III disorders: an ESCRT-II lesion and an ESCRT-III lesion disable adjacent stages of one pathway.</div>
 
@@ -5515,6 +5564,13 @@ This pathophysiological event involves multivesicular body (GO:0005771). GO:0005
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-autophagic-flux" data-dismech-node="Impaired Autophagic Flux" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Autophagic Flux</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">The ESCRT machinery is required not only for endosomal sorting but for autophagy, where it contributes to phagophore closure and to autophagosome-lysosome fusion. The founding study&#39;s stated conclusion is that the neurodevelopmental and neurodegenerative phenotypes of bi-allelic SNF8 disease are mediated principally through impaired autophagic flux rather than through cargo missorting alone. The abstract states this as a likelihood, but the full text backs it with direct patient-material assays: transmission electron microscopy of patient fibroblasts showing accumulated autolysosomes and morphologically aberrant, enlarged, electron-lucent lysosomes; LC3/LAMP1 confocal immunofluorescence showing the same accumulation; and, at the severe pole, strong LC3 immunostaining on autopsy neuropathology where age-matched controls stained only weakly.</div>
 
@@ -5834,6 +5890,7 @@ This pathophysiological event involves autolysosome (GO:0044754). GO:0044754 is 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-optic-nerve-and-forebrain-developmental-failure" data-dismech-node="Optic Nerve and Forebrain Developmental Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Optic Nerve and Forebrain Developmental Failure</div>
 
+
                 <div class="item-desc">The tissue-level endpoint is selective failure of the visual pathway and the forebrain. Zebrafish snf8 loss of function reproduces this pattern specifically, producing impaired optic nerve development and reduced forebrain size in addition to global developmental delay and altered embryo morphology. That the optic nerve phenotype is recovered in a model organism is what elevates optic atrophy in this disorder from an incidental association to a mechanistically anchored feature, and it is the strongest available support for the visual pathway being intrinsically vulnerable to ESCRT-II loss rather than secondarily damaged.</div>
 
 
@@ -5989,7 +6046,7 @@ This pathophysiological event occurs in forebrain (UBERON:0001890). UBERON:00018
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Bi-allelic Hypomorphic SNF8 Variants\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The primary lesion is bi-allelic damage to SNF8 at 17q21.32, reported against transcript NM_007241.4. Genotype maps onto severity: the mild NEDOA phenotype curated here occurs only in individuals who carry the hypomorphic missense allele c.304G\u003eA (p.Val102Ile), which is inferred to leave residual SNF8 function, whereas the severe allelic encephalopathy arises from more damaging genotypes. Functional testing in vivo reproduced this graded effect, with different SNF8 alleles having different impacts on embryonic development, which is the mechanistic basis for the clinical heterogeneity across the spectrum.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"SNF8\"], \"gene_terms\": [{\"label\": \"SNF8\", \"id\": \"hgnc:17028\"}]}}, {\"id\": \"Failure of ESCRT-III Nucleation and Multivesicular Body Biogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ESCRT-0, -I, -II and -III act as a sequential relay on the endosomal membrane. ESCRT-II is the hand-off point: it binds the ESCRT-I VPS28 C-terminal domain on one side and, through VPS25, directly recruits and nucleates the ESCRT-III subunit VPS20/CHMP6 on the other. Losing ESCRT-II therefore breaks the cascade in the middle, so ubiquitinated cargo is not packaged into intralumenal vesicles, multivesicular bodies fail to mature, and surface receptors are not downregulated. This step is the mechanistic junction with the ESCRT-III disorders: an ESCRT-II lesion and an ESCRT-III lesion disable adjacent stages of one pathway.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"patient-derived dermal fibroblast\"], \"biological_processes\": [\"multivesicular body assembly\", \"endosomal transport\", \"ubiquitin-dependent cargo delivery to the lysosome via the MVB sorting pathway\"]}}, {\"id\": \"Impaired Autophagic Flux\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The ESCRT machinery is required not only for endosomal sorting but for autophagy, where it contributes to phagophore closure and to autophagosome-lysosome fusion. The founding study\u0027s stated conclusion is that the neurodevelopmental and neurodegenerative phenotypes of bi-allelic SNF8 disease are mediated principally through impaired autophagic flux rather than through cargo missorting alone. The abstract states this as a likelihood, but the full text backs it with direct patient-material assays: transmission electron microscopy of patient fibroblasts showing accumulated autolysosomes and morphologically aberrant, enlarged, electron-lucent lysosomes; LC3/LAMP1 confocal immunofluorescence showing the same accumulation; and, at the severe pole, strong LC3 immunostaining on autopsy neuropathology where age-matched controls stained only weakly.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"patient-derived dermal fibroblast\", \"cortical pyramidal neuron\", \"reactive astrocyte\", \"activated microglial cell\"], \"biological_processes\": [\"macroautophagy\", \"autophagosome maturation\"]}}, {\"id\": \"Loss of the ESCRT-II Complex\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ESCRT-II is an obligate heterotetramer built from one copy of SNF8/VPS22, one copy of VPS36, and two copies of VPS25, arranged as a trilobal assembly of winged-helix domains. Because the subunits are mutually stabilising, damaging one of them destabilises the whole complex rather than removing a single activity: patient-derived fibroblasts carrying bi-allelic SNF8 variants show loss of ESCRT-II subunits, plural. SNF8 is not a peripheral subunit in this assembly - the first helix of VPS22 contributes directly, alongside the VPS36 GLUE domain, to targeting ESCRT-II onto the endosomal membrane - so its loss removes both the structural core and part of the membrane-recruitment activity.\", \"meta\": {\"evidence_count\": 5, \"cell_types\": [\"patient-derived dermal fibroblast\"], \"genes\": [\"SNF8\"], \"gene_terms\": [{\"label\": \"SNF8\", \"id\": \"hgnc:17028\"}]}}, {\"id\": \"Optic Nerve and Forebrain Developmental Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The tissue-level endpoint is selective failure of the visual pathway and the forebrain. Zebrafish snf8 loss of function reproduces this pattern specifically, producing impaired optic nerve development and reduced forebrain size in addition to global developmental delay and altered embryo morphology. That the optic nerve phenotype is recovered in a model organism is what elevates optic atrophy in this disorder from an incidental association to a mechanistically anchored feature, and it is the strongest available support for the visual pathway being intrinsically vulnerable to ESCRT-II loss rather than secondarily damaged.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"retinal ganglion cell\"], \"locations\": [\"optic nerve\", \"forebrain\"]}}, {\"id\": \"SNF8\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"SNF8\"], \"gene_terms\": [{\"label\": \"SNF8\", \"id\": \"hgnc:17028\"}], \"association\": \"Bi-allelic variants; the mild NEDOA phenotype is associated specifically with the hypomorphic allele c.304G\u003eA (p.Val102Ile)\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Stability-Independent Impairment by the p.Val102Ile Hypomorph\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"This node exists because the mechanism that produces NEDOA is not the mechanism that produces the severe allelic encephalopathy. Every mildly affected individual carries c.304G\u003eA (p.Val102Ile) in trans to a more damaging allele, and in fibroblasts from two of them the ESCRT-II subunits were not significantly depleted. The authors\u0027 reading is that this allele impairs ESCRT-II function by a route independent of protein stability - a partially functional complex is assembled in normal amounts but works less well - rather than by removing the complex. That is what sets the severity floor for this entity: enough residual ESCRT-II activity to permit survival into adulthood and mild rather than absent development, but not enough to protect the anterior visual pathway. The distinction also predicts that a proteomic assay of ESCRT-II subunit abundance, which is informative for the severe pole, will look near-normal in NEDOA and cannot be used to confirm this diagnosis.\", \"meta\": {\"genes\": [\"SNF8\"], \"gene_terms\": [{\"label\": \"SNF8\", \"id\": \"hgnc:17028\"}]}}], \"edges\": [{\"source\": \"Bi-allelic Hypomorphic SNF8 Variants\", \"target\": \"Loss of the ESCRT-II Complex\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe-pole genotypes, which lack p.Val102Ile, destabilise SNF8 protein and with it the assembled ESCRT-II heterotetramer. This is the abundance-dependent arm of the allelic split.\"}, {\"source\": \"Bi-allelic Hypomorphic SNF8 Variants\", \"target\": \"Stability-Independent Impairment by the p.Val102Ile Hypomorph\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The parallel, allele-specific arm. In individuals carrying the mild-pole hypomorph c.304G\u003eA (p.Val102Ile), ESCRT-II function is impaired without a measurable fall in complex abundance, so this branch is a direct consequence of the variant rather than of complex loss.\"}, {\"source\": \"Loss of the ESCRT-II Complex\", \"target\": \"Failure of ESCRT-III Nucleation and Multivesicular Body Biogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Without ESCRT-II on the endosomal membrane, the downstream ESCRT-III polymer is not nucleated.\"}, {\"source\": \"Stability-Independent Impairment by the p.Val102Ile Hypomorph\", \"target\": \"Failure of ESCRT-III Nucleation and Multivesicular Body Biogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced, rather than absent, ESCRT-II activity yields a partial and cargo-selective block of the downstream sorting step.\"}, {\"source\": \"Failure of ESCRT-III Nucleation and Multivesicular Body Biogenesis\", \"target\": \"Impaired Autophagic Flux\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Blocked endosomal maturation prevents autophagosome-lysosome progression.\"}, {\"source\": \"Impaired Autophagic Flux\", \"target\": \"Optic Nerve and Forebrain Developmental Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurons and retinal ganglion cells, being long-lived and dependent on autophagic turnover, are the cells that fail.\"}, {\"source\": \"SNF8\", \"target\": \"Bi-allelic Hypomorphic SNF8 Variants\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SNF8\", \"target\": \"Loss of the ESCRT-II Complex\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SNF8\", \"target\": \"Stability-Independent Impairment by the p.Val102Ile Hypomorph\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Bi-allelic Hypomorphic SNF8 Variants\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The primary lesion is bi-allelic damage to SNF8 at 17q21.32, reported against transcript NM_007241.4. Genotype maps onto severity: the mild NEDOA phenotype curated here occurs only in individuals who carry the hypomorphic missense allele c.304G\u003eA (p.Val102Ile), which is inferred to leave residual SNF8 function, whereas the severe allelic encephalopathy arises from more damaging genotypes. Functional testing in vivo reproduced this graded effect, with different SNF8 alleles having different impacts on embryonic development, which is the mechanistic basis for the clinical heterogeneity across the spectrum.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"SNF8\"], \"gene_terms\": [{\"label\": \"SNF8\", \"id\": \"hgnc:17028\"}]}}, {\"id\": \"Failure of ESCRT-III Nucleation and Multivesicular Body Biogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ESCRT-0, -I, -II and -III act as a sequential relay on the endosomal membrane. ESCRT-II is the hand-off point: it binds the ESCRT-I VPS28 C-terminal domain on one side and, through VPS25, directly recruits and nucleates the ESCRT-III subunit VPS20/CHMP6 on the other. Losing ESCRT-II therefore breaks the cascade in the middle, so ubiquitinated cargo is not packaged into intralumenal vesicles, multivesicular bodies fail to mature, and surface receptors are not downregulated. This step is the mechanistic junction with the ESCRT-III disorders: an ESCRT-II lesion and an ESCRT-III lesion disable adjacent stages of one pathway.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"patient-derived dermal fibroblast\"], \"biological_processes\": [\"multivesicular body assembly\", \"endosomal transport\", \"ubiquitin-dependent cargo delivery to the lysosome via the MVB sorting pathway\"]}}, {\"id\": \"Impaired Autophagic Flux\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The ESCRT machinery is required not only for endosomal sorting but for autophagy, where it contributes to phagophore closure and to autophagosome-lysosome fusion. The founding study\u0027s stated conclusion is that the neurodevelopmental and neurodegenerative phenotypes of bi-allelic SNF8 disease are mediated principally through impaired autophagic flux rather than through cargo missorting alone. The abstract states this as a likelihood, but the full text backs it with direct patient-material assays: transmission electron microscopy of patient fibroblasts showing accumulated autolysosomes and morphologically aberrant, enlarged, electron-lucent lysosomes; LC3/LAMP1 confocal immunofluorescence showing the same accumulation; and, at the severe pole, strong LC3 immunostaining on autopsy neuropathology where age-matched controls stained only weakly.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"patient-derived dermal fibroblast\", \"cortical pyramidal neuron\", \"reactive astrocyte\", \"activated microglial cell\"], \"biological_processes\": [\"macroautophagy\", \"autophagosome maturation\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Loss of the ESCRT-II Complex\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"ESCRT-II is an obligate heterotetramer built from one copy of SNF8/VPS22, one copy of VPS36, and two copies of VPS25, arranged as a trilobal assembly of winged-helix domains. Because the subunits are mutually stabilising, damaging one of them destabilises the whole complex rather than removing a single activity: patient-derived fibroblasts carrying bi-allelic SNF8 variants show loss of ESCRT-II subunits, plural. SNF8 is not a peripheral subunit in this assembly - the first helix of VPS22 contributes directly, alongside the VPS36 GLUE domain, to targeting ESCRT-II onto the endosomal membrane - so its loss removes both the structural core and part of the membrane-recruitment activity.\", \"meta\": {\"evidence_count\": 5, \"cell_types\": [\"patient-derived dermal fibroblast\"], \"genes\": [\"SNF8\"], \"gene_terms\": [{\"label\": \"SNF8\", \"id\": \"hgnc:17028\"}]}}, {\"id\": \"Optic Nerve and Forebrain Developmental Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The tissue-level endpoint is selective failure of the visual pathway and the forebrain. Zebrafish snf8 loss of function reproduces this pattern specifically, producing impaired optic nerve development and reduced forebrain size in addition to global developmental delay and altered embryo morphology. That the optic nerve phenotype is recovered in a model organism is what elevates optic atrophy in this disorder from an incidental association to a mechanistically anchored feature, and it is the strongest available support for the visual pathway being intrinsically vulnerable to ESCRT-II loss rather than secondarily damaged.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"retinal ganglion cell\"], \"locations\": [\"optic nerve\", \"forebrain\"]}}, {\"id\": \"SNF8\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"SNF8\"], \"gene_terms\": [{\"label\": \"SNF8\", \"id\": \"hgnc:17028\"}], \"association\": \"Bi-allelic variants; the mild NEDOA phenotype is associated specifically with the hypomorphic allele c.304G\u003eA (p.Val102Ile)\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"Stability-Independent Impairment by the p.Val102Ile Hypomorph\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"This node exists because the mechanism that produces NEDOA is not the mechanism that produces the severe allelic encephalopathy. Every mildly affected individual carries c.304G\u003eA (p.Val102Ile) in trans to a more damaging allele, and in fibroblasts from two of them the ESCRT-II subunits were not significantly depleted. The authors\u0027 reading is that this allele impairs ESCRT-II function by a route independent of protein stability - a partially functional complex is assembled in normal amounts but works less well - rather than by removing the complex. That is what sets the severity floor for this entity: enough residual ESCRT-II activity to permit survival into adulthood and mild rather than absent development, but not enough to protect the anterior visual pathway. The distinction also predicts that a proteomic assay of ESCRT-II subunit abundance, which is informative for the severe pole, will look near-normal in NEDOA and cannot be used to confirm this diagnosis.\", \"meta\": {\"genes\": [\"SNF8\"], \"gene_terms\": [{\"label\": \"SNF8\", \"id\": \"hgnc:17028\"}], \"mechanism_confidence\": \"PROVISIONAL\"}}], \"edges\": [{\"source\": \"Bi-allelic Hypomorphic SNF8 Variants\", \"target\": \"Loss of the ESCRT-II Complex\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe-pole genotypes, which lack p.Val102Ile, destabilise SNF8 protein and with it the assembled ESCRT-II heterotetramer. This is the abundance-dependent arm of the allelic split.\"}, {\"source\": \"Bi-allelic Hypomorphic SNF8 Variants\", \"target\": \"Stability-Independent Impairment by the p.Val102Ile Hypomorph\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The parallel, allele-specific arm. In individuals carrying the mild-pole hypomorph c.304G\u003eA (p.Val102Ile), ESCRT-II function is impaired without a measurable fall in complex abundance, so this branch is a direct consequence of the variant rather than of complex loss.\"}, {\"source\": \"Loss of the ESCRT-II Complex\", \"target\": \"Failure of ESCRT-III Nucleation and Multivesicular Body Biogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Without ESCRT-II on the endosomal membrane, the downstream ESCRT-III polymer is not nucleated.\"}, {\"source\": \"Stability-Independent Impairment by the p.Val102Ile Hypomorph\", \"target\": \"Failure of ESCRT-III Nucleation and Multivesicular Body Biogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced, rather than absent, ESCRT-II activity yields a partial and cargo-selective block of the downstream sorting step.\"}, {\"source\": \"Failure of ESCRT-III Nucleation and Multivesicular Body Biogenesis\", \"target\": \"Impaired Autophagic Flux\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Blocked endosomal maturation prevents autophagosome-lysosome progression.\"}, {\"source\": \"Impaired Autophagic Flux\", \"target\": \"Optic Nerve and Forebrain Developmental Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurons and retinal ganglion cells, being long-lived and dependent on autophagic turnover, are the cells that fail.\"}, {\"source\": \"SNF8\", \"target\": \"Bi-allelic Hypomorphic SNF8 Variants\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SNF8\", \"target\": \"Loss of the ESCRT-II Complex\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"SNF8\", \"target\": \"Stability-Independent Impairment by the p.Val102Ile Hypomorph\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6802,6 +6859,9 @@ This disease-associated gene is SNF8 (hgnc:17028). hgnc:17028 is a gene from the
 
 
                 </div>
+
+
+
 
 
 
