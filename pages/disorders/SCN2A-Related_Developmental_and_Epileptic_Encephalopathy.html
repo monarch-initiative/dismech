@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3756,6 +3821,18 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -4050,6 +4127,125 @@
         <!-- Classifications -->
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
+                <h2 class="card-title">Classifications</h2>
+            </div>
+
+
+
+
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification">NEUROLOGIC</span>
+
+
+                    <span class="tag tag-classification" title="Unlike the polygenic idiopathic generalized epilepsies, SCN2A-DEE is a single-gene, autosomal dominant (usually de novo) disorder, so a genetic Part is a substantive rather than nominal assignment here.">GENETICS ENVIRONMENT DISEASE</span>
+
+                </div>
+
+            </div>
+
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">Channelopathy</div>
+
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-mechanistic">neurological channelopathy</span>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+
         <!-- Mappings -->
 
         <div class="card" id="mappings">
@@ -4170,6 +4366,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4194,6 +4391,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4215,6 +4413,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4342,6 +4541,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4363,6 +4563,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4472,6 +4673,7 @@
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4496,6 +4698,7 @@
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4517,6 +4720,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4719,6 +4923,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4887,6 +5092,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4908,6 +5114,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5079,6 +5286,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5100,6 +5308,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5137,6 +5346,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-scn2a-variant-nav1-2-dysfunction" data-dismech-node="SCN2A Variant (Nav1.2 Dysfunction)" data-dismech-type="pathophysiology">
                 <div class="item-name">SCN2A Variant (Nav1.2 Dysfunction)</div>
+
 
                 <div class="item-desc">A pathogenic variant in SCN2A alters the function of the voltage-gated sodium channel Nav1.2. This node captures the single concept of the initiating channel lesion, whose functional direction (gain versus loss of function) sets the clinical arm.</div>
 
@@ -5279,6 +5489,7 @@ This pathophysiological event involves SCN2A (hgnc:10588). hgnc:10588 is a gene 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5300,6 +5511,7 @@ This pathophysiological event involves SCN2A (hgnc:10588). hgnc:10588 is a gene 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5325,6 +5537,7 @@ This pathophysiological event involves SCN2A (hgnc:10588). hgnc:10588 is a gene 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-nav1-2-sodium-current-gain-of-function" data-dismech-node="Increased Nav1.2 Sodium Current (Gain of Function)" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased Nav1.2 Sodium Current (Gain of Function)</div>
+
 
                 <div class="item-desc">Gain-of-function variants increase the Nav1.2 sodium current (through enhanced activation, impaired inactivation, or increased persistent current), directly raising neuronal excitability. This node captures the single concept of the gain-of-function channel state and conforms to the shared epilepsy final common pathway.</div>
 
@@ -5472,6 +5685,7 @@ This pathophysiological event involves increased Sodium ion transmembrane transp
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5494,6 +5708,7 @@ This pathophysiological event involves increased Sodium ion transmembrane transp
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-decreased-nav1-2-sodium-current-loss-of-function" data-dismech-node="Decreased Nav1.2 Sodium Current (Loss of Function)" data-dismech-type="pathophysiology">
                 <div class="item-name">Decreased Nav1.2 Sodium Current (Loss of Function)</div>
+
 
                 <div class="item-desc">Loss-of-function variants reduce the Nav1.2 sodium current, impairing action potential initiation and propagation especially in excitatory pyramidal neurons during early development. This node captures the single concept of the loss-of-function channel state and conforms to the shared epilepsy final common pathway.</div>
 
@@ -5641,6 +5856,7 @@ This pathophysiological event involves decreased Sodium ion transmembrane transp
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5663,6 +5879,7 @@ This pathophysiological event involves decreased Sodium ion transmembrane transp
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neuronal-hyperexcitability-and-network-dysfunction" data-dismech-node="Neuronal Hyperexcitability and Network Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Neuronal Hyperexcitability and Network Dysfunction</div>
+
 
                 <div class="item-desc">Both arms converge on abnormal cortical network excitability - direct hyperexcitability in the gain-of-function arm, and developmental network dysfunction in the loss-of-function arm. This node captures the single concept of the resulting network dysfunction and conforms to the shared epilepsy final common pathway.</div>
 
@@ -5750,6 +5967,7 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5771,6 +5989,7 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5796,6 +6015,7 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-seizures-and-developmental-encephalopathy" data-dismech-node="Seizures and Developmental Encephalopathy" data-dismech-type="pathophysiology">
                 <div class="item-name">Seizures and Developmental Encephalopathy</div>
+
 
                 <div class="item-desc">The clinical result is seizures (focal, tonic, epileptic spasms, and others, with age and arm-dependent semiology) together with developmental impairment; the loss-of-function arm is more associated with autism and intellectual disability. This node captures the single concept of the seizure/encephalopathy endpoint and conforms to the shared epilepsy final common pathway.</div>
 
@@ -5868,6 +6088,7 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5889,6 +6110,7 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5954,36 +6176,16 @@ This pathophysiological event involves Neuron (CL:0000540). CL:0000540 is a cell
             </div>
 
 
-            <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Nervous System<span class="pill-count">(5)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Other<span class="pill-count">(5)</span></button>
-
-                <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
-            </div>
-
-
-            <details class="phenotype-category-group" id="pheno-cat-1">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Nervous System
-                    <span class="cat-count">5</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-focal-seizures" data-dismech-node="Focal Seizures" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Focal Seizures
-
+            <div class="item-box phenotype-box anchor-target" id="phenotype-focal-seizures" data-dismech-node="Focal Seizures" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Focal Seizures
 
 
 
 
 
                     <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Focal-onset seizure</span>
-
 
 
 
@@ -5995,7 +6197,10 @@ Relation: this clinical feature is this phenotype
 This clinical feature is Focal-onset seizure (HP:0007359). HP:0007359 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -6015,6 +6220,7 @@ This clinical feature is Focal-onset seizure (HP:0007359). HP:0007359 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6042,6 +6248,7 @@ This clinical feature is Focal-onset seizure (HP:0007359). HP:0007359 is a pheno
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6063,19 +6270,17 @@ This clinical feature is Focal-onset seizure (HP:0007359). HP:0007359 is a pheno
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-epileptic-spasms" data-dismech-node="Epileptic Spasms" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Epileptic Spasms
-
+            <div class="item-box phenotype-box anchor-target" id="phenotype-epileptic-spasms" data-dismech-node="Epileptic Spasms" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Epileptic Spasms
 
 
 
 
 
                     <span class="phenotype-id">
-
 
 
 
@@ -6087,7 +6292,10 @@ Relation: this clinical feature is this phenotype
 This clinical feature is Epileptic spasm (HP:0011097). HP:0011097 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -6107,6 +6315,7 @@ This clinical feature is Epileptic spasm (HP:0011097). HP:0011097 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6131,12 +6340,11 @@ This clinical feature is Epileptic spasm (HP:0011097). HP:0011097 is a phenotype
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-global-developmental-delay" data-dismech-node="Global Developmental Delay" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Global Developmental Delay
-
+            <div class="item-box phenotype-box anchor-target" id="phenotype-epileptic-encephalopathy" data-dismech-node="Epileptic Encephalopathy" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Epileptic Encephalopathy
 
 
 
@@ -6146,16 +6354,88 @@ This clinical feature is Epileptic spasm (HP:0011097). HP:0011097 is a phenotype
 
 
 
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0200134" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0200134</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
+This clinical feature is Epileptic encephalopathy (HP:0200134). HP:0200134 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31904126" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31904126" target="_blank">PMID:31904126</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Phenotypes include benign (self-limited) neonatal and infantile epilepsy and more severe developmental and epileptic encephalopathies also presenting in early infancy."</div>
+
+
+                <div class="evidence-explanation">Confirms developmental and epileptic encephalopathy as a core SCN2A phenotype presenting in early infancy.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-global-developmental-delay" data-dismech-node="Global Developmental Delay" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Global Developmental Delay
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001263</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
 This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -6175,6 +6455,7 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6199,12 +6480,11 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-intellectual-disability" data-dismech-node="Intellectual Disability" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Intellectual Disability
-
+            <div class="item-box phenotype-box anchor-target" id="phenotype-intellectual-disability" data-dismech-node="Intellectual Disability" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Intellectual Disability
 
 
 
@@ -6214,16 +6494,18 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001249</a>
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001249</a>
 
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -6243,6 +6525,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6270,6 +6553,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6291,12 +6575,11 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-autistic-behavior" data-dismech-node="Autistic Behavior" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Autistic Behavior
-
+            <div class="item-box phenotype-box anchor-target" id="phenotype-autistic-behavior" data-dismech-node="Autistic Behavior" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Autistic Behavior
 
 
 
@@ -6306,16 +6589,18 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
+    <a href="http://purl.obolibrary.org/obo/HP_0000729" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0000729</a>
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000729" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0000729</a>
 
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -6335,6 +6620,7 @@ This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6362,6 +6648,7 @@ This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenoty
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6383,96 +6670,17 @@ This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenoty
 
 
 
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-2">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">5</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-epileptic-encephalopathy" data-dismech-node="Epileptic Encephalopathy" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Epileptic Encephalopathy
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0200134" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0200134</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Epileptic encephalopathy (HP:0200134). HP:0200134 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:31904126" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31904126" target="_blank">PMID:31904126</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Phenotypes include benign (self-limited) neonatal and infantile epilepsy and more severe developmental and epileptic encephalopathies also presenting in early infancy."</div>
-
-
-                <div class="evidence-explanation">Confirms developmental and epileptic encephalopathy as a core SCN2A phenotype presenting in early infancy.</div>
-
-
-
             </div>
 
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-migrating-focal-seizures" data-dismech-node="Migrating Focal Seizures" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Migrating Focal Seizures
-
+            <div class="item-box phenotype-box anchor-target" id="phenotype-migrating-focal-seizures" data-dismech-node="Migrating Focal Seizures" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Migrating Focal Seizures
 
 
 
 
 
                     <span class="phenotype-id">
-
 
 
 
@@ -6484,7 +6692,10 @@ Relation: this clinical feature is this phenotype
 This clinical feature is Migrating focal seizure (HP:0032786). HP:0032786 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -6504,6 +6715,7 @@ This clinical feature is Migrating focal seizure (HP:0032786). HP:0032786 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6528,19 +6740,17 @@ This clinical feature is Migrating focal seizure (HP:0032786). HP:0032786 is a p
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-continuous-spike-and-waves-during-slow-sleep" data-dismech-node="Continuous Spike and Waves During Slow Sleep" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Continuous Spike and Waves During Slow Sleep
-
+            <div class="item-box phenotype-box anchor-target" id="phenotype-continuous-spike-and-waves-during-slow-sleep" data-dismech-node="Continuous Spike and Waves During Slow Sleep" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Continuous Spike and Waves During Slow Sleep
 
 
 
 
 
                     <span class="phenotype-id">
-
 
 
 
@@ -6552,7 +6762,10 @@ Relation: this clinical feature is this phenotype
 This clinical feature is Continuous spike and waves during slow sleep (HP:0031491). HP:0031491 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -6572,6 +6785,7 @@ This clinical feature is Continuous spike and waves during slow sleep (HP:003149
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6596,19 +6810,17 @@ This clinical feature is Continuous spike and waves during slow sleep (HP:003149
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-generalized-myoclonic-atonic-seizures" data-dismech-node="Generalized Myoclonic-Atonic Seizures" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Generalized Myoclonic-Atonic Seizures
-
+            <div class="item-box phenotype-box anchor-target" id="phenotype-generalized-myoclonic-atonic-seizures" data-dismech-node="Generalized Myoclonic-Atonic Seizures" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Generalized Myoclonic-Atonic Seizures
 
 
 
 
 
                     <span class="phenotype-id">
-
 
 
 
@@ -6620,7 +6832,10 @@ Relation: this clinical feature is this phenotype
 This clinical feature is Generalized myoclonic-atonic seizure (HP:0011170). HP:0011170 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -6640,6 +6855,7 @@ This clinical feature is Generalized myoclonic-atonic seizure (HP:0011170). HP:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6664,19 +6880,17 @@ This clinical feature is Generalized myoclonic-atonic seizure (HP:0011170). HP:0
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-neonatal-seizures" data-dismech-node="Neonatal Seizures" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Neonatal Seizures
-
+            <div class="item-box phenotype-box anchor-target" id="phenotype-neonatal-seizures" data-dismech-node="Neonatal Seizures" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Neonatal Seizures
 
 
 
 
 
                     <span class="phenotype-id">
-
 
 
 
@@ -6688,7 +6902,10 @@ Relation: this clinical feature is this phenotype
 This clinical feature is Neonatal seizure (HP:0032807). HP:0032807 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -6708,6 +6925,7 @@ This clinical feature is Neonatal seizure (HP:0032807). HP:0032807 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6732,34 +6950,8 @@ This clinical feature is Neonatal seizure (HP:0032807). HP:0032807 is a phenotyp
 
 
 
-                </div>
+            </div>
 
-            </details>
-
-            <script>
-            (function() {
-                // TOC pill click: expand target group and scroll to it
-                document.querySelectorAll('.pheno-toc-pill').forEach(function(pill) {
-                    pill.addEventListener('click', function() {
-                        var target = document.getElementById(pill.dataset.target);
-                        if (target) {
-                            target.open = true;
-                            target.scrollIntoView({behavior: 'smooth', block: 'start'});
-                        }
-                    });
-                });
-                // Expand/collapse all toggle
-                var btn = document.getElementById('phenoToggleAll');
-                if (btn) {
-                    btn.addEventListener('click', function() {
-                        var groups = document.querySelectorAll('.phenotype-category-group');
-                        var anyOpen = Array.from(groups).some(function(g) { return g.open; });
-                        groups.forEach(function(g) { g.open = !anyOpen; });
-                        btn.textContent = anyOpen ? 'Expand all' : 'Collapse all';
-                    });
-                }
-            })();
-            </script>
 
         </div>
 
@@ -6808,6 +7000,9 @@ This disease-associated gene is SCN2A (hgnc:10588). hgnc:10588 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6822,6 +7017,7 @@ This disease-associated gene is SCN2A (hgnc:10588). hgnc:10588 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6926,6 +7122,31 @@ This treatment uses phenytoin (CHEBI:8107). CHEBI:8107 is a therapeutic agent fr
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Sodium-channel blockers (e.g., phenytoin, carbamazepine, oxcarbazepine, lacosamide) are often effective in the early-onset gain-of-function group by countering the increased sodium current, but can paradoxically worsen seizures in the later-onset loss-of-function group - making functional variant classification central to treatment.</div>
 
 
@@ -6959,6 +7180,7 @@ This treatment uses phenytoin (CHEBI:8107). CHEBI:8107 is a therapeutic agent fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6980,6 +7202,7 @@ This treatment uses phenytoin (CHEBI:8107). CHEBI:8107 is a therapeutic agent fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7026,6 +7249,7 @@ This treatment uses phenytoin (CHEBI:8107). CHEBI:8107 is a therapeutic agent fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7047,6 +7271,7 @@ This treatment uses phenytoin (CHEBI:8107). CHEBI:8107 is a therapeutic agent fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7110,6 +7335,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Broad-spectrum agents (e.g., levetiracetam, valproate, benzodiazepines) and the ketogenic diet are used, particularly in the later-onset loss-of-function group where sodium-channel blockers are avoided. Evidence for a specific non-sodium-channel-blocker regimen in SCN2A is limited; the rationale is largely the avoidance of sodium-channel blockade in the loss-of-function arm.</div>
 
 
@@ -7134,6 +7373,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7155,6 +7395,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7218,6 +7459,81 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Antisense oligonucleotide</span>
+
+
+        <span class="tag" style="background: #f3e8ff; color: #6b21a8;">RNase H knockdown</span>
+
+
+
+
+    </div>
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">RNA target:</strong>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        SCN2A
+
+
+    <a href="https://bioregistry.io/hgnc:10588" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-23">hgnc:10588</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-23">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this treatment base-pairs with the transcript of this gene
+This treatment base-pairs with the transcript of SCN2A (hgnc:10588). hgnc:10588 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        <span class="tag" style="background: #f3e8ff; color: #6b21a8;">SCN2A mRNA</span>
+
+
+    </div>
+
+
+
+
+
                 <div class="item-desc">Elsunersen (PRAX-222) is an investigational antisense oligonucleotide that lowers SCN2A expression by RNase H-mediated transcript knockdown, designed for the gain-of-function, early-onset arm; it holds FDA Breakthrough Therapy designation and is in clinical trials.</div>
 
 
@@ -7248,6 +7564,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7294,6 +7611,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7315,6 +7633,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7381,7 +7700,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     </span>
 
 
-                    <span class="tag">1–9 per 100,000</span>
+                    <span class="tag">1–9 per 100,000 (births)</span>
 
                 </div>
 
@@ -7403,6 +7722,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7439,7 +7759,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     </span>
 
 
-                    <span class="tag">1–9 per 100,000</span>
+                    <span class="tag">1–9 per 100,000 (births)</span>
 
                 </div>
 
@@ -7464,6 +7784,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7485,6 +7806,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7563,11 +7885,11 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007359" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0007359</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007359" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0007359</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets Focal-onset seizure (HP:0007359). HP:0007359 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7590,6 +7912,7 @@ This clinical trial targets Focal-onset seizure (HP:0007359). HP:0007359 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7671,6 +7994,45 @@ mappings:
     mapping_justification: &gt;-
       MONDO:0013388 is the SCN2A developmental and epileptic encephalopathy
       (DEE11) concept.
+classifications:
+  channelopathy_category:
+    classification_value: neurological channelopathy
+    evidence:
+    - reference: PMID:28379373
+      reference_title: &#34;Genetic and phenotypic heterogeneity suggest therapeutic implications in SCN2A-related disorders.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Mutations in SCN2A, a gene encoding the voltage-gated sodium channel Nav1.2, have been associated with a spectrum of epilepsies and neurodevelopmental disorders.&#34;
+      explanation: &gt;-
+        The disease gene encodes a voltage-gated sodium channel (Nav1.2) whose
+        dysfunction produces a CNS phenotype, placing this disorder in the
+        neurological channelopathy organ-system group.
+  harrisons_chapter:
+  - classification_value: NEUROLOGIC
+    evidence:
+    - reference: PMID:28379373
+      reference_title: &#34;Genetic and phenotypic heterogeneity suggest therapeutic implications in SCN2A-related disorders.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Mutations in SCN2A, a gene encoding the voltage-gated sodium channel Nav1.2, have been associated with a spectrum of epilepsies and neurodevelopmental disorders.&#34;
+      explanation: &gt;-
+        The disorder presents as an epilepsy and neurodevelopmental syndrome,
+        whose clinical home is the neurologic Part.
+  - classification_value: GENETICS_ENVIRONMENT_DISEASE
+    evidence:
+    - reference: PMID:28379373
+      reference_title: &#34;Genetic and phenotypic heterogeneity suggest therapeutic implications in SCN2A-related disorders.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Our clinical and experimental data suggest a correlation between age at disease onset, response to sodium channel blockers and the functional properties of mutations in children with SCN2A-related epilepsy.&#34;
+      explanation: &gt;-
+        This is a monogenic disorder in which the functional consequence of the
+        individual SCN2A variant determines phenotype and drug response, so the
+        Mendelian-genetics Part applies in addition to the neurologic one.
+    notes: &gt;-
+      Unlike the polygenic idiopathic generalized epilepsies, SCN2A-DEE is a
+      single-gene, autosomal dominant (usually de novo) disorder, so a genetic
+      Part is a substantive rather than nominal assignment here.
 inheritance:
 - name: Autosomal dominant (de novo)
   inheritance_term:
@@ -8015,8 +8377,10 @@ pathophysiology:
 phenotypes:
 - name: Focal Seizures
   description: &gt;-
-    Focal-onset seizures are common, particularly in the early-onset
-    gain-of-function group.
+    Focal-onset seizures occur across the SCN2A spectrum. In the early-onset
+    group they present as epilepsy of infancy with migrating focal seizures; in
+    the late-onset group as focal epilepsies with an electrical status
+    epilepticus during slow sleep-like EEG pattern.
   phenotype_term:
     preferred_term: Focal-onset seizure
     term:
@@ -8379,8 +8743,8 @@ treatments:
     for the gain-of-function, early-onset arm; it holds FDA Breakthrough Therapy
     designation and is in clinical trials.
   therapeutic_modality: ANTISENSE_OLIGONUCLEOTIDE
-  aso_details:
-    aso_mechanism: RNASE_H_KNOCKDOWN
+  oligonucleotide_details:
+    oligonucleotide_mechanism: RNASE_H_KNOCKDOWN
     target_gene:
       preferred_term: SCN2A
       term:
@@ -8600,6 +8964,19 @@ discussions:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: SCN2A-Related Developmental and Epileptic Encephalopathy</strong> · 2026-07-18T18:16:01Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/SCN2A-Related_Developmental_and_Epileptic_Encephalopathy/2026-07-18T181601Z-claude-code-e9c059.yaml">View source</a></p>
+                        <p class="research-review-text">De-novo curation of SCN2A-related DEE (DEE11, MONDO:0013388). Granular unbundled pathophysiology modeling the gain-vs-loss-of-function dichotomy via mechanistic_hypotheses (scn2a_gain_of_function_early_onset CANONICAL; scn2a_loss_of_function_later_onset CANONICAL): SCN2A variant -&gt; increased Nav1.2 current (GOF arm) OR decreased Nav1.2 current (LOF arm), causal edges opted into respective hypothesis_groups -&gt; neuronal hyperexcitability/network dysfunction (conforms module) -&gt; seizures + developmental encephalopathy (conforms). Evidence entirely from Wolff 2017 (PMID:28379373): GOF-&gt;early onset (&lt;3mo)-&gt;sodium-channel-blocker responsive; LOF/truncating-&gt;late onset (&gt;=3mo)-&gt;blockers rarely effective and sometimes worsen. Treatments capture the precision caveat (Na-channel blockers help GOF, worsen LOF). Three KNOWLEDGE_GAP discussions: rapid functional variant classification for treatment, direction-specific precision therapy (ASO), and the LOF autism/ID mechanism. Prevalence ~5-8/100,000 (cohort/foundation estimate, notes-only). claude_code deep research NEC-clean (SCN2A/Nav1.2/DEE11); no SCN2A GeneReviews chapter indexed in PubMed. All snippets verified exact; schema + term validation pass.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -9057,7 +9434,7 @@ discussions:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "SCN2A-Related Developmental and Epileptic Encephalopathy", "mondoId": "MONDO:0013388", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "SCN2A-Related_Developmental_and_Epileptic_Encephalopathy", "yamlRevision": "1a2628bc92b3"};
+        const OS_CONFIG = {"diseaseName": "SCN2A-Related Developmental and Epileptic Encephalopathy", "mondoId": "MONDO:0013388", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "SCN2A-Related_Developmental_and_Epileptic_Encephalopathy", "yamlRevision": "74a3c9fb77d2"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

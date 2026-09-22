@@ -20,6 +20,11 @@ Each disorder page includes:
 - Treatment options with NCIT term links
 - All claims backed by PubMed evidence
 
+Related browsers:
+
+- [Curation history dashboard](https://monarch-initiative.github.io/dismech-history/) — explore curation, review, and audit activity by date, agent tool, model, and section.
+- [Monarch NAMs browser](https://monarch-initiative.github.io/monarch-nams/) — explore New Approach Methodologies (NAMs) and research datasets represented in DisMech.
+
 ## How It Works
 
 ### Project Overview Slides
@@ -189,7 +194,9 @@ just upload-cx2-test-all
 and applies a deterministic layout so the uploaded network is immediately viewable in
 NDEx. Add `--dot-layout` if Graphviz and `pydot` are available and you want a Graphviz
 layout instead of the built-in layered layout. The default NDEx upload visibility is
-`PUBLIC`, and the `just` upload targets default the host to `https://test.ndexbio.org`.
+`PRIVATE`, and the `just` upload targets default the host to `https://test.ndexbio.org`.
+Production releases use the protected, manually triggered `Publish NDEx release`
+GitHub Actions workflow described in the operator documentation.
 
 ## Agentic Curation Guide
 

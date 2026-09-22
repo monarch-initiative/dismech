@@ -2,13 +2,14 @@
 provider: falcon
 model: Edison Scientific Literature
 cached: false
-start_time: '2026-08-17T21:03:20.169682'
-end_time: '2026-08-17T21:17:14.671483'
-duration_seconds: 834.5
+start_time: '2026-09-06T14:28:56.148872'
+end_time: '2026-09-06T14:45:21.060075'
+duration_seconds: 984.91
 template_file: templates/disease_pathophysiology_research.md
+template_sha: "1e7ea4ee817acfe1dda5f77fafe6f2e8b5927666"
 template_variables:
   disease_name: Left Ventricular Noncompaction 10
-  mondo_id: ''
+  mondo_id: MONDO:0014163
   category: Genetic
 provider_config:
   timeout: null
@@ -17,16 +18,39 @@ provider_config:
     allowed_domains: []
     temperature: 0.1
     max_embedded_images: 8
-citation_count: 26
+citation_count: 50
 reference_validation:
-  total_references: 9
-  verified: 9
+  total_references: 18
+  verified: 18
   not_found: 0
   unverifiable: 0
   confabulation_rate: 0.0
-  relevance_assessed: 9
-  on_topic: 4
+  relevance_assessed: 18
+  on_topic: 10
   validator_version: 0.2.1
+term_validation:
+  total_terms: 5
+  verified: 5
+  not_found: 0
+  obsolete: 0
+  unverifiable: 0
+  confabulation_rate: 0.0
+  labels_checked: 2
+  labels_matching: 0
+  labels_mismatched: 2
+  mislabelled_terms:
+  - term_id: MONDO:0014163
+    reported_labels:
+    - if available
+    ontology_label: left ventricular noncompaction 10
+  - term_id: HP:0011664
+    reported_labels:
+    - Imaging sign; congenital substrate or later-recognized trait; severity and progression
+      variable
+    ontology_label: Left ventricular noncompaction cardiomyopathy
+  needs_review: true
+  adapter: 'ols:'
+  validator_version: 0.4.5
 artifact_count: 1
 artifact_sources:
   edison_answer_artifacts: 1
@@ -45,7 +69,7 @@ artifacts:
 
 ## Target Disease
 - **Disease Name:** Left Ventricular Noncompaction 10
-- **MONDO ID:**  (if available)
+- **MONDO ID:** MONDO:0014163 (if available)
 - **Category:** Genetic
 
 ## Research Objectives
@@ -130,6 +154,16 @@ For each phenotype, provide:
   > **Search first:** NCBI Taxonomy, ViPR, BV-BRC, MicrobeDB, GIDEON
 
 ### 6. Mechanism / Pathophysiology
+
+**Present this section as an ordered causal chain first, then the detail below.**
+Open with a numbered sequence of mechanistic steps running from the initiating
+lesion (mutation, exposure, infection) to the clinical manifestation, one step per
+line, each naming what it causes next. State the causal verb explicitly ("leads
+to", "results in") and say where a step is inferred rather than demonstrated.
+Where the mechanism branches, show the branch. The categories below are a
+checklist of what to cover within those steps, not the organizing structure —
+a step may draw on several of them, and a category may contribute to several
+steps.
 
 - **Molecular Pathways**: Specific signaling cascades or biochemical pathways involved (Wnt, MAPK, mTOR, PI3K-AKT, etc.)
   > **Search first:** KEGG, Reactome, WikiPathways, PathBank, BioCyc
@@ -506,7 +540,7 @@ Always prioritize recent, authoritative sources and provide specific citations f
 
 ## Target Disease
 - **Disease Name:** Left Ventricular Noncompaction 10
-- **MONDO ID:**  (if available)
+- **MONDO ID:** MONDO:0014163 (if available)
 - **Category:** Genetic
 
 ## Research Objectives
@@ -591,6 +625,16 @@ For each phenotype, provide:
   > **Search first:** NCBI Taxonomy, ViPR, BV-BRC, MicrobeDB, GIDEON
 
 ### 6. Mechanism / Pathophysiology
+
+**Present this section as an ordered causal chain first, then the detail below.**
+Open with a numbered sequence of mechanistic steps running from the initiating
+lesion (mutation, exposure, infection) to the clinical manifestation, one step per
+line, each naming what it causes next. State the causal verb explicitly ("leads
+to", "results in") and say where a step is inferred rather than demonstrated.
+Where the mechanism branches, show the branch. The categories below are a
+checklist of what to cover within those steps, not the organizing structure —
+a step may draw on several of them, and a category may contribute to several
+steps.
 
 - **Molecular Pathways**: Specific signaling cascades or biochemical pathways involved (Wnt, MAPK, mTOR, PI3K-AKT, etc.)
   > **Search first:** KEGG, Reactome, WikiPathways, PathBank, BioCyc
@@ -949,323 +993,435 @@ This report will be used to populate a disease knowledge base entry with:
 - Animal model descriptions with phenotype recapitulation details
 
 
-# Left Ventricular Noncompaction 10 (LVNC10): Disease-Characteristics Research Report
+# Left Ventricular Noncompaction 10: Disease-Characteristics Report
 
 ## Executive summary and scope
 
-**Left ventricular noncompaction 10 (LVNC10)** is the numbered, **MYBPC3-associated** form of left-ventricular noncompaction/hypertrabeculation. Its disease-specific identifier is **MONDO:0014163**; the broader LVNC concept is **MONDO:0018901**. Open Targets maps LVNC10 specifically to **MYBPC3** (myosin-binding protein C3; Ensembl ENSG00000134571) and links the association to primary-literature PMIDs including **20186049** and **27532257**. The historical variant underlying this numbered subtype is **MYBPC3 p.Arg820Trp (R820W)**, although its present ClinVar classification and transcript-specific HGVS expression should be rechecked at the time of clinical interpretation. (OpenTargets Search: left ventricular noncompaction-MYBPC3)
+**Left ventricular noncompaction 10 (LVNC10)** is the numbered, **MYBPC3-related** form of left-ventricular noncompaction/hypertrabeculation. Its key identifiers are **MONDO:0014163** and **OMIM #615396**. The disease-defining gene is **MYBPC3**, encoding cardiac myosin-binding protein C (cMyBP-C); Open Targets maps MONDO:0014163 specifically to MYBPC3 (Ensembl ENSG00000134571). (OpenTargets Search: Left ventricular noncompaction 10)
 
-A crucial curation distinction is that **LVNC10 is a rare genetic disease entry, whereas left-ventricular hypertrabeculation is also a common, sometimes reversible imaging trait**. The 2023 ESC framework treats noncompaction as a dynamic trait found in healthy hearts, other cardiomyopathies, congenital disease, anemia, renal disease, pregnancy, and athletes rather than automatically as a separate cardiomyopathy. Consequently, morphology alone must not be equated with MYBPC3-related LVNC10. (grasso2024thenew2023 pages 1-2, walsh2023thetroublewith pages 1-2)
+The evidence base is unusually heterogeneous. Variant-level evidence specific to LVNC10 comes mainly from small families and severe neonatal cases, whereas most prevalence, diagnostic, prognostic, and treatment data concern **LVNC of any genetic cause**. Those generic data should not be entered as subtype-specific facts without an explicit qualifier. Contemporary ESC thinking also treats left-ventricular hypertrabeculation as a potentially dynamic imaging trait rather than, by itself, a distinct cardiomyopathy. (grasso2024thenew2023 pages 1-2)
 
-The evidence is predominantly aggregated disease-level information from families, referral cohorts, systematic reviews, and registries—not individual-patient EHR data. Subtype-specific epidemiology, penetrance, prognosis, and treatment-response estimates are unavailable; broad-LVNC evidence is identified as such below.
+The following evidence map summarizes the distinction between LVNC10-specific and generic LVNC findings.
 
-| Domain | LVNC10-specific fact | Broad LVNC / contextual evidence | Suggested ontology terms | Key citation(s) |
-|---|---|---|---|---|
-| Identity / identifiers | **Left Ventricular Noncompaction 10 (LVNC10)**; disease-specific MONDO: **0014163**; subtype linked to **MYBPC3** | Broad **left ventricular noncompaction** MONDO: **0018901**; phenotype/trait remains conceptually debated across cardiomyopathies | MONDO:0014163; MONDO:0018901 | (OpenTargets Search: left ventricular noncompaction-MYBPC3, walsh2023thetroublewith pages 1-2) |
-| Synonyms / naming | Numbered subtype name: **Left ventricular noncompaction 10** | LVNC, left ventricular non-compaction, left ventricular hypertrabeculation/noncompaction; recent ESC framing treats LV non-compaction as a **dynamic trait** rather than always a distinct cardiomyopathy | HPO phenotype label suggestion: Left ventricular noncompaction cardiomyopathy | (grasso2024thenew2023 pages 1-2, walsh2023thetroublewith pages 1-2) |
-| Data granularity | Evidence is primarily **aggregated disease-level** and family/cohort literature, not EHR-derived in the retrieved sources | Large cohorts, reviews, and registries dominate current evidence | — | (sedaghathamedani2017clinicalgeneticsand pages 1-2, NCT06024759 chunk 1) |
-| Causal gene | **MYBPC3** (myosin binding protein C3) is the mapped causal gene for LVNC10 | MYBPC3 is one of several recurrent LVNC-associated genes; most validated LVNC genes overlap with HCM/DCM architecture | HGNC gene symbol: MYBPC3; Ensembl: ENSG00000134571 | (OpenTargets Search: left ventricular noncompaction-MYBPC3, mazzarotto2021systematiclargescaleassessment pages 1-2) |
-| Canonical historical variant | Historical human association includes **p.Arg820Trp / R820W** in **MYBPC3** for LVNC10; **current variant classification should be checked in ClinVar before reuse** | MYBPC3 disease can also involve truncating, missense, de novo, deletion, and biallelic combinations with severe phenotypes | HGVS protein suggestion: p.Arg820Trp | (OpenTargets Search: left ventricular noncompaction-MYBPC3, kolokotronis2019biallelicmutationin pages 7-9) |
-| Inheritance | Most consistent expectation for LVNC10 due to MYBPC3 is **autosomal dominant** with **variable expressivity** and **incomplete penetrance**; severe early disease may occur with **biallelic/compound heterozygous** states | Broad LVNC familial transmission is often AD, but X-linked and maternal patterns also occur in other genetic forms | HPO inheritance term suggestion: Autosomal dominant inheritance | (sedaghathamedani2017clinicalgeneticsand pages 1-2, kolokotronis2019biallelicmutationin pages 1-2, kolokotronis2019biallelicmutationin pages 7-9) |
-| Principal phenotypes | MYBPC3-related LVNC10 is expected to feature LV noncompaction/hypertrabeculation and may overlap with HCM/DCM phenotypes | Heart failure, ventricular dysfunction, arrhythmia, thromboembolism, sudden cardiac death risk, and ECG abnormalities are recurrent LVNC manifestations | HPO suggestions: Left ventricular noncompaction cardiomyopathy; Arrhythmia; Ventricular tachycardia; Heart failure; Reduced ejection fraction; Sudden cardiac death | (sedaghathamedani2017clinicalgeneticsand pages 1-2, arbustini2014leftventricularnoncompaction pages 1-2, fitzsimons2024electrophysiologicalphenotypingof pages 1-3) |
-| Age at onset / course | **Variable**; can be childhood or adult-onset in heterozygous disease; **early severe onset** reported with biallelic MYBPC3 states | Pediatric to adult presentation occurs broadly; prognosis is heterogeneous | HPO onset suggestions: Childhood onset; Adult onset; Infantile onset (for severe cases) | (kolokotronis2019biallelicmutationin pages 1-2, fitzsimons2024electrophysiologicalphenotypingof pages 1-3) |
-| Anatomy | Primary structure affected: **left ventricular myocardium**, especially **apical/trabecular endocardial** regions with noncompacted and compacted layers | Broad LVNC definitions emphasize prominent trabeculae, deep recesses, thin compacted layer | UBERON suggestions: left ventricle; ventricular myocardium; endocardium | (arbustini2014leftventricularnoncompaction pages 1-2, mazzarotto2021systematiclargescaleassessment pages 1-2, fitzsimons2024electrophysiologicalphenotypingof pages 1-3) |
-| Cell type | Disease-relevant cell type is primarily **cardiomyocyte** | Arrhythmic manifestations imply conduction-system involvement as secondary physiology | CL suggestion: cardiomyocyte | (kolokotronis2019biallelicmutationin pages 1-2, fitzsimons2024electrophysiologicalphenotypingof pages 8-10) |
-| Mechanism | MYBPC3-associated mechanism is most consistent with **sarcomeric dysfunction / haploinsufficiency / protein instability**; severe biallelic cases showed marked reduction of MYBPC3 protein in tissue | LVNC broadly reflects overlap of sarcomeric cardiomyopathy biology with abnormal trabeculation/compaction; modifier and developmental influences likely | GO suggestions: sarcomere organization; cardiac muscle contraction; regulation of cardiac muscle cell contraction; ventricular cardiac muscle tissue morphogenesis | (kolokotronis2019biallelicmutationin pages 1-2, kolokotronis2019biallelicmutationin pages 7-9, mazzarotto2021systematiclargescaleassessment pages 1-2) |
-| Pathophysiology chain | MYBPC3 variant → altered sarcomeric protein dosage/function → impaired contractile mechanics / myocardial architecture → excessive trabeculation or noncompaction phenotype ± systolic dysfunction/arrhythmia | Broad LVNC may represent either a distinct developmental/noncompaction mechanism or a phenotypic expression of other cardiomyopathies | GO suggestions as above | (kolokotronis2019biallelicmutationin pages 1-2, mazzarotto2021systematiclargescaleassessment pages 1-2, walsh2023thetroublewith pages 1-2) |
-| Diagnostics | No LVNC10-only diagnostic test identified; diagnosis relies on **clinical imaging + cardiogenetics** | Echo and CMR use NC/C ratio-based criteria; overdiagnosis is a major issue, especially when relying on morphology alone | HPO suggestion: Abnormal left ventricular morphology | (grasso2024thenew2023 pages 1-2, mazzarotto2021systematiclargescaleassessment pages 1-2, walsh2023thetroublewith pages 1-2) |
-| Imaging criteria | LVNC10 uses the same imaging framework as LVNC generally | Typical thresholds cited in retrieved sources: NC/C ratio **>2 to 2.3**; CMR may label up to **15%** of healthy individuals by ratio criteria alone | — | (mazzarotto2021systematiclargescaleassessment pages 1-2, walsh2023thetroublewith pages 1-2, mahendran2024emerginghallmarksof pages 6-10) |
-| Genetic testing | Recommended practical approach: cardiomyopathy gene panel including **MYBPC3**; consider exome/genome in unresolved or syndromic/early severe cases | Genetic testing is most useful for diagnosis clarification, family screening, and differential diagnosis rather than proving morphology alone is pathologic | — | (grasso2024thenew2023 pages 1-2, mazzarotto2021systematiclargescaleassessment pages 1-2, NCT06024759 chunk 1) |
-| Differential diagnosis | Distinguish LVNC10 from HCM/DCM with secondary hypertrabeculation, athlete’s heart, pregnancy-related trabeculation, anemia/sickle-cell-associated trabeculation, congenital heart disease, and syndromic cardiomyopathy | ESC 2023 explicitly frames LV non-compaction as a trait that can occur in many settings | — | (grasso2024thenew2023 pages 1-2, walsh2023thetroublewith pages 1-2, NCT02568072 chunk 1) |
-| Prognosis | No LVNC10-specific survival estimate identified | Prognosis in LVNC depends more on ventricular dysfunction, arrhythmia burden, fibrosis/genotype context than trabeculation extent alone; LVNC cohort had more cardiovascular events than age-matched nonischemic DCM in one study | HPO suggestions: Sudden cardiac death; Thromboembolism | (sedaghathamedani2017clinicalgeneticsand pages 1-2, walsh2023thetroublewith pages 1-2, fitzsimons2024electrophysiologicalphenotypingof pages 1-3) |
-| Treatment categories | No LVNC10 genotype-specific approved therapy identified | Treat according to phenotype: guideline-directed heart failure therapy, arrhythmia surveillance/management, anticoagulation when indicated, ICD/CRT in selected patients, transplant in end-stage disease | NCIT suggestions: Heart Failure Therapy; Anticoagulation Therapy; Implantable Cardioverter-Defibrillator; Cardiac Resynchronization Therapy; Heart Transplantation | (kolokotronis2019biallelicmutationin pages 1-2, mahendran2024emerginghallmarksof pages 6-10, NCT06024759 chunk 1) |
-| Prevention / screening | **Cascade family screening** and genetic counseling are relevant for MYBPC3-related disease | Registry studies are actively evaluating mutation status, strain, PVC burden, NSVT, and ICD outcomes in LVNC | — | (NCT06024759 chunk 1, grasso2024thenew2023 pages 1-2) |
-| Real-world implementation | No LVNC10-specific interventional trial identified | Active observational registry: **NCT06024759** (recruiting; target n=500) studying genetics, LV strain, PVC burden, NSVT, ICD predictors; broader nonischemic cardiomyopathy registry **NCT06607471** also includes LVNC | NCT terms may be mapped separately in a trial table | (NCT06024759 chunk 1, NCT06607471 chunk 23) |
-| Evidence gaps | No retrieved LVNC10-specific prevalence/incidence, penetrance estimate, protective variants, environmental triggers, epigenomic signature, single-cell/spatial profile, validated biomarker, or targeted MYBPC3-LVNC therapy | Broad LVNC evidence is heterogeneous and often confounded by phenocopies and imaging overdiagnosis | — | (grasso2024thenew2023 pages 1-2, walsh2023thetroublewith pages 1-2) |
+| Domain | Subtype-specific finding | Generic LVNC context | Evidence type/source/date | Identifiers/ontology suggestions | Confidence/limitations |
+|---|---|---|---|---|---|
+| Nosology | LVNC10 is the **MYBPC3-related** numbered subtype of left ventricular noncompaction. | **Generic LVNC:** Hypertrabeculation with deep intertrabecular recesses and a thin compacted myocardial layer; it may be a cardiomyopathy phenotype or dynamic trait rather than a distinct disease. (OpenTargets Search: Left ventricular noncompaction 10, grasso2024thenew2023 pages 1-2) | Aggregated disease resource; Open Targets, accessed 2026; ESC-guideline commentary, Apr 2024 | MONDO:0014163; OMIM #615396; MYBPC3; HP:0011664 | **High** for disease–gene mapping; nosologic interpretation remains debated. |
+| Inheritance | Heterozygous MYBPC3 disease is generally autosomal dominant with incomplete penetrance and variable expressivity; biallelic truncating variants cause a severe recessive-like neonatal phenotype. (probst2011sarcomeregenemutations pages 8-9, wessels2015compoundheterozygousor pages 1-2) | **Generic LVNC:** Autosomal dominant inheritance predominates, but autosomal recessive, X-linked, and mitochondrial forms occur. (sedaghathamedani2017clinicalgeneticsand pages 1-2, hirono2022leftventricularnoncompaction pages 1-2) | Human family series; Probst et al., Aug 2011; Wessels et al., Oct 2015 | Germline inheritance; MYBPC3 | **Moderate–high**; no LVNC10-specific population penetrance estimate. HCM-derived estimates are not LVNC10-specific. |
+| Key variants | Dutch founder truncating alleles **MYBPC3 c.2373dup, p.(Trp792fs)** and **c.2827C>T, p.(Arg943\*)** occurred as compound-heterozygous or homozygous genotypes. c.2373dup causes aberrant splicing, exon-24 skipping, frameshift, premature termination, and no detectable truncated protein. (wessels2015compoundheterozygousor pages 2-3, wessels2015compoundheterozygousor pages 5-6) | **Generic LVNC:** Many sarcomeric genes overlap with HCM and DCM; interpretation must consider variant class, segregation, phenotype, and population frequency. (mazzarotto2020thegeneticarchitecture pages 1-3, grasso2024thenew2023 pages 1-2) | Human neonatal series and RNA/protein analysis; Wessels et al., Oct 2015; https://doi.org/10.1038/ejhg.2014.211 | MYBPC3; frameshift; nonsense; germline | **High** for reported families; transcript accession and population allele frequencies were not established here. |
+| Severe biallelic phenotype | Four infants presented at approximately 4–7 weeks; three had LVNC, all had septal defects, feeding difficulty or failure to thrive and dyspnea, and all died from cardiac failure before 13 weeks. Among 21 reported biallelic truncating cases, 15 died before age 1 and 13/21 (62%) had structural defects. (wessels2015compoundheterozygousor pages 2-3, wessels2015compoundheterozygousor pages 1-2, wessels2015compoundheterozygousor pages 3-4) | **Generic LVNC:** Pediatric genetic disease may include congenital heart defects and have more severe outcomes than adult sarcomeric disease. | Human case series and literature review; Wessels et al., Oct 2015 | Suggested HPO: HP:0011664; failure to thrive; dyspnea; heart failure; atrial or ventricular septal defect | **High** for this rare biallelic phenotype, but evidence is small and ascertainment-enriched; it is not representative of typical heterozygous LVNC10. |
+| Heterozygous phenotype | MYBPC3 variants can produce LVNC, HCM, mixed LVNC/HCM, or clinically silent carriage within families; MYBPC3 accounted for 8% of variants in one 63-proband isolated-LVNC series. (probst2011sarcomeregenemutations pages 8-9) | **Generic LVNC:** Presentation ranges from incidental imaging findings to systolic dysfunction, heart failure, arrhythmia, thromboembolism, transplantation, and sudden death. (hirono2022leftventricularnoncompaction pages 1-2, wang2017awideand pages 1-2) | Human cohort and family evidence; Probst et al., Aug 2011; Wang et al., Sep 2017 | Suggested HPO: HP:0011664; cardiomyopathy; arrhythmia; reduced LVEF | **Moderate**; small numbers preclude reliable MYBPC3 variant-specific frequency or severity estimates. |
+| Diagnosis | No imaging criterion is specific for MYBPC3-related LVNC10; diagnosis requires pathogenic or likely pathogenic MYBPC3 evidence, a compatible cardiac phenotype, and segregation assessment. | **Generic LVNC:** Echo thresholds include Chin X/Y ≤0.5 and Jenni noncompacted-to-compacted ratio >2 in systole; CMR thresholds include Petersen ratio ≥2.3 in diastole and Jacquier trabeculated mass >20%. Physiologic hypertrabeculation can occur in athletes and pregnancy. (martineztittonel2025leftventricularnoncompaction pages 5-7, mazzarotto2020thegeneticarchitecture pages 1-3) | Imaging literature and reviews; criteria synthesized through 2025; ESC framing, 2023–2024 | HP:0011664; CMR; echocardiography | **Moderate**; criteria have imperfect concordance and may overdiagnose disease. Morphology alone does not establish LVNC10. |
+| Epidemiology | No reliable prevalence or incidence estimate exists for genetically confirmed LVNC10. | **Generic adult LVNC:** A 2024 meta-analysis estimated prevalence at 0.5% and CMR detection at 1.3%. Published prevalence ranged from 0.014% to 14.79%, reflecting criteria and ascertainment heterogeneity. (llerenavelastegui2024prevalenceclinicalmanifestations pages 1-2) | Systematic review and meta-analysis; Llerena-Velastegui et al., Oct 2024; https://doi.org/10.14740/cr1673 | MONDO:0014163 for subtype; MONDO:0018901 for generic LVNC | **Low** for extrapolation to LVNC10; generic imaging prevalence must not be assigned to the genetic subtype. |
+| Prognosis | MYBPC3 was identified as a genetic predictor of major adverse cardiac events in a genotype–phenotype review; biallelic truncation predicts an exceptionally poor neonatal course. (wessels2015compoundheterozygousor pages 1-2, wang2017awideand pages 1-2) | **Generic LVNC:** Among 2,501 patients, event rates per 100 person-years were cardiovascular mortality 1.92, all-cause mortality 2.16, stroke or systemic embolism 1.54, HF admission 3.53, transplantation 1.24, ventricular arrhythmia 2.17, and device implantation 2.66. LVEF—not trabeculation extent—was the major outcome determinant. (aung2020prognosticsignificanceof pages 1-2) | Human systematic review and meta-analysis; Aung et al., Jan 2020; https://doi.org/10.1161/CIRCIMAGING.119.009712 | Suggested HPO: reduced LVEF; ventricular arrhythmia; thromboembolism; sudden cardiac death | **High** for generic LVNC outcomes; **low–moderate** for subtype-specific extrapolation. |
+| Thromboembolism | No MYBPC3-specific thromboembolic rate is established. | **Generic LVNC:** TE prevalence was 2.6% in children and 6.2% in adults; annual incidence was 1.4% and 2.9%, respectively. Pediatric LVEF <40% was associated with TE, OR 9.47 and 95% CI 1.35–188.23. (hirono2022thromboemboliceventsin pages 1-2) | Systematic review and meta-analysis; Hirono et al., May 2022; https://doi.org/10.1136/openhrt-2021-001908 | Suggested HPO: thromboembolism; stroke; reduced LVEF | **Moderate** because heterogeneity was high; anticoagulation cannot be based on trabeculation alone. |
+| Molecular mechanism | Truncating MYBPC3 alleles support loss of function and haploinsufficiency. In one compound-heterozygous LVNC case, myocardial MYBPC3 transcript fell approximately 50% and protein approximately 80%, with myocyte misalignment, vacuolization, hyperplasia, and major fibrosis. (kolokotronis2019biallelicmutationin pages 7-9, wessels2015compoundheterozygousor pages 5-6) | **Generic LVNC inference:** Sarcomeric dysfunction may impair force regulation and drive hypertrophic or dilated remodeling; how it specifically generates hypertrabeculation is unproven. | Human cardiac-tissue and molecular assays; Kolokotronis et al., Aug 2019; Wessels et al., Oct 2015 | Suggested GO: sarcomere organization; cardiac muscle contraction; actin–myosin interaction; suggested CL: cardiomyocyte | **Moderate** for sarcomeric loss of function; **low** for a direct causal bridge to noncompaction morphology. |
+| 2024 cellular research | MYBPC3 c.1377delC iPSC-cardiomyocytes showed sarcomere disruption, damaged mitochondria, abnormal calcium signals, increased respiration, and upregulated electron-transport genes. MYBPC3 p.Asp389Val organoids showed hypercontractility, faster calcium cycling, oxidative stress, and reduced mitochondrial membrane potential; mavacamten rescued hypercontractility. (desai2024mybpc3d389vvariant pages 1-2, mori2024metabolicremodelingand pages 1-2) | **Generic context:** These are HCM or dilated-phase HCM models, not validated LVNC models. | Human iPSC-CM and organoid experiments; Mori et al., Jul 2024, https://doi.org/10.1038/s41598-024-62530-0; Desai et al., Nov 2024, https://doi.org/10.3390/cells13221913 | Suggested GO: calcium-ion homeostasis; mitochondrial electron transport; oxidative stress; cardiac muscle contraction; CL: cardiomyocyte, endothelial cell, fibroblast, macrophage | **Moderate** for MYBPC3 cellular mechanisms; **low** for direct application to LVNC10 morphology or treatment. |
+| Animal models | Zebrafish mybpc3 knockout or knockdown produces ventricular hypertrophy, cardiomyocyte hyperplasia, diastolic dysfunction, altered calcium reuptake, arrhythmogenic alternans, reduced endurance, and downregulated actin-filament processes. (da’as2022transcriptomeprofileidentifies pages 11-13, chen2013inactivationofmyosin pages 1-2) | **Generic context:** These models reproduce HCM and heart-failure traits, **not demonstrated LV noncompaction**. | Stable-knockout and morpholino zebrafish; Chen et al., Sep 2013, https://doi.org/10.1161/JAHA.113.000231; Da’as et al., Aug 2022, https://doi.org/10.3390/ijms23168840 | NCBI Taxon 7955; mybpc3 ortholog; suggested GO: actin cytoskeleton organization, calcium-ion transport, cardiac muscle contraction | **Moderate** for conserved sarcomeric and electrophysiologic dysfunction; species anatomy and absent LVNC morphology limit translation. |
+| Management | No approved LVNC10-specific pharmacotherapy, gene therapy, RNA therapy, or genotype-guided drug regimen exists. Management follows the expressed phenotype: guideline-directed HF therapy, arrhythmia treatment, ICD under standard risk indications, selective anticoagulation, and transplantation or mechanical support for end-stage disease. | **Generic LVNC:** Reduced LVEF, NYHA class III/IV, ventricular tachycardia, fibrosis or LGE, and clinical arrhythmia are more actionable than trabeculation burden. (llerenavelastegui2024prevalenceclinicalmanifestations pages 1-2, aung2020prognosticsignificanceof pages 1-2) | Cardiomyopathy and HF guideline extrapolation plus LVNC outcome evidence; ESC framework, 2023–2024 | Suggested NCIT: echocardiography; cardiac MRI; genetic testing; anticoagulant therapy; implantable cardioverter-defibrillator; heart transplantation | **Moderate**; no randomized LVNC10 treatment trials. Mavacamten organoid rescue is not clinical evidence for LVNC10. |
+| Screening and prevention | Offer genetic counseling and MYBPC3 testing with copy-number analysis to an affected proband; when a pathogenic or likely pathogenic variant is found, use cascade testing plus ECG and echocardiographic surveillance of first-degree relatives. In severe neonatal disease, test both parents and assess biallelic recurrence risk. | **Generic LVNC:** Avoid diagnosing disease solely from trabeculation; deep phenotyping and multidisciplinary variant interpretation are recommended. (wessels2015compoundheterozygousor pages 3-4, grasso2024thenew2023 pages 1-2) | Human segregation evidence and ESC cardiomyopathy-genetics framework, 2015–2024 | MYBPC3; germline testing; cascade screening; prenatal or preimplantation testing when familial variants are established | **Moderate–high**; surveillance intervals should be individualized. No primary prevention or protective allele is established. |
+| Current research | No interventional trial specific to MYBPC3-related LVNC10 was identified. | **Generic LVNC:** **NCT06024759** is a recruiting, case-only registry of 500 adults followed for 10 years to assess genetic variants, myocardial strain, LV dysfunction, arrhythmia markers, and predictors of ICD implantation; it started Sep 1, 2023, with estimated completion in Aug 2033. (NCT06024759 chunk 1, NCT06024759 chunk 2) | ClinicalTrials.gov observational registry; first posted Sep 6, 2023; status verified Oct 2023 | NCT06024759; adult LVNC registry | **High** for retrieved registry design and status; not subtype-specific, randomized, or therapeutic. |
 
 
-*Table: This table summarizes subtype-specific facts for Left Ventricular Noncompaction 10 alongside broader LVNC context needed for interpretation. It is designed as a compact curation aid for identifiers, mechanisms, phenotypes, diagnostics, treatment categories, and major evidence gaps.*
+*Table: Compact evidence map separating MYBPC3-specific LVNC10 findings from broader LVNC data. It highlights variant-level evidence, diagnostic uncertainty, outcomes, mechanisms, models, management, and current registry research.*
+
+---
 
 ## 1. Disease information
 
 ### Definition
 
-LVNC is morphologically characterized by prominent LV trabeculae, deep intertrabecular recesses communicating with the ventricular cavity, and a relatively thin compacted myocardial layer. A modern formulation requires excessive trabeculation **plus clinically meaningful myocardial disease**, such as ventricular dysfunction, fibrosis, arrhythmia, or a pathogenic genotype, rather than an imaging ratio alone. (arbustini2014leftventricularnoncompaction pages 1-2, mazzarotto2021systematiclargescaleassessment pages 1-2, walsh2023thetroublewith pages 1-2)
+LVNC morphology consists of prominent ventricular trabeculae, deep intertrabecular recesses communicating with the ventricular cavity, and a relatively thin compacted epicardial layer. In LVNC10, that cardiac phenotype is associated with a pathogenic or likely pathogenic germline variant in **MYBPC3**. The phenotype can occur alone or overlap hypertrophic cardiomyopathy (HCM), dilated cardiomyopathy (DCM), congenital heart defects, and arrhythmia. (probst2011sarcomeregenemutations pages 8-9, hirono2022leftventricularnoncompaction pages 1-2)
 
-**Direct source quotation (Walsh, published 29 November 2023):** “Excessive trabeculation of the cardiac left ventricular wall is a complex phenotypic substrate associated with various physiological and pathological processes.” The same review concludes that uncertainty remains over whether hypertrabeculation causes disease or constitutes a distinct LVNC cardiomyopathy. DOI: https://doi.org/10.1007/s12265-023-10459-6. (walsh2023thetroublewith pages 1-2)
+The modern interpretation is important: the 2023 ESC framework regards noncompaction/hypertrabeculation as a **dynamic trait** that may be genetic and pathological but may also be adaptive, transient, or reversible in pregnancy, athletes, anemia, renal disease, or otherwise healthy hearts. Thus, morphology alone does not establish LVNC10. (grasso2024thenew2023 pages 1-2)
 
 ### Identifiers and synonyms
 
-- **MONDO:** LVNC10, **MONDO:0014163**; broad LVNC, **MONDO:0018901**.
-- **OMIM:** LVNC10 is historically indexed as **OMIM 615396**. The disease number should not be confused with the MYBPC3 gene record.
-- **MeSH:** *Isolated Noncompaction of the Ventricular Myocardium*, **D056830**. (NCT01470014 chunk 1)
-- **ICD-10/ICD-11:** No retrieved evidence established a unique subtype-specific LVNC10 code. In practice it is generally coded under cardiomyopathy/other cardiomyopathy categories, with local coding-system variation.
-- **Synonyms:** left ventricular noncompaction 10; LVNC10; MYBPC3-related left ventricular noncompaction; noncompaction cardiomyopathy due to MYBPC3. Broader terms include LVNC, left ventricular non-compaction cardiomyopathy, isolated ventricular myocardial noncompaction, spongy myocardium, and left ventricular hypertrabeculation.
+- **MONDO:** MONDO:0014163.
+- **OMIM:** #615396.
+- **Causal gene:** MYBPC3; Ensembl ENSG00000134571.
+- **Core phenotype term:** HPO **HP:0011664**, left ventricular noncompaction cardiomyopathy.
+- **Synonyms:** left ventricular noncompaction 10; LVNC10; MYBPC3-related left ventricular noncompaction; MYBPC3-related noncompaction cardiomyopathy; left ventricular hypertrabeculation associated with MYBPC3.
+- **Broader disease:** MONDO:0018901, left ventricular noncompaction. (OpenTargets Search: Left ventricular noncompaction 10)
+- **ICD/MeSH:** No ICD-10 or ICD-11 code uniquely identifies the MYBPC3 subtype. It is ordinarily represented under cardiomyopathy or other specified cardiomyopathy, with genetic findings recorded separately. A uniquely subtype-specific MeSH descriptor was not established in the retrieved evidence.
 
-## 2. Etiology, risk, protective factors, and gene–environment interaction
+The report is based on **aggregated disease resources, published families, cohorts, meta-analyses, experimental models, and a clinical-trial registry**, not individual EHR data.
 
-### Causal factor
+---
 
-LVNC10 is a **germline genetic sarcomeric cardiomyopathy** caused by disease-associated variation in **MYBPC3**, which encodes cardiac myosin-binding protein C. Open Targets reports five supporting association items and an LVNC10–MYBPC3 score of approximately 0.797. (OpenTargets Search: left ventricular noncompaction-MYBPC3)
+## 2. Etiology
 
-The historic p.Arg820Trp association is important for disease nomenclature, but MYBPC3 produces a broad allelic spectrum: missense, truncating, splice-altering, whole-gene deletion, and compound-heterozygous states can yield HCM, DCM, LVNC, or overlapping phenotypes. Therefore, **MYBPC3 genotype does not uniquely predict LVNC morphology**. Large-scale analysis of 840 LVNC cases and 125,748 gnomAD controls found extensive genetic overlap between LVNC, HCM, and DCM. (mazzarotto2021systematiclargescaleassessment pages 1-2)
+### Causal factors and genetic risk
 
-### Genetic risk and modifiers
+The established causal factor is a **germline MYBPC3 variant** that disrupts cMyBP-C abundance or function. Heterozygous variants usually behave in an autosomal-dominant manner with incomplete, age-dependent penetrance and variable expressivity. Biallelic truncating variants produce a much more severe, effectively recessive neonatal phenotype. (probst2011sarcomeregenemutations pages 8-9, wessels2015compoundheterozygousor pages 2-3, wessels2015compoundheterozygousor pages 1-2)
 
-- Most clinically recognized MYBPC3 cardiomyopathy is autosomal dominant, with incomplete, often age-dependent penetrance and variable expressivity.
-- A second pathogenic allele can markedly increase severity. In a human cardiac-tissue study, a de novo **p.Ser858Arg** allele in trans with deletion of the entire MYBPC3 gene caused severe early cardiomyopathy with LVNC, approximately **80% lower protein** and approximately **50% lower transcript** than controls. (kolokotronis2019biallelicmutationin pages 1-2, kolokotronis2019biallelicmutationin pages 7-9)
-- Broad LVNC polygenic architecture may modify morphology. A UK Biobank GWAS of **18,096 participants** identified 16 loci, including TTN, TNNT2, PLN, MTSS1, and GOSR2; segmental SNP heritability was estimated at **20–25%**. MIB1 loss-of-function variants have also been proposed as modifiers in patients carrying TTN truncating variants. These observations are not specific to LVNC10. (walsh2023thetroublewith pages 11-13)
+In 63 unrelated adults with isolated LVNC, 18 heterozygous sarcomeric variants were found in 29%; MYBPC3 accounted for approximately 8%. Mutation-positive and mutation-negative patients could not be reliably distinguished clinically. This supports genetic heterogeneity and weak phenotype prediction from the gene alone. (probst2011sarcomeregenemutations pages 8-9)
 
-### Environmental and lifestyle factors
+In a broader 102-patient LVNC cohort, 43 pathogenic variants in 16 genes were found in 39 patients (38%); 63% were sarcomeric and 12% channelopathy-associated. Pathogenic-variant carriers had earlier onset and lower LVEF, and pathogenic variants independently predicted adverse events. These figures are **generic LVNC data**, not MYBPC3-specific penetrance estimates. (wang2017awideand pages 1-2)
 
-No toxin, infection, diet, smoking pattern, alcohol exposure, occupation, or medication has been shown to cause LVNC10. Likewise, no validated genetic or environmental protective factor has been identified.
+### Environmental, lifestyle, and gene–environment factors
 
-Hemodynamic loading can, however, **induce or amplify the hypertrabeculation phenotype** and thereby confound diagnosis. Increased trabeculation has been documented with athletic training, pregnancy, and chronic anemia. In cited observational data, athletes had more hypertrabeculation than controls (**18.3% versus 7.0%**), and 8.1% met conventional echocardiographic LVNC criteria. During pregnancy, 25.4% developed increased trabeculation and 7.8% met Chin and Jenni criteria; prevalence was higher in Black than White women (**46% versus 13%, p=0.0003**). These are physiologic remodeling data, not evidence that exercise or pregnancy causes inherited LVNC10. (NCT02568072 chunk 1, NCT02568072 chunk 2)
+No toxin, infection, diet, smoking exposure, occupational factor, or lifestyle behavior has been shown to cause genetically defined LVNC10. Hemodynamic load can modify trabeculation and may expose or amplify an underlying cardiomyopathy phenotype, but a MYBPC3-specific gene–environment interaction has not been demonstrated. Pregnancy and intensive athletic training can increase trabeculation in people without genetic cardiomyopathy, creating an important diagnostic confounder rather than a proven cause of LVNC10. (mazzarotto2020thegeneticarchitecture pages 1-3, grasso2024thenew2023 pages 1-2)
 
-**Interpretive gene–environment model:** an MYBPC3 variant may create a susceptible sarcomeric substrate, while developmental, polygenic, and loading conditions alter penetrance or the degree of trabeculation. Direct LVNC10-specific interaction studies are absent.
+### Protective factors
+
+No validated protective MYBPC3 allele, diet, drug, or environmental exposure is known to prevent LVNC10. Standard cardiovascular health measures are reasonable but have not been shown to prevent expression of this monogenic disorder.
+
+---
 
 ## 3. Phenotypes
 
+### Core and associated phenotypes
+
 | Phenotype | Type and characteristics | Suggested HPO term |
 |---|---|---|
-| LV noncompaction/hypertrabeculation | Imaging/structural sign; usually apical and mid-ventricular; severity variable | **HP:0011664**, Left ventricular noncompaction cardiomyopathy |
-| Cardiomyopathy overlap | HCM, DCM, or mixed morphology; congenital through adult onset | Hypertrophic cardiomyopathy; Dilated cardiomyopathy |
-| LV systolic dysfunction | Clinical/imaging sign; may be absent, progressive, or severe | Reduced left ventricular ejection fraction |
-| Heart failure | Dyspnea, fatigue, exercise intolerance, edema, growth compromise in children; variable progression | Heart failure; Exercise intolerance; Dyspnea |
-| Arrhythmia/conduction disease | PVCs, VT/VF, bradycardia, AV block, WPW; episodic and potentially fatal | Arrhythmia; Ventricular tachycardia; Wolff–Parkinson–White syndrome; Atrioventricular block |
-| Thromboembolism | Stroke/systemic embolism, particularly with LV dysfunction, atrial fibrillation, or intracardiac thrombus | Thromboembolism; Stroke |
-| Sudden cardiac death | Uncommon but major severe outcome, associated with malignant arrhythmia and dysfunction | Sudden cardiac death |
+| Left-ventricular noncompaction/hypertrabeculation | Imaging sign; congenital substrate or later-recognized trait; severity and progression variable | HP:0011664 |
+| Cardiomyopathy, often mixed LVNC/HCM or LVNC/DCM | Structural/functional sign; may be asymptomatic or progressive | Use the applicable HCM/DCM HPO term plus HP:0011664 |
+| Reduced LVEF/systolic dysfunction | Imaging/functional abnormality; major adverse-outcome determinant | Decreased left-ventricular ejection fraction |
+| Heart failure | Symptom complex/sign; exertional dyspnea, edema, feeding difficulty in infants, fatigue | Congestive heart failure; dyspnea; exercise intolerance |
+| Ventricular or atrial arrhythmia | Electrophysiologic sign; may be episodic and life-threatening | Ventricular arrhythmia; atrial fibrillation |
+| Thromboembolism/stroke | Complication, especially with impaired systolic function or atrial fibrillation | Thromboembolism; ischemic stroke |
+| Failure to thrive/feeding difficulty | Predominantly severe neonatal biallelic disease | Failure to thrive; feeding difficulties |
+| ASD/VSD/PFO | Congenital structural findings enriched in severe biallelic cases | Atrial septal defect; ventricular septal defect; patent foramen ovale |
+| Sudden cardiac death | Severe outcome related to malignant arrhythmia or advanced cardiomyopathy | Sudden cardiac death |
 
-The 2024 pediatric systematic review searched 4,531 records and analyzed **57 cases** from prenatal life through age 18. It reported frequent conduction abnormalities, including Mobitz II and WPW; 9% displayed WPW, and 46% of mapped arrhythmias originated near the apex. Diagnostic methods were inconsistent in 66% of cases. These percentages reflect a selected case literature and should not be treated as population frequencies. DOI: https://doi.org/10.14814/phy2.16029. (fitzsimons2024electrophysiologicalphenotypingof pages 7-8, fitzsimons2024electrophysiologicalphenotypingof pages 1-3)
+### Severe biallelic phenotype
 
-**Direct abstract quotation (accepted 12 April 2024):** the review found “abnormal left ventricular, atrioventricular node, and interventricular septal patterns, and specifically a high incidence of Mobitz type II and Wolff–Parkinson–White waveforms.” (fitzsimons2024electrophysiologicalphenotypingof pages 1-3)
+Wessels et al. reported four unrelated infants with biallelic truncating MYBPC3 variants. All had feeding difficulty, failure to thrive, and dyspnea; three had clear LVNC, all had a septal defect or patent foramen ovale, and all died from cardiac failure before 13 weeks. In the authors’ review of 21 biallelic truncating cases, all had severe cardiomyopathy, 15 died before age one, and 13/21 (62%) had a structural defect. (wessels2015compoundheterozygousor pages 2-3, wessels2015compoundheterozygousor pages 1-2, wessels2015compoundheterozygousor pages 3-4)
 
-Quality of life is impaired principally by heart-failure symptoms, exercise restriction, recurrent surveillance, arrhythmia anxiety, ICD shocks, embolic events, and hospitalization. No LVNC10-specific EQ-5D, SF-36, or PROMIS dataset was identified.
+A representative direct conclusion from the abstract is: **“Compound heterozygous or homozygous truncating MYBPC3 mutations cause lethal cardiomyopathy with features of noncompaction and septal defects.”** The study was published in *European Journal of Human Genetics* in October 2015, DOI: https://doi.org/10.1038/ejhg.2014.211. (wessels2015compoundheterozygousor pages 2-3)
+
+### Heterozygous phenotype and quality of life
+
+Heterozygous MYBPC3 families can include asymptomatic carriers, isolated LVNC, HCM, mixed LVNC/HCM, severe heart failure, and cerebrovascular complications. This indicates incomplete penetrance and marked intrafamilial expressivity. (probst2011sarcomeregenemutations pages 8-9, wessels2015compoundheterozygousor pages 3-4)
+
+No LVNC10-specific EQ-5D, SF-36, or PROMIS study was identified. Functional effects are inferred from heart-failure symptoms, exercise intolerance, arrhythmia, hospital admission, ICD placement, and transplantation. Adult zebrafish models also show reduced swimming endurance, but this is experimental rather than a human quality-of-life measure. (da’as2022transcriptomeprofileidentifies pages 11-13)
+
+---
 
 ## 4. Genetic and molecular information
 
-### Gene and variants
+### Causal gene
 
-- **Gene:** MYBPC3; approved name *myosin binding protein C3*; Ensembl **ENSG00000134571**. (OpenTargets Search: left ventricular noncompaction-MYBPC3)
-- **Origin:** germline; somatic MYBPC3 disease is not established.
-- **Historical LVNC10 allele:** p.Arg820Trp/R820W. PMID **20186049** is among the primary references linked to the MYBPC3–LVNC10 association. (OpenTargets Search: left ventricular noncompaction-MYBPC3)
-- **Variant interpretation:** clinical classification must use transcript-correct HGVS, ClinVar/ClinGen evidence, ancestry-matched frequency, segregation, phenotype, and ACMG/AMP criteria. The old numbered disease assignment alone is insufficient to classify an allele as pathogenic.
-- **Population frequency:** no reliable subtype-specific allele frequency was recovered. A genuinely penetrant severe dominant allele should be rare in gnomAD; exact variant frequencies should be retrieved directly from the current gnomAD release.
+- **Gene:** MYBPC3, myosin-binding protein C3.
+- **Protein:** cardiac myosin-binding protein C, a thick-filament-associated sarcomeric regulator.
+- **Primary cell:** cardiomyocyte.
+- **Subcellular site:** sarcomere/myofibril, particularly the C-zone of the A band.
+- **Variant origin:** germline; no somatic LVNC10 mechanism is established. (OpenTargets Search: Left ventricular noncompaction 10, desai2024mybpc3d389vvariant pages 1-2)
 
-### Functional consequences
+### Documented variants and consequences
 
-MYBPC3 loss-of-function commonly acts through **haploinsufficiency**; missense alleles may impair protein stability, sarcomeric incorporation, or myosin/actin regulation. In the severe biallelic LVNC case, only about **20% of normal MYBPC3 protein** remained in diseased myocardium. Histology showed cardiomyocyte misalignment, cytoplasmic vacuolization, and extensive fibrosis. (kolokotronis2019biallelicmutationin pages 1-2, kolokotronis2019biallelicmutationin pages 7-9)
+The best-defined severe variants are the Dutch founder alleles:
 
-No reproducible LVNC10-specific epigenetic alteration, chromosomal rearrangement, methylation signature, or validated modifier gene has been established. Whole-gene MYBPC3 deletion can contribute to severe biallelic disease, so copy-number analysis is clinically relevant in selected cases. (kolokotronis2019biallelicmutationin pages 7-9)
+1. **MYBPC3 c.2373dup, p.(Trp792fs)** — frameshift. It creates an aberrant splice donor, causes exon-24 skipping and a frameshift after Gln791, introduces premature termination, and yielded no detectable truncated protein, consistent with transcript/protein instability and loss of function.
+2. **MYBPC3 c.2827C>T, p.(Arg943\*)** — nonsense/truncating variant.
+
+Two infants were compound heterozygous for these variants; one was homozygous for c.2373dup and one homozygous for c.2827C>T. Both alleles were recurrent founder variants in the Dutch HCM population. (wessels2015compoundheterozygousor pages 2-3, wessels2015compoundheterozygousor pages 5-6, wessels2015compoundheterozygousor pages 3-4)
+
+A separate severe case carried an entire-gene MYBPC3 deletion in trans with de novo **p.Ser858Arg**. Myocardial MYBPC3 transcript was reduced approximately 50%, protein approximately 80%, and α-actinin approximately 50%; histology showed myocyte misalignment, vacuolization, hyperplasia, and substantial fibrosis. These findings support haploinsufficiency plus instability or dysfunction of the missense product. (kolokotronis2019biallelicmutationin pages 7-9)
+
+### Variant interpretation
+
+Variant classification must follow ACMG/AMP criteria and include:
+
+- exact transcript and HGVS nomenclature;
+- ClinVar/ClinGen assertions and review status;
+- segregation and de novo status;
+- read-depth-based copy-number analysis;
+- predicted nonsense-mediated decay or splice effect;
+- population frequency in gnomAD/TOPMed;
+- functional evidence; and
+- compatibility with the family’s HCM/DCM/LVNC spectrum.
+
+No complete variant-level gnomAD frequencies or current ClinVar review statuses were recoverable from the retrieved papers; these fields should be populated by a live variant-specific database query rather than inferred. A VUS should **not** establish LVNC10 or direct predictive testing.
+
+### Modifiers, epigenetics, and chromosomal abnormalities
+
+No validated modifier gene, protective allele, LVNC10-specific methylation signature, histone alteration, or recurrent chromosomal abnormality is established. Whole-gene deletion is possible and supports inclusion of deletion/duplication analysis. The neighboring-gene extension reported with one deletion did not have an established explanatory human phenotype in the source. (kolokotronis2019biallelicmutationin pages 7-9)
+
+---
 
 ## 5. Environmental information
 
-Environmental exposures are best understood as **phenocopy or expression modifiers**, not primary causes of LVNC10. High preload/afterload in pregnancy, endurance exercise, and chronic anemia can produce reversible or persistent hypertrabeculation. The completed MARATHON study, NCT02568072, prospectively examined 120 healthy first-time marathon runners with echocardiography and CMR; its registry notes that no remodeling was observed from baseline to post-marathon time points. (NCT02568072 chunk 1, NCT02568072 chunk 2)
+No infectious agent, pollutant, radiation exposure, toxin, alcohol exposure, diet, or occupational risk is known to cause LVNC10. Pregnancy, anemia, renal disease, and intensive exercise can cause adaptive hypertrabeculation and therefore affect **phenotypic ascertainment**, but they should not be coded as established causes of MYBPC3 disease. (grasso2024thenew2023 pages 1-2)
 
-No infectious agent, zoonosis, radiation exposure, pollutant, or occupational toxicant is implicated. Ordinary cardiovascular-health measures remain advisable but are not proven to prevent the genetic disease.
+Exercise advice should be individualized according to ventricular function, arrhythmia burden, symptoms, fibrosis, and family history rather than the trabecular appearance alone. Avoidance of smoking and cardiotoxic exposures is prudent general care, not disease-specific prevention.
+
+---
 
 ## 6. Mechanism and pathophysiology
 
-### Causal chain
+### Ordered causal chain
 
-1. **Upstream germline event:** pathogenic MYBPC3 variation alters the quantity, stability, or function of cardiac myosin-binding protein C.
-2. **Sarcomeric defect:** impaired thick-filament regulation and sarcomere organization perturb cardiomyocyte force generation, relaxation, and mechanosensing.
-3. **Developmental/remodeling consequence:** altered myocardial growth and contractile signaling may bias the balance between compact and trabecular layers or cause hypertrabeculation as a secondary cardiomyopathy phenotype.
-4. **Tissue remodeling:** cardiomyocyte disarray, stretch, cell injury, and fibrosis impair systolic/diastolic function.
-5. **Clinical outputs:** heart failure, conduction heterogeneity, re-entry/ventricular arrhythmia, stasis in deep recesses, thromboembolism, and sudden death.
+1. A pathogenic germline **MYBPC3** truncating, splice, deletion, or functionally disruptive missense variant **leads to** reduced abundance or altered regulation of cMyBP-C in cardiomyocyte sarcomeres. (kolokotronis2019biallelicmutationin pages 7-9, wessels2015compoundheterozygousor pages 5-6)
+2. Reduced or dysfunctional cMyBP-C **leads to** abnormal control of actin–myosin interaction, cross-bridge cycling, contractility, and sarcomere organization. (desai2024mybpc3d389vvariant pages 1-2, da’as2022transcriptomeprofileidentifies pages 1-2)
+3. Sarcomeric dysfunction **results in** abnormal calcium handling and altered electrophysiology; zebrafish and human iPSC models demonstrate slowed calcium reuptake or abnormal calcium transients, although these are principally HCM/DCM models rather than LVNC10 models. (mori2024metabolicremodelingand pages 1-2, chen2013inactivationofmyosin pages 1-2)
+4. Contractile and calcium-handling stress **leads to** energetic and mitochondrial remodeling, including oxidative stress, damaged mitochondria, altered membrane potential, increased respiration, and electron-transport gene expression in 2024 cellular models. (desai2024mybpc3d389vvariant pages 1-2, mori2024metabolicremodelingand pages 1-2)
+5. These abnormalities **lead to** cardiomyocyte hypertrophy or hyperplasia, myofibrillar disarray, fibrosis, and ventricular remodeling. Human cardiac tissue demonstrates misaligned cells, vacuolization, hyperplasia, and fibrosis. (kolokotronis2019biallelicmutationin pages 7-9)
+6. **Inferred branch A:** disturbed developmental growth and remodeling may **result in** persistence or exaggeration of trabeculation and a thin compact layer. This direct MYBPC3-to-noncompaction developmental step has **not been conclusively demonstrated**.
+7. **Branch B:** progressive hypertrophic or dilated remodeling **results in** diastolic or systolic dysfunction and clinical heart failure.
+8. **Branch C:** calcium/electrical instability and fibrotic substrate **result in** atrial or ventricular arrhythmia, syncope, ICD requirement, or sudden death.
+9. **Branch D:** low-flow states, ventricular dysfunction, atrial fibrillation, and possibly recess-associated stasis **result in** intracardiac thrombosis and systemic embolism; the recess-stasis mechanism remains plausible but unproven. (hirono2022thromboemboliceventsin pages 1-2)
 
-Human genetic data argue against one universal “failure of embryonic compaction” mechanism. The 840-case study concluded that LVNC has “substantial genetic overlap” with HCM/DCM, although truncating MYH7, ACTN2, and PRDM16 variants and selected RYR2/HCN4 variants define more LVNC- or arrhythmia-specific etiologies. MYH7 truncating variants were **20-fold enriched** in LVNC cases. These findings contextualize, but do not redefine, MYBPC3-associated LVNC10. (mazzarotto2021systematiclargescaleassessment pages 1-2)
+### Pathways, processes, and ontology suggestions
 
-### Suggested ontology annotations
+Suggested GO biological processes include **sarcomere organization**, **cardiac muscle contraction**, **actin filament organization**, **actin–myosin filament sliding**, **calcium-ion homeostasis**, **regulation of membrane potential**, **mitochondrial electron transport**, **response to oxidative stress**, **cardiomyocyte proliferation**, and **cardiac muscle hypertrophy**. Suggested cellular components include **sarcomere**, **myofibril**, **A band**, **actin cytoskeleton**, and **mitochondrion**. Relevant cell types are **cardiomyocyte** (primary), with downstream roles for cardiac fibroblasts, endothelial cells, macrophages, and other immune cells in remodeling. Spatial mapping in a 2024 cardiac-organoid study identified all these populations. (desai2024mybpc3d389vvariant pages 1-2)
 
-- **GO biological process:** sarcomere organization; cardiac muscle contraction; regulation of cardiac muscle contraction; ventricular cardiac muscle tissue morphogenesis; cardiac muscle cell development; response to mechanical stimulus.
-- **GO cellular component:** sarcomere, A band, myosin filament, cardiac myofibril.
-- **Cell Ontology:** cardiomyocyte; ventricular cardiac muscle cell; cardiac conduction cell where electrophysiologic disease is documented.
-- **Downstream processes:** fibrosis, abnormal impulse propagation, and hemodynamic stasis. Immune activation is not an established primary LVNC10 mechanism.
+No LVNC10-specific immune, lipidomic, metabolomic, epigenomic, single-cell, or spatial-transcriptomic signature has been validated. The 2024 organoid and iPSC studies are valuable mechanistic advances but modeled MYBPC3-HCM or dilated-phase HCM, not confirmed noncompaction morphology. (desai2024mybpc3d389vvariant pages 1-2, mori2024metabolicremodelingand pages 1-2)
 
-### Molecular profiling and advanced technology
-
-Subtype-specific transcriptomic, proteomic, metabolomic, lipidomic, single-cell, spatial-transcriptomic, and CRISPR-screen signatures were not identified. The strongest human molecular evidence is diseased cardiac tissue showing reduced MYBPC3 transcript/protein and structural disorganization. Broad-LVNC mitochondrial bioenergetics is an active research area, but it should not be imported as an established LVNC10 mechanism. (kolokotronis2019biallelicmutationin pages 7-9, mahendran2024emerginghallmarksof pages 6-10)
+---
 
 ## 7. Anatomical structures affected
 
 - **Primary organ/system:** heart/cardiovascular system.
-- **Primary site:** LV myocardium, especially apical and mid-inferolateral endocardial regions.
-- **Layers:** thick trabecular/noncompacted endocardial layer over a thinner compact epicardial layer; deep recesses communicate with the LV cavity, not the coronary circulation.
-- **Tissues/cells:** cardiac muscle tissue and ventricular cardiomyocytes; conduction tissue is functionally involved in arrhythmic cases.
-- **Subcellular structures:** sarcomere, thick filament, A band, myofibril.
-- **Secondary organs:** brain and systemic organs may be injured by embolism; lungs, liver, and kidneys may be affected secondarily by advanced heart failure.
-- **Lateralization:** left-sided by definition, although biventricular hypertrabeculation may occur in broader disease.
-- **Suggested UBERON:** heart, left ventricle, myocardium, ventricular myocardium, endocardium.
+- **Primary chamber:** left ventricle; severe cases may have biventricular trabeculation or dysfunction.
+- **Typical sites:** apical and mid-ventricular myocardium, especially the endocardial trabecular layer.
+- **Tissues:** cardiac muscle/myocardium; compacted epicardial and noncompacted endocardial layers.
+- **Cells:** ventricular cardiomyocytes; secondary remodeling involves fibroblasts, vascular/endocardial cells, and immune cells.
+- **Subcellular structures:** sarcomere, thick filament, myofibril, actin–myosin apparatus, calcium-handling system, mitochondria.
+- **Secondary structures:** atrial and ventricular septa in severe biallelic disease; systemic organs may be affected secondarily by heart failure or embolism. (wessels2015compoundheterozygousor pages 2-3, desai2024mybpc3d389vvariant pages 1-2)
+
+Suggested anatomy terms include **UBERON:0000948 heart**, **UBERON:0002084 heart left ventricle**, myocardium, interventricular septum, and interatrial septum. The lesion is not meaningfully unilateral in the ordinary paired-organ sense, although ventricular distribution may be regionally asymmetric.
+
+---
 
 ## 8. Temporal development
 
-Onset ranges from prenatal/infantile to late adulthood. Heterozygous MYBPC3 disease may remain asymptomatic for years because penetrance is incomplete and age dependent. Biallelic disease can present in infancy or childhood with rapidly progressive heart failure and transplantation. (kolokotronis2019biallelicmutationin pages 1-2)
+Heterozygous disease can be congenital in substrate but clinically silent until childhood or adulthood. Recognition may be incidental, insidious, or triggered by dyspnea, arrhythmia, syncope, embolism, or family screening. Penetrance is incomplete and age-dependent; the retrieved evidence does not provide a reliable LVNC10-specific age curve. (probst2011sarcomeregenemutations pages 8-9)
 
-Course categories include:
+Biallelic truncating disease is a critical exception: onset is neonatal or early infantile, with diagnosis in the reported series at approximately 4–7 weeks and death at 7–12 weeks. (wessels2015compoundheterozygousor pages 2-3)
 
-- stable asymptomatic morphology with preserved EF;
-- slowly progressive HCM/DCM phenotype;
-- episodic arrhythmia or embolism;
-- advanced systolic failure requiring ICD/CRT, mechanical support, or transplantation.
+The long-term course ranges from stable imaging morphology with preserved function to progressive HCM/DCM, fibrosis, arrhythmia, end-stage heart failure, mechanical support, transplantation, or sudden death. Apparent hypertrabeculation can regress when it is pregnancy- or load-associated; this should not be interpreted as remission of genetically proven LVNC10. (grasso2024thenew2023 pages 1-2)
 
-Morphologic hypertrabeculation may regress when loading conditions normalize, especially after pregnancy; that reversibility supports an acquired trait rather than inherited LVNC10 in many imaging-positive individuals. In one reviewed pregnancy series, 73% showed complete postpartum resolution. (arbustini2014leftventricularnoncompaction pages 1-2)
+---
 
 ## 9. Inheritance and population
 
 ### Inheritance
 
-The expected LVNC10 pattern is **autosomal dominant**, with variable expressivity and incomplete/age-dependent penetrance. Broad LVNC also includes X-linked, recessive, and mitochondrial disorders; those inheritance modes should not be assigned to LVNC10 without a second diagnosis. (sedaghathamedani2017clinicalgeneticsand pages 1-2)
+- **Typical heterozygous state:** autosomal dominant, incomplete penetrance, variable expressivity.
+- **Biallelic truncating state:** severe autosomal-recessive-like neonatal cardiomyopathy; clinically unaffected heterozygous parents were documented at initial evaluation. (wessels2015compoundheterozygousor pages 3-4)
+- **Anticipation:** not established.
+- **Germline mosaicism:** theoretically possible but not specifically documented in the retrieved LVNC10 evidence.
+- **Consanguinity:** can increase biallelic risk but is not required; founder alleles can produce homozygosity or compound heterozygosity.
+- **Founder effects:** c.2373dup p.(Trp792fs) and c.2827C>T p.(Arg943*) are Dutch founder alleles. (wessels2015compoundheterozygousor pages 2-3)
 
-No validated anticipation, common germline mosaicism rate, LVNC10 founder effect, carrier frequency, consanguinity effect, or sex ratio was identified. The R820W allele is notable in Ragdoll cats but this does not establish a human founder effect.
+For a heterozygous pathogenic variant, each child generally has a 50% transmission probability, but phenotype cannot be predicted reliably. When both parents carry pathogenic MYBPC3 variants, each pregnancy has a 25% probability of inheriting both alleles, 50% of inheriting one, and 25% of inheriting neither, assuming variants are on different parental alleles and ordinary Mendelian segregation.
 
-### Epidemiology
+### Epidemiology and demographics
 
-A trustworthy incidence or prevalence for **genetically confirmed LVNC10** is unavailable. Historical estimates for clinically diagnosed isolated LVNC were **0.05–0.24%**, but imaging criteria substantially inflate apparent prevalence. Eight percent of healthy controls met at least one echocardiographic criterion in one study, while Petersen CMR criteria labeled 25.7% of one low-risk multiethnic cohort. More conservative modern summaries note that up to 15% of apparently healthy people exceed an NC/C threshold on sensitive CMR. (NCT02568072 chunk 1, mazzarotto2021systematiclargescaleassessment pages 1-2, walsh2023thetroublewith pages 1-2)
+No trustworthy prevalence, incidence, sex ratio, carrier frequency, or geographic distribution is available for genetically confirmed LVNC10. Generic adult LVNC meta-analysis estimated a pooled prevalence of 0.5% and CMR detection of 1.3%, but reported prevalence ranged from 0.014% to 14.79% because of imaging and ascertainment heterogeneity. These values must not be assigned directly to MONDO:0014163. (llerenavelastegui2024prevalenceclinicalmanifestations pages 1-2)
 
-Pediatric LVNC has been estimated at approximately **2% of children with known congenital heart disease**, while about 12% of diagnosed LVNC patients in one series had additional congenital heart disease. These broad-LVNC figures are not LVNC10 prevalence estimates. (fitzsimons2024electrophysiologicalphenotypingof pages 1-3)
+A 2020 meta-analysis of 2,501 generic LVNC patients reported a mean age of 46 years and male:female ratio of 1.7. Again, these are not LVNC10-specific demographics. (aung2020prognosticsignificanceof pages 1-2)
+
+---
 
 ## 10. Diagnostics
 
-### Clinical pathway
+### Clinical work-up
 
-1. **History and pedigree:** heart failure, syncope, palpitations, embolism, sudden death, HCM/DCM, and neuromuscular/syndromic disease over at least three generations.
-2. **Examination and baseline testing:** ECG, echocardiography, ambulatory rhythm monitoring, and laboratory evaluation for secondary cardiomyopathy; natriuretic peptides and troponin assess severity but are not specific.
-3. **CMR:** quantify function and morphology and identify late gadolinium enhancement/fibrosis or thrombus.
-4. **Genetics:** counseling followed by a curated cardiomyopathy panel including MYBPC3; test the familial variant in relatives when pathogenic/likely pathogenic.
-5. **Extended testing:** deletion/duplication analysis, WES/WGS, and mitochondrial analysis when panel-negative, syndromic, or severe early-onset disease suggests another cause.
+A reasonable real-world evaluation includes three-generation pedigree, physical examination, 12-lead ECG, ambulatory ECG monitoring, transthoracic echocardiography, and CMR when morphology, ventricular function, or fibrosis remains uncertain. Exercise testing helps assess functional capacity and exercise-induced arrhythmia. BNP/NT-proBNP and troponin may aid heart-failure or injury assessment but are not diagnostic biomarkers for LVNC10.
 
-### Imaging criteria and limitations
+### Imaging criteria
 
-Common echocardiographic criteria include a two-layered myocardium, deep perfused recesses, and an end-systolic NC/C ratio **>2**. CMR commonly uses an end-diastolic NC/C ratio **>2.3** or trabeculated-mass/fractal measures. No criterion is a gold standard, and methods differ by imaging plane and cardiac phase. (mahendran2024emerginghallmarksof pages 6-10, mazzarotto2021systematiclargescaleassessment pages 1-2)
+Commonly used criteria include:
 
-The central diagnostic safeguard is to require concordance among **morphology, ventricular function, tissue characterization, ECG/rhythm findings, family history, and genotype**. The 2023 ESC interpretation explicitly calls LV noncompaction a dynamic trait, while advanced imaging and genetics are essential components of cardiomyopathy workup. DOI: https://doi.org/10.1093/eurheartjsupp/suae002; published April 2024. (grasso2024thenew2023 pages 1-2)
+- **Chin echocardiographic criterion:** X/Y ≤0.5.
+- **Jenni criterion:** noncompacted-to-compacted myocardial ratio >2 at end systole, with perfused recesses.
+- **Petersen CMR criterion:** NC/C ratio ≥2.3 at end diastole.
+- **Jacquier CMR criterion:** trabeculated mass >20% of total LV mass. (martineztittonel2025leftventricularnoncompaction pages 5-7)
+
+These criteria are neither mutually concordant nor genotype-specific. The 2023 ESC position cautions that hypertrabeculation occurs in healthy people, athletes, pregnancy, congenital heart disease, anemia, renal disease, and other cardiomyopathies. Diagnosis should therefore integrate function, fibrosis, arrhythmia, family history, and molecular evidence. (grasso2024thenew2023 pages 1-2)
 
 ### Differential diagnosis
 
-- physiologic trabeculation in athletes or pregnancy;
-- ancestry-associated normal variation;
-- HCM or DCM with secondary hypertrabeculation;
-- athlete’s heart;
-- chronic anemia/sickle-cell remodeling;
-- congenital heart disease;
-- endocardial fibroelastosis, apical HCM, thrombus, or prominent papillary muscles;
-- arrhythmogenic forms due to HCN4 or RYR2;
-- syndromic/metabolic disease, including TAFAZZIN/Barth syndrome, LAMP2/Danon disease, mitochondrial disease, and neuromuscular disorders.
+Important alternatives are physiological athlete’s remodeling, pregnancy-related hypertrabeculation, sickle-cell disease or other chronic anemia, DCM or HCM with secondary trabeculation, apical HCM, endocardial fibroelastosis, arrhythmogenic cardiomyopathy, myocarditis, ischemic disease, congenital heart disease, and imaging artifact. Generic LVNC shares substantial genetic architecture with DCM and HCM. (mazzarotto2020thegeneticarchitecture pages 1-3, aung2020prognosticsignificanceof pages 1-2)
+
+### Genetic testing
+
+1. Use a curated cardiomyopathy panel that includes **MYBPC3** and validated LVNC/HCM/DCM genes.
+2. Include exon-level deletion/duplication analysis; an entire MYBPC3 deletion has been reported. (kolokotronis2019biallelicmutationin pages 7-9)
+3. In neonatal severe HCM/LVNC, actively evaluate **biallelic** MYBPC3 variation, phase the variants in parents, and consider rapid trio exome/genome sequencing.
+4. WES/WGS is useful after a negative panel, in syndromic or congenital-malformation cases, or when structural/noncoding variants are suspected.
+5. CMA is appropriate when multiple congenital anomalies or developmental abnormalities suggest a copy-number disorder. Karyotype/FISH, mitochondrial sequencing, and repeat-expansion testing are not routine unless phenotype directs them.
+6. RNA analysis from an informative tissue can clarify splice variants; functional iPSC work remains research-grade.
+
+Endomyocardial biopsy is not routinely needed solely to diagnose LVNC10; the ESC commentary confines biopsy mainly to selected myocarditis, restrictive, and infiltrative disorders. (grasso2024thenew2023 pages 1-2)
 
 ### Screening
 
-Population or newborn screening is not recommended. First-degree relatives should receive genetic counseling and phenotype screening with ECG and echocardiography; variant-positive relatives require age-appropriate longitudinal surveillance. A negative familial-variant test can usually release a relative from genotype-driven surveillance, provided the familial variant is securely pathogenic and no independent clinical abnormality exists.
+When a pathogenic/likely pathogenic familial MYBPC3 variant is known, offer targeted cascade testing. First-degree relatives should receive genetic counseling and baseline ECG/echocardiography; periodic follow-up is individualized by age, genotype, symptoms, and family history. Genotype-negative relatives for the known familial variant can generally be released from variant-driven surveillance unless clinical findings independently warrant follow-up.
 
-## 11. Outcome and prognosis
+---
 
-No LVNC10-specific five- or ten-year survival estimate exists. In a human LVNC cohort of 95 patients followed for a median **61 months**, LVNC was associated with more cardiovascular events than age-matched nonischemic DCM (**hazard ratio 2.481, p=0.002**); nuclear-envelope/RBM20 genotypes were especially adverse. This is broad-LVNC evidence and may reflect referral severity. (sedaghathamedani2017clinicalgeneticsand pages 1-2)
+## 11. Outcomes and prognosis
 
-Conversely, morphology alone has weak prognostic value. In MESA, excessive trabeculation did not predict deterioration in LV volume or function over **10 years**; in DCM cohorts, NC/C mass or length did not predict event-free survival over median **3.4 years**. Preserved EF and otherwise normal apical architecture were associated with survival comparable to the general population. (walsh2023thetroublewith pages 1-2, fitzsimons2024electrophysiologicalphenotypingof pages 1-3)
+The strongest subtype-specific adverse signal is biallelic truncation: all four Wessels infants died before 13 weeks, and 15/21 literature cases died before one year. (wessels2015compoundheterozygousor pages 1-2)
 
-Important adverse prognostic factors are reduced EF, ventricular dilation, heart-failure symptoms, myocardial fibrosis/LGE, ventricular arrhythmia, syncope, family history of sudden death, intracardiac thrombus/embolism, and high-risk genetic context. Major morbidities are heart failure, hospitalization, stroke, arrhythmia, device implantation, and transplantation. Validated LVNC10-specific prognostic biomarkers and quality-of-life estimates are lacking.
+For generic LVNC, the 2020 meta-analysis of 28 studies and 2,501 patients found, per 100 person-years:
+
+- cardiovascular mortality **1.92** (95% CI 1.54–2.30);
+- all-cause mortality **2.16**;
+- stroke/systemic embolism **1.54**;
+- heart-failure admission **3.53**;
+- transplantation **1.24**;
+- ventricular arrhythmia **2.17**; and
+- cardiac-device implantation **2.66**.
+
+Cardiovascular mortality was similar to DCM (OR 1.10, 95% CI 0.18–6.67), and **LVEF rather than trabeculation burden** was the major determinant of outcome. The authors’ abstract states: **“Left ventricular ejection fraction—a conventional indicator of heart failure severity, not the extent of trabeculation—appears to be an important determinant of adverse outcomes.”** Published January 2020; DOI: https://doi.org/10.1161/CIRCIMAGING.119.009712. (aung2020prognosticsignificanceof pages 1-2)
+
+The 2024 adult meta-analysis reported mortality of 12% and transplantation of 7%; NYHA III/IV status, ventricular tachycardia, and reduced LVEF predicted adverse outcomes. These remain generic estimates. (llerenavelastegui2024prevalenceclinicalmanifestations pages 1-2)
+
+Thromboembolism prevalence was 2.6% in children and 6.2% in adults, with annual incidences of 1.4% and 2.9%. In children, LVEF <40% was associated with thromboembolism (OR 9.47; 95% CI 1.35–188.23). Published May 2022; DOI: https://doi.org/10.1136/openhrt-2021-001908. (hirono2022thromboemboliceventsin pages 1-2)
+
+No LVNC10-specific five- or ten-year survival estimate, life expectancy, validated prognostic calculator, or quality-of-life dataset exists.
+
+---
 
 ## 12. Treatment
 
-There is **no approved disease-modifying or MYBPC3-directed treatment specifically for LVNC10**. Management follows the expressed cardiomyopathy phenotype:
+### Current strategy
 
-- **Heart failure:** guideline-directed therapy for reduced EF—typically an ARNI/ACE inhibitor/ARB, evidence-based beta blocker, mineralocorticoid-receptor antagonist, and SGLT2 inhibitor as tolerated; diuretics for congestion.
-- **Arrhythmias:** beta blockade or appropriate antiarrhythmic therapy, ambulatory monitoring, electrophysiology evaluation, and catheter ablation for suitable tachyarrhythmias.
-- **ICD:** standard primary- or secondary-prevention indications based on EF, documented VT/VF, syncope, genotype/fibrosis, and overall risk—not trabeculation alone.
-- **CRT:** standard electrical/mechanical dyssynchrony indications; individual severe pediatric cases have benefited, but this is not LVNC10-specific evidence. (mahendran2024emerginghallmarksof pages 6-10)
-- **Anticoagulation:** indicated for atrial fibrillation, documented LV thrombus, previous systemic embolism, or other standard high-risk settings. Routine anticoagulation solely for trabeculation remains unsupported.
-- **Advanced failure:** mechanical circulatory support and heart transplantation. Severe biallelic MYBPC3 LVNC has required transplantation. (kolokotronis2019biallelicmutationin pages 1-2)
-- **Exercise:** individualized advice based on EF, arrhythmia, symptoms, fibrosis, and family history; morphology alone should not automatically disqualify an asymptomatic athlete.
+No therapy is approved specifically for LVNC10 or for correction of MYBPC3-related noncompaction. Care is phenotype-directed:
 
-Suggested NCIT intervention concepts include heart-failure therapy, anticoagulation therapy, catheter ablation, implantable cardioverter-defibrillator, cardiac resynchronization therapy, ventricular-assist device therapy, and heart transplantation. No LVNC10 pharmacogenomic rule or combination regimen has been validated.
+- **Heart failure with reduced EF:** guideline-directed therapy, ordinarily including an ARNI/ACE inhibitor/ARB, evidence-based beta blocker, mineralocorticoid-receptor antagonist, and SGLT2 inhibitor as tolerated; diuretics for congestion.
+- **Arrhythmia:** beta blockade or other rhythm/rate treatment according to arrhythmia type; catheter ablation where appropriate.
+- **ICD:** standard primary- or secondary-prevention indications based on LVEF, documented malignant ventricular arrhythmia, arrest, syncope, fibrosis, and the broader cardiomyopathy risk profile—not trabeculation alone.
+- **Anticoagulation:** indicated for atrial fibrillation, documented intracardiac thrombus, prior systemic embolism, or another standard indication. Routine anticoagulation solely for trabeculation remains unsupported and controversial. (hirono2022thromboemboliceventsin pages 1-2)
+- **Advanced disease:** cardiac resynchronization when standard criteria are met, ventricular-assist support, or heart transplantation.
+- **Congenital defects:** surgical/interventional repair when hemodynamically indicated.
 
-### Trials and real-world implementation
+Suggested NCIT intervention concepts include cardiac MRI, echocardiography, genetic testing, anticoagulant therapy, implantable cardioverter-defibrillator placement, cardiac-resynchronization therapy, ventricular-assist device, and heart transplantation.
 
-- **NCT06024759**, *Predictors of Risk in Left Ventricular Non-Compaction*: recruiting observational adult registry, target **500**, started 1 September 2023, estimated completion 1 August 2033. It examines genetic mutations, LV strain, PVC burden, NSVT, LV dysfunction, and predictors of ICD implantation. https://clinicaltrials.gov/study/NCT06024759 (NCT06024759 chunk 1)
-- **NCT06607471:** recruiting large nonischemic-cardiomyopathy registry that includes LVNC and tracks death, arrhythmia, AV block, transplantation, end-stage failure, and ventricular dysfunction over as long as 30 years. (NCT06607471 chunk 23)
-- **NCT01470014:** completed prospective CT diagnostic study, actual enrollment **39**. https://clinicaltrials.gov/study/NCT01470014 (NCT01470014 chunk 1)
-- **NCT02568072 (MARATHON):** completed prospective physiologic-remodeling study, actual enrollment **120**. https://clinicaltrials.gov/study/NCT02568072 (NCT02568072 chunk 1, NCT02568072 chunk 2)
+### Experimental and genotype-directed therapy
 
-No interventional gene, RNA, cell, CRISPR, or MYBPC3-targeted LVNC10 trial was identified.
+A 2024 MYBPC3 p.Asp389Val cardiac-organoid study demonstrated hypercontractility, faster calcium cycling, oxidative stress, and reduced mitochondrial membrane potential; mavacamten improved hypercontractility. The abstract states that the hypercontractile phenotype was **“rescued by the administration of a myosin inhibitor.”** Published November 19, 2024; DOI: https://doi.org/10.3390/cells13221913. This is an HCM organoid result, not clinical evidence for LVNC10, and mavacamten should not be considered an established LVNC10 therapy. (desai2024mybpc3d389vvariant pages 1-2)
+
+A second 2024 study of MYBPC3 c.1377delC iPSC-cardiomyocytes found disrupted sarcomeres, damaged mitochondria, abnormal calcium handling, a hypermetabolic state, and increased electron-transport gene expression. Published July 2024; DOI: https://doi.org/10.1038/s41598-024-62530-0. It supplies mechanistic and drug-screening infrastructure, not a validated diagnostic or treatment. (mori2024metabolicremodelingand pages 1-2)
+
+No LVNC10-specific gene therapy, CRISPR therapy, ASO, siRNA, cell therapy, or pharmacogenomic dosing recommendation is clinically available.
+
+### Trials and implementation
+
+**NCT06024759**, “Predictors of Risk in Left Ventricular Non-Compaction,” is a recruiting, observational, case-only registry targeting 500 adults and ten years of follow-up. It examines genetic variants, myocardial strain, LV dysfunction, Holter/stress-test arrhythmia markers, and predictors of ICD implantation. It began September 1, 2023, was first posted September 6, 2023, and has estimated completion in August 2033. It is generic LVNC research, not an intervention or LVNC10-specific trial. ClinicalTrials.gov URL: https://clinicaltrials.gov/study/NCT06024759. (NCT06024759 chunk 1, NCT06024759 chunk 2)
+
+---
 
 ## 13. Prevention
 
 ### Primary prevention
 
-Inherited LVNC10 cannot currently be prevented by lifestyle, medication, or immunization. Reproductive options after counseling include prenatal diagnosis and preimplantation genetic testing for a known familial pathogenic variant, with attention to incomplete penetrance and variable expressivity.
+The occurrence of a de novo or inherited pathogenic MYBPC3 variant cannot currently be prevented by lifestyle modification. There is no vaccine, medication, or environmental intervention that prevents LVNC10.
 
 ### Secondary prevention
 
-- cascade genetic and clinical screening;
-- periodic ECG, echocardiography, and rhythm monitoring in at-risk relatives;
-- CMR when echo is equivocal or fibrosis/thrombus assessment is needed;
-- early treatment of ventricular dysfunction and clinically important arrhythmia.
+- genetic counseling and cascade testing;
+- serial ECG, ambulatory monitoring, echocardiography, and CMR when indicated;
+- early treatment of ventricular dysfunction and arrhythmia;
+- prenatal diagnosis or preimplantation genetic testing when familial pathogenic variants are known and parents desire these options;
+- rapid parental testing after a severe neonatal presentation to define phase and recurrence risk.
 
 ### Tertiary prevention
 
-Optimize heart-failure therapy, control arrhythmias, anticoagulate for established indications, use ICD/CRT according to risk, and manage exercise and pregnancy through specialist cardiogenetic care. There is no LVNC-specific vaccine, chemoprophylaxis, or public-health environmental intervention.
+Guideline-directed heart-failure therapy, rhythm surveillance, ICD use under standard indications, anticoagulation for established risk states, and timely referral for advanced-heart-failure therapy aim to prevent hospitalization, embolism, sudden death, and end-organ damage. General vaccination is appropriate for cardiovascular health but is not etiologic prevention.
+
+---
 
 ## 14. Other species and natural disease
 
-The **MYBPC3 R820W** allele is naturally associated with hypertrophic cardiomyopathy and cardiac death in Ragdoll cats; the homologous feline protein change is commonly reported as R820W/R818W depending on sequence convention. This provides comparative evidence for conserved MYBPC3 sarcomeric pathogenicity, but feline disease is principally HCM and is **not a validated natural model of human LVNC10**. A 2024 feline review identifies MYBPC3 R818W and A31P as pathogenic HCM variants. DOI: https://doi.org/10.3390/cimb46080517. No zoonotic transmission is possible because LVNC10 is inherited, not infectious.
+- **Danio rerio (zebrafish), NCBI Taxon 7955:** has a conserved mybpc3 ortholog. Experimental knockout/knockdown causes cardiac hypertrophy, diastolic dysfunction, abnormal calcium reuptake, electrical alternans, cardiomyocyte hyperplasia, and reduced endurance. (da’as2022transcriptomeprofileidentifies pages 11-13, chen2013inactivationofmyosin pages 1-2)
+- **Domestic cat:** naturally occurring MYBPC3-associated HCM is documented in veterinary genetics, but the retrieved evidence did not establish a consistent natural LVNC10-equivalent syndrome or a validated breed ontology annotation.
+- **Zoonosis/transmission:** not applicable; this is inherited disease, not infection.
 
-Suggested taxonomy: *Homo sapiens* NCBI Taxon 9606; *Felis catus* NCBI Taxon 9685. A verified VBO identifier for Ragdoll was not recovered.
+Natural noncompaction in another species specifically attributable to orthologous MYBPC3 variation was not established by the retrieved sources.
+
+---
 
 ## 15. Model organisms and experimental systems
 
-- **Human cardiac tissue:** strongest LVNC10-relevant mechanistic system; biallelic MYBPC3 disease demonstrated protein depletion, transcript reduction, cardiomyocyte disarray, vacuolization, and fibrosis. Limitation: end-stage tissue cannot separate primary developmental changes from secondary remodeling. (kolokotronis2019biallelicmutationin pages 7-9)
-- **Mybpc3 knockout/knock-in mice:** widely used HCM models reproduce haploinsufficiency, hypertrophy, contractile dysfunction, and proteostasis abnormalities. Autophagy activation improved cardiomyopathy in one targeted knock-in model, but this is preclinical HCM evidence—not proof of efficacy or phenotype reversal in LVNC10.
-- **Cellular/iPSC systems:** patient-specific iPSC cardiomyocytes are suitable for sarcomere assembly, calcium handling, contractility, and allele-correction studies, but no retrieved LVNC10-specific validated organoid or iPSC therapeutic dataset was found.
-- **Developmental LVNC models:** mouse, zebrafish, and other models manipulating Notch/neuregulin, endocardial–myocardial signaling, mitochondrial function, or sarcomeric genes illuminate trabeculation. Their limitation is that developmental noncompaction may not reproduce adult MYBPC3 cardiomyopathy with secondary hypertrabeculation.
+### Zebrafish
 
-Relevant resources include MGI, IMPC, IMSR/MMRRC, ZFIN, Cellosaurus, and the Alliance of Genome Resources.
+Morpholino knockdown of mybpc3 produced ventricular hypertrophy, increased wall thickness, impaired diastolic relaxation, pericardial effusion, atrial dilation, prolonged action-potential duration, slowed calcium reuptake, and susceptibility to calcium-transient and action-potential alternans. Published September 2013; DOI: https://doi.org/10.1161/JAHA.113.000231. (chen2013inactivationofmyosin pages 1-2)
 
-## Evidence-quality assessment and knowledge-base cautions
+A stable knockout model showed larval cardiomyocyte hyperplasia, reduced chamber dimensions, increased EF, and later ventricular-wall thickening, bradycardia, and reduced swimming endurance. Transcriptomics identified downregulation of actin-filament processes and changes in hypertrophy, calcium-handling, contraction, and cardiac-development programs. Published August 2022; DOI: https://doi.org/10.3390/ijms23168840. (da’as2022transcriptomeprofileidentifies pages 11-13, da’as2022transcriptomeprofileidentifies pages 2-4)
 
-1. **High confidence:** LVNC10–MYBPC3 association and MONDO:0014163; MYBPC3 is a causal cardiomyopathy gene. (OpenTargets Search: left ventricular noncompaction-MYBPC3)
-2. **Moderate confidence:** MYBPC3 dosage/protein instability can produce severe LVNC morphology, especially in biallelic disease. (kolokotronis2019biallelicmutationin pages 1-2, kolokotronis2019biallelicmutationin pages 7-9)
-3. **Limited subtype-specific evidence:** penetrance, prevalence, sex ratio, natural history, survival, treatment response, and quality of life.
-4. **Do not infer disease from morphology alone:** up to 15% of apparently healthy people can exceed sensitive CMR NC/C thresholds, and physiologic remodeling may be reversible. (mazzarotto2021systematiclargescaleassessment pages 1-2, walsh2023thetroublewith pages 1-2)
-5. **Variant-level caution:** the historic p.Arg820Trp/R820W association should be curated using current ClinVar/ClinGen and population-frequency evidence before being labeled pathogenic in a patient.
-6. **Unavailable/not established:** specific protective alleles; toxins or infections; LVNC10 epigenetic, single-cell, spatial, proteomic, metabolomic, or lipidomic signatures; validated circulating biomarkers; genotype-specific pharmacotherapy; gene/RNA/cell therapy; and subtype-specific interventional trials.
+**Limitation:** these fish reproduce HCM/heart-failure and electrophysiologic features, not demonstrated left-ventricular noncompaction. Zebrafish also lack the human four-chamber ventricular anatomy.
+
+### Human cellular models
+
+Patient-derived or engineered iPSC-cardiomyocytes and multicellular cardiac organoids permit contractility, calcium, mitochondrial, transcriptomic, spatial-cellular, and drug-response measurements. The 2024 studies provide evidence for sarcomere disruption, metabolic remodeling, oxidative stress, and hypercontractility. Their principal limitations are cellular immaturity, model-specific loading conditions, and modeling of HCM/dilated-HCM rather than validated LVNC morphology. (desai2024mybpc3d389vvariant pages 1-2, mori2024metabolicremodelingand pages 1-2)
+
+### Mouse models
+
+MYBPC3 mouse models are extensively used in HCM research, but the retrieved evidence did not identify a patient-variant mouse model that reproducibly recapitulates LVNC10 morphology. Mouse findings should therefore support cMyBP-C biology, not be asserted as direct LVNC10 validation.
+
+---
+
+## Recent developments and expert interpretation, 2023–2024
+
+1. **Nosologic shift:** The 2023 ESC cardiomyopathy guidance, summarized in April 2024, treats hypertrabeculation as a dynamic trait across healthy, adaptive, congenital, hematologic, renal, and cardiomyopathic states. Expert practice consequently emphasizes deep phenotyping and genetics over an imaging ratio alone. DOI: https://doi.org/10.1093/eurheartjsupp/suae002. (grasso2024thenew2023 pages 1-2)
+2. **Updated epidemiology:** The October 2024 meta-analysis estimated generic adult LVNC prevalence at 0.5%, mortality at 12%, and transplantation at 7%, while emphasizing heterogeneity and the adverse importance of NYHA III/IV status, ventricular tachycardia, and reduced LVEF. DOI: https://doi.org/10.14740/cr1673. (llerenavelastegui2024prevalenceclinicalmanifestations pages 1-2)
+3. **Functional precision models:** 2024 MYBPC3 iPSC and organoid studies connected sarcomeric variants to calcium-handling defects, mitochondrial/energetic remodeling, oxidative stress, and drug-responsive hypercontractility. These are promising for variant interpretation and screening but do not yet bridge MYBPC3 dysfunction specifically to noncompaction morphogenesis. (desai2024mybpc3d389vvariant pages 1-2, mori2024metabolicremodelingand pages 1-2)
+4. **Prospective risk research:** NCT06024759 is implementing a 500-person, decade-long registry combining genetics, strain, arrhythmia burden, ventricular function, and ICD outcomes. (NCT06024759 chunk 1)
+
+## Knowledge gaps and curation cautions
+
+- No reliable LVNC10-specific prevalence, incidence, sex ratio, penetrance curve, survival curve, or treatment-response rate exists.
+- Generic LVNC statistics should be tagged as **indirect evidence** for LVNC10.
+- Imaging morphology alone should not be equated with genetic disease.
+- The direct developmental mechanism connecting cMyBP-C deficiency to excessive trabeculation remains inferred.
+- No validated protective factor, environmental cause, epigenetic signature, circulating biomarker, or targeted therapy is established.
+- Exact ClinVar status and population frequency must be checked separately for every variant and transcript version.
+- PMID metadata was not consistently exposed in the retrieved full texts; DOIs and publication dates above are supplied where verified rather than assigning uncertain PMIDs.
 
 References
 
-1. (OpenTargets Search: left ventricular noncompaction-MYBPC3): Open Targets Query (left ventricular noncompaction-MYBPC3, 4 results). Buniello, A. et al. (2025). Open Targets Platform: facilitating therapeutic hypotheses building in drug discovery. Nucleic Acids Research.
+1. (OpenTargets Search: Left ventricular noncompaction 10): Open Targets Query (Left ventricular noncompaction 10, 23 results). Buniello, A. et al. (2025). Open Targets Platform: facilitating therapeutic hypotheses building in drug discovery. Nucleic Acids Research.
 
 2. (grasso2024thenew2023 pages 1-2): Maurizia Grasso, Davide Bondavalli, Viviana Vilardo, Claudia Cavaliere, Ilaria Gatti, Alessandro Di Toro, Lorenzo Giuliani, Mario Urtis, Michela Ferrari, Barbara Cattadori, Alessandra Serio, Carlo Pellegrini, and Eloisa Arbustini. The new 2023 esc guidelines for the management of cardiomyopathies: a guiding path for cardiologist decisions. European Heart Journal Supplements : Journal of the European Society of Cardiology, 26:i1-i5, Apr 2024. URL: https://doi.org/10.1093/eurheartjsupp/suae002, doi:10.1093/eurheartjsupp/suae002. This article has 18 citations.
 
-3. (walsh2023thetroublewith pages 1-2): Roddy Walsh. The trouble with trabeculation: how genetics can help to unravel a complex and controversial phenotype. Journal of cardiovascular translational research, 16:1310-1324, Nov 2023. URL: https://doi.org/10.1007/s12265-023-10459-6, doi:10.1007/s12265-023-10459-6. This article has 11 citations and is from a peer-reviewed journal.
+3. (probst2011sarcomeregenemutations pages 8-9): Susanne Probst, Erwin Oechslin, Pia Schuler, Matthias Greutmann, Philipp Boyé, Walter Knirsch, Felix Berger, Ludwig Thierfelder, Rolf Jenni, and Sabine Klaassen. Sarcomere gene mutations in isolated left ventricular noncompaction cardiomyopathy do not predict clinical phenotype. Circulation: Cardiovascular Genetics, 4:367–374, Aug 2011. URL: https://doi.org/10.1161/circgenetics.110.959270, doi:10.1161/circgenetics.110.959270. This article has 268 citations.
 
-4. (sedaghathamedani2017clinicalgeneticsand pages 1-2): Farbod Sedaghat-Hamedani, Jan Haas, Feng Zhu, Christian Geier, Elham Kayvanpour, Martin Liss, Alan Lai, Karen Frese, Regina Pribe-Wolferts, Ali Amr, Daniel Tian Li, Omid Shirvani Samani, Avisha Carstensen, Diana Martins Bordalo, Marion Müller, Christine Fischer, Jing Shao, Jing Wang, Ming Nie, Li Yuan, Sabine Haßfeld, Christine Schwartz, Min Zhou, Zihua Zhou, Yanwen Shu, Min Wang, Kai Huang, Qiutang Zeng, Longxian Cheng, Tobias Fehlmann, Philipp Ehlermann, Andreas Keller, Christoph Dieterich, Katrin Streckfuß-Bömeke, Yuhua Liao, Michael Gotthardt, Hugo A Katus, and Benjamin Meder. Clinical genetics and outcome of left ventricular non-compaction cardiomyopathy. European Heart Journal, 38:3449–3460, Dec 2017. URL: https://doi.org/10.1093/eurheartj/ehx545, doi:10.1093/eurheartj/ehx545. This article has 280 citations and is from a highest quality peer-reviewed journal.
+4. (wessels2015compoundheterozygousor pages 1-2): Marja W Wessels, Johanna C Herkert, Ingrid M Frohn-Mulder, Michiel Dalinghaus, Arthur van den Wijngaard, Ronald R de Krijger, Michelle Michels, Irenaeus FM de Coo, Yvonne M Hoedemaekers, and Dennis Dooijes. Compound heterozygous or homozygous truncating mybpc3 mutations cause lethal cardiomyopathy with features of noncompaction and septal defects. European Journal of Human Genetics, 23:922-928, Oct 2015. URL: https://doi.org/10.1038/ejhg.2014.211, doi:10.1038/ejhg.2014.211. This article has 121 citations and is from a domain leading peer-reviewed journal.
 
-5. (NCT06024759 chunk 1):  Predictors of Risk in Left Ventricular Non-Compaction. London Health Sciences Centre Research Institute OR Lawson Research Institute of St. Joseph's. 2023. ClinicalTrials.gov Identifier: NCT06024759
+5. (sedaghathamedani2017clinicalgeneticsand pages 1-2): Farbod Sedaghat-Hamedani, Jan Haas, Feng Zhu, Christian Geier, Elham Kayvanpour, Martin Liss, Alan Lai, Karen Frese, Regina Pribe-Wolferts, Ali Amr, Daniel Tian Li, Omid Shirvani Samani, Avisha Carstensen, Diana Martins Bordalo, Marion Müller, Christine Fischer, Jing Shao, Jing Wang, Ming Nie, Li Yuan, Sabine Haßfeld, Christine Schwartz, Min Zhou, Zihua Zhou, Yanwen Shu, Min Wang, Kai Huang, Qiutang Zeng, Longxian Cheng, Tobias Fehlmann, Philipp Ehlermann, Andreas Keller, Christoph Dieterich, Katrin Streckfuß-Bömeke, Yuhua Liao, Michael Gotthardt, Hugo A Katus, and Benjamin Meder. Clinical genetics and outcome of left ventricular non-compaction cardiomyopathy. European Heart Journal, 38:3449–3460, Dec 2017. URL: https://doi.org/10.1093/eurheartj/ehx545, doi:10.1093/eurheartj/ehx545. This article has 281 citations and is from a highest quality peer-reviewed journal.
 
-6. (mazzarotto2021systematiclargescaleassessment pages 1-2): Francesco Mazzarotto, Megan H. Hawley, Matteo Beltrami, Leander Beekman, Antonio de Marvao, Kathryn A. McGurk, Ben Statton, Beatrice Boschi, Francesca Girolami, Angharad M. Roberts, Elisabeth M. Lodder, Mona Allouba, Soha Romeih, Yasmine Aguib, A. John Baksi, Antonis Pantazis, Sanjay K. Prasad, Elisabetta Cerbai, Magdi H. Yacoub, Declan P. O’Regan, Stuart A. Cook, James S. Ware, Birgit Funke, Iacopo Olivotto, Connie R. Bezzina, Paul J.R. Barton, and Roddy Walsh. Systematic large-scale assessment of the genetic architecture of left ventricular noncompaction reveals diverse etiologies. Genetics in Medicine, 23:856-864, May 2021. URL: https://doi.org/10.1038/s41436-020-01049-x, doi:10.1038/s41436-020-01049-x. This article has 96 citations and is from a highest quality peer-reviewed journal.
+6. (hirono2022leftventricularnoncompaction pages 1-2): Keiichi Hirono and Fukiko Ichida. Left ventricular noncompaction: a disorder with genotypic and phenotypic heterogeneity—a narrative review. Cardiovascular Diagnosis and Therapy, 12:495-515, Aug 2022. URL: https://doi.org/10.21037/cdt-22-198, doi:10.21037/cdt-22-198. This article has 24 citations.
 
-7. (kolokotronis2019biallelicmutationin pages 7-9): Konstantinos Kolokotronis, Jirko Kühnisch, Eva Klopocki, Josephine Dartsch, Simone Rost, Cathleen Huculak, Giulia Mearini, Stefan Störk, Lucie Carrier, Sabine Klaassen, and Brenda Gerull. Biallelic mutation in myh7 and mybpc3 leads to severe cardiomyopathy with left ventricular noncompaction phenotype. Human Mutation, 40:1101-1114, Aug 2019. URL: https://doi.org/10.1002/humu.23757, doi:10.1002/humu.23757. This article has 46 citations and is from a domain leading peer-reviewed journal.
+7. (wessels2015compoundheterozygousor pages 2-3): Marja W Wessels, Johanna C Herkert, Ingrid M Frohn-Mulder, Michiel Dalinghaus, Arthur van den Wijngaard, Ronald R de Krijger, Michelle Michels, Irenaeus FM de Coo, Yvonne M Hoedemaekers, and Dennis Dooijes. Compound heterozygous or homozygous truncating mybpc3 mutations cause lethal cardiomyopathy with features of noncompaction and septal defects. European Journal of Human Genetics, 23:922-928, Oct 2015. URL: https://doi.org/10.1038/ejhg.2014.211, doi:10.1038/ejhg.2014.211. This article has 121 citations and is from a domain leading peer-reviewed journal.
 
-8. (kolokotronis2019biallelicmutationin pages 1-2): Konstantinos Kolokotronis, Jirko Kühnisch, Eva Klopocki, Josephine Dartsch, Simone Rost, Cathleen Huculak, Giulia Mearini, Stefan Störk, Lucie Carrier, Sabine Klaassen, and Brenda Gerull. Biallelic mutation in myh7 and mybpc3 leads to severe cardiomyopathy with left ventricular noncompaction phenotype. Human Mutation, 40:1101-1114, Aug 2019. URL: https://doi.org/10.1002/humu.23757, doi:10.1002/humu.23757. This article has 46 citations and is from a domain leading peer-reviewed journal.
+8. (wessels2015compoundheterozygousor pages 5-6): Marja W Wessels, Johanna C Herkert, Ingrid M Frohn-Mulder, Michiel Dalinghaus, Arthur van den Wijngaard, Ronald R de Krijger, Michelle Michels, Irenaeus FM de Coo, Yvonne M Hoedemaekers, and Dennis Dooijes. Compound heterozygous or homozygous truncating mybpc3 mutations cause lethal cardiomyopathy with features of noncompaction and septal defects. European Journal of Human Genetics, 23:922-928, Oct 2015. URL: https://doi.org/10.1038/ejhg.2014.211, doi:10.1038/ejhg.2014.211. This article has 121 citations and is from a domain leading peer-reviewed journal.
 
-9. (arbustini2014leftventricularnoncompaction pages 1-2): Eloisa Arbustini, Frank Weidemann, and Jennifer L. Hall. Left ventricular noncompaction: a distinct cardiomyopathy or a trait shared by different cardiac diseases? Journal of the American College of Cardiology, 64 17:1840-50, Oct 2014. URL: https://doi.org/10.1016/j.jacc.2014.08.030, doi:10.1016/j.jacc.2014.08.030. This article has 324 citations and is from a highest quality peer-reviewed journal.
+9. (mazzarotto2020thegeneticarchitecture pages 1-3): Francesco Mazzarotto, Megan H. Hawley, Matteo Beltrami, Leander Beekman, Antonio de Marvao, Kathryn A. McGurk, Ben Statton, Beatrice Boschi, Francesca Girolami, Angharad M. Roberts, Elisabeth M. Lodder, Mona Allouba, Soha Romeih, Yasmine Aguib, A. John Baksi, Antonis Pantazis, Sanjay K. Prasad, Elisabetta Cerbai, Magdi H. Yacoub, Declan P. O’Regan, Stuart A. Cook, James S. Ware, Birgit Funke, Iacopo Olivotto, Connie R. Bezzina, Paul J.R. Barton, and Roddy Walsh. The genetic architecture of left ventricular non-compaction reveals both substantial overlap with other cardiomyopathies and a distinct aetiology in a subset of cases. European Heart Journal, Jan 2020. URL: https://doi.org/10.1101/2020.01.03.19015602, doi:10.1101/2020.01.03.19015602. This article has 4 citations and is from a highest quality peer-reviewed journal.
 
-10. (fitzsimons2024electrophysiologicalphenotypingof pages 1-3): Lindsey A. Fitzsimons, Delanie M. Kneeland‐Barber, Gracie C. Hannigan, David A. Karpe, Lyman Wu, Michael Colon, Jess Randall, and Kerry L. Tucker. Electrophysiological phenotyping of left ventricular noncompaction cardiomyopathy in pediatric populations: a systematic review. Physiological Reports, Apr 2024. URL: https://doi.org/10.14814/phy2.16029, doi:10.14814/phy2.16029. This article has 3 citations and is from a peer-reviewed journal.
+10. (wessels2015compoundheterozygousor pages 3-4): Marja W Wessels, Johanna C Herkert, Ingrid M Frohn-Mulder, Michiel Dalinghaus, Arthur van den Wijngaard, Ronald R de Krijger, Michelle Michels, Irenaeus FM de Coo, Yvonne M Hoedemaekers, and Dennis Dooijes. Compound heterozygous or homozygous truncating mybpc3 mutations cause lethal cardiomyopathy with features of noncompaction and septal defects. European Journal of Human Genetics, 23:922-928, Oct 2015. URL: https://doi.org/10.1038/ejhg.2014.211, doi:10.1038/ejhg.2014.211. This article has 121 citations and is from a domain leading peer-reviewed journal.
 
-11. (fitzsimons2024electrophysiologicalphenotypingof pages 8-10): Lindsey A. Fitzsimons, Delanie M. Kneeland‐Barber, Gracie C. Hannigan, David A. Karpe, Lyman Wu, Michael Colon, Jess Randall, and Kerry L. Tucker. Electrophysiological phenotyping of left ventricular noncompaction cardiomyopathy in pediatric populations: a systematic review. Physiological Reports, Apr 2024. URL: https://doi.org/10.14814/phy2.16029, doi:10.14814/phy2.16029. This article has 3 citations and is from a peer-reviewed journal.
+11. (wang2017awideand pages 1-2): Ce Wang, Yukiko Hata, Keiichi Hirono, Asami Takasaki, Sayaka Watanabe Ozawa, Hideyuki Nakaoka, Kazuyoshi Saito, Nariaki Miyao, Mako Okabe, Keijiro Ibuki, Naoki Nishida, Hideki Origasa, Xianyi Yu, Neil E. Bowles, and Fukiko Ichida. A wide and specific spectrum of genetic variants and genotype–phenotype correlations revealed by next‐generation sequencing in patients with left ventricular noncompaction. Sep 2017. URL: https://doi.org/10.1161/jaha.117.006210, doi:10.1161/jaha.117.006210. This article has 79 citations.
 
-12. (mahendran2024emerginghallmarksof pages 6-10): Gowthami Mahendran and Margaret A. Schwarz. Emerging hallmarks of mitochondrial biochemistry in cardiac trabecular morphogenesis and left ventricular noncompaction (lvnc). New Insights on Cardiomyopathy, Feb 2024. URL: https://doi.org/10.5772/intechopen.109098, doi:10.5772/intechopen.109098. This article has 3 citations.
+12. (martineztittonel2025leftventricularnoncompaction pages 5-7): Luis Elias Martínez-Tittonel, Florin Ciorba, Xavier Bayona-Huguet, and Edgardo Kaplinsky. Left ventricular non-compaction cardiomyopathy: a review of the pathophysiology, epidemiology, diagnosis, genetics, and clinical management. Jul 2025. URL: https://doi.org/10.20944/preprints202507.1652.v1, doi:10.20944/preprints202507.1652.v1.
 
-13. (NCT02568072 chunk 1):  Training-induced Increased Left Ventricular Trabeculation. St George's, University of London. 2015. ClinicalTrials.gov Identifier: NCT02568072
+13. (llerenavelastegui2024prevalenceclinicalmanifestations pages 1-2): Jordan Llerena-Velastegui, Almendra Lopez-Usina, and Camila Mantilla-Cisneros. Prevalence, clinical manifestations, and adverse outcomes of left ventricular noncompaction in adults: a systematic review and meta-analysis. Oct 2024. URL: https://doi.org/10.14740/cr1673, doi:10.14740/cr1673. This article has 6 citations.
 
-14. (NCT06607471 chunk 23): Giovanni Peretto. Multimodal and Multidisciplinary Approach to Optimize Diagnostic, Prognostic, and Therapeutic Management of Patients with Non-ischemic Cardiomyopathies and Arrhythmogenic-inflammatory Phenotypes: a Multicenter, Observational, Retrospective and Prospective Registry Study.. Scientific Institute San Raffaele. 2018. ClinicalTrials.gov Identifier: NCT06607471
+14. (aung2020prognosticsignificanceof pages 1-2): Nay Aung, Sara Doimo, Fabrizio Ricci, Mihir M. Sanghvi, Cesar Pedrosa, Simon P. Woodbridge, Amer Al-Balah, Filip Zemrak, Mohammed Y. Khanji, Patricia B. Munroe, Huseyin Naci, and Steffen E. Petersen. Prognostic significance of left ventricular noncompaction. Circulation. Cardiovascular Imaging, 13:e009712-e009712, Jan 2020. URL: https://doi.org/10.1161/circimaging.119.009712, doi:10.1161/circimaging.119.009712. This article has 143 citations.
 
-15. (NCT01470014 chunk 1):  Cardiac Computed Tomography: Characteristics of Isolated Left Ventricular Non-compaction. University of Zurich. 2011. ClinicalTrials.gov Identifier: NCT01470014
+15. (hirono2022thromboemboliceventsin pages 1-2): Keiichi Hirono, Shinya Takarada, Nariaki Miyao, Hideyuki Nakaoka, Keijiro Ibuki, Sayaka Ozawa, Hideki Origasa, and Fukiko Ichida. Thromboembolic events in left ventricular non-compaction: comparison between children and adults – a systematic review and meta-analysis. Open Heart, 9(1):e001908, May 2022. URL: https://doi.org/10.1136/openhrt-2021-001908, doi:10.1136/openhrt-2021-001908. This article has 23 citations and is from a peer-reviewed journal.
 
-16. (walsh2023thetroublewith pages 11-13): Roddy Walsh. The trouble with trabeculation: how genetics can help to unravel a complex and controversial phenotype. Journal of cardiovascular translational research, 16:1310-1324, Nov 2023. URL: https://doi.org/10.1007/s12265-023-10459-6, doi:10.1007/s12265-023-10459-6. This article has 11 citations and is from a peer-reviewed journal.
+16. (kolokotronis2019biallelicmutationin pages 7-9): Konstantinos Kolokotronis, Jirko Kühnisch, Eva Klopocki, Josephine Dartsch, Simone Rost, Cathleen Huculak, Giulia Mearini, Stefan Störk, Lucie Carrier, Sabine Klaassen, and Brenda Gerull. Biallelic mutation in myh7 and mybpc3 leads to severe cardiomyopathy with left ventricular noncompaction phenotype. Human Mutation, 40:1101-1114, Aug 2019. URL: https://doi.org/10.1002/humu.23757, doi:10.1002/humu.23757. This article has 46 citations and is from a domain leading peer-reviewed journal.
 
-17. (NCT02568072 chunk 2):  Training-induced Increased Left Ventricular Trabeculation. St George's, University of London. 2015. ClinicalTrials.gov Identifier: NCT02568072
+17. (desai2024mybpc3d389vvariant pages 1-2): Darshini Desai, Taejeong Song, Rohit R. Singh, Akhil Baby, James McNamara, Lisa C. Green, Pooneh Nabavizadeh, Mark Ericksen, Sholeh Bazrafshan, Sankar Natesan, and Sakthivel Sadayappan. Mybpc3 d389v variant induces hypercontractility in cardiac organoids. Nov 2024. URL: https://doi.org/10.3390/cells13221913, doi:10.3390/cells13221913. This article has 10 citations.
 
-18. (fitzsimons2024electrophysiologicalphenotypingof pages 7-8): Lindsey A. Fitzsimons, Delanie M. Kneeland‐Barber, Gracie C. Hannigan, David A. Karpe, Lyman Wu, Michael Colon, Jess Randall, and Kerry L. Tucker. Electrophysiological phenotyping of left ventricular noncompaction cardiomyopathy in pediatric populations: a systematic review. Physiological Reports, Apr 2024. URL: https://doi.org/10.14814/phy2.16029, doi:10.14814/phy2.16029. This article has 3 citations and is from a peer-reviewed journal.
+18. (mori2024metabolicremodelingand pages 1-2): Haruka Mori, Dongzhu Xu, Yuzuno Shimoda, Zixun Yuan, Yoshiko Murakata, Binyang Xi, Kimi Sato, Masayoshi Yamamoto, Kazuko Tajiri, Tomoko Ishizu, Masaki Ieda, and Nobuyuki Murakoshi. Metabolic remodeling and calcium handling abnormality in induced pluripotent stem cell-derived cardiomyocytes in dilated phase of hypertrophic cardiomyopathy with mybpc3 frameshift mutation. Jul 2024. URL: https://doi.org/10.1038/s41598-024-62530-0, doi:10.1038/s41598-024-62530-0. This article has 13 citations and is from a peer-reviewed journal.
+
+19. (da’as2022transcriptomeprofileidentifies pages 11-13): Sahar Isa Da’as, Waseem Hasan, Rola Salem, Nadine Younes, Doua Abdelrahman, Iman A. Mohamed, Arwa Aldaalis, Ramzi Temanni, Lisa Sara Mathew, Stephan Lorenz, Magdi Yacoub, Michail Nomikos, Gheyath K. Nasrallah, and Khalid A. Fakhro. Transcriptome profile identifies actin as an essential regulator of cardiac myosin binding protein c3 hypertrophic cardiomyopathy in a zebrafish model. Aug 2022. URL: https://doi.org/10.3390/ijms23168840, doi:10.3390/ijms23168840. This article has 9 citations.
+
+20. (chen2013inactivationofmyosin pages 1-2): Yau‐Hung Chen, Chiung‐Wen Pai, Shu‐Wei Huang, Sheng‐Nan Chang, Lian‐Yu Lin, Fu‐Tien Chiang, Jiunn‐Lee Lin, Juey‐Jen Hwang, and Chia‐Ti Tsai. Inactivation of myosin binding protein c homolog in zebrafish as a model for human cardiac hypertrophy and diastolic dysfunction. Sep 2013. URL: https://doi.org/10.1161/jaha.113.000231, doi:10.1161/jaha.113.000231. This article has 44 citations.
+
+21. (NCT06024759 chunk 1):  Predictors of Risk in Left Ventricular Non-Compaction. London Health Sciences Centre Research Institute OR Lawson Research Institute of St. Joseph's. 2023. ClinicalTrials.gov Identifier: NCT06024759
+
+22. (NCT06024759 chunk 2):  Predictors of Risk in Left Ventricular Non-Compaction. London Health Sciences Centre Research Institute OR Lawson Research Institute of St. Joseph's. 2023. ClinicalTrials.gov Identifier: NCT06024759
+
+23. (da’as2022transcriptomeprofileidentifies pages 1-2): Sahar Isa Da’as, Waseem Hasan, Rola Salem, Nadine Younes, Doua Abdelrahman, Iman A. Mohamed, Arwa Aldaalis, Ramzi Temanni, Lisa Sara Mathew, Stephan Lorenz, Magdi Yacoub, Michail Nomikos, Gheyath K. Nasrallah, and Khalid A. Fakhro. Transcriptome profile identifies actin as an essential regulator of cardiac myosin binding protein c3 hypertrophic cardiomyopathy in a zebrafish model. Aug 2022. URL: https://doi.org/10.3390/ijms23168840, doi:10.3390/ijms23168840. This article has 9 citations.
+
+24. (da’as2022transcriptomeprofileidentifies pages 2-4): Sahar Isa Da’as, Waseem Hasan, Rola Salem, Nadine Younes, Doua Abdelrahman, Iman A. Mohamed, Arwa Aldaalis, Ramzi Temanni, Lisa Sara Mathew, Stephan Lorenz, Magdi Yacoub, Michail Nomikos, Gheyath K. Nasrallah, and Khalid A. Fakhro. Transcriptome profile identifies actin as an essential regulator of cardiac myosin binding protein c3 hypertrophic cardiomyopathy in a zebrafish model. Aug 2022. URL: https://doi.org/10.3390/ijms23168840, doi:10.3390/ijms23168840. This article has 9 citations.
 
 ## Artifacts
 
@@ -1277,12 +1433,34 @@ Checked with `linkml-reference-validator` 0.2.1.
 
 | Outcome | Count |
 | --- | --- |
-| References checked | 9 |
-| Resolved | 9 |
+| References checked | 18 |
+| Resolved | 18 |
 | Unresolved (possible confabulation) | 0 |
 | Unverifiable | 0 |
-| References weighed for topical relevance | 9 |
-| On topic | 4 |
+| References weighed for topical relevance | 18 |
+| On topic | 10 |
 | Off topic | 0 |
 
 All extracted references resolved successfully.
+
+## Term Validation
+
+Checked with `linkml-term-validator` 0.4.5, through the `ols:` adapter.
+
+| Outcome | Count |
+| --- | --- |
+| Terms checked | 5 |
+| Resolved | 5 |
+| Unresolved (possible confabulation) | 0 |
+| Obsolete | 0 |
+| Unverifiable | 0 |
+| Terms whose name was checked | 2 |
+| Terms named correctly | 0 |
+| Terms named as a **different** term | 2 |
+
+### Terms the report names something else
+
+These identifiers resolve, so nothing about them looks wrong, and the ontology calls them something unrelated to what the report calls them. That usually means the identifier is not the one the sentence needs:
+
+- `MONDO:0014163` (7 mentions) - the report calls it "if available"; MONDO calls it **left ventricular noncompaction 10**
+- `HP:0011664` (7 mentions) - the report calls it "Imaging sign; congenital substrate or later-recognized trait; severity and progression variable"; HP calls it **Left ventricular noncompaction cardiomyopathy**

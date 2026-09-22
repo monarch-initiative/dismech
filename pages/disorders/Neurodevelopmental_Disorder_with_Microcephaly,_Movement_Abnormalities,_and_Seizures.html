@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,18 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4234,6 +4311,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4255,6 +4333,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4400,6 +4479,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4424,6 +4504,7 @@
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4587,6 +4668,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4608,6 +4690,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4682,6 +4765,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4846,6 +4930,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4870,6 +4955,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4891,6 +4977,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4928,6 +5015,13 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-hypomorphic-chka-variants" data-dismech-node="Biallelic Hypomorphic CHKA Variants" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic Hypomorphic CHKA Variants</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Biallelic pathogenic variants in CHKA (11q13.2) reduce, but do not abolish, choline kinase alpha. The reported allelic spectrum comprises three missense variants, one start-loss variant and one truncating (frameshift) variant. Every genotype retains residual enzyme function: the two recurrent homozygous missense alleles p.(Arg141Trp) and p.(Pro194Ser) retain approximately 25% and 17% of wild-type activity respectively, and the single compound-heterozygous individual carries a null frameshift allele in trans with a partially active missense allele. This hypomorphic requirement is not incidental: complete loss of Chka is lethal in early mouse embryogenesis, so a true human null genotype is not expected to be viable.</div>
 
@@ -5022,6 +5116,8 @@ This genetic context concerns CHKA (hgnc:1937). hgnc:1937 is a gene from the HUG
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -5034,6 +5130,9 @@ This genetic context concerns CHKA (hgnc:1937). hgnc:1937 is a gene from the HUG
         <span class="tag tag-classification">functional_impact_category: PARTIAL_LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Biallelic (homozygous in four of five reported families, compound heterozygous in the fifth) CHKA variants that reduce but do not abolish choline kinase activity. The two recurrent missense alleles retain approximately 25% p.(Arg141Trp) and 17% p.(Pro194Ser) of wild-type activity; the one null (frameshift) allele reported occurs only in trans with a partially active missense allele.</div>
 
@@ -5103,6 +5202,7 @@ This genetic context concerns CHKA (hgnc:1937). hgnc:1937 is a gene from the HUG
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5124,6 +5224,7 @@ This genetic context concerns CHKA (hgnc:1937). hgnc:1937 is a gene from the HUG
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5151,6 +5252,7 @@ This genetic context concerns CHKA (hgnc:1937). hgnc:1937 is a gene from the HUG
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5173,6 +5275,13 @@ This genetic context concerns CHKA (hgnc:1937). hgnc:1937 is a gene from the HUG
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-choline-kinase-activity-and-kennedy-pathway-block" data-dismech-node="Reduced Choline Kinase Activity and Kennedy Pathway Block" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Choline Kinase Activity and Kennedy Pathway Block</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Choline kinase alpha phosphorylates choline to phosphocholine, the first and committed step of the CDP-choline branch of the Kennedy pathway. Reduced CHKA activity produces a proportionate metabolic block: in patient-derived fibroblasts phosphocholine falls to 28% of control in p.(Arg141Trp) cells and 17% in p.(Pro194Ser) cells, mirroring the residual enzyme activity of each allele, while the upstream substrate choline accumulates in the more severely affected line.</div>
 
@@ -5319,6 +5428,7 @@ This pathophysiological event involves decreased choline kinase activity (GO:000
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5340,6 +5450,7 @@ This pathophysiological event involves decreased choline kinase activity (GO:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5367,6 +5478,7 @@ This pathophysiological event involves decreased choline kinase activity (GO:000
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5389,6 +5501,13 @@ This pathophysiological event involves decreased choline kinase activity (GO:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-phosphatidylcholine-depletion-and-membrane-lipid-remodelling" data-dismech-node="Phosphatidylcholine Depletion and Membrane Lipid Remodelling" data-dismech-type="pathophysiology">
                 <div class="item-name">Phosphatidylcholine Depletion and Membrane Lipid Remodelling</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The block propagates to the membrane lipidome. Patient fibroblasts show phosphatidylcholine reduced by 75% relative to controls, including the ether-linked alkyl-acyl and alkenyl-acyl species, with phosphatidylethanolamine, phosphatidylinositol, phosphatidylglycerol and triacylglycerol each reduced by 30-70%. Glycerophosphocholine, the catabolic product of phosphatidylcholine, falls to 30% of control, indicating reduced phosphatidylcholine turnover as well as reduced synthesis. Because phosphatidylcholine is the dominant structural phospholipid of eukaryotic membranes, this is a general membrane-biogenesis defect rather than the loss of one signalling species.</div>
 
@@ -5496,6 +5615,7 @@ This pathophysiological event involves decreased phospholipid biosynthetic proce
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5517,6 +5637,7 @@ This pathophysiological event involves decreased phospholipid biosynthetic proce
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5544,6 +5665,7 @@ This pathophysiological event involves decreased phospholipid biosynthetic proce
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5566,6 +5688,13 @@ This pathophysiological event involves decreased phospholipid biosynthetic proce
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-compensatory-cctalpha-activation-at-the-inner-nuclear-membrane" data-dismech-node="Compensatory CCTalpha Activation at the Inner Nuclear Membrane" data-dismech-type="pathophysiology">
                 <div class="item-name">Compensatory CCTalpha Activation at the Inner Nuclear Membrane</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Falling phosphatidylcholine is sensed by CCTalpha (PCYT1A), the rate-limiting cytidylyltransferase of the next pathway step, which is held inactive and soluble in the nucleoplasm and is activated by translocating to the inner nuclear membrane. Patient fibroblasts show increased CCTalpha immunostaining at the nuclear envelope and a raised nuclear-envelope enrichment index, i.e. the cell attempts to compensate downstream of the block. This is an adaptive branch of the mechanism, not a pathogenic one, and it is by construction incapable of restoring flux, because the substrate CCTalpha needs is the very metabolite CHKA fails to make.</div>
 
@@ -5604,6 +5733,7 @@ This pathophysiological event involves decreased phospholipid biosynthetic proce
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5625,6 +5755,7 @@ This pathophysiological event involves decreased phospholipid biosynthetic proce
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5650,6 +5781,13 @@ This pathophysiological event involves decreased phospholipid biosynthetic proce
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mitochondrial-fragmentation-and-impaired-respiratory-efficiency" data-dismech-node="Mitochondrial Fragmentation and Impaired Respiratory Efficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Mitochondrial Fragmentation and Impaired Respiratory Efficiency</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Patient fibroblasts show a shift toward a fragmented mitochondrial network, quantified as reduced aspect ratio and form factor. Bioenergetically the picture is only apparent as a defect once normalised: basal respiration is elevated per cell but reduced when normalised to mitochondrial content, and maximal respiration and spare respiratory capacity are both reduced — compromised efficiency per organelle rather than mitochondrial loss. The causal direction between membrane phospholipid depletion and this mitochondrial phenotype has not been established experimentally.</div>
 
@@ -5741,6 +5879,7 @@ This pathophysiological event involves abnormal mitochondrion organization (GO:0
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5762,6 +5901,7 @@ This pathophysiological event involves abnormal mitochondrion organization (GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5787,6 +5927,13 @@ This pathophysiological event involves abnormal mitochondrion organization (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-oxidative-stress-and-lipid-peroxidation" data-dismech-node="Oxidative Stress and Lipid Peroxidation" data-dismech-type="pathophysiology">
                 <div class="item-name">Oxidative Stress and Lipid Peroxidation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Mitochondrial superoxide (MitoSOX) and total reactive oxygen species are elevated in patient fibroblasts, and the lipid peroxidation sensor C11-BODIPY shifts from red to green, indicating oxidative damage to the membrane lipids themselves. This closes a self-reinforcing loop specific to this disorder: a cell that cannot make enough membrane phospholipid also destroys the phospholipid it has. It is also the node with a therapeutic handle — the mitochondrial uncoupler FCCP returns both ROS and lipid peroxidation toward control levels without correcting the underlying synthetic block.</div>
 
@@ -5880,6 +6027,7 @@ This pathophysiological event involves increased cellular response to oxidative 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5901,6 +6049,7 @@ This pathophysiological event involves increased cellular response to oxidative 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5926,6 +6075,13 @@ This pathophysiological event involves increased cellular response to oxidative 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-neuronal-dendritic-and-synaptic-development" data-dismech-node="Impaired Neuronal Dendritic and Synaptic Development" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Neuronal Dendritic and Synaptic Development</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">In a CRISPR-Cas9 Chka knockout mouse, cortical neurons show reduced dendritic branching complexity and decreased synaptic connection density on Golgi staining, and presynaptic terminals accumulate vesicles while showing markedly fewer vesicles in the fusion-docked state — a maturation rather than a supply defect. Transcriptomic and proteomic profiling implicated neurodevelopmental pathways with a Wnt signalling contribution. This is the only experimental link so far between the biochemical lesion and a neuron-specific phenotype, and it comes from mouse rather than human tissue.</div>
 
@@ -6071,6 +6227,7 @@ This pathophysiological event involves decreased dendrite morphogenesis (GO:0048
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6092,6 +6249,7 @@ This pathophysiological event involves decreased dendrite morphogenesis (GO:0048
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6119,6 +6277,7 @@ This pathophysiological event involves decreased dendrite morphogenesis (GO:0048
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6141,6 +6300,13 @@ This pathophysiological event involves decreased dendrite morphogenesis (GO:0048
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-severe-neurodevelopmental-disability-with-microcephaly-epilepsy-and-movement-abnormalities" data-dismech-node="Severe Neurodevelopmental Disability with Microcephaly, Epilepsy and Movement Abnormalities" data-dismech-type="pathophysiology">
                 <div class="item-name">Severe Neurodevelopmental Disability with Microcephaly, Epilepsy and Movement Abnormalities</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">The clinical endpoint: severe global developmental delay, epilepsy, movement disorders and microcephaly in all reported individuals. Which of the upstream cellular defects — membrane biogenesis failure during cortical growth, oxidative lipid damage, or impaired dendritic and synaptic maturation — is rate-limiting for each clinical feature is unresolved, and no human brain tissue or human neuronal model has been studied.</div>
 
@@ -6179,6 +6345,7 @@ This pathophysiological event involves decreased dendrite morphogenesis (GO:0048
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6200,6 +6367,7 @@ This pathophysiological event involves decreased dendrite morphogenesis (GO:0048
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6248,7 +6416,7 @@ This pathophysiological event involves decreased dendrite morphogenesis (GO:0048
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Antiseizure pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Symptomatic treatment of the epilepsy, following general practice for genetic developmental and epileptic encephalopathies. There is no CHKA-specific antiseizure regimen, no published treatment protocol for this disorder, and no evidence that any particular agent is preferentially effective; the founding report does not describe treatment outcomes in its abstract. This entry records the standard of care, not a disease-specific recommendation.\", \"meta\": {\"therapeutic_agents\": [\"anticonvulsant agent\"]}}, {\"id\": \"Biallelic Hypomorphic CHKA Variants\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic variants in CHKA (11q13.2) reduce, but do not abolish, choline kinase alpha. The reported allelic spectrum comprises three missense variants, one start-loss variant and one truncating (frameshift) variant. Every genotype retains residual enzyme function: the two recurrent homozygous missense alleles p.(Arg141Trp) and p.(Pro194Ser) retain approximately 25% and 17% of wild-type activity respectively, and the single compound-heterozygous individual carries a null frameshift allele in trans with a partially active missense allele. This hypomorphic requirement is not incidental: complete loss of Chka is lethal in early mouse embryogenesis, so a true human null genotype is not expected to be viable.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"CHKA\"], \"gene_terms\": [{\"label\": \"CHKA\", \"id\": \"hgnc:1937\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"PARTIAL_LOSS_OF_FUNCTION\", \"description\": \"Biallelic (homozygous in four of five reported families, compound heterozygous in the fifth) CHKA variants that reduce but do not abolish choline kinase activity. The two recurrent missense alleles retain approximately 25% p.(Arg141Trp) and 17% p.(Pro194Ser) of wild-type activity; the one null (frameshift) allele reported occurs only in trans with a partially active missense allele.\", \"gene_terms\": [{\"label\": \"CHKA\", \"id\": \"hgnc:1937\"}]}, \"role\": \"trigger\", \"animal_models\": [{\"name\": \"Chka null mouse (constitutive insertional knockout)\", \"species\": \"Mouse\", \"genotype\": \"Chka(-/-) insertional null\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"A complete null does not model the human condition; it dies in early embryogenesis rather than producing a neurodevelopmental phenotype. Its value is in bounding the allelic spectrum compatible with survival.\"}]}}, {\"id\": \"CHKA\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"CHKA\"], \"gene_terms\": [{\"label\": \"CHKA\", \"id\": \"hgnc:1937\"}], \"presence\": \"Biallelic pathogenic variants\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"CHKA patient-derived dermal fibroblasts\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Skin fibroblasts from individuals homozygous for p.(Arg141Trp) or p.(Pro194Ser), compared with fibroblasts from three healthy individuals. This is the only human cellular model of the disorder published to date and is the source of essentially all mechanistic data below the level of enzyme activity: targeted metabolomics, lipidomics, CCTalpha localisation, mitochondrial morphometry and respirometry, ROS and lipid peroxidation.\", \"meta\": {\"model_type\": \"PRIMARY_CELL_CULTURE\"}}, {\"id\": \"Chka knockout mouse (cortical neuron phenotype)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A CRISPR-Cas9 Chka knockout mouse used to examine cortical neuronal architecture and presynaptic ultrastructure. The publication does not state in its abstract whether the animals studied were homozygous, heterozygous or conditional; that matters, because an earlier insertional Chka null is embryonic lethal before embryonic day 7.5, so viable postnatal cortex cannot come from a constitutive homozygous null. The genotype is recorded here as the authors describe it and the discrepancy is flagged under `discussions`.\"}, {\"id\": \"Chka null mouse (constitutive insertional knockout)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The original constitutive Chka knockout. Homozygous embryos are recovered at the blastocyst stage but not at embryonic day 7.5. This is a negative result that constrains the human disease model rather than reproducing it: it establishes that complete choline kinase alpha loss is incompatible with mammalian development, and therefore that all human disease-causing genotypes must retain residual activity.\"}, {\"id\": \"Compensatory CCTalpha Activation at the Inner Nuclear Membrane\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Falling phosphatidylcholine is sensed by CCTalpha (PCYT1A), the rate-limiting cytidylyltransferase of the next pathway step, which is held inactive and soluble in the nucleoplasm and is activated by translocating to the inner nuclear membrane. Patient fibroblasts show increased CCTalpha immunostaining at the nuclear envelope and a raised nuclear-envelope enrichment index, i.e. the cell attempts to compensate downstream of the block. This is an adaptive branch of the mechanism, not a pathogenic one, and it is by construction incapable of restoring flux, because the substrate CCTalpha needs is the very metabolite CHKA fails to make.\", \"meta\": {\"evidence_count\": 2, \"role\": \"mediator\"}}, {\"id\": \"Epilepsy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Epilepsy is present in all reported individuals. The founding report describes the seizure types and treatment responses in its full text; those per-individual details are not curated here because that text is not retrievable through the reference cache.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Hypertonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Increased muscle tone in half the cohort (individuals 1.1, 1.2 and 4). It is not the uniform tone abnormality of this disorder \\u2014 an equal number of individuals are hypotonic \\u2014 and in a subset it coexists with hyperkinetic features (dyskinesia, rigidity, choreoathetosis), so the movement phenotype is mixed rather than purely spastic.\", \"meta\": {\"term_id\": \"HP:0001276\"}}, {\"id\": \"Impaired Neuronal Dendritic and Synaptic Development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In a CRISPR-Cas9 Chka knockout mouse, cortical neurons show reduced dendritic branching complexity and decreased synaptic connection density on Golgi staining, and presynaptic terminals accumulate vesicles while showing markedly fewer vesicles in the fusion-docked state \\u2014 a maturation rather than a supply defect. Transcriptomic and proteomic profiling implicated neurodevelopmental pathways with a Wnt signalling contribution. This is the only experimental link so far between the biochemical lesion and a neuron-specific phenotype, and it comes from mouse rather than human tissue.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"cortical neuron\"], \"biological_processes\": [\"dendrite morphogenesis\"], \"role\": \"effector\", \"animal_models\": [{\"name\": \"Chka knockout mouse (cortical neuron phenotype)\", \"species\": \"Mouse\", \"genotype\": \"CRISPR-Cas9-generated Chka knockout\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"UNKNOWN\", \"description\": \"Provides the cellular neurodevelopmental phenotype \\u2014 reduced dendritic branching, decreased synaptic density, impaired presynaptic vesicle docking \\u2014 that the human disorder\u0027s biochemical lesion is presumed to cause.\"}]}}, {\"id\": \"Mitochondrial Fragmentation and Impaired Respiratory Efficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient fibroblasts show a shift toward a fragmented mitochondrial network, quantified as reduced aspect ratio and form factor. Bioenergetically the picture is only apparent as a defect once normalised: basal respiration is elevated per cell but reduced when normalised to mitochondrial content, and maximal respiration and spare respiratory capacity are both reduced \\u2014 compromised efficiency per organelle rather than mitochondrial loss. The causal direction between membrane phospholipid depletion and this mitochondrial phenotype has not been established experimentally.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"mitochondrion organization\"], \"role\": \"effector\"}}, {\"id\": \"Movement abnormalities\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Movement disorders are one of the three features named in the disorder\u0027s OMIM title and were present in the founding cohort. The specific movement phenomenology per individual is described only in the full text of the founding report, so a more specific HPO term than the parent movement abnormality is deliberately not asserted here.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0100022\"}}, {\"id\": \"Oxidative Stress and Lipid Peroxidation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mitochondrial superoxide (MitoSOX) and total reactive oxygen species are elevated in patient fibroblasts, and the lipid peroxidation sensor C11-BODIPY shifts from red to green, indicating oxidative damage to the membrane lipids themselves. This closes a self-reinforcing loop specific to this disorder: a cell that cannot make enough membrane phospholipid also destroys the phospholipid it has. It is also the node with a therapeutic handle \\u2014 the mitochondrial uncoupler FCCP returns both ROS and lipid peroxidation toward control levels without correcting the underlying synthetic block.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"cellular response to oxidative stress\"], \"role\": \"amplifier\", \"experimental_models\": [{\"name\": \"CHKA patient-derived dermal fibroblasts\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reproduces the full biochemical chain from reduced phosphocholine through phosphatidylcholine depletion to mitochondrial dysfunction and oxidative lipid damage in cells carrying the actual human disease genotypes.\"}]}}, {\"id\": \"Phosphatidylcholine Depletion and Membrane Lipid Remodelling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The block propagates to the membrane lipidome. Patient fibroblasts show phosphatidylcholine reduced by 75% relative to controls, including the ether-linked alkyl-acyl and alkenyl-acyl species, with phosphatidylethanolamine, phosphatidylinositol, phosphatidylglycerol and triacylglycerol each reduced by 30-70%. Glycerophosphocholine, the catabolic product of phosphatidylcholine, falls to 30% of control, indicating reduced phosphatidylcholine turnover as well as reduced synthesis. Because phosphatidylcholine is the dominant structural phospholipid of eukaryotic membranes, this is a general membrane-biogenesis defect rather than the loss of one signalling species.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"phospholipid biosynthetic process\"], \"role\": \"effector\"}}, {\"id\": \"Reduced Choline Kinase Activity and Kennedy Pathway Block\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Choline kinase alpha phosphorylates choline to phosphocholine, the first and committed step of the CDP-choline branch of the Kennedy pathway. Reduced CHKA activity produces a proportionate metabolic block: in patient-derived fibroblasts phosphocholine falls to 28% of control in p.(Arg141Trp) cells and 17% in p.(Pro194Ser) cells, mirroring the residual enzyme activity of each allele, while the upstream substrate choline accumulates in the more severely affected line.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"phosphatidylcholine biosynthetic process\"], \"molecular_functions\": [\"choline kinase activity\"], \"role\": \"central_effector\", \"experimental_models\": [{\"name\": \"Saccharomyces cerevisiae cki1-delta complementation assay\", \"model_type\": \"OTHER\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"description\": \"Quantifies the catalytic consequence of each human allele in a system where choline kinase is the only variable.\"}]}}, {\"id\": \"Saccharomyces cerevisiae cki1-delta complementation assay\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"A choline-kinase-deficient yeast strain complemented with wild-type or variant human CHKA, used to measure the residual enzymatic activity of each candidate disease allele. This is a variant-classification assay rather than a disease model \\u2014 it says nothing about neurodevelopment \\u2014 but it is what established that the human alleles are hypomorphic and it supplied the residual-activity figures that anchor the genotype-phenotype discussion.\", \"meta\": {\"model_type\": \"OTHER\"}}, {\"id\": \"Severe Neurodevelopmental Disability with Microcephaly, Epilepsy and Movement Abnormalities\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical endpoint: severe global developmental delay, epilepsy, movement disorders and microcephaly in all reported individuals. Which of the upstream cellular defects \\u2014 membrane biogenesis failure during cortical growth, oxidative lipid damage, or impaired dendritic and synaptic maturation \\u2014 is rate-limiting for each clinical feature is unresolved, and no human brain tissue or human neuronal model has been studied.\", \"meta\": {\"evidence_count\": 2, \"role\": \"outcome\"}}, {\"id\": \"Tone- and movement-directed symptomatic pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Symptomatic management of the movement axis. Every reported individual has a tone abnormality, but the direction is split \\u2014 hypertonia in three, hypotonia in three \\u2014 with dyskinesia, rigidity or choreoathetosis in a subset, so the agents below apply to the hypertonic and hyperkinetic individuals rather than to the cohort as a whole. Standard practice for severe early-onset mixed movement disorders uses oral antispastic agents (baclofen), anticholinergics for the hyperkinetic and dystonic component (trihexyphenidyl), and focal botulinum toxin for targeted tone reduction. Botulinum toxin is named in the description rather than bound as a `therapeutic_agent`, because NCIT:C163032 is not reachable from the ChemicalEntityTerm enum root and no suitable bound term exists. As with the antiseizure entry, this records the standard of care for the phenotype, not a CHKA-specific recommendation: no publication reports movement-directed treatment or its outcome in this disorder.\", \"meta\": {\"therapeutic_agents\": [\"muscle relaxant\", \"baclofen\"]}}], \"edges\": [{\"source\": \"Biallelic Hypomorphic CHKA Variants\", \"target\": \"Reduced Choline Kinase Activity and Kennedy Pathway Block\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The variants act by reducing the catalytic activity of the enzyme itself.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Choline Kinase Activity and Kennedy Pathway Block\", \"target\": \"Phosphatidylcholine Depletion and Membrane Lipid Remodelling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the pathway\u0027s first product limits flux to phosphatidylcholine.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Phosphatidylcholine Depletion and Membrane Lipid Remodelling\", \"target\": \"Compensatory CCTalpha Activation at the Inner Nuclear Membrane\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Falling phosphatidylcholine relieves the membrane-lipid feedback that keeps CCTalpha soluble and inactive in the nucleoplasm.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Phosphatidylcholine Depletion and Membrane Lipid Remodelling\", \"target\": \"Mitochondrial Fragmentation and Impaired Respiratory Efficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Membrane phospholipid depletion is followed by altered mitochondrial morphology and bioenergetics; the steps connecting them have not been resolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Phosphatidylcholine Depletion and Membrane Lipid Remodelling\", \"target\": \"Impaired Neuronal Dendritic and Synaptic Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurons under construction have an exceptional demand for membrane phospholipid; how the deficit translates into the specific dendritic and presynaptic defects observed is not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Mitochondrial Fragmentation and Impaired Respiratory Efficiency\", \"target\": \"Oxidative Stress and Lipid Peroxidation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inefficient respiration is the proposed source of the excess mitochondrial superoxide.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Neuronal Dendritic and Synaptic Development\", \"target\": \"Severe Neurodevelopmental Disability with Microcephaly, Epilepsy and Movement Abnormalities\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired dendritic and synaptic development is the proposed cellular substrate of the clinical phenotype; the connection is inferential.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Antiseizure pharmacotherapy\", \"target\": \"Epilepsy\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Tone- and movement-directed symptomatic pharmacotherapy\", \"target\": \"Hypertonia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Tone- and movement-directed symptomatic pharmacotherapy\", \"target\": \"Movement abnormalities\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"CHKA patient-derived dermal fibroblasts\", \"target\": \"Oxidative Stress and Lipid Peroxidation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces the full biochemical chain from reduced phosphocholine through phosphatidylcholine depletion to mitochondrial dysfunction and oxidative lipid damage in cells carrying the actual human disease genotypes.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Fibroblasts are not a disease-relevant tissue. The clinical phenotype is CNS-restricted, and dermal fibroblasts cannot model cortical growth, dendritic arborisation, myelination or epileptogenesis. Fidelity is MODERATE rather than HIGH on that basis: the genotype and the biochemistry are authentic, the cell type is a surrogate. No iPSC-derived neuronal or brain-organoid model has been reported.\"}, {\"source\": \"Saccharomyces cerevisiae cki1-delta complementation assay\", \"target\": \"Reduced Choline Kinase Activity and Kennedy Pathway Block\", \"predicate\": \"measures\", \"is_orphan\": false, \"description\": \"Quantifies the catalytic consequence of each human allele in a system where choline kinase is the only variable.\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"limitations\": \"A heterologous single-enzyme complementation system. It measures catalytic competence out of human cellular context and cannot address tissue selectivity, the CHKA/CHKB paralogue question, or any downstream consequence of the block.\"}, {\"source\": \"Chka knockout mouse (cortical neuron phenotype)\", \"target\": \"Impaired Neuronal Dendritic and Synaptic Development\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Provides the cellular neurodevelopmental phenotype \\u2014 reduced dendritic branching, decreased synaptic density, impaired presynaptic vesicle docking \\u2014 that the human disorder\u0027s biochemical lesion is presumed to cause.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"UNKNOWN\", \"limitations\": \"Fidelity is UNKNOWN rather than assigned: the abstract does not specify the zygosity or conditionality of the knockout, and a constitutive homozygous Chka null is embryonic lethal in mouse, so it cannot be determined whether this model reproduces the hypomorphic state that causes human disease. No behavioural, seizure or head-size phenotyping is reported, so the model is not shown to recapitulate the clinical phenotype.\"}, {\"source\": \"Chka null mouse (constitutive insertional knockout)\", \"target\": \"Biallelic Hypomorphic CHKA Variants\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"A complete null does not model the human condition; it dies in early embryogenesis rather than producing a neurodevelopmental phenotype. Its value is in bounding the allelic spectrum compatible with survival.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"Constitutive homozygous nulls die before embryonic day 7.5, so the model yields no postnatal, neurological or head-size phenotype to compare with human disease. Heterozygotes, with roughly 30% reduced choline kinase activity, are grossly normal with unaffected phosphatidylcholine levels and so do not model the biallelic human state either. No hypomorphic knock-in of a human missense allele, and no brain-restricted conditional allele, has been reported.\"}, {\"source\": \"CHKA\", \"target\": \"Biallelic Hypomorphic CHKA Variants\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Antiseizure pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Symptomatic treatment of the epilepsy, following general practice for genetic developmental and epileptic encephalopathies. There is no CHKA-specific antiseizure regimen, no published treatment protocol for this disorder, and no evidence that any particular agent is preferentially effective; the founding report does not describe treatment outcomes in its abstract. This entry records the standard of care, not a disease-specific recommendation.\", \"meta\": {\"therapeutic_agents\": [\"anticonvulsant agent\"]}}, {\"id\": \"Biallelic Hypomorphic CHKA Variants\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic variants in CHKA (11q13.2) reduce, but do not abolish, choline kinase alpha. The reported allelic spectrum comprises three missense variants, one start-loss variant and one truncating (frameshift) variant. Every genotype retains residual enzyme function: the two recurrent homozygous missense alleles p.(Arg141Trp) and p.(Pro194Ser) retain approximately 25% and 17% of wild-type activity respectively, and the single compound-heterozygous individual carries a null frameshift allele in trans with a partially active missense allele. This hypomorphic requirement is not incidental: complete loss of Chka is lethal in early mouse embryogenesis, so a true human null genotype is not expected to be viable.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"CHKA\"], \"gene_terms\": [{\"label\": \"CHKA\", \"id\": \"hgnc:1937\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"PARTIAL_LOSS_OF_FUNCTION\", \"description\": \"Biallelic (homozygous in four of five reported families, compound heterozygous in the fifth) CHKA variants that reduce but do not abolish choline kinase activity. The two recurrent missense alleles retain approximately 25% p.(Arg141Trp) and 17% p.(Pro194Ser) of wild-type activity; the one null (frameshift) allele reported occurs only in trans with a partially active missense allele.\", \"gene_terms\": [{\"label\": \"CHKA\", \"id\": \"hgnc:1937\"}]}, \"role\": \"trigger\", \"mechanism_confidence\": \"ESTABLISHED\", \"animal_models\": [{\"name\": \"Chka null mouse (constitutive insertional knockout)\", \"species\": \"Mouse\", \"genotype\": \"Chka(-/-) insertional null\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"A complete null does not model the human condition; it dies in early embryogenesis rather than producing a neurodevelopmental phenotype. Its value is in bounding the allelic spectrum compatible with survival.\"}]}}, {\"id\": \"CHKA\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 3, \"genes\": [\"CHKA\"], \"gene_terms\": [{\"label\": \"CHKA\", \"id\": \"hgnc:1937\"}], \"presence\": \"Biallelic pathogenic variants\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"CHKA patient-derived dermal fibroblasts\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Skin fibroblasts from individuals homozygous for p.(Arg141Trp) or p.(Pro194Ser), compared with fibroblasts from three healthy individuals. This is the only human cellular model of the disorder published to date and is the source of essentially all mechanistic data below the level of enzyme activity: targeted metabolomics, lipidomics, CCTalpha localisation, mitochondrial morphometry and respirometry, ROS and lipid peroxidation.\", \"meta\": {\"model_type\": \"PRIMARY_CELL_CULTURE\"}}, {\"id\": \"Chka knockout mouse (cortical neuron phenotype)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A CRISPR-Cas9 Chka knockout mouse used to examine cortical neuronal architecture and presynaptic ultrastructure. The publication does not state in its abstract whether the animals studied were homozygous, heterozygous or conditional; that matters, because an earlier insertional Chka null is embryonic lethal before embryonic day 7.5, so viable postnatal cortex cannot come from a constitutive homozygous null. The genotype is recorded here as the authors describe it and the discrepancy is flagged under `discussions`.\"}, {\"id\": \"Chka null mouse (constitutive insertional knockout)\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"The original constitutive Chka knockout. Homozygous embryos are recovered at the blastocyst stage but not at embryonic day 7.5. This is a negative result that constrains the human disease model rather than reproducing it: it establishes that complete choline kinase alpha loss is incompatible with mammalian development, and therefore that all human disease-causing genotypes must retain residual activity.\"}, {\"id\": \"Compensatory CCTalpha Activation at the Inner Nuclear Membrane\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Falling phosphatidylcholine is sensed by CCTalpha (PCYT1A), the rate-limiting cytidylyltransferase of the next pathway step, which is held inactive and soluble in the nucleoplasm and is activated by translocating to the inner nuclear membrane. Patient fibroblasts show increased CCTalpha immunostaining at the nuclear envelope and a raised nuclear-envelope enrichment index, i.e. the cell attempts to compensate downstream of the block. This is an adaptive branch of the mechanism, not a pathogenic one, and it is by construction incapable of restoring flux, because the substrate CCTalpha needs is the very metabolite CHKA fails to make.\", \"meta\": {\"evidence_count\": 2, \"role\": \"mediator\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Epilepsy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Epilepsy is present in all reported individuals. The founding report describes the seizure types and treatment responses in its full text; those per-individual details are not curated here because that text is not retrievable through the reference cache.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001250\"}}, {\"id\": \"Hypertonia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Increased muscle tone in half the cohort (individuals 1.1, 1.2 and 4). It is not the uniform tone abnormality of this disorder \\u2014 an equal number of individuals are hypotonic \\u2014 and in a subset it coexists with hyperkinetic features (dyskinesia, rigidity, choreoathetosis), so the movement phenotype is mixed rather than purely spastic.\", \"meta\": {\"term_id\": \"HP:0001276\"}}, {\"id\": \"Impaired Neuronal Dendritic and Synaptic Development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In a CRISPR-Cas9 Chka knockout mouse, cortical neurons show reduced dendritic branching complexity and decreased synaptic connection density on Golgi staining, and presynaptic terminals accumulate vesicles while showing markedly fewer vesicles in the fusion-docked state \\u2014 a maturation rather than a supply defect. Transcriptomic and proteomic profiling implicated neurodevelopmental pathways with a Wnt signalling contribution. This is the only experimental link so far between the biochemical lesion and a neuron-specific phenotype, and it comes from mouse rather than human tissue.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"cortical neuron\"], \"biological_processes\": [\"dendrite morphogenesis\"], \"role\": \"effector\", \"mechanism_confidence\": \"PROVISIONAL\", \"animal_models\": [{\"name\": \"Chka knockout mouse (cortical neuron phenotype)\", \"species\": \"Mouse\", \"genotype\": \"CRISPR-Cas9-generated Chka knockout\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"UNKNOWN\", \"description\": \"Provides the cellular neurodevelopmental phenotype \\u2014 reduced dendritic branching, decreased synaptic density, impaired presynaptic vesicle docking \\u2014 that the human disorder\u0027s biochemical lesion is presumed to cause.\"}]}}, {\"id\": \"Mitochondrial Fragmentation and Impaired Respiratory Efficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient fibroblasts show a shift toward a fragmented mitochondrial network, quantified as reduced aspect ratio and form factor. Bioenergetically the picture is only apparent as a defect once normalised: basal respiration is elevated per cell but reduced when normalised to mitochondrial content, and maximal respiration and spare respiratory capacity are both reduced \\u2014 compromised efficiency per organelle rather than mitochondrial loss. The causal direction between membrane phospholipid depletion and this mitochondrial phenotype has not been established experimentally.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"mitochondrion organization\"], \"role\": \"effector\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Movement abnormalities\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Movement disorders are one of the three features named in the disorder\u0027s OMIM title and were present in the founding cohort. The specific movement phenomenology per individual is described only in the full text of the founding report, so a more specific HPO term than the parent movement abnormality is deliberately not asserted here.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0100022\"}}, {\"id\": \"Oxidative Stress and Lipid Peroxidation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mitochondrial superoxide (MitoSOX) and total reactive oxygen species are elevated in patient fibroblasts, and the lipid peroxidation sensor C11-BODIPY shifts from red to green, indicating oxidative damage to the membrane lipids themselves. This closes a self-reinforcing loop specific to this disorder: a cell that cannot make enough membrane phospholipid also destroys the phospholipid it has. It is also the node with a therapeutic handle \\u2014 the mitochondrial uncoupler FCCP returns both ROS and lipid peroxidation toward control levels without correcting the underlying synthetic block.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"cellular response to oxidative stress\"], \"role\": \"amplifier\", \"mechanism_confidence\": \"ESTABLISHED\", \"experimental_models\": [{\"name\": \"CHKA patient-derived dermal fibroblasts\", \"model_type\": \"PRIMARY_CELL_CULTURE\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reproduces the full biochemical chain from reduced phosphocholine through phosphatidylcholine depletion to mitochondrial dysfunction and oxidative lipid damage in cells carrying the actual human disease genotypes.\"}]}}, {\"id\": \"Phosphatidylcholine Depletion and Membrane Lipid Remodelling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The block propagates to the membrane lipidome. Patient fibroblasts show phosphatidylcholine reduced by 75% relative to controls, including the ether-linked alkyl-acyl and alkenyl-acyl species, with phosphatidylethanolamine, phosphatidylinositol, phosphatidylglycerol and triacylglycerol each reduced by 30-70%. Glycerophosphocholine, the catabolic product of phosphatidylcholine, falls to 30% of control, indicating reduced phosphatidylcholine turnover as well as reduced synthesis. Because phosphatidylcholine is the dominant structural phospholipid of eukaryotic membranes, this is a general membrane-biogenesis defect rather than the loss of one signalling species.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"phospholipid biosynthetic process\"], \"role\": \"effector\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Reduced Choline Kinase Activity and Kennedy Pathway Block\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Choline kinase alpha phosphorylates choline to phosphocholine, the first and committed step of the CDP-choline branch of the Kennedy pathway. Reduced CHKA activity produces a proportionate metabolic block: in patient-derived fibroblasts phosphocholine falls to 28% of control in p.(Arg141Trp) cells and 17% in p.(Pro194Ser) cells, mirroring the residual enzyme activity of each allele, while the upstream substrate choline accumulates in the more severely affected line.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"phosphatidylcholine biosynthetic process\"], \"molecular_functions\": [\"choline kinase activity\"], \"role\": \"central_effector\", \"mechanism_confidence\": \"ESTABLISHED\", \"experimental_models\": [{\"name\": \"Saccharomyces cerevisiae cki1-delta complementation assay\", \"model_type\": \"OTHER\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"description\": \"Quantifies the catalytic consequence of each human allele in a system where choline kinase is the only variable.\"}]}}, {\"id\": \"Saccharomyces cerevisiae cki1-delta complementation assay\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"A choline-kinase-deficient yeast strain complemented with wild-type or variant human CHKA, used to measure the residual enzymatic activity of each candidate disease allele. This is a variant-classification assay rather than a disease model \\u2014 it says nothing about neurodevelopment \\u2014 but it is what established that the human alleles are hypomorphic and it supplied the residual-activity figures that anchor the genotype-phenotype discussion.\", \"meta\": {\"model_type\": \"OTHER\"}}, {\"id\": \"Severe Neurodevelopmental Disability with Microcephaly, Epilepsy and Movement Abnormalities\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The clinical endpoint: severe global developmental delay, epilepsy, movement disorders and microcephaly in all reported individuals. Which of the upstream cellular defects \\u2014 membrane biogenesis failure during cortical growth, oxidative lipid damage, or impaired dendritic and synaptic maturation \\u2014 is rate-limiting for each clinical feature is unresolved, and no human brain tissue or human neuronal model has been studied.\", \"meta\": {\"evidence_count\": 2, \"role\": \"outcome\", \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Tone- and movement-directed symptomatic pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Symptomatic management of the movement axis. Every reported individual has a tone abnormality, but the direction is split \\u2014 hypertonia in three, hypotonia in three \\u2014 with dyskinesia, rigidity or choreoathetosis in a subset, so the agents below apply to the hypertonic and hyperkinetic individuals rather than to the cohort as a whole. Standard practice for severe early-onset mixed movement disorders uses oral antispastic agents (baclofen), anticholinergics for the hyperkinetic and dystonic component (trihexyphenidyl), and focal botulinum toxin for targeted tone reduction. Botulinum toxin is named in the description rather than bound as a `therapeutic_agent`, because NCIT:C163032 is not reachable from the ChemicalEntityTerm enum root and no suitable bound term exists. As with the antiseizure entry, this records the standard of care for the phenotype, not a CHKA-specific recommendation: no publication reports movement-directed treatment or its outcome in this disorder.\", \"meta\": {\"therapeutic_agents\": [\"muscle relaxant\", \"baclofen\"]}}], \"edges\": [{\"source\": \"Biallelic Hypomorphic CHKA Variants\", \"target\": \"Reduced Choline Kinase Activity and Kennedy Pathway Block\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The variants act by reducing the catalytic activity of the enzyme itself.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Reduced Choline Kinase Activity and Kennedy Pathway Block\", \"target\": \"Phosphatidylcholine Depletion and Membrane Lipid Remodelling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of the pathway\u0027s first product limits flux to phosphatidylcholine.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Phosphatidylcholine Depletion and Membrane Lipid Remodelling\", \"target\": \"Compensatory CCTalpha Activation at the Inner Nuclear Membrane\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Falling phosphatidylcholine relieves the membrane-lipid feedback that keeps CCTalpha soluble and inactive in the nucleoplasm.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Phosphatidylcholine Depletion and Membrane Lipid Remodelling\", \"target\": \"Mitochondrial Fragmentation and Impaired Respiratory Efficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Membrane phospholipid depletion is followed by altered mitochondrial morphology and bioenergetics; the steps connecting them have not been resolved.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Phosphatidylcholine Depletion and Membrane Lipid Remodelling\", \"target\": \"Impaired Neuronal Dendritic and Synaptic Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurons under construction have an exceptional demand for membrane phospholipid; how the deficit translates into the specific dendritic and presynaptic defects observed is not established.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Mitochondrial Fragmentation and Impaired Respiratory Efficiency\", \"target\": \"Oxidative Stress and Lipid Peroxidation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Inefficient respiration is the proposed source of the excess mitochondrial superoxide.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Neuronal Dendritic and Synaptic Development\", \"target\": \"Severe Neurodevelopmental Disability with Microcephaly, Epilepsy and Movement Abnormalities\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired dendritic and synaptic development is the proposed cellular substrate of the clinical phenotype; the connection is inferential.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Antiseizure pharmacotherapy\", \"target\": \"Epilepsy\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Tone- and movement-directed symptomatic pharmacotherapy\", \"target\": \"Hypertonia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Tone- and movement-directed symptomatic pharmacotherapy\", \"target\": \"Movement abnormalities\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"CHKA patient-derived dermal fibroblasts\", \"target\": \"Oxidative Stress and Lipid Peroxidation\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces the full biochemical chain from reduced phosphocholine through phosphatidylcholine depletion to mitochondrial dysfunction and oxidative lipid damage in cells carrying the actual human disease genotypes.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"Fibroblasts are not a disease-relevant tissue. The clinical phenotype is CNS-restricted, and dermal fibroblasts cannot model cortical growth, dendritic arborisation, myelination or epileptogenesis. Fidelity is MODERATE rather than HIGH on that basis: the genotype and the biochemistry are authentic, the cell type is a surrogate. No iPSC-derived neuronal or brain-organoid model has been reported.\"}, {\"source\": \"Saccharomyces cerevisiae cki1-delta complementation assay\", \"target\": \"Reduced Choline Kinase Activity and Kennedy Pathway Block\", \"predicate\": \"measures\", \"is_orphan\": false, \"description\": \"Quantifies the catalytic consequence of each human allele in a system where choline kinase is the only variable.\", \"relationship\": \"MEASURES\", \"fidelity\": \"MODERATE\", \"limitations\": \"A heterologous single-enzyme complementation system. It measures catalytic competence out of human cellular context and cannot address tissue selectivity, the CHKA/CHKB paralogue question, or any downstream consequence of the block.\"}, {\"source\": \"Chka knockout mouse (cortical neuron phenotype)\", \"target\": \"Impaired Neuronal Dendritic and Synaptic Development\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Provides the cellular neurodevelopmental phenotype \\u2014 reduced dendritic branching, decreased synaptic density, impaired presynaptic vesicle docking \\u2014 that the human disorder\u0027s biochemical lesion is presumed to cause.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"UNKNOWN\", \"limitations\": \"Fidelity is UNKNOWN rather than assigned: the abstract does not specify the zygosity or conditionality of the knockout, and a constitutive homozygous Chka null is embryonic lethal in mouse, so it cannot be determined whether this model reproduces the hypomorphic state that causes human disease. No behavioural, seizure or head-size phenotyping is reported, so the model is not shown to recapitulate the clinical phenotype.\"}, {\"source\": \"Chka null mouse (constitutive insertional knockout)\", \"target\": \"Biallelic Hypomorphic CHKA Variants\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"A complete null does not model the human condition; it dies in early embryogenesis rather than producing a neurodevelopmental phenotype. Its value is in bounding the allelic spectrum compatible with survival.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"Constitutive homozygous nulls die before embryonic day 7.5, so the model yields no postnatal, neurological or head-size phenotype to compare with human disease. Heterozygotes, with roughly 30% reduced choline kinase activity, are grossly normal with unaffected phosphatidylcholine levels and so do not model the biallelic human state either. No hypomorphic knock-in of a human missense allele, and no brain-restricted conditional allele, has been reported.\"}, {\"source\": \"CHKA\", \"target\": \"Biallelic Hypomorphic CHKA Variants\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6271,13 +6439,11 @@ This pathophysiological event involves decreased dendrite morphogenesis (GO:0048
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Head and Neck<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Musculoskeletal<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Musculoskeletal<span class="pill-count">(4)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Nervous System<span class="pill-count">(9)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Nervous System<span class="pill-count">(13)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Growth<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Other<span class="pill-count">(5)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6315,6 +6481,9 @@ This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from 
                     </div>
 
 
+
+
+
                     <div class="item-desc">No evidence block, for the same reason as the extrapyramidal phenotype above: the finding is full-text-only in PMID:35202461 and therefore not quotable against the reference cache.</div>
 
 
@@ -6349,6 +6518,9 @@ This clinical feature is Abnormal retinal pigmentation (HP:0007703). HP:0007703 
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">No evidence block: full-text-only finding in PMID:35202461, not quotable against the reference cache. Reported in one individual, so it should not be treated as an established feature of the disorder.</div>
@@ -6401,6 +6573,9 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6415,6 +6590,7 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6439,6 +6615,7 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6471,8 +6648,47 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
-                    <span class="cat-count">3</span>
+                    <span class="cat-count">4</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-muscle-tone" data-dismech-node="Abnormal muscle tone" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Abnormal muscle tone
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003808" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0003808</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal muscle tone (HP:0003808). HP:0003808 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">No evidence block: the per-individual tone values are in Table 1 of PMID:35202461, which caches as abstract only (the publisher PDF returns HTTP 403), so no quotable snippet exists. Read from the open-access PMC copy (PMC9630884). Reported in 6 of 6 individuals, as hypertonia in 1.1, 1.2 and 4 and hypotonia in 2, 3 and 5. `frequency:` is deliberately omitted rather than asserted, because the count itself is not quotable and dismech policy is to omit a frequency band rather than justify one from an unquotable source.</div>
+
+
+
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-hypertonia" data-dismech-node="Hypertonia" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -6488,15 +6704,18 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001276" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001276</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001276" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001276</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypertonia (HP:0001276). HP:0001276 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">No evidence block: this finding is in Table 1 of PMID:35202461, which caches as abstract only (the publisher PDF returns HTTP 403), so no quotable snippet exists. Read from the open-access PMC copy (PMC9630884), where the muscle-tone row reads Hypertonia / Hypertonia / Hypotonia / Hypotonia / Hypertonia / Hypotonia across individuals 1.1, 1.2, 2, 3, 4 and 5. Reported in 3 of 6 individuals. `frequency:` is deliberately omitted rather than asserted, because the count itself is not quotable and dismech policy is to omit a frequency band rather than justify one from an unquotable source. An earlier revision of this entry asserted 6 of 6 here, taken from a secondary summary rather than from the table; that was wrong and is corrected.</div>
@@ -6524,15 +6743,18 @@ This clinical feature is Hypertonia (HP:0001276). HP:0001276 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001252</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001252</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">No evidence block: this finding is in Table 1 of PMID:35202461, which caches as abstract only (the publisher PDF returns HTTP 403), so no quotable snippet exists. Read from the open-access PMC copy (PMC9630884). Reported in 3 of 6 individuals. `frequency:` is deliberately omitted rather than asserted, because the count itself is not quotable and dismech policy is to omit a frequency band rather than justify one from an unquotable source.</div>
@@ -6560,15 +6782,18 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0002650</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0002650</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">No evidence block: this finding is reported in the per-individual clinical tables and full text of PMID:35202461, which caches as abstract only (the publisher PDF returns HTTP 403), so no quotable snippet exists. It was read from the open-access PMC copy (PMC9630884) and independently corroborated by both deep-research reports, which agree. Reported in 3 of 6 individuals. `frequency:` is deliberately omitted rather than asserted, because the count itself is not quotable and dismech policy is to omit a frequency band rather than justify one from an unquotable source. A curator with full-text access should attach evidence and a frequency here.</div>
@@ -6588,7 +6813,7 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">9</span>
+                    <span class="cat-count">13</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-severe-global-developmental-delay" data-dismech-node="Severe global developmental delay" data-dismech-type="phenotype">
@@ -6607,15 +6832,18 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011344" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0011344</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011344" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0011344</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Severe global developmental delay (HP:0011344). HP:0011344 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6635,6 +6863,7 @@ This clinical feature is Severe global developmental delay (HP:0011344). HP:0011
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6675,15 +6904,18 @@ This clinical feature is Severe global developmental delay (HP:0011344). HP:0011
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001249</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001249</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6703,6 +6935,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6727,6 +6960,7 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6771,15 +7005,18 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001250</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6799,6 +7036,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6823,6 +7061,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6865,15 +7104,18 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100022" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0100022</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100022" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0100022</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormality of movement (HP:0100022). HP:0100022 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6893,6 +7135,7 @@ This clinical feature is Abnormality of movement (HP:0100022). HP:0100022 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6920,6 +7163,7 @@ This clinical feature is Abnormality of movement (HP:0100022). HP:0100022 is a p
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6943,6 +7187,47 @@ This clinical feature is Abnormality of movement (HP:0100022). HP:0100022 is a p
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-extrapyramidal-movement-abnormalities" data-dismech-node="Extrapyramidal movement abnormalities" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Extrapyramidal movement abnormalities
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormality of extrapyramidal motor function</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002071" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0002071</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormality of extrapyramidal motor function (HP:0002071). HP:0002071 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">No evidence block: these per-individual findings appear only in the full text and tables of PMID:35202461, which is cached as abstract only (the publisher PDF returns HTTP 403), so no quotable snippet exists. The detail was read from the open-access PMC copy (PMC9630884) and independently corroborated by the claude_code deep-research report; both agree. A curator with full-text access should attach evidence here.</div>
+
+
+
+
+
+
+
+
+                </div>
+
                 <div class="item-box phenotype-box anchor-target" id="phenotype-developmental-regression" data-dismech-node="Developmental regression" data-dismech-type="phenotype">
                     <div class="item-name">
                         Developmental regression
@@ -6957,15 +7242,18 @@ This clinical feature is Abnormality of movement (HP:0100022). HP:0100022 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002376" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002376</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002376" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0002376</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Developmental regression (HP:0002376). HP:0002376 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">No evidence block: full-text-only finding in PMID:35202461, not quotable against the reference cache. Reported in one of six individuals.</div>
@@ -6993,15 +7281,18 @@ This clinical feature is Developmental regression (HP:0002376). HP:0002376 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001344" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001344</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001344" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001344</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Absent speech (HP:0001344). HP:0001344 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">No evidence block: this finding is reported in the per-individual clinical tables and full text of PMID:35202461, which caches as abstract only (the publisher PDF returns HTTP 403), so no quotable snippet exists. It was read from the open-access PMC copy (PMC9630884) and independently corroborated by both deep-research reports, which agree. Reported in 6 of 6 individuals. `frequency:` is deliberately omitted rather than asserted, because the count itself is not quotable and dismech policy is to omit a frequency band rather than justify one from an unquotable source. A curator with full-text access should attach evidence and a frequency here.</div>
@@ -7029,15 +7320,18 @@ This clinical feature is Absent speech (HP:0001344). HP:0001344 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002194" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0002194</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002194" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002194</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Delayed gross motor development (HP:0002194). HP:0002194 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">No evidence block: this finding is reported in the per-individual clinical tables and full text of PMID:35202461, which caches as abstract only (the publisher PDF returns HTTP 403), so no quotable snippet exists. It was read from the open-access PMC copy (PMC9630884) and independently corroborated by both deep-research reports, which agree. Reported in 6 of 6 individuals. `frequency:` is deliberately omitted rather than asserted, because the count itself is not quotable and dismech policy is to omit a frequency band rather than justify one from an unquotable source. A curator with full-text access should attach evidence and a frequency here.</div>
@@ -7065,10 +7359,10 @@ This clinical feature is Delayed gross motor development (HP:0002194). HP:000219
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001347" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001347</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001347" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001347</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hyperreflexia (HP:0001347). HP:0001347 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7076,7 +7370,49 @@ This clinical feature is Hyperreflexia (HP:0001347). HP:0001347 is a phenotype f
                     </div>
 
 
+
+
+
                     <div class="item-desc">No evidence block: this finding is reported in the per-individual clinical tables and full text of PMID:35202461, which caches as abstract only (the publisher PDF returns HTTP 403), so no quotable snippet exists. It was read from the open-access PMC copy (PMC9630884) and independently corroborated by both deep-research reports, which agree. Reported in 5 of the individuals in whom reflexes were assessed. `frequency:` is deliberately omitted rather than asserted, because the count itself is not quotable and dismech policy is to omit a frequency band rather than justify one from an unquotable source. A curator with full-text access should attach evidence and a frequency here.</div>
+
+
+
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-inability-to-walk" data-dismech-node="Inability to walk" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Inability to walk
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002540" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002540</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Inability to walk (HP:0002540). HP:0002540 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">No evidence block: this finding is reported in the per-individual clinical tables and full text of PMID:35202461, which caches as abstract only (the publisher PDF returns HTTP 403), so no quotable snippet exists. It was read from the open-access PMC copy (PMC9630884) and independently corroborated by both deep-research reports, which agree. Reported in 5 of 6 individuals. `frequency:` is deliberately omitted rather than asserted, because the count itself is not quotable and dismech policy is to omit a frequency band rather than justify one from an unquotable source. A curator with full-text access should attach evidence and a frequency here.</div>
 
 
 
@@ -7101,10 +7437,10 @@ This clinical feature is Hyperreflexia (HP:0001347). HP:0001347 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000718" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000718</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000718" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000718</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Aggressive behavior (HP:0000718). HP:0000718 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7112,7 +7448,88 @@ This clinical feature is Aggressive behavior (HP:0000718). HP:0000718 is a pheno
                     </div>
 
 
+
+
+
                     <div class="item-desc">No evidence block: this finding is reported in the per-individual clinical tables and full text of PMID:35202461, which caches as abstract only (the publisher PDF returns HTTP 403), so no quotable snippet exists. It was read from the open-access PMC copy (PMC9630884) and independently corroborated by both deep-research reports, which agree. Reported in 3 of 6 individuals. `frequency:` is deliberately omitted rather than asserted, because the count itself is not quotable and dismech policy is to omit a frequency band rather than justify one from an unquotable source. A curator with full-text access should attach evidence and a frequency here.</div>
+
+
+
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cns-hypomyelination" data-dismech-node="CNS hypomyelination" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        CNS hypomyelination
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003429" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0003429</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is CNS hypomyelination (HP:0003429). HP:0003429 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">No evidence block: this finding is reported in the per-individual clinical tables and full text of PMID:35202461, which caches as abstract only (the publisher PDF returns HTTP 403), so no quotable snippet exists. It was read from the open-access PMC copy (PMC9630884) and independently corroborated by both deep-research reports, which agree. Reported in 2 of the 5 individuals with brain imaging. `frequency:` is deliberately omitted rather than asserted, because the count itself is not quotable and dismech policy is to omit a frequency band rather than justify one from an unquotable source. A curator with full-text access should attach evidence and a frequency here.</div>
+
+
+
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-thin-corpus-callosum" data-dismech-node="Thin corpus callosum" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Thin corpus callosum
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0033725" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0033725</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Thin corpus callosum (HP:0033725). HP:0033725 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">No evidence block: this finding is reported in the per-individual clinical tables and full text of PMID:35202461, which caches as abstract only (the publisher PDF returns HTTP 403), so no quotable snippet exists. It was read from the open-access PMC copy (PMC9630884) and independently corroborated by both deep-research reports, which agree. Reported in 1 of the 5 individuals with brain imaging. `frequency:` is deliberately omitted rather than asserted, because the count itself is not quotable and dismech policy is to omit a frequency band rather than justify one from an unquotable source. A curator with full-text access should attach evidence and a frequency here.</div>
 
 
 
@@ -7146,10 +7563,10 @@ This clinical feature is Aggressive behavior (HP:0000718). HP:0000718 is a pheno
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0004322</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0004322</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7157,198 +7574,10 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
                     </div>
 
 
+
+
+
                     <div class="item-desc">No evidence block: this finding is reported in the per-individual clinical tables and full text of PMID:35202461, which caches as abstract only (the publisher PDF returns HTTP 403), so no quotable snippet exists. It was read from the open-access PMC copy (PMC9630884) and independently corroborated by both deep-research reports, which agree. Reported in 4 of 6 individuals: Table 1 records &#34;Yes&#34; for 1.1 and 1.2, &#34;Yes (82 cm, -4 SD)&#34; for 2, &#34;No&#34; for 3 and 4, and &#34;Yes (106 cm, -2.3 SD)&#34; for 5. `frequency:` is deliberately omitted rather than asserted, because the count itself is not quotable and dismech policy is to omit a frequency band rather than justify one from an unquotable source. A curator with full-text access should attach evidence and a frequency here.</div>
-
-
-
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-6">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">5</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-extrapyramidal-movement-abnormalities" data-dismech-node="Extrapyramidal movement abnormalities" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Extrapyramidal movement abnormalities
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Abnormality of extrapyramidal motor function</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002071" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002071</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Abnormality of extrapyramidal motor function (HP:0002071). HP:0002071 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">No evidence block: these per-individual findings appear only in the full text and tables of PMID:35202461, which is cached as abstract only (the publisher PDF returns HTTP 403), so no quotable snippet exists. The detail was read from the open-access PMC copy (PMC9630884) and independently corroborated by the claude_code deep-research report; both agree. A curator with full-text access should attach evidence here.</div>
-
-
-
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-muscle-tone" data-dismech-node="Abnormal muscle tone" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Abnormal muscle tone
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003808" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0003808</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal muscle tone (HP:0003808). HP:0003808 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">No evidence block: the per-individual tone values are in Table 1 of PMID:35202461, which caches as abstract only (the publisher PDF returns HTTP 403), so no quotable snippet exists. Read from the open-access PMC copy (PMC9630884). Reported in 6 of 6 individuals, as hypertonia in 1.1, 1.2 and 4 and hypotonia in 2, 3 and 5. `frequency:` is deliberately omitted rather than asserted, because the count itself is not quotable and dismech policy is to omit a frequency band rather than justify one from an unquotable source.</div>
-
-
-
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-inability-to-walk" data-dismech-node="Inability to walk" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Inability to walk
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002540" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0002540</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Inability to walk (HP:0002540). HP:0002540 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">No evidence block: this finding is reported in the per-individual clinical tables and full text of PMID:35202461, which caches as abstract only (the publisher PDF returns HTTP 403), so no quotable snippet exists. It was read from the open-access PMC copy (PMC9630884) and independently corroborated by both deep-research reports, which agree. Reported in 5 of 6 individuals. `frequency:` is deliberately omitted rather than asserted, because the count itself is not quotable and dismech policy is to omit a frequency band rather than justify one from an unquotable source. A curator with full-text access should attach evidence and a frequency here.</div>
-
-
-
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-cns-hypomyelination" data-dismech-node="CNS hypomyelination" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        CNS hypomyelination
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003429" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0003429</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is CNS hypomyelination (HP:0003429). HP:0003429 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">No evidence block: this finding is reported in the per-individual clinical tables and full text of PMID:35202461, which caches as abstract only (the publisher PDF returns HTTP 403), so no quotable snippet exists. It was read from the open-access PMC copy (PMC9630884) and independently corroborated by both deep-research reports, which agree. Reported in 2 of the 5 individuals with brain imaging. `frequency:` is deliberately omitted rather than asserted, because the count itself is not quotable and dismech policy is to omit a frequency band rather than justify one from an unquotable source. A curator with full-text access should attach evidence and a frequency here.</div>
-
-
-
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-thin-corpus-callosum" data-dismech-node="Thin corpus callosum" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Thin corpus callosum
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0033725" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0033725</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Thin corpus callosum (HP:0033725). HP:0033725 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">No evidence block: this finding is reported in the per-individual clinical tables and full text of PMID:35202461, which caches as abstract only (the publisher PDF returns HTTP 403), so no quotable snippet exists. It was read from the open-access PMC copy (PMC9630884) and independently corroborated by both deep-research reports, which agree. Reported in 1 of the 5 individuals with brain imaging. `frequency:` is deliberately omitted rather than asserted, because the count itself is not quotable and dismech policy is to omit a frequency band rather than justify one from an unquotable source. A curator with full-text access should attach evidence and a frequency here.</div>
 
 
 
@@ -7431,6 +7660,9 @@ This disease-associated gene is CHKA (hgnc:1937). hgnc:1937 is a gene from the H
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive</span>
@@ -7453,6 +7685,7 @@ This disease-associated gene is CHKA (hgnc:1937). hgnc:1937 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7480,6 +7713,7 @@ This disease-associated gene is CHKA (hgnc:1937). hgnc:1937 is a gene from the H
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7501,6 +7735,7 @@ This disease-associated gene is CHKA (hgnc:1937). hgnc:1937 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7604,6 +7839,31 @@ This treatment uses anticonvulsant agent (NCIT:C264). NCIT:C264 is a therapeutic
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
 
 
 
@@ -7720,6 +7980,31 @@ This treatment uses baclofen (CHEBI:2972). CHEBI:2972 is a therapeutic agent fro
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Symptomatic management of the movement axis. Every reported individual has a tone abnormality, but the direction is split — hypertonia in three, hypotonia in three — with dyskinesia, rigidity or choreoathetosis in a subset, so the agents below apply to the hypertonic and hyperkinetic individuals rather than to the cohort as a whole. Standard practice for severe early-onset mixed movement disorders uses oral antispastic agents (baclofen), anticholinergics for the hyperkinetic and dystonic component (trihexyphenidyl), and focal botulinum toxin for targeted tone reduction. Botulinum toxin is named in the description rather than bound as a `therapeutic_agent`, because NCIT:C163032 is not reachable from the ChemicalEntityTerm enum root and no suitable bound term exists. As with the antiseizure entry, this records the standard of care for the phenotype, not a CHKA-specific recommendation: no publication reports movement-directed treatment or its outcome in this disorder.</div>
 
 
@@ -7811,6 +8096,31 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Physical, occupational and speech-language therapy, feeding and nutritional support, and orthopaedic management of tone abnormalities, as for any severe early-onset neurodevelopmental disability. Symptom-directed and individualised; no disorder-specific protocol exists.</div>
 
 
@@ -7863,6 +8173,20 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Counselling for an autosomal recessive disorder with a 25% recurrence risk per pregnancy for carrier couples. Particularly relevant here because four of the five reported families were consanguineous. Once the familial variants are known, carrier testing of relatives, prenatal diagnosis and preimplantation genetic testing are all technically available, though no CHKA-specific prenatal case has been published.</div>
 
 
@@ -7884,6 +8208,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7949,6 +8274,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7993,6 +8319,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8096,6 +8423,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8284,6 +8612,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8333,6 +8662,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8401,6 +8731,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8492,6 +8823,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8516,6 +8848,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8537,6 +8870,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8598,6 +8932,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8743,6 +9078,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -8799,6 +9135,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8861,6 +9198,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -8900,6 +9238,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8987,6 +9326,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9140,6 +9480,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9199,6 +9540,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9238,6 +9580,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9353,6 +9696,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9396,6 +9740,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11753,6 +12098,36 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Deep research: the falcon (Edison) provider was attempted first, as the default, and returned HTTP 402 Payment Required from the Edison API, so no falcon report exists for this entry. Two reports were produced and both were used: claude_code (fast, web-grounded) and openscientist (which completed after the first draft and supplied the CHKB gene-therapy and CDP-choline leads now recorded under `discussions`). The claude_code report&#39;s own reference-validation block reports 6/6 identifiers resolved (confabulation_rate 0.0) but needs_review true, because both quoted claims it checked — attributed to PMID:41308990 — failed to match the cached source. Neither of those two quotes is used in this entry. The openscientist report resolved 9/9 identifiers with confabulation_rate 0.0. Every snippet here was re-derived directly from the cached reference text and checked with `just count-verified-snippets`; no snippet was copied from either report. Named-entity-confusion preflight: `just preflight-dr` against MONDO:0859282 returned PASS on the claude_code report, with CHKA mentioned 48 times against 5 mentions of the nearest rival gene (CHKB, which is cited deliberately as the differential diagnosis), and the report&#39;s OMIM set containing the MONDO xref OMIM:620023. The same check on the openscientist report returned WARN, on a false positive: the flagged &#34;rival gene PC&#34; is the report&#39;s abbreviation for phosphatidylcholine, not the pyruvate carboxylase gene. CHKA still dominates that report (45 mentions), its OMIM set is exactly {620023, 118491} (the phenotype and the gene), and its narrative is entirely about CHKA, so the WARN was resolved as a lexicon artefact rather than a wrong-entity report. GeneReviews baseline: a PubMed search for a GeneReviews chapter on CHKA or NEDMIMS returned no results, so no GeneReviews phenotype baseline was available. Phenotype coverage was instead taken from the single published clinical cohort (PMID:35202461). Evidence-scope caveat, which shapes this entry throughout: the full text of the founding report is not retrievable through the reference cache (the publisher PDF returns HTTP 403), so only its abstract is quotable. Clinical detail that exists only in that full text — family ancestry and consanguinity, per-individual seizure onset ages, head-circumference SD scores (-3.3 to -7), nystagmus, retinal findings, developmental regression, the specific movement phenomenology, and the exact cDNA and protein changes of each variant — was read from the open-access PMC copy (PMC9630884) and cross-checked against the claude_code deep-research report, which agrees on every point. It is carried here in prose (`description`, `genetic.notes`) and, where it is a distinct clinical feature, as a `phenotypes` entry with an ontology term but deliberately NO evidence block, each carrying a `notes` line saying why. Five phenotypes (severe global developmental delay, intellectual disability, microcephaly, epilepsy, movement abnormalities) rest on quotable abstract text and carry evidence; four (extrapyramidal movement abnormalities, nystagmus, abnormal retinal pigmentation, developmental regression) do not. A curator with full-text access should attach evidence to the latter rather than re-derive them. Movement-phenotype granularity: the parent terms `HP:0100022` (Abnormality of movement), `HP:0002071` (Abnormality of extrapyramidal motor function) and `HP:0003808` (Abnormal muscle tone) are retained alongside the specific `HP:0001276` (Hypertonia) and `HP:0001252` (Hypotonia), and this is deliberate rather than redundant. `HP:0003808` in particular is the only term on which the fully penetrant tone claim is true: Table 1 of PMID:35202461 splits the cohort three hypertonic (1.1, 1.2, 4) and three hypotonic (2, 3, 5), so every individual has abnormal tone while neither direction exceeds half. Curating hypertonia alone — as an earlier revision of this entry did, at 6 of 6 — states the opposite of what the source shows. `HP:0100022` is the only movement phenotype with quotable evidence — the founding abstract says &#34;movement disorders&#34; and nothing more specific — so removing it would delete the entry&#39;s sole evidenced movement claim. `HP:0002071` covers the hyperkinetic subset (dyskinesia, rigidity, choreoathetosis in individuals 4 and 5), which is not subsumed by hypertonia; the cohort&#39;s movement disorder is mixed, and collapsing the two would misrepresent it as purely spastic. Cached-but-unconsumed references: five fetched references are not cited by this entry. PMID:31745227 (CHKA-c-Src scaffolding) and PMID:27206796, PMID:27705917 and PMID:34416377 (CHKA in cancer) describe roles of the same protein that have no demonstrated bearing on NEDMIMS pathogenesis, and are deliberately excluded rather than overlooked — importing an oncology-derived signalling role into a neurodevelopmental entry would assert a mechanism nobody has shown here. They are cached because the deep-research reference validator fetched every citation in the two reports.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Neurodevelopmental Disorder with Microcephaly, Movement Abnormalities, and Seizures</strong> · 2026-08-18T15:53:19Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Neurodevelopmental_Disorder_with_Microcephaly_Movement_Abnormalities_and_Seizures/2026-08-18T155319Z-claude-code-8bbdb6.yaml">View source</a></p>
+                        <p class="research-review-text">New Mendelian entry for NEDMIMS (MONDO:0859282, OMIM 620023), the autosomal recessive CHKA (choline kinase alpha) disorder of the CDP-choline/Kennedy pathway.
+
+Deep research: falcon was attempted first as the default provider and the Edison API returned HTTP 402 Payment Required, so no falcon report exists for this entry. Two reports were produced and both were used: claude_code (5 minutes, 10 web searches, 12 citations) and openscientist (21 minutes, autonomous mode, 5 iterations), which completed after the first draft and supplied the CHKB AAV6 gene-therapy and CDP-choline/citicoline leads now recorded as a fourth discussion. The claude_code report&#39;s own reference-validation block reports 6/6 identifiers resolved with confabulation_rate 0.0 but needs_review true, because both quoted claims it checked - both attributed to PMID:41308990 - failed to match the cached source. Neither of those two quotes is used in this entry. The openscientist report resolved 9/9 identifiers with confabulation_rate 0.0. Every snippet was re-derived directly from the cached reference text; no snippet was copied from either report.
+
+Named-entity-confusion preflight: just preflight-dr against MONDO:0859282 returned PASS on the claude_code report, with CHKA mentioned 48 times against 5 mentions of the nearest rival gene CHKB, which is curated deliberately as a differential diagnosis, and the report OMIM set containing the MONDO xref OMIM:620023. The same check on the openscientist report returned WARN on a false positive: the flagged rival gene PC is that report&#39;s abbreviation for phosphatidylcholine, not the pyruvate carboxylase gene. CHKA still dominates that report with 45 mentions, its OMIM set is exactly 620023 and 118491 (the phenotype and the gene), and its narrative is entirely about CHKA, so the WARN was resolved as a lexicon artefact rather than a wrong-entity report. Both preflight verdicts are recorded in the entry notes.
+
+GeneReviews baseline: a PubMed search for a GeneReviews chapter on CHKA or NEDMIMS returned no results, so no GeneReviews phenotype baseline was available. Phenotype coverage was taken from the single published clinical cohort, PMID:35202461.
+
+Content curated: an eight-node pathograph running from biallelic hypomorphic CHKA variants through the Kennedy-pathway block, phosphatidylcholine depletion and membrane lipid remodelling, compensatory CCTalpha translocation to the inner nuclear membrane, mitochondrial fragmentation with reduced respiratory efficiency, oxidative stress and lipid peroxidation, to impaired neuronal dendritic and synaptic development and the clinical outcome, with evidence on every causal edge. Nine phenotypes, a genetic block with a PARTIAL_LOSS_OF_FUNCTION genetic_context, two biochemical research readouts, diagnosis, three treatments, two animal models (the constitutive Chka null recorded as FAILS_TO_RECAPITULATE because it is embryonic lethal before E7.5), two experimental models with readouts including the FCCP rescue, three differential diagnoses, and three discussions: a KNOWLEDGE_GAP on why CHKA loss causes brain disease while CHKB loss causes muscle disease, a HUMAN_MODEL_MISMATCH on the absence of any hypomorphic CNS model, an OPEN_QUESTION on the unstated zygosity of the knockout mouse in PMID:42034046, which cannot be a constitutive homozygous null given the reported embryonic lethality, and an OPEN_QUESTION on therapeutic tractability recording the paralogous Chkb AAV6 rescue (PMID:31216357) and the CDP-choline bypass hypothesis (PMID:27769579), both explicitly marked PARTIAL because they concern CHKB rather than CHKA.
+
+Evidence-scope decision, recorded in the entry notes: the founding report PMID:35202461 caches as abstract only because the publisher PDF returns HTTP 403. Five phenotypes rest on quotable abstract text and carry evidence; four full-text-only phenotypes (extrapyramidal movement abnormalities, nystagmus, abnormal retinal pigmentation, developmental regression) carry an ontology term and an explicit no-evidence notes line explaining why, rather than a fabricated snippet. The residual-activity discrepancy between the two sources (20 and 15 percent in the founding report, 25 and 17 percent in the later mechanistic paper) is preserved and explained in genetic.notes rather than silently reconciled.
+
+Validation: just validate, just validate-terms and just validate-disorders (the batched check CI runs) all pass; just count-verified-snippets reports 74/74 verified against cached references; just check-duplicate-keys and just check-title-snippets pass. Compliance is 87.9 percent global, 88.2 percent weighted; the remaining gaps are the deliberately evidence-free treatments and differential-diagnosis entries described above.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

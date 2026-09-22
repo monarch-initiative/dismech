@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -467,6 +468,18 @@
         .tag-component {
             background: #f0fdf4;
             color: #166534;
+        }
+
+        /* Same values as disorder.html.j2 so a treatment chip looks identical
+           whether it is read on a disorder page or on a module page. */
+        .tag-treatment {
+            background: #ede9fe;
+            color: #5b21b6;
+        }
+
+        .tag-gene {
+            background: #dbeafe;
+            color: #1e40af;
         }
 
         .tag-role {
@@ -1044,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1059,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1113,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1126,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1284,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1294,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1335,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -1541,6 +1590,9 @@
 
     
     
+
+    
+    
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -1585,7 +1637,7 @@
                 
                 <span class="badge badge-category">Module</span>
                 <span class="badge badge-module">bacterial_protein_synthesis_inhibition</span>
-                <span class="badge badge-count">23 disorders</span>
+                <span class="badge badge-count">25 disorders</span>
                 
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 3</a>
                 
@@ -1736,10 +1788,25 @@ This mechanism module involves Response to Antibiotic (GO:0046677). GO:0046677 i
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">↗</div>
                 <h2 class="card-title">Used By Disorder Entries</h2>
-                <span class="card-count">23</span>
+                <span class="card-count">25</span>
             </div>
             
             <div class="crosslink-list">
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Bacterial_Vaginosis.html">Bacterial Vaginosis</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Anaerobe Ribosomal Translation (Clindamycin and Tetracycline Target) → Bacterial mRNA Translation by the Ribosome
+                        
+                        
+                    </span>
+                    
+                </div>
                 
                 <div class="crosslink-item">
                     <a href="../disorders/Brucellosis.html">Brucellosis</a>
@@ -1875,6 +1942,26 @@ This mechanism module involves Response to Antibiotic (GO:0046677). GO:0046677 i
                         
                         
                         Bacterial Ribosomal Translation (Macrolide Target) → Bacterial mRNA Translation by the Ribosome
+                        
+                        
+                        , 
+                        
+                        Acquired Macrolide Resistance → Ribosomal Target Resistance
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Nontuberculous_Mycobacterial_Lung_Disease.html">Nontuberculous Mycobacterial Lung Disease</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Mycobacterial Ribosomal Translation (Macrolide Target) → Bacterial mRNA Translation by the Ribosome
                         
                         
                         , 
@@ -2170,11 +2257,13 @@ This mechanism module involves Response to Antibiotic (GO:0046677). GO:0046677 i
             
             <div class="item-box anchor-target" id="module-pathophysiology-bacterial-mrna-translation-by-the-ribosome" data-dismech-node="Bacterial mRNA Translation by the Ribosome" data-dismech-type="pathophysiology">
                 <div class="item-name">Bacterial mRNA Translation by the Ribosome</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">therapeutic vulnerability</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The bacterial 70S ribosome translates mRNA into protein through decoding at the 30S subunit and peptide-bond formation at the 50S peptidyl transferase centre. This essential process is the second major antibiotic target after the cell wall. Drug classes bind distinct sites: aminoglycosides and tetracyclines act on the 30S (aminoglycosides cause misreading and are bactericidal; tetracyclines block A-site tRNA and are bacteriostatic), while macrolides, lincosamides (clindamycin), chloramphenicol, and oxazolidinones (linezolid) act on the 50S. Bacterial ribosomes differ enough from the eukaryotic 80S ribosome to give these drugs selective toxicity.</div>
                 
@@ -2219,6 +2308,13 @@ This pathophysiological event involves Translation (GO:0006412). GO:0006412 is a
                 <div class="crosslink-block">
                     <div class="crosslink-title">Used by disorders</div>
                     <div class="crosslink-list">
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Bacterial_Vaginosis.html">Bacterial Vaginosis</a>
+                            
+                            <span class="crosslink-desc">as Anaerobe Ribosomal Translation (Clindamycin and Tetracycline Target)</span>
+                            
+                        </div>
                         
                         <div class="crosslink-item">
                             <a href="../disorders/Brucellosis.html">Brucellosis</a>
@@ -2280,6 +2376,13 @@ This pathophysiological event involves Translation (GO:0006412). GO:0006412 is a
                             <a href="../disorders/Mycoplasma_Pneumoniae_Pneumonia.html">Mycoplasma Pneumoniae Pneumonia</a>
                             
                             <span class="crosslink-desc">as Bacterial Ribosomal Translation (Macrolide Target)</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Nontuberculous_Mycobacterial_Lung_Disease.html">Nontuberculous Mycobacterial Lung Disease</a>
+                            
+                            <span class="crosslink-desc">as Mycobacterial Ribosomal Translation (Macrolide Target)</span>
                             
                         </div>
                         
@@ -2409,11 +2512,13 @@ This pathophysiological event involves Translation (GO:0006412). GO:0006412 is a
             
             <div class="item-box anchor-target" id="module-pathophysiology-suppression-of-toxin-and-exoprotein-synthesis" data-dismech-node="Suppression of Toxin and Exoprotein Synthesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Suppression of Toxin and Exoprotein Synthesis</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">therapeutic vulnerability</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Because secreted toxins and virulence exoproteins are themselves translated products, ribosome-targeting drugs shut off their production independently of bacterial killing. Clindamycin and linezolid retain this anti-toxin effect at high bacterial densities and in stationary phase, where beta-lactams lose efficacy (the inoculum/Eagle effect). This is the mechanistic basis for adding a protein-synthesis inhibitor to a beta-lactam in toxin-driven streptococcal toxic shock, necrotizing soft-tissue infection, and staphylococcal toxic shock — the bactericidal agent clears the organism while the ribosomal agent silences toxin output.</div>
                 
@@ -2491,11 +2596,13 @@ This pathophysiological event involves decreased Translation (GO:0006412). GO:00
             
             <div class="item-box anchor-target" id="module-pathophysiology-ribosomal-target-resistance" data-dismech-node="Ribosomal Target Resistance" data-dismech-type="pathophysiology">
                 <div class="item-name">Ribosomal Target Resistance</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">adaptive escape</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Bacteria acquire resistance to ribosome-targeting drugs by modifying or protecting the target: methylation of 23S rRNA by erm methyltransferases confers macrolide-lincosamide-streptogramin B (MLSb) resistance, ribosomal protein/rRNA mutations and ribosomal protection proteins block tetracyclines, and aminoglycoside-modifying enzymes inactivate aminoglycosides. Efflux pumps remove several classes. This node explains why a ribosome-active agent can fail against a specific organism and why inducible clindamycin resistance must be excluded before relying on clindamycin&#39;s anti-toxin effect.</div>
                 
@@ -2556,6 +2663,13 @@ This pathophysiological event involves Response to Antibiotic (GO:0046677). GO:0
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Nontuberculous_Mycobacterial_Lung_Disease.html">Nontuberculous Mycobacterial Lung Disease</a>
+                            
+                            <span class="crosslink-desc">as Acquired Macrolide Resistance</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Pertussis.html">Pertussis</a>
                             
                             <span class="crosslink-desc">as Emerging Macrolide Resistance</span>
@@ -2591,6 +2705,9 @@ This pathophysiological event involves Response to Antibiotic (GO:0046677). GO:0
             </div>
             
         </div>
+        
+
+        
         
 
         <footer class="page-footer">
