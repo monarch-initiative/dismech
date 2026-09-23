@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4226,6 +4294,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4287,6 +4356,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4354,6 +4424,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4418,6 +4489,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4479,6 +4551,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4673,6 +4746,7 @@ The entry also carries a real, shared, non-trivial mechanism of its own — site
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4707,6 +4781,7 @@ The entry also carries a real, shared, non-trivial mechanism of its own — site
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chronic-mucosal-antigenic-stimulation" data-dismech-node="Chronic Mucosal Antigenic Stimulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Chronic Mucosal Antigenic Stimulation</div>
+
 
                 <div class="item-desc">A persistent, site-restricted antigenic stimulus drives chronic inflammation in gastrointestinal mucosa. The stimuli are organ-specific rather than systemic: Helicobacter pylori gastritis in the stomach, dietary gluten in coeliac disease in the small bowel, and chronic small-bowel infection in immunoproliferative small intestinal disease. The site-specificity is the defining feature and is directly evidenced: prior H. pylori infection raises the risk of gastric non-Hodgkin lymphoma roughly six-fold while conferring no measurable risk of non-gastric non-Hodgkin lymphoma. This is the disorder-specific substitution for the module&#39;s generic chronic inflammatory trigger.</div>
 
@@ -4900,6 +4975,7 @@ This pathophysiological event occurs in intestine (UBERON:0000160). UBERON:00001
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4921,6 +4997,7 @@ This pathophysiological event occurs in intestine (UBERON:0000160). UBERON:00001
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4948,6 +5025,7 @@ This pathophysiological event occurs in intestine (UBERON:0000160). UBERON:00001
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4972,6 +5050,7 @@ This pathophysiological event occurs in intestine (UBERON:0000160). UBERON:00001
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pro-tumorigenic-mucosal-lymphoid-microenvironment" data-dismech-node="Pro-Tumorigenic Mucosal Lymphoid Microenvironment" data-dismech-type="pathophysiology">
                 <div class="item-name">Pro-Tumorigenic Mucosal Lymphoid Microenvironment</div>
+
 
                 <div class="item-desc">Chronic stimulation organizes lymphoid tissue in mucosa that normally contains little or none — acquired mucosa-associated lymphoid tissue in the H. pylori-infected stomach — together with macrophages and other innate cells and a cytokine-rich milieu. This infiltrate is not a bystander: the mucosal immune microenvironment actively enhances neoplastic transformation of the resident lymphocytes. It is the disorder-specific substitution for the module&#39;s central pro-tumorigenic inflammatory microenvironment node.</div>
 
@@ -5135,6 +5214,7 @@ This pathophysiological event involves increased positive regulation of cytokine
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5156,6 +5236,7 @@ This pathophysiological event involves increased positive regulation of cytokine
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5181,6 +5262,7 @@ This pathophysiological event involves increased positive regulation of cytokine
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-antigen-driven-clonal-lymphoid-expansion" data-dismech-node="Antigen-Driven Clonal Lymphoid Expansion" data-dismech-type="pathophysiology">
                 <div class="item-name">Antigen-Driven Clonal Lymphoid Expansion</div>
+
 
                 <div class="item-desc">Chronic antigen-receptor engagement plus accessory-cell help selects and expands a clonal lymphoid population within the mucosa. Growth at this stage is still driven from outside the tumour cell and therefore still dependent on the antigen — the property that makes early, antigen-dependent gastric lymphoma curable by eradicating the organism rather than by cytotoxic therapy. The B-cell (MALT) arm of this step is curated in depth in the MALT_Lymphoma entry.</div>
 
@@ -5348,6 +5430,7 @@ This pathophysiological event involves increased B cell proliferation (GO:004210
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5370,6 +5453,7 @@ This pathophysiological event involves increased B cell proliferation (GO:004210
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-il-15-driven-jak-stat-activation-in-intraepithelial-lymphocytes" data-dismech-node="IL-15-Driven JAK-STAT Activation in Intraepithelial Lymphocytes" data-dismech-type="pathophysiology">
                 <div class="item-name">IL-15-Driven JAK-STAT Activation in Intraepithelial Lymphocytes</div>
+
 
                 <div class="item-desc">The small-bowel T-cell arm. In coeliac disease the inflamed mucosa over-produces IL-15, which acts on receptors on intraepithelial lymphocytes and deregulates JAK-STAT signalling; these intraepithelial lymphocytes are the postulated cell of origin of enteropathy-associated T-cell lymphoma, and JAK/STAT pathway mutations have been associated with the type II refractory coeliac disease-derived form. This is the mechanistic reason a T-cell lymphoma arises specifically in the gut rather than in nodes.</div>
 
@@ -5550,6 +5634,7 @@ This pathophysiological event occurs in small intestine (UBERON:0002108). UBERON
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5571,6 +5656,7 @@ This pathophysiological event occurs in small intestine (UBERON:0002108). UBERON
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5598,6 +5684,7 @@ This pathophysiological event occurs in small intestine (UBERON:0002108). UBERON
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5620,6 +5707,7 @@ This pathophysiological event occurs in small intestine (UBERON:0002108). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-transformation-to-antigen-independent-lymphoma" data-dismech-node="Transformation to Antigen-Independent Lymphoma" data-dismech-type="pathophysiology">
                 <div class="item-name">Transformation to Antigen-Independent Lymphoma</div>
+
 
                 <div class="item-desc">Acquisition of transforming genetic lesions during prolonged antigen-driven proliferation uncouples growth from the initiating stimulus. In the gastric MALT arm the paradigmatic lesions are translocations that constitutively activate NF-kB, above all t(11;18)(q21;q21) generating BIRC3::MALT1; in the coeliac arm they are JAK/STAT pathway mutations. The clinical corollary is direct and is why this node matters for management: once the tumour is antigen-independent, removing the antigen no longer treats it. The translocation biology itself is curated in MALT_Lymphoma and is referenced rather than duplicated here.</div>
 
@@ -5711,6 +5799,7 @@ This pathophysiological event involves increased canonical NF-kappaB signal tran
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5732,6 +5821,7 @@ This pathophysiological event involves increased canonical NF-kappaB signal tran
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5757,6 +5847,7 @@ This pathophysiological event involves increased canonical NF-kappaB signal tran
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mucosal-and-transmural-lymphomatous-infiltration" data-dismech-node="Mucosal and Transmural Lymphomatous Infiltration" data-dismech-type="pathophysiology">
                 <div class="item-name">Mucosal and Transmural Lymphomatous Infiltration</div>
+
 
                 <div class="item-desc">The shared anatomic final common path. Lymphoma infiltrates the mucosa and then the full thickness of the gut wall, ulcerating the epithelium, narrowing or (because lymphoma tends to infiltrate without the desmoplastic stiffening of carcinoma) aneurysmally dilating the lumen, and thinning the wall. This single node accounts for the presenting syndrome shared across every site and histology — abdominal pain, bleeding from ulcerated mucosa, obstruction, and perforation — and for the fact that the presentation is clinically indistinguishable from other gastrointestinal disease. The diagnostic consequence of that non-specificity is modelled in the diagnosis: section rather than asserted here.</div>
 
@@ -5833,6 +5924,7 @@ This pathophysiological event occurs in intestine (UBERON:0000160). UBERON:00001
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5854,6 +5946,7 @@ This pathophysiological event occurs in intestine (UBERON:0000160). UBERON:00001
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5970,6 +6063,9 @@ This clinical feature is B-cell lymphoma (HP:0012191). HP:0012191 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5984,6 +6080,7 @@ This clinical feature is B-cell lymphoma (HP:0012191). HP:0012191 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6008,6 +6105,7 @@ This clinical feature is B-cell lymphoma (HP:0012191). HP:0012191 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6062,6 +6160,9 @@ This clinical feature is T-cell lymphoma (HP:0012190). HP:0012190 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6076,6 +6177,7 @@ This clinical feature is T-cell lymphoma (HP:0012190). HP:0012190 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6132,6 +6234,9 @@ This clinical feature is Gastrointestinal hemorrhage (HP:0002239). HP:0002239 is
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6146,6 +6251,7 @@ This clinical feature is Gastrointestinal hemorrhage (HP:0002239). HP:0002239 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6211,6 +6317,9 @@ This clinical feature is Gastrointestinal obstruction (HP:0004796). HP:0004796 i
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6225,6 +6334,7 @@ This clinical feature is Gastrointestinal obstruction (HP:0004796). HP:0004796 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6281,6 +6391,9 @@ This clinical feature is Diarrhea (HP:0002014). HP:0002014 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6295,6 +6408,7 @@ This clinical feature is Diarrhea (HP:0002014). HP:0002014 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6351,6 +6465,9 @@ This clinical feature is Anorexia (HP:0002039). HP:0002039 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6365,6 +6482,7 @@ This clinical feature is Anorexia (HP:0002039). HP:0002039 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6419,6 +6537,9 @@ This clinical feature is Malabsorption (HP:0002024). HP:0002024 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6433,6 +6554,7 @@ This clinical feature is Malabsorption (HP:0002024). HP:0002024 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6487,6 +6609,9 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6501,6 +6626,7 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6555,6 +6681,9 @@ This clinical feature is Intestinal perforation (HP:0031368). HP:0031368 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6569,6 +6698,7 @@ This clinical feature is Intestinal perforation (HP:0031368). HP:0031368 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6634,6 +6764,9 @@ This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6648,6 +6781,7 @@ This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6713,6 +6847,9 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6727,6 +6864,7 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6829,6 +6967,9 @@ This disease-associated gene is JAK1 (hgnc:6190). hgnc:6190 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6843,6 +6984,7 @@ This disease-associated gene is JAK1 (hgnc:6190). hgnc:6190 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6867,6 +7009,7 @@ This disease-associated gene is JAK1 (hgnc:6190). hgnc:6190 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6928,6 +7071,9 @@ This disease-associated gene is STAT3 (hgnc:11364). hgnc:11364 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6942,6 +7088,7 @@ This disease-associated gene is STAT3 (hgnc:11364). hgnc:11364 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6966,6 +7113,7 @@ This disease-associated gene is STAT3 (hgnc:11364). hgnc:11364 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7027,6 +7175,9 @@ This disease-associated gene is SETD2 (hgnc:18420). hgnc:18420 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7041,6 +7192,7 @@ This disease-associated gene is SETD2 (hgnc:18420). hgnc:18420 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7065,6 +7217,7 @@ This disease-associated gene is SETD2 (hgnc:18420). hgnc:18420 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7126,6 +7279,9 @@ This disease-associated gene is HLA-DQB1 (HLA-DQ2.5 haplotype, with HLA-DQA1), a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7140,6 +7296,7 @@ This disease-associated gene is HLA-DQB1 (HLA-DQ2.5 haplotype, with HLA-DQA1), a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7164,6 +7321,7 @@ This disease-associated gene is HLA-DQB1 (HLA-DQ2.5 haplotype, with HLA-DQA1), a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7255,6 +7413,12 @@ This treatment is antibiotic therapy (NCIT:C15620). NCIT:C15620 is a clinical in
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Antibiotic eradication of H. pylori is first-line therapy for early-stage H. pylori-positive gastric MALT lymphoma and induces complete remission in about three quarters of such patients. It is the clearest demonstration in oncology that removing a driving antigen can cure a lymphoma, and it works only while the tumour remains antigen-dependent — the t(11;18)-positive, antigen-independent tumours modelled by the transformation node do not respond.</div>
 
 
@@ -7285,6 +7449,7 @@ This treatment is antibiotic therapy (NCIT:C15620). NCIT:C15620 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7331,6 +7496,7 @@ This treatment is antibiotic therapy (NCIT:C15620). NCIT:C15620 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7352,6 +7518,7 @@ This treatment is antibiotic therapy (NCIT:C15620). NCIT:C15620 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7470,6 +7637,9 @@ This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent fr
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7480,6 +7650,9 @@ This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent fr
 
 
     </div>
+
+
+
 
 
 
@@ -7516,6 +7689,7 @@ This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7559,6 +7733,7 @@ This treatment uses rituximab (NCIT:C1702). NCIT:C1702 is a therapeutic agent fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7626,6 +7801,9 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7636,6 +7814,9 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -7672,6 +7853,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7715,6 +7897,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7782,6 +7965,9 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7792,6 +7978,9 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
     </div>
+
+
+
 
 
 
@@ -7828,6 +8017,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7874,6 +8064,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7895,6 +8086,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7983,6 +8175,7 @@ This environmental factor is exposure to Helicobacter pylori (ECTO:3000003). ECT
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8034,6 +8227,7 @@ This environmental factor is exposure to Helicobacter pylori (ECTO:3000003). ECT
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8055,6 +8249,7 @@ This environmental factor is exposure to Helicobacter pylori (ECTO:3000003). ECT
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8114,6 +8309,7 @@ This environmental factor is exposure to Helicobacter pylori (ECTO:3000003). ECT
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8135,6 +8331,7 @@ This environmental factor is exposure to Helicobacter pylori (ECTO:3000003). ECT
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8189,6 +8386,7 @@ This environmental factor is exposure to Helicobacter pylori (ECTO:3000003). ECT
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8210,6 +8408,7 @@ This environmental factor is exposure to Helicobacter pylori (ECTO:3000003). ECT
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8269,6 +8468,7 @@ This environmental factor is exposure to Helicobacter pylori (ECTO:3000003). ECT
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8317,6 +8517,7 @@ This environmental factor is exposure to Helicobacter pylori (ECTO:3000003). ECT
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8428,6 +8629,7 @@ This environmental factor is exposure to Helicobacter pylori (ECTO:3000003). ECT
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8452,6 +8654,7 @@ This environmental factor is exposure to Helicobacter pylori (ECTO:3000003). ECT
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8473,6 +8676,7 @@ This environmental factor is exposure to Helicobacter pylori (ECTO:3000003). ECT
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8569,6 +8773,7 @@ This environmental factor is exposure to Helicobacter pylori (ECTO:3000003). ECT
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8590,6 +8795,7 @@ This environmental factor is exposure to Helicobacter pylori (ECTO:3000003). ECT
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8684,6 +8890,7 @@ This environmental factor is exposure to Helicobacter pylori (ECTO:3000003). ECT
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8705,6 +8912,7 @@ This environmental factor is exposure to Helicobacter pylori (ECTO:3000003). ECT
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8782,6 +8990,7 @@ This environmental factor is exposure to Helicobacter pylori (ECTO:3000003). ECT
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8837,6 +9046,7 @@ This environmental factor is exposure to Helicobacter pylori (ECTO:3000003). ECT
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8898,14 +9108,15 @@ This environmental factor is exposure to Helicobacter pylori (ECTO:3000003). ECT
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"The 2000-2020 age-adjusted incidence rate per 100,000 people was 0.014, and the incidence increased between 2000 and 2020, with an annual percent change of 2.58 ( P &lt; 0.05)."</div>
+                <div class="evidence-snippet">"Enteropathy-associated T-cell lymphoma (EATL) is associated with celiac disease. ... We used the Surveillance, Epidemiology, and End Results database, which is a population-based US cancer surveillance program. We used the ICD-0-3 code 9717/3 to identify patients with EATL diagnosed between 2000..."</div>
 
 
-                <div class="evidence-explanation">Provides the age-adjusted population incidence of EATL used in this record.</div>
+                <div class="evidence-explanation">US SEER data give an age-adjusted incidence of 0.014 per 100,000 for enteropathy-associated T-cell lymphoma during 2000–2020. The estimate concerns this subtype, not all gastrointestinal lymphomas.</div>
 
 
 
@@ -9846,8 +10057,17 @@ prevalence:
     reference_title: &#34;The Rising Incidence and Poor Outcomes of Enteropathy-Associated T-Cell Lymphoma.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;The 2000-2020 age-adjusted incidence rate per 100,000 people was 0.014, and the incidence increased between 2000 and 2020, with an annual percent change of 2.58 ( P &lt; 0.05).&#34;
-    explanation: Provides the age-adjusted population incidence of EATL used in this record.
+    snippet: &gt;-
+      Enteropathy-associated T-cell lymphoma (EATL) is associated with celiac disease. ... We used
+      the Surveillance, Epidemiology, and End Results database, which is a population-based US
+      cancer surveillance program. We used the ICD-0-3 code 9717/3 to identify patients with EATL
+      diagnosed between 2000 and 2020. ... The 2000-2020 age-adjusted incidence rate per 100,000
+      people was 0.014, and the incidence increased between 2000 and 2020, with an annual percent
+      change of 2.58 ( P &lt; 0.05).
+    explanation: &gt;-
+      US SEER data give an age-adjusted incidence of 0.014 per 100,000 for enteropathy-associated
+      T-cell lymphoma during 2000–2020. The estimate concerns this subtype, not all gastrointestinal
+      lymphomas.
 genetic:
 - name: JAK1
   gene_term:
@@ -10573,7 +10793,7 @@ classifications:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Gastrointestinal Lymphoma", "mondoId": "MONDO:0004699", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Gastrointestinal_Lymphoma", "yamlRevision": "b04e87da1846"};
+        const OS_CONFIG = {"diseaseName": "Gastrointestinal Lymphoma", "mondoId": "MONDO:0004699", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Gastrointestinal_Lymphoma", "yamlRevision": "20248a690f25"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

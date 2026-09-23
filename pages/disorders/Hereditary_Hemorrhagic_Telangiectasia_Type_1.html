@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4197,6 +4265,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4218,6 +4287,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4323,6 +4393,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4404,6 +4475,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4425,6 +4497,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4509,6 +4582,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4543,6 +4617,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-eng-loss-of-function-germline-variant" data-dismech-node="ENG Loss-of-Function Germline Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">ENG Loss-of-Function Germline Variant</div>
+
 
                 <div class="item-desc">A heterozygous truncating or otherwise inactivating variant in ENG at 9q34 is inherited through the family. The founding alleles were a nonsense codon and two frameshifting deletions, so the primary lesion removes functional protein rather than altering its activity.</div>
 
@@ -4596,6 +4671,8 @@ This genetic context concerns ENG (hgnc:3349). hgnc:3349 is a gene from the HUGO
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4608,6 +4685,9 @@ This genetic context concerns ENG (hgnc:3349). hgnc:3349 is a gene from the HUGO
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Heterozygous truncating ENG alleles at 9q34. The founding series comprised a nonsense substitution and two deletions creating premature termination codons, so the mechanism is loss of functional protein rather than altered activity.</div>
 
@@ -4657,6 +4737,7 @@ This genetic context concerns ENG (hgnc:3349). hgnc:3349 is a gene from the HUGO
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4679,6 +4760,7 @@ This genetic context concerns ENG (hgnc:3349). hgnc:3349 is a gene from the HUGO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-endoglin-haploinsufficiency-in-vascular-endothelium" data-dismech-node="Endoglin Haploinsufficiency in Vascular Endothelium" data-dismech-type="pathophysiology">
                 <div class="item-name">Endoglin Haploinsufficiency in Vascular Endothelium</div>
+
 
                 <div class="item-desc">Endothelial cells carry roughly half the normal complement of endoglin, an accessory protein of the TGF-beta receptor superfamily that is highly expressed on endothelium. Mutant protein is largely absent from the cell surface, so the phenotype follows from reduced dosage of the wild-type product rather than from a dominant-negative species.</div>
 
@@ -4786,6 +4868,7 @@ This pathophysiological event involves vascular endothelial cell, annotated with
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4808,6 +4891,7 @@ This pathophysiological event involves vascular endothelial cell, annotated with
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-bmp9-alk1-smad1-5-8-endothelial-signaling" data-dismech-node="Impaired BMP9-ALK1-SMAD1/5/8 Endothelial Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired BMP9-ALK1-SMAD1/5/8 Endothelial Signaling</div>
+
 
                 <div class="item-desc">Endoglin acts as a co-receptor alongside ALK1, the ACVRL1 gene product, in the endothelial BMP9 pathway that phosphorylates SMAD1/5/8. Reduced endoglin lowers signalling through this axis. That ENG and ACVRL1 lesions converge on one pathway is the accepted explanation for why HHT1 and HHT2 are clinically similar disorders despite different genes.</div>
 
@@ -4967,6 +5051,7 @@ This pathophysiological event involves decreased SMAD1/5/8 signal transduction, 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4988,6 +5073,7 @@ This pathophysiological event involves decreased SMAD1/5/8 signal transduction, 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5015,6 +5101,7 @@ This pathophysiological event involves decreased SMAD1/5/8 signal transduction, 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5037,6 +5124,7 @@ This pathophysiological event involves decreased SMAD1/5/8 signal transduction, 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-somatic-second-hit-biallelic-eng-inactivation" data-dismech-node="Somatic Second-Hit Biallelic ENG Inactivation" data-dismech-type="pathophysiology">
                 <div class="item-name">Somatic Second-Hit Biallelic ENG Inactivation</div>
+
 
                 <div class="item-desc">The germline variant is present in every cell, yet malformations form in only a small minority of vessels. A very-low-level somatic loss-of-function mutation on the second ENG allele within the lesional endothelium supplies the focal trigger. Loss of heterozygosity at ENG has been demonstrated in a brain AVM in which the germline and somatic loss-of-function mutations lay on different alleles. This node explains the focality and the intrafamilial variability that haploinsufficiency alone does not.</div>
 
@@ -5090,6 +5178,7 @@ This pathophysiological event involves decreased SMAD1/5/8 signal transduction, 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5111,6 +5200,7 @@ This pathophysiological event involves decreased SMAD1/5/8 signal transduction, 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5140,6 +5230,7 @@ This pathophysiological event involves decreased SMAD1/5/8 signal transduction, 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5164,6 +5255,7 @@ This pathophysiological event involves decreased SMAD1/5/8 signal transduction, 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysregulated-endothelial-angiogenic-response" data-dismech-node="Dysregulated Endothelial Angiogenic Response" data-dismech-type="pathophysiology">
                 <div class="item-name">Dysregulated Endothelial Angiogenic Response</div>
+
 
                 <div class="item-desc">Endothelial cells deficient in endoglin signalling mount a disordered angiogenic and remodelling response. In the endoglin-null embryo the primitive vascular plexus fails to mature into defined vessels and the resulting channels dilate and rupture, which is the developmental extreme of the same defect.</div>
 
@@ -5341,6 +5433,7 @@ This pathophysiological event involves abnormal blood vessel remodeling (GO:0001
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5362,6 +5455,7 @@ This pathophysiological event involves abnormal blood vessel remodeling (GO:0001
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5387,6 +5481,7 @@ This pathophysiological event involves abnormal blood vessel remodeling (GO:0001
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-the-intervening-capillary-bed" data-dismech-node="Loss of the Intervening Capillary Bed" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of the Intervening Capillary Bed</div>
+
 
                 <div class="item-desc">The defining lesion of HHT is an arteriovenous malformation that lacks intervening capillaries, so an artery drains directly into a vein. Small lesions of this kind are the mucocutaneous telangiectases; large ones are the visceral AVMs. Both the fragility that causes bleeding and the shunt physiology that causes the neurological complications follow from this single architectural change.</div>
 
@@ -5458,6 +5553,7 @@ This pathophysiological event involves abnormal blood vessel remodeling (GO:0001
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5479,6 +5575,7 @@ This pathophysiological event involves abnormal blood vessel remodeling (GO:0001
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5504,6 +5601,7 @@ This pathophysiological event involves abnormal blood vessel remodeling (GO:0001
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mucocutaneous-telangiectasia-formation" data-dismech-node="Mucocutaneous Telangiectasia Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Mucocutaneous Telangiectasia Formation</div>
+
 
                 <div class="item-desc">Small AVMs form in the nasal, oral and gastrointestinal mucosa and in the skin of the fingers and face. These thin-walled lesions bleed on minor trauma, which makes them the source of epistaxis and of chronic occult gastrointestinal blood loss. Somatic second hits are detectable in a substantial fraction of nasal and dermal telangiectases.</div>
 
@@ -5587,6 +5685,7 @@ This pathophysiological event involves abnormal blood vessel remodeling (GO:0001
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5608,6 +5707,7 @@ This pathophysiological event involves abnormal blood vessel remodeling (GO:0001
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5633,6 +5733,7 @@ This pathophysiological event involves abnormal blood vessel remodeling (GO:0001
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pulmonary-arteriovenous-malformation-formation" data-dismech-node="Pulmonary Arteriovenous Malformation Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Pulmonary Arteriovenous Malformation Formation</div>
+
 
                 <div class="item-desc">Pulmonary AVMs are the signature visceral lesion of HHT1 and are markedly more frequent here than in ACVRL1-related HHT2. They were found in 75% of HHT1 versus 44% of HHT2 patients on systematic imaging in one series, and symptomatic PAVMs in 34.4% of HHT1 versus 5.2% of HHT2 in a second. Because they bypass the pulmonary capillary filter, they create a right-to-left shunt rather than acting only as a bleeding source.</div>
 
@@ -5713,6 +5814,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5734,6 +5836,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5761,6 +5864,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5783,6 +5887,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cerebral-arteriovenous-malformation-formation" data-dismech-node="Cerebral Arteriovenous Malformation Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Cerebral Arteriovenous Malformation Formation</div>
+
 
                 <div class="item-desc">Cerebral AVMs are the second lesion that distinguishes HHT1. In one systematic series they were present in 20% of HHT1 patients and in none of the HHT2 patients screened. A brain AVM is also the lesion in which biallelic ENG inactivation has been demonstrated directly.</div>
 
@@ -5855,6 +5960,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5876,6 +5982,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5901,6 +6008,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-right-to-left-shunt-physiology" data-dismech-node="Right-to-Left Shunt Physiology" data-dismech-type="pathophysiology">
                 <div class="item-name">Right-to-Left Shunt Physiology</div>
+
 
                 <div class="item-desc">Blood traversing a pulmonary AVM bypasses both gas exchange and the pulmonary capillary filter. The first consequence is hypoxemia and exertional breathlessness; the second is that venous emboli and bacteria reach the systemic and cerebral circulation, producing paradoxical embolic stroke and brain abscess. Neurological manifestations secondary to shunting were observed only in HHT1 patients in a systematically screened cohort, and respiratory symptoms were likewise mainly an HHT1 finding.</div>
 
@@ -5968,6 +6076,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5992,6 +6101,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6013,6 +6123,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6147,6 +6258,9 @@ This clinical feature is Spontaneous, recurrent epistaxis (HP:0004406), qualifie
 
 
 
+
+
+
                     <div class="item-meta">
                         <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
 
@@ -6170,6 +6284,7 @@ This clinical feature is Spontaneous, recurrent epistaxis (HP:0004406), qualifie
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6197,6 +6312,7 @@ This clinical feature is Spontaneous, recurrent epistaxis (HP:0004406), qualifie
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6218,6 +6334,7 @@ This clinical feature is Spontaneous, recurrent epistaxis (HP:0004406), qualifie
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6272,6 +6389,9 @@ This clinical feature is Gastrointestinal hemorrhage (HP:0002239). HP:0002239 is
 
 
 
+
+
+
                     <div class="item-meta">
                         <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
 
@@ -6298,6 +6418,7 @@ This clinical feature is Gastrointestinal hemorrhage (HP:0002239). HP:0002239 is
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6319,6 +6440,7 @@ This clinical feature is Gastrointestinal hemorrhage (HP:0002239). HP:0002239 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6373,6 +6495,9 @@ This clinical feature is Iron deficiency anemia (HP:0001891). HP:0001891 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6387,6 +6512,7 @@ This clinical feature is Iron deficiency anemia (HP:0001891). HP:0001891 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6411,6 +6537,7 @@ This clinical feature is Iron deficiency anemia (HP:0001891). HP:0001891 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6476,6 +6603,9 @@ This clinical feature is Mucocutaneous telangiectasia, annotated with Telangiect
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6490,6 +6620,7 @@ This clinical feature is Mucocutaneous telangiectasia, annotated with Telangiect
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6514,6 +6645,7 @@ This clinical feature is Mucocutaneous telangiectasia, annotated with Telangiect
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6570,6 +6702,9 @@ This clinical feature is Pulmonary arteriovenous malformation (HP:0006548). HP:0
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -6584,6 +6719,7 @@ This clinical feature is Pulmonary arteriovenous malformation (HP:0006548). HP:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6611,6 +6747,7 @@ This clinical feature is Pulmonary arteriovenous malformation (HP:0006548). HP:0
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6632,6 +6769,7 @@ This clinical feature is Pulmonary arteriovenous malformation (HP:0006548). HP:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6688,6 +6826,9 @@ This clinical feature is Cerebral arteriovenous malformation (HP:0002408). HP:00
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6702,6 +6843,7 @@ This clinical feature is Cerebral arteriovenous malformation (HP:0002408). HP:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6756,6 +6898,9 @@ This clinical feature is Ischemic stroke (HP:0002140). HP:0002140 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6770,6 +6915,7 @@ This clinical feature is Ischemic stroke (HP:0002140). HP:0002140 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6797,6 +6943,7 @@ This clinical feature is Ischemic stroke (HP:0002140). HP:0002140 is a phenotype
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6850,6 +6997,9 @@ This clinical feature is High-output congestive heart failure, annotated with Co
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6864,6 +7014,7 @@ This clinical feature is High-output congestive heart failure, annotated with Co
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6888,6 +7039,7 @@ This clinical feature is High-output congestive heart failure, annotated with Co
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6942,6 +7094,9 @@ This clinical feature is Hepatic arteriovenous malformation (HP:0006574). HP:000
 
 
 
+
+
+
                     <div class="item-meta">
                         <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
 
@@ -6968,6 +7123,7 @@ This clinical feature is Hepatic arteriovenous malformation (HP:0006574). HP:000
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6989,6 +7145,7 @@ This clinical feature is Hepatic arteriovenous malformation (HP:0006574). HP:000
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -7054,6 +7211,9 @@ This clinical feature is Brain abscess (HP:0030049). HP:0030049 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7068,6 +7228,7 @@ This clinical feature is Brain abscess (HP:0030049). HP:0030049 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7131,6 +7292,9 @@ This clinical feature is Hypoxemia (HP:0012418). HP:0012418 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7148,6 +7312,7 @@ This clinical feature is Hypoxemia (HP:0012418). HP:0012418 is a phenotype from 
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7247,6 +7412,9 @@ This disease-associated gene is ENG (hgnc:3349). hgnc:3349 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -7261,6 +7429,7 @@ This disease-associated gene is ENG (hgnc:3349). hgnc:3349 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7288,6 +7457,7 @@ This disease-associated gene is ENG (hgnc:3349). hgnc:3349 is a gene from the HU
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7309,6 +7479,7 @@ This disease-associated gene is ENG (hgnc:3349). hgnc:3349 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7395,6 +7566,9 @@ This treatment is embolization of pulmonary arteriovenous malformation, annotate
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7405,6 +7579,9 @@ This treatment is embolization of pulmonary arteriovenous malformation, annotate
 
 
     </div>
+
+
+
 
 
 
@@ -7441,6 +7618,7 @@ This treatment is embolization of pulmonary arteriovenous malformation, annotate
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7484,6 +7662,7 @@ This treatment is embolization of pulmonary arteriovenous malformation, annotate
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7551,6 +7730,9 @@ This treatment is antibiotic prophylaxis (NCIT:C51993). NCIT:C51993 is a clinica
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7561,6 +7743,9 @@ This treatment is antibiotic prophylaxis (NCIT:C51993). NCIT:C51993 is a clinica
 
 
     </div>
+
+
+
 
 
 
@@ -7597,6 +7782,7 @@ This treatment is antibiotic prophylaxis (NCIT:C51993). NCIT:C51993 is a clinica
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7640,6 +7826,7 @@ This treatment is antibiotic prophylaxis (NCIT:C51993). NCIT:C51993 is a clinica
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7728,6 +7915,9 @@ This treatment uses pomalidomide (CHEBI:72690). CHEBI:72690 is a therapeutic age
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7738,6 +7928,9 @@ This treatment uses pomalidomide (CHEBI:72690). CHEBI:72690 is a therapeutic age
 
 
     </div>
+
+
+
 
 
 
@@ -7777,6 +7970,7 @@ This treatment uses pomalidomide (CHEBI:72690). CHEBI:72690 is a therapeutic age
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7822,6 +8016,7 @@ This treatment uses pomalidomide (CHEBI:72690). CHEBI:72690 is a therapeutic age
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7843,6 +8038,7 @@ This treatment uses pomalidomide (CHEBI:72690). CHEBI:72690 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7931,6 +8127,9 @@ This treatment uses tranexamic acid (CHEBI:48669). CHEBI:48669 is a therapeutic 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7941,6 +8140,9 @@ This treatment uses tranexamic acid (CHEBI:48669). CHEBI:48669 is a therapeutic 
 
 
     </div>
+
+
+
 
 
 
@@ -7968,6 +8170,7 @@ This treatment uses tranexamic acid (CHEBI:48669). CHEBI:48669 is a therapeutic 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8056,6 +8259,9 @@ This treatment uses bevacizumab (NCIT:C2039). NCIT:C2039 is a therapeutic agent 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8066,6 +8272,9 @@ This treatment uses bevacizumab (NCIT:C2039). NCIT:C2039 is a therapeutic agent 
 
 
     </div>
+
+
+
 
 
 
@@ -8105,6 +8314,7 @@ This treatment uses bevacizumab (NCIT:C2039). NCIT:C2039 is a therapeutic agent 
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8147,6 +8357,7 @@ This treatment uses bevacizumab (NCIT:C2039). NCIT:C2039 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8235,6 +8446,9 @@ This treatment uses iron, annotated with iron atom (CHEBI:18248). CHEBI:18248 is
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8245,6 +8459,9 @@ This treatment uses iron, annotated with iron atom (CHEBI:18248). CHEBI:18248 is
 
 
     </div>
+
+
+
 
 
 
@@ -8272,6 +8489,7 @@ This treatment uses iron, annotated with iron atom (CHEBI:18248). CHEBI:18248 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8339,6 +8557,9 @@ This treatment is surgical, endovascular or radiosurgical treatment of cerebral 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8349,6 +8570,9 @@ This treatment is surgical, endovascular or radiosurgical treatment of cerebral 
 
 
     </div>
+
+
+
 
 
 
@@ -8385,6 +8609,7 @@ This treatment is surgical, endovascular or radiosurgical treatment of cerebral 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8428,6 +8653,7 @@ This treatment is surgical, endovascular or radiosurgical treatment of cerebral 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8494,6 +8720,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8504,6 +8733,9 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -8534,6 +8766,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8555,6 +8788,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8622,6 +8856,9 @@ This treatment is avoidance of agents and circumstances that provoke bleeding or
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8632,6 +8869,9 @@ This treatment is avoidance of agents and circumstances that provoke bleeding or
 
 
     </div>
+
+
+
 
 
 
@@ -8659,6 +8899,7 @@ This treatment is avoidance of agents and circumstances that provoke bleeding or
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8728,6 +8969,7 @@ This treatment is avoidance of agents and circumstances that provoke bleeding or
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8749,6 +8991,7 @@ This treatment is avoidance of agents and circumstances that provoke bleeding or
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8851,6 +9094,7 @@ This treatment is avoidance of agents and circumstances that provoke bleeding or
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8875,6 +9119,7 @@ This treatment is avoidance of agents and circumstances that provoke bleeding or
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8896,6 +9141,7 @@ This treatment is avoidance of agents and circumstances that provoke bleeding or
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8986,6 +9232,7 @@ This treatment is avoidance of agents and circumstances that provoke bleeding or
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9007,6 +9254,7 @@ This treatment is avoidance of agents and circumstances that provoke bleeding or
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9097,6 +9345,7 @@ This treatment is avoidance of agents and circumstances that provoke bleeding or
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9118,6 +9367,7 @@ This treatment is avoidance of agents and circumstances that provoke bleeding or
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9186,6 +9436,7 @@ This treatment is avoidance of agents and circumstances that provoke bleeding or
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9207,6 +9458,7 @@ This treatment is avoidance of agents and circumstances that provoke bleeding or
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9284,6 +9536,7 @@ It is recorded as a range rather than a point because the first input is contest
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9310,6 +9563,7 @@ It is recorded as a range rather than a point because the first input is contest
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9334,6 +9588,7 @@ It is recorded as a range rather than a point because the first input is contest
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9404,6 +9659,7 @@ It is recorded as a range rather than a point because the first input is contest
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9428,6 +9684,7 @@ It is recorded as a range rather than a point because the first input is contest
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9449,6 +9706,7 @@ It is recorded as a range rather than a point because the first input is contest
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9613,6 +9871,7 @@ This clinical trial targets Iron deficiency anemia (HP:0001891). HP:0001891 is a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9634,6 +9893,7 @@ This clinical trial targets Iron deficiency anemia (HP:0001891). HP:0001891 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9808,6 +10068,7 @@ This experimental model concerns ENG (hgnc:3349). hgnc:3349 is a gene from the H
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9859,6 +10120,7 @@ This experimental model concerns ENG (hgnc:3349). hgnc:3349 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9916,6 +10178,7 @@ This experimental model concerns ENG (hgnc:3349). hgnc:3349 is a gene from the H
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9957,6 +10220,7 @@ This experimental model concerns ENG (hgnc:3349). hgnc:3349 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12298,6 +12562,65 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (3)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Relationship to the parent entry. Hereditary Hemorrhagic Telangiectasia carries the disease-wide account and lists HHT1 under has_subtypes with MONDO:0008535. This standalone entry follows the precedent of Hereditary_Hemorrhagic_Telangiectasia_4: the subtype record on the parent remains correct and is not superseded, while the ENG-specific mechanism, genotype-phenotype contrast, model system and knowledge gaps are curated here at a depth a subtype record cannot hold. Content that is true of HHT generally is cited as such rather than presented as an HHT1 finding.
+Named-entity confusion guardrail. HHT1 is ENG at 9q34; HHT2 is ACVRL1/ALK1 at 12q13. Because the two are clinically similar and are usually reported side by side, papers about one are easily mistaken for papers about the other, and the numeral is often the only thing distinguishing the titles. One trap was hit and avoided during this curation: PMID:24957885, &#34;VEGF neutralization can prevent and normalize arteriovenous malformations in an animal model for hereditary hemorrhagic telangiectasia 2&#34;, is an Alk1 model and is NOT evidence for the ENG-related mechanism curated here; it was deliberately excluded despite being a strong match on every search term used to find HHT mouse-model papers. The animal model curated in this entry is the Eng+/- mouse (PMID:10562296). Before adding any mechanism or model evidence, check which gene the source actually studied. Also note the direction of the hepatic finding: hepatic AVMs occur in HHT1 but are commoner and more often symptomatic in HHT2, so a hepatic-dominant source is probably about HHT2.
+Deep research. A falcon (Edison) run was requested on 2026-09-01 per the curation default. The Edison endpoint returned 403 &#34;Failed to authenticate&#34;, so the run was re-issued through the repository&#39;s recorded-fallback path (`just dr_fallback=&#39;--fallback&#39; research-disorder falcon ...`) rather than by substituting a provider by hand. OpenScientist produced the report, which is therefore named research/Hereditary_Hemorrhagic_Telangiectasia_Type_1-deep-research-openscientist.md and carries fell_back, requested_provider and provider_attempts in its frontmatter. Its 44 references all resolved (confabulation_rate 0.0) but needs_review is true on two off-topic references, neither of which is cited here.
+Two things about that report a later curator should know. First, its ontology bindings are unusable: term validation matched only 10 of 22 labels, and every drug CURIE it offered names a different drug - it gives NCIT:C47737 for tranexamic acid (actually Sulfamethoxazole), NCIT:C72713 for pomalidomide (Azipramine), NCIT:C1794 for thalidomide (Capecitabine) and NCIT:C71146 for pazopanib (Salirasib). No CURIE in this entry comes from the report; all were taken from the committed caches and OAK. Second, `just preflight-dr` flagged the report for mixing in a second entity (KIT mentioned 22 times, 42% of ENG), and inspection bore that out: its KIT/angiogenic-endothelium section rests on an Alk1 mouse model (PMID:42579368), its gene-specific-programs claim on a SMAD4/ALK1 study (PMID:42460472), and its variable-expressivity section on PMID:10946360, which is titled for an HHT *type 2* kindred. Those sections were excluded. Only two report-sourced references were used, both checked individually: PMID:28564608 (endoglin-BMP9 crystal structure, explicitly HHT1) and PMID:39299239 (loss of heterozygosity as a second-hit route), the latter marked INDIRECT because it works at the level of &#34;an HHT gene&#34; rather than reporting ENG separately. The rest of the entry was assembled from PubMed-sourced primary literature and the GeneReviews baseline independently of the report.
+GeneReviews baseline. PMID:20301525 (McDonald, Gossage, Stevenson; updated 2026 Feb 19) was used as the mandatory phenotype baseline. Its Clinical Characteristics items are each represented above: epistaxis, mucocutaneous telangiectases, pulmonary/hepatic/cerebral AVMs and GI bleeding. Two are deliberately not curated as HHT1 phenotypes. Gastrointestinal polyps and the juvenile polyposis overlap belong to SMAD4-related disease, which is a different molecular entity and is covered by the parent entry&#39;s has_subtypes record. Pulmonary arterial hypertension is chiefly an ACVRL1/HHT2 and GDF2 association; no HHT1-specific source was found for it, so it is recorded here as an absence rather than imported from the parent. The Agents/Circumstances to Avoid warnings are captured as a treatment record with the GeneReviews text quoted verbatim.
+Prevalence is derived, not surveyed. The 10 per 100,000 figure is this entry&#39;s arithmetic over two separately cited facts - HHT overall at 1 in 5,000 and ENG contributing roughly half of solved cases. It is recorded with that derivation stated in the record&#39;s own notes. No population study of ENG-related HHT1 as such was found.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Address PR #10351 review: evidence_source fix, cerebral surveillance, mortality burden</strong> · 2026-09-01T07:55:09Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Hereditary_Hemorrhagic_Telangiectasia_Type_1/2026-09-01T075509Z-claude-code-c42d4e.yaml">View source</a></p>
+                        <p class="research-review-text">Responded to the ai4c-reviewer REQUEST_CHANGES verdict on PR #10351. All three IMPORTANT items were verified against primary sources and fixed.
+
+IMPORTANT 1 (evidence_source): confirmed by census - PMID:10562296 was graded HUMAN_CLINICAL on the ENG-variant -&gt; haploinsufficiency downstream edge while the same PMID was correctly MODEL_ORGANISM in its seven other uses in the file. It is a mouse study (J Clin Invest, Eng+/- model). Corrected to MODEL_ORGANISM.
+
+IMPORTANT 2 (GeneReviews surveillance): added a third diagnosis record for cerebral AVM screening by brain MRI with and without contrast in infancy and again by age 18-20, quoting the GeneReviews abstract exactly. The reviewer&#39;s point was well made: the entry curates cerebral AVM as the HHT1-distinguishing phenotype (20 percent vs 0 percent) while omitting its screening recommendation.
+
+IMPORTANT 3 (mortality/prognosis): added a clinical_burden record (burden_level HIGH) and a progression record using the three cached-but-uncited references. PMID:42410718 gives life expectancy 73.0 vs 80.5 years; PMID:33407668 gives the mortality predictors (anemia HR 2.93, GI bleeding HR 2.63, symptomatic liver VMs HR 2.10) and the negative result that brain VMs and pulmonary AVMs were NOT associated with mortality; PMID:29781402 gives causes of death (sepsis 35 percent, cardiac failure 26 percent). The negative result is curated together with the authors&#39; own explanation that it reflects routine screening and pre-emptive treatment at HHT centres, so it cannot be misread as evidence those lesions are harmless. A notes field records that none of the three studies stratifies ENG vs ACVRL1, so the burden is HHT-wide and not an HHT1-specific mortality estimate; PMID:33407668 reports genotype only as SMAD4 against pooled &#39;ACVRL1 or ENG&#39; on four deaths, which is too coarse to yield an HHT1 figure.
+
+Note on PMID:42410718: the deep-research report&#39;s own reference validation had flagged this as one of two off_topic_references. Per the skill, off-topic is evidence rather than a verdict, so the paper was read before use - it is a Swedish national-register HHT mortality and prevalence study and is squarely on topic. The off-topic flag was wrong here.
+
+Reviewer suggestions (non-blocking) also addressed: added a Congestive heart failure phenotype (PMID:29781402: 69 percent non-fatal comorbidity; GeneReviews ties refractory high-output failure to hepatic AVMs and liver transplantation) with a sequela edge from Hepatic arteriovenous malformation, which also connects that previously leaf phenotype into the graph; and a biochemical record for soluble endoglin (PMID:25873934), curated explicitly as a research-stage candidate with no threshold, since the source is a biomarker review reporting no diagnostic performance.
+
+Additional honesty fix found while doing IMPORTANT 3: PMID:42410718 measures HHT prevalence at 9.3 per 100,000, less than half the 1-in-5,000 figure the entry&#39;s derived HHT1 prevalence rests on. That caveat and its evidence item were added to the prevalence record rather than left implicit, since taking the registry figure instead would roughly halve the estimate.
+
+Self-caught defect: the reference_title first written for PMID:42410718 was invented and did not match the cache. All 104 titled evidence items were then audited programmatically against their cache files; 0 mismatches remain.
+
+Validation: just validate-disorders over both changed files passes with 182/182 snippets verified. check-entity-refs, check-causal-targets, check-duplicate-keys, check-enum-values, check-folded-hyphens, check-title-snippets, check-snippet-grading and check-snippet-length all pass. Pathograph re-checked programmatically: no broken targets, no unreached phenotypes (11 phenotypes, 10 pathophysiology nodes). Weighted compliance rose from 93.1 to 94.1 percent.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Hereditary Hemorrhagic Telangiectasia Type 1 (ENG, MONDO:0008535)</strong> · 2026-09-01T07:30:16Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Hereditary_Hemorrhagic_Telangiectasia_Type_1/2026-09-01T073016Z-claude-code-598df1.yaml">View source</a></p>
+                        <p class="research-review-text">Created a standalone entry for ENG-related HHT1 (MONDO:0008535), which previously existed only as a has_subtypes record on the parent Hereditary Hemorrhagic Telangiectasia entry. Followed the Hereditary_Hemorrhagic_Telangiectasia_4 precedent: the parent subtype record is kept and cross-referenced, not superseded.
+
+Deep research: falcon was requested per the curation default but the Edison endpoint returned 403 ProviderAuthError. Rather than substituting a provider by hand, the run was re-issued through the recorded-fallback path (just dr_fallback=&#39;--fallback&#39; research-disorder falcon ...). OpenScientist produced the report, which was renamed accordingly to research/Hereditary_Hemorrhagic_Telangiectasia_Type_1-deep-research-openscientist.md and carries fell_back/requested_provider/provider_attempts in frontmatter.
+
+Report validation was read before use. reference_validation: 44/44 resolved, confabulation_rate 0.0, needs_review true on two off-topic references (PMID:42162269, PMID:42410718) - neither cited. term_validation: only 10 of 22 labels matched; every drug CURIE the report offered names a different drug (NCIT:C47737 given as tranexamic acid is Sulfamethoxazole; NCIT:C72713 as pomalidomide is Azipramine; NCIT:C1794 as thalidomide is Capecitabine; NCIT:C71146 as pazopanib is Salirasib). No CURIE in the entry came from the report; all bindings were taken from the committed caches and OAK.
+
+just preflight-dr against MONDO:0008535 returned WARN: rival gene KIT mentioned 22 times (42% of ENG), indicating a mixed second entity. Inspection confirmed it: the report&#39;s KIT section rests on an Alk1 mouse model (PMID:42579368), its gene-specific-programs claim on a SMAD4/ALK1 study (PMID:42460472), and its variable-expressivity section on PMID:10946360, which is titled for an HHT type 2 kindred. Those sections were excluded. Only two report-sourced references were used, each checked individually against PubMed: PMID:28564608 (endoglin-BMP9 crystal structure, explicitly HHT1) and PMID:39299239 (LOH as a second-hit route, marked INDIRECT since it works at the level of &#39;an HHT gene&#39;).
+
+A second entity-confusion trap was hit and avoided during independent literature search: PMID:24957885 is a VEGF-neutralization study in an HHT2/Alk1 model and was excluded as HHT1 mechanism evidence despite matching every HHT mouse-model search term. The animal model curated is the Eng+/- mouse (PMID:10562296). Both traps are recorded in the entry&#39;s notes as a guardrail.
+
+GeneReviews baseline: PMID:20301525 fetched, cached and tagged GeneReviews in the top-level references block. Clinical Characteristics items are each represented; GI polyps/juvenile polyposis overlap (SMAD4) and pulmonary arterial hypertension (chiefly ACVRL1/GDF2) are deliberately excluded with the reason recorded in notes. The Agents/Circumstances to Avoid warnings are captured verbatim as a treatment record.
+
+Content: a 10-node causal chain from the germline ENG truncating variant through endoglin haploinsufficiency, impaired BMP9-ALK1-SMAD1/5/8 signaling and somatic second-hit biallelic inactivation to loss of the intervening capillary bed and the organ-specific lesions; 10 phenotypes carrying the cohort-level HHT1-vs-HHT2 contrast (PAVM 75 vs 44 percent, CAVM 20 vs 0 percent, cerebral abscess 7.5 vs 0.8 percent, GI bleeding 6.5 vs 16.4 percent running the other way); 9 treatments; the Eng+/- mouse with three modeled_mechanisms links including a PARTIALLY_RECAPITULATES with limitations; PATH-HHT (NCT03910244); two diagnosis records; three knowledge gaps; one GEO dataset (GSE197105, included only for its Eng arm after relevance triage rejected the Alk1/Smad4 candidates). Prevalence is recorded as derived, not surveyed, with the derivation stated in the record&#39;s own notes.
+
+Validation: just validate-disorders over both changed files passed with 164/164 snippets verified (89/89 for the new entry after later edits). check-entity-refs, check-causal-targets, check-duplicate-keys, check-enum-values, check-qualifier-terms-online, check-folded-hyphens, check-title-snippets, check-snippet-grading and check-environmental-evidence all pass. just verify-datasets resolves the one accession. Weighted compliance 93.1 percent. Pathograph connectivity was checked programmatically: no broken targets, no orphan nodes, no unreached phenotypes.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

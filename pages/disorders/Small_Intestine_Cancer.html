@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3765,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3805,7 +3873,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 7</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 8</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Small%20Intestine%20Cancer"
@@ -3967,7 +4035,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">7</div>
+                <div class="stat-value">8</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4201,6 +4269,7 @@ This subtype is caused by variation in ERBB2 (hgnc:3430). hgnc:3430 is a gene fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4225,6 +4294,7 @@ This subtype is caused by variation in ERBB2 (hgnc:3430). hgnc:3430 is a gene fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4246,6 +4316,7 @@ This subtype is caused by variation in ERBB2 (hgnc:3430). hgnc:3430 is a gene fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4313,6 +4384,7 @@ This subtype is caused by variation in ERBB2 (hgnc:3430). hgnc:3430 is a gene fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4377,6 +4449,7 @@ This subtype is caused by variation in ERBB2 (hgnc:3430). hgnc:3430 is a gene fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4398,6 +4471,7 @@ This subtype is caused by variation in ERBB2 (hgnc:3430). hgnc:3430 is a gene fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4465,6 +4539,7 @@ This subtype is caused by variation in ERBB2 (hgnc:3430). hgnc:3430 is a gene fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4509,6 +4584,7 @@ This subtype is caused by variation in ERBB2 (hgnc:3430). hgnc:3430 is a gene fr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chronic-mucosal-inflammation-and-dysplasia" data-dismech-node="Chronic Mucosal Inflammation and Dysplasia" data-dismech-type="pathophysiology">
                 <div class="item-name">Chronic Mucosal Inflammation and Dysplasia</div>
+
 
                 <div class="item-desc">Sustained mucosal injury and inflammation — as in ileal Crohn disease or celiac disease — drives a chronic-inflammation carcinogenesis route with cytokine-mediated proliferative and pro-mutagenic pressure, epithelial regeneration, dysplasia, and progression to adenocarcinoma. This is the dominant acquired risk pathway for small bowel adenocarcinoma.</div>
 
@@ -4596,6 +4672,7 @@ This pathophysiological event involves epithelial cell of small intestine (CL:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4618,6 +4695,7 @@ This pathophysiological event involves epithelial cell of small intestine (CL:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-adenoma-carcinoma-sequence-and-wnt-apc-activation" data-dismech-node="Adenoma-Carcinoma Sequence and Wnt-APC Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Adenoma-Carcinoma Sequence and Wnt-APC Activation</div>
+
 
                 <div class="item-desc">Small bowel adenocarcinoma frequently develops through an adenoma-carcinoma sequence analogous to colorectal cancer, with activation of canonical Wnt signaling (through APC loss or CTNNB1 stabilization), followed by KRAS activation and TP53/SMAD4 loss. APC mutation is less frequent than in colorectal cancer, and beta-catenin/Wnt dysregulation may arise by alternative routes.</div>
 
@@ -4659,6 +4737,166 @@ This pathophysiological event involves epithelial cell of small intestine (CL:00
 
 
 
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        APC
+
+
+    <a href="https://bioregistry.io/hgnc:583" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-8">hgnc:583</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-8">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves APC (hgnc:583). hgnc:583 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        KRAS
+
+
+    <a href="https://bioregistry.io/hgnc:6407" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-9">hgnc:6407</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-9">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves KRAS (hgnc:6407). hgnc:6407 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        TP53
+
+
+    <a href="https://bioregistry.io/hgnc:11998" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:11998</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TP53 (hgnc:11998). hgnc:11998 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        SMAD4
+
+
+    <a href="https://bioregistry.io/hgnc:6770" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-11">hgnc:6770</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-11">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves SMAD4 (hgnc:6770). hgnc:6770 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
 
 
 
@@ -4674,11 +4912,11 @@ This pathophysiological event involves epithelial cell of small intestine (CL:00
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0060070" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0060070</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0060070" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0060070</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased canonical Wnt signaling pathway (GO:0060070). GO:0060070 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4743,6 +4981,7 @@ This pathophysiological event involves increased canonical Wnt signaling pathway
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4766,6 +5005,7 @@ This pathophysiological event involves increased canonical Wnt signaling pathway
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mismatch-repair-deficiency-and-microsatellite-instability" data-dismech-node="Mismatch Repair Deficiency and Microsatellite Instability" data-dismech-type="pathophysiology">
                 <div class="item-name">Mismatch Repair Deficiency and Microsatellite Instability</div>
 
+
                 <div class="item-desc">A substantial fraction of small bowel adenocarcinomas are microsatellite unstable (MSI-high), most often in the context of Lynch syndrome (germline MLH1/MSH2/MSH6/PMS2 defects) but also sporadically. Loss of DNA mismatch repair produces a hypermutated genome, frameshift neoantigens, and sensitivity to immune checkpoint blockade.</div>
 
 
@@ -4780,11 +5020,11 @@ This pathophysiological event involves increased canonical Wnt signaling pathway
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002254" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0002254</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002254" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-13">CL:0002254</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves epithelial cell of small intestine (CL:0002254). CL:0002254 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4821,11 +5061,11 @@ This pathophysiological event involves epithelial cell of small intestine (CL:00
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006298" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0006298</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006298" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0006298</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased mismatch repair (GO:0006298). GO:0006298 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4890,6 +5130,7 @@ This pathophysiological event involves decreased mismatch repair (GO:0006298). G
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4913,6 +5154,7 @@ This pathophysiological event involves decreased mismatch repair (GO:0006298). G
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-enterochromaffin-cell-neoplasia-and-serotonin-hypersecretion" data-dismech-node="Enterochromaffin Cell Neoplasia and Serotonin Hypersecretion" data-dismech-type="pathophysiology">
                 <div class="item-name">Enterochromaffin Cell Neoplasia and Serotonin Hypersecretion</div>
 
+
                 <div class="item-desc">Small-bowel neuroendocrine tumors arise from serotonin-producing enterochromaffin cells of the ileal mucosa. They are characterized genomically by recurrent loss of chromosome 18 and CDKN1B alteration rather than the classic adenocarcinoma drivers. Clonal proliferation with autonomous secretion of serotonin and other vasoactive amines underlies chromogranin A elevation and, once hepatic metastases bypass first-pass hepatic amine clearance, the carcinoid syndrome (flushing, diarrhea, right-heart valvular fibrosis).</div>
 
 
@@ -4927,11 +5169,11 @@ This pathophysiological event involves decreased mismatch repair (GO:0006298). G
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0009006" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0009006</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0009006" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-15">CL:0009006</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves enteroendocrine cell of small intestine (CL:0009006). CL:0009006 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4968,11 +5210,11 @@ This pathophysiological event involves enteroendocrine cell of small intestine (
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001820" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0001820</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001820" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0001820</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased serotonin secretion (GO:0001820). GO:0001820 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5037,6 +5279,7 @@ This pathophysiological event involves increased serotonin secretion (GO:0001820
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5059,6 +5302,7 @@ This pathophysiological event involves increased serotonin secretion (GO:0001820
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-carcinoid-syndrome" data-dismech-node="Carcinoid Syndrome" data-dismech-type="pathophysiology">
                 <div class="item-name">Carcinoid Syndrome</div>
+
 
                 <div class="item-desc">Systemic consequence of sustained serotonin and other vasoactive-amine release from a metastatic small-bowel neuroendocrine tumor once hepatic metastases bypass first-pass hepatic amine clearance. It manifests as episodic cutaneous flushing, secretory diarrhea, and bronchospasm, and, from chronic serotonin exposure on the endocardium, right-sided (tricuspid/pulmonary) valvular fibrosis (carcinoid heart disease).</div>
 
@@ -5097,6 +5341,7 @@ This pathophysiological event involves increased serotonin secretion (GO:0001820
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5120,6 +5365,7 @@ This pathophysiological event involves increased serotonin secretion (GO:0001820
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-invasion-and-late-stage-presentation" data-dismech-node="Invasion and Late-Stage Presentation" data-dismech-type="pathophysiology">
                 <div class="item-name">Invasion and Late-Stage Presentation</div>
 
+
                 <div class="item-desc">Because early small intestinal tumors are clinically silent and the small bowel is difficult to visualize, cancers commonly present late with transmural invasion, obstruction, bleeding, and regional or distant metastases, a major driver of the historically poor prognosis of small bowel adenocarcinoma.</div>
 
 
@@ -5141,11 +5387,11 @@ This pathophysiological event involves increased serotonin secretion (GO:0001820
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001837" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0001837</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001837" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-17">GO:0001837</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased epithelial to mesenchymal transition (GO:0001837). GO:0001837 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5195,6 +5441,7 @@ This pathophysiological event involves increased epithelial to mesenchymal trans
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5240,7 +5487,7 @@ This pathophysiological event involves increased epithelial to mesenchymal trans
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Adenoma-Carcinoma Sequence and Wnt-APC Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Small bowel adenocarcinoma frequently develops through an adenoma-carcinoma sequence analogous to colorectal cancer, with activation of canonical Wnt signaling (through APC loss or CTNNB1 stabilization), followed by KRAS activation and TP53/SMAD4 loss. APC mutation is less frequent than in colorectal cancer, and beta-catenin/Wnt dysregulation may arise by alternative routes.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"epithelial cell of small intestine\"], \"biological_processes\": [\"canonical Wnt signaling pathway\"]}}, {\"id\": \"Carcinoid Syndrome\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Systemic consequence of sustained serotonin and other vasoactive-amine release from a metastatic small-bowel neuroendocrine tumor once hepatic metastases bypass first-pass hepatic amine clearance. It manifests as episodic cutaneous flushing, secretory diarrhea, and bronchospasm, and, from chronic serotonin exposure on the endocardium, right-sided (tricuspid/pulmonary) valvular fibrosis (carcinoid heart disease).\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Chronic Mucosal Inflammation and Dysplasia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sustained mucosal injury and inflammation \\u2014 as in ileal Crohn disease or celiac disease \\u2014 drives a chronic-inflammation carcinogenesis route with cytokine-mediated proliferative and pro-mutagenic pressure, epithelial regeneration, dysplasia, and progression to adenocarcinoma. This is the dominant acquired risk pathway for small bowel adenocarcinoma.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"epithelial cell of small intestine\"]}}, {\"id\": \"Enterochromaffin Cell Neoplasia and Serotonin Hypersecretion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Small-bowel neuroendocrine tumors arise from serotonin-producing enterochromaffin cells of the ileal mucosa. They are characterized genomically by recurrent loss of chromosome 18 and CDKN1B alteration rather than the classic adenocarcinoma drivers. Clonal proliferation with autonomous secretion of serotonin and other vasoactive amines underlies chromogranin A elevation and, once hepatic metastases bypass first-pass hepatic amine clearance, the carcinoid syndrome (flushing, diarrhea, right-heart valvular fibrosis).\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"enteroendocrine cell of small intestine\"], \"biological_processes\": [\"serotonin secretion\"]}}, {\"id\": \"Immune checkpoint blockade (dMMR/MSI-H)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Anti-PD-1 immune checkpoint blockade (pembrolizumab) is a tissue-agnostic option for mismatch-repair-deficient / microsatellite-instability-high small bowel adenocarcinoma, which is hypermutated and neoantigen-rich.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"pembrolizumab\"]}}, {\"id\": \"Invasion and Late-Stage Presentation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Because early small intestinal tumors are clinically silent and the small bowel is difficult to visualize, cancers commonly present late with transmural invasion, obstruction, bleeding, and regional or distant metastases, a major driver of the historically poor prognosis of small bowel adenocarcinoma.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"epithelial to mesenchymal transition\"]}}, {\"id\": \"Mismatch Repair Deficiency and Microsatellite Instability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A substantial fraction of small bowel adenocarcinomas are microsatellite unstable (MSI-high), most often in the context of Lynch syndrome (germline MLH1/MSH2/MSH6/PMS2 defects) but also sporadically. Loss of DNA mismatch repair produces a hypermutated genome, frameshift neoantigens, and sensitivity to immune checkpoint blockade.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"epithelial cell of small intestine\"], \"biological_processes\": [\"mismatch repair\"]}}], \"edges\": [{\"source\": \"Chronic Mucosal Inflammation and Dysplasia\", \"target\": \"Adenoma-Carcinoma Sequence and Wnt-APC Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic injury and dysplasia feed into the adenoma-carcinoma progression.\"}, {\"source\": \"Adenoma-Carcinoma Sequence and Wnt-APC Activation\", \"target\": \"Invasion and Late-Stage Presentation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Accumulated driver lesions produce invasive adenocarcinoma.\"}, {\"source\": \"Mismatch Repair Deficiency and Microsatellite Instability\", \"target\": \"Invasion and Late-Stage Presentation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The hypermutated MSI-high genotype contributes to malignant progression.\"}, {\"source\": \"Enterochromaffin Cell Neoplasia and Serotonin Hypersecretion\", \"target\": \"Carcinoid Syndrome\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Autonomous serotonin and vasoactive-amine secretion, once hepatic metastases bypass first-pass hepatic amine clearance, produces the systemic carcinoid syndrome.\"}, {\"source\": \"Immune checkpoint blockade (dMMR/MSI-H)\", \"target\": \"Mismatch Repair Deficiency and Microsatellite Instability\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"APC (familial adenomatous polyposis)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"APC\"], \"gene_terms\": [{\"label\": \"APC\", \"id\": \"hgnc:583\"}], \"relationship_type\": \"RISK_FACTOR\"}}, {\"id\": \"Adenoma-Carcinoma Sequence and Wnt-APC Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Small bowel adenocarcinoma frequently develops through an adenoma-carcinoma sequence analogous to colorectal cancer, with activation of canonical Wnt signaling (through APC loss or CTNNB1 stabilization), followed by KRAS activation and TP53/SMAD4 loss. APC mutation is less frequent than in colorectal cancer, and beta-catenin/Wnt dysregulation may arise by alternative routes.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"epithelial cell of small intestine\"], \"biological_processes\": [\"canonical Wnt signaling pathway\"], \"genes\": [\"APC\", \"KRAS\", \"TP53\", \"SMAD4\"], \"gene_terms\": [{\"label\": \"APC\", \"id\": \"hgnc:583\"}, {\"label\": \"KRAS\", \"id\": \"hgnc:6407\"}, {\"label\": \"TP53\", \"id\": \"hgnc:11998\"}, {\"label\": \"SMAD4\", \"id\": \"hgnc:6770\"}]}}, {\"id\": \"Carcinoid Syndrome\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Systemic consequence of sustained serotonin and other vasoactive-amine release from a metastatic small-bowel neuroendocrine tumor once hepatic metastases bypass first-pass hepatic amine clearance. It manifests as episodic cutaneous flushing, secretory diarrhea, and bronchospasm, and, from chronic serotonin exposure on the endocardium, right-sided (tricuspid/pulmonary) valvular fibrosis (carcinoid heart disease).\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Chronic Mucosal Inflammation and Dysplasia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sustained mucosal injury and inflammation \\u2014 as in ileal Crohn disease or celiac disease \\u2014 drives a chronic-inflammation carcinogenesis route with cytokine-mediated proliferative and pro-mutagenic pressure, epithelial regeneration, dysplasia, and progression to adenocarcinoma. This is the dominant acquired risk pathway for small bowel adenocarcinoma.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"epithelial cell of small intestine\"]}}, {\"id\": \"Enterochromaffin Cell Neoplasia and Serotonin Hypersecretion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Small-bowel neuroendocrine tumors arise from serotonin-producing enterochromaffin cells of the ileal mucosa. They are characterized genomically by recurrent loss of chromosome 18 and CDKN1B alteration rather than the classic adenocarcinoma drivers. Clonal proliferation with autonomous secretion of serotonin and other vasoactive amines underlies chromogranin A elevation and, once hepatic metastases bypass first-pass hepatic amine clearance, the carcinoid syndrome (flushing, diarrhea, right-heart valvular fibrosis).\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"enteroendocrine cell of small intestine\"], \"biological_processes\": [\"serotonin secretion\"]}}, {\"id\": \"Immune checkpoint blockade (dMMR/MSI-H)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Anti-PD-1 immune checkpoint blockade (pembrolizumab) is a tissue-agnostic option for mismatch-repair-deficient / microsatellite-instability-high small bowel adenocarcinoma, which is hypermutated and neoantigen-rich.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"pembrolizumab\"]}}, {\"id\": \"Invasion and Late-Stage Presentation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Because early small intestinal tumors are clinically silent and the small bowel is difficult to visualize, cancers commonly present late with transmural invasion, obstruction, bleeding, and regional or distant metastases, a major driver of the historically poor prognosis of small bowel adenocarcinoma.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"epithelial to mesenchymal transition\"]}}, {\"id\": \"Mismatch Repair Deficiency and Microsatellite Instability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A substantial fraction of small bowel adenocarcinomas are microsatellite unstable (MSI-high), most often in the context of Lynch syndrome (germline MLH1/MSH2/MSH6/PMS2 defects) but also sporadically. Loss of DNA mismatch repair produces a hypermutated genome, frameshift neoantigens, and sensitivity to immune checkpoint blockade.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"epithelial cell of small intestine\"], \"biological_processes\": [\"mismatch repair\"]}}], \"edges\": [{\"source\": \"Chronic Mucosal Inflammation and Dysplasia\", \"target\": \"Adenoma-Carcinoma Sequence and Wnt-APC Activation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic injury and dysplasia feed into the adenoma-carcinoma progression.\"}, {\"source\": \"Adenoma-Carcinoma Sequence and Wnt-APC Activation\", \"target\": \"Invasion and Late-Stage Presentation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Accumulated driver lesions produce invasive adenocarcinoma.\"}, {\"source\": \"Mismatch Repair Deficiency and Microsatellite Instability\", \"target\": \"Invasion and Late-Stage Presentation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The hypermutated MSI-high genotype contributes to malignant progression.\"}, {\"source\": \"Enterochromaffin Cell Neoplasia and Serotonin Hypersecretion\", \"target\": \"Carcinoid Syndrome\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Autonomous serotonin and vasoactive-amine secretion, once hepatic metastases bypass first-pass hepatic amine clearance, produces the systemic carcinoid syndrome.\"}, {\"source\": \"Immune checkpoint blockade (dMMR/MSI-H)\", \"target\": \"Mismatch Repair Deficiency and Microsatellite Instability\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"APC (familial adenomatous polyposis)\", \"target\": \"Adenoma-Carcinoma Sequence and Wnt-APC Activation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5294,15 +5541,18 @@ This pathophysiological event involves increased epithelial to mesenchymal trans
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002239" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0002239</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002239" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0002239</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Gastrointestinal hemorrhage (HP:0002239). HP:0002239 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5328,15 +5578,18 @@ This clinical feature is Gastrointestinal hemorrhage (HP:0002239). HP:0002239 is
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001891" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001891</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001891" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001891</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Iron deficiency anemia (HP:0001891). HP:0001891 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5371,15 +5624,18 @@ This clinical feature is Iron deficiency anemia (HP:0001891). HP:0001891 is a ph
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005214" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0005214</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005214" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0005214</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Intestinal obstruction (HP:0005214). HP:0005214 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5407,15 +5663,18 @@ This clinical feature is Intestinal obstruction (HP:0005214). HP:0005214 is a ph
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100833" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0100833</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100833" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0100833</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Neoplasm of the small intestine (HP:0100833). HP:0100833 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5435,6 +5694,7 @@ This clinical feature is Neoplasm of the small intestine (HP:0100833). HP:010083
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5475,15 +5735,18 @@ This clinical feature is Neoplasm of the small intestine (HP:0100833). HP:010083
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002014" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0002014</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002014" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0002014</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Diarrhea (HP:0002014). HP:0002014 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5518,15 +5781,18 @@ This clinical feature is Diarrhea (HP:0002014). HP:0002014 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031284" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0031284</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0031284" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0031284</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Flushing (HP:0031284). HP:0031284 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5561,15 +5827,18 @@ This clinical feature is Flushing (HP:0031284). HP:0031284 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002027</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002027" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002027</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5604,15 +5873,18 @@ This clinical feature is Abdominal pain (HP:0002027). HP:0002027 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001824</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001824" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001824</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5679,10 +5951,10 @@ This clinical feature is Weight loss (HP:0001824). HP:0001824 is a phenotype fro
                         Gene: MLH1
 
 
-    <a href="https://bioregistry.io/hgnc:7127" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-22">hgnc:7127</a>
+    <a href="https://bioregistry.io/hgnc:7127" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-26">hgnc:7127</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is MLH1 (hgnc:7127). hgnc:7127 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -5692,6 +5964,9 @@ This disease-associated gene is MLH1 (hgnc:7127). hgnc:7127 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -5710,6 +5985,7 @@ This disease-associated gene is MLH1 (hgnc:7127). hgnc:7127 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5750,10 +6026,10 @@ This disease-associated gene is MLH1 (hgnc:7127). hgnc:7127 is a gene from the H
                         Gene: MSH2
 
 
-    <a href="https://bioregistry.io/hgnc:7325" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-23">hgnc:7325</a>
+    <a href="https://bioregistry.io/hgnc:7325" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-27">hgnc:7325</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is MSH2 (hgnc:7325). hgnc:7325 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -5763,6 +6039,9 @@ This disease-associated gene is MSH2 (hgnc:7325). hgnc:7325 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -5787,10 +6066,10 @@ This disease-associated gene is MSH2 (hgnc:7325). hgnc:7325 is a gene from the H
                         Gene: MSH6
 
 
-    <a href="https://bioregistry.io/hgnc:7329" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-24">hgnc:7329</a>
+    <a href="https://bioregistry.io/hgnc:7329" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-28">hgnc:7329</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is MSH6 (hgnc:7329). hgnc:7329 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -5800,6 +6079,9 @@ This disease-associated gene is MSH6 (hgnc:7329). hgnc:7329 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -5824,10 +6106,10 @@ This disease-associated gene is MSH6 (hgnc:7329). hgnc:7329 is a gene from the H
                         Gene: PMS2
 
 
-    <a href="https://bioregistry.io/hgnc:9122" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-25">hgnc:9122</a>
+    <a href="https://bioregistry.io/hgnc:9122" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-29">hgnc:9122</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is PMS2 (hgnc:9122). hgnc:9122 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -5837,6 +6119,9 @@ This disease-associated gene is PMS2 (hgnc:9122). hgnc:9122 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -5861,10 +6146,10 @@ This disease-associated gene is PMS2 (hgnc:9122). hgnc:9122 is a gene from the H
                         Gene: EPCAM
 
 
-    <a href="https://bioregistry.io/hgnc:11529" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-26">hgnc:11529</a>
+    <a href="https://bioregistry.io/hgnc:11529" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-30">hgnc:11529</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is EPCAM (hgnc:11529). hgnc:11529 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -5874,6 +6159,9 @@ This disease-associated gene is EPCAM (hgnc:11529). hgnc:11529 is a gene from th
 
 
                 </div>
+
+
+
 
 
 
@@ -5898,10 +6186,10 @@ This disease-associated gene is EPCAM (hgnc:11529). hgnc:11529 is a gene from th
                         Gene: APC
 
 
-    <a href="https://bioregistry.io/hgnc:583" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-27">hgnc:583</a>
+    <a href="https://bioregistry.io/hgnc:583" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-31">hgnc:583</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is APC (hgnc:583). hgnc:583 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -5911,6 +6199,9 @@ This disease-associated gene is APC (hgnc:583). hgnc:583 is a gene from the HUGO
 
 
                 </div>
+
+
+
 
 
 
@@ -5929,6 +6220,7 @@ This disease-associated gene is APC (hgnc:583). hgnc:583 is a gene from the HUGO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5969,10 +6261,10 @@ This disease-associated gene is APC (hgnc:583). hgnc:583 is a gene from the HUGO
                         Gene: STK11
 
 
-    <a href="https://bioregistry.io/hgnc:11389" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-28">hgnc:11389</a>
+    <a href="https://bioregistry.io/hgnc:11389" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-32">hgnc:11389</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is STK11 (hgnc:11389). hgnc:11389 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -5982,6 +6274,9 @@ This disease-associated gene is STK11 (hgnc:11389). hgnc:11389 is a gene from th
 
 
                 </div>
+
+
+
 
 
 
@@ -6006,10 +6301,10 @@ This disease-associated gene is STK11 (hgnc:11389). hgnc:11389 is a gene from th
                         Gene: MUTYH
 
 
-    <a href="https://bioregistry.io/hgnc:7527" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-29">hgnc:7527</a>
+    <a href="https://bioregistry.io/hgnc:7527" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-33">hgnc:7527</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is MUTYH (hgnc:7527). hgnc:7527 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -6019,6 +6314,9 @@ This disease-associated gene is MUTYH (hgnc:7527). hgnc:7527 is a gene from the 
 
 
                 </div>
+
+
+
 
 
 
@@ -6037,6 +6335,7 @@ This disease-associated gene is MUTYH (hgnc:7527). hgnc:7527 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6087,7 +6386,7 @@ This disease-associated gene is MUTYH (hgnc:7527). hgnc:7527 is a gene from the 
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-30">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-34">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6128,6 +6427,12 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
+
+
+
                 <div class="item-desc">Segmental small-bowel resection with lymphadenectomy (or pancreaticoduodenectomy for duodenal/periampullary tumors) is the mainstay of curative therapy for localized adenocarcinoma and neuroendocrine tumors.</div>
 
 
@@ -6149,6 +6454,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6180,7 +6486,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-31">chemotherapy<span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-35">chemotherapy<span class="pill-tip" role="tooltip" id="pill-tip-35">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6222,11 +6528,11 @@ This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical interven
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_46345" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-32">CHEBI:46345</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_46345" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-36">CHEBI:46345</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses 5-fluorouracil (CHEBI:46345). CHEBI:46345 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
@@ -6239,16 +6545,22 @@ This treatment uses 5-fluorouracil (CHEBI:46345). CHEBI:46345 is a therapeutic a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_31941" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-33">CHEBI:31941</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_31941" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-37">CHEBI:31941</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses oxaliplatin (CHEBI:31941). CHEBI:31941 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
 
 
 
@@ -6278,7 +6590,7 @@ This treatment uses oxaliplatin (CHEBI:31941). CHEBI:31941 is a therapeutic agen
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-34">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-38">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6319,11 +6631,11 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_7726" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-35">CHEBI:7726</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_7726" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-39">CHEBI:7726</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses octreotide (CHEBI:7726). CHEBI:7726 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
@@ -6336,16 +6648,22 @@ This treatment uses octreotide (CHEBI:7726). CHEBI:7726 is a therapeutic agent f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_135901" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-36">CHEBI:135901</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_135901" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-40">CHEBI:135901</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses lanreotide (CHEBI:135901). CHEBI:135901 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
 
 
 
@@ -6375,7 +6693,7 @@ This treatment uses lanreotide (CHEBI:135901). CHEBI:135901 is a therapeutic age
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-37">peptide receptor radionuclide therapy<span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-41">peptide receptor radionuclide therapy<span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is peptide receptor radionuclide therapy, annotated with Radiation Therapy (NCIT:C15313). NCIT:C15313 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6417,16 +6735,22 @@ This treatment is peptide receptor radionuclide therapy, annotated with Radiatio
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C95020" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-38">NCIT:C95020</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C95020" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-42">NCIT:C95020</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">NCI Thesaurus (NCIT)
 Relation: this treatment uses this therapeutic agent
 This treatment uses Lutetium Lu 177 dotatate (NCIT:C95020). NCIT:C95020 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
 
 
 
@@ -6462,6 +6786,7 @@ This treatment uses Lutetium Lu 177 dotatate (NCIT:C95020). NCIT:C95020 is a the
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6490,7 +6815,7 @@ This treatment uses Lutetium Lu 177 dotatate (NCIT:C95020). NCIT:C95020 is a the
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-39">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-43">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-43">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6531,16 +6856,19 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C106432" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-40">NCIT:C106432</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C106432" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-44">NCIT:C106432</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">NCI Thesaurus (NCIT)
 Relation: this treatment uses this therapeutic agent
 This treatment uses pembrolizumab (NCIT:C106432). NCIT:C106432 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
+
+
+
 
 
 
@@ -6557,6 +6885,9 @@ This treatment uses pembrolizumab (NCIT:C106432). NCIT:C106432 is a therapeutic 
 
 
     </div>
+
+
+
 
 
 
@@ -6593,6 +6924,7 @@ This treatment uses pembrolizumab (NCIT:C106432). NCIT:C106432 is a therapeutic 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6636,6 +6968,7 @@ This treatment uses pembrolizumab (NCIT:C106432). NCIT:C106432 is a therapeutic 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6757,6 +7090,7 @@ This treatment uses pembrolizumab (NCIT:C106432). NCIT:C106432 is a therapeutic 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6812,6 +7146,7 @@ This treatment uses pembrolizumab (NCIT:C106432). NCIT:C106432 is a therapeutic 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7143,6 +7478,23 @@ pathophysiology:
     activation and TP53/SMAD4 loss. APC mutation is less frequent than in
     colorectal cancer, and beta-catenin/Wnt dysregulation may arise by
     alternative routes.
+  genes:
+  - preferred_term: APC
+    term:
+      id: hgnc:583
+      label: APC
+  - preferred_term: KRAS
+    term:
+      id: hgnc:6407
+      label: KRAS
+  - preferred_term: TP53
+    term:
+      id: hgnc:11998
+      label: TP53
+  - preferred_term: SMAD4
+    term:
+      id: hgnc:6770
+      label: SMAD4
   cell_types:
   - preferred_term: epithelial cell of small intestine
     term:
@@ -7594,6 +7946,19 @@ datasets: []
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Small Intestine Cancer</strong> · 2026-07-15T10:03:56Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Small_Intestine_Cancer/2026-07-15T100356Z-claude-code-09eba4.yaml">View source</a></p>
+                        <p class="research-review-text">Created new CURATE_ROOT_WITH_SUBTYPES entry for small intestine cancer MONDO:0000956 per issue 5750. Root small-bowel carcinogenesis modeled with four has_subtypes histologies: adenocarcinoma, neuroendocrine tumor/carcinoid, lymphoma, sarcoma; the separately-curated GIST is cross-referenced as a differential diagnosis rather than duplicated. Deep research provider: EDISON falcon via deep-research-client. EDISON output was treated as leads only; every PMID and snippet was independently verified against PubMed abstracts before use. Evidence uses 9 verified PMIDs: 35565398, 38141930, 39199671, 37954063, 40218169, 40553474, 39411312, 25639480 (intestinal lymphoma / EATL-IPSID), 31682550 (KEYNOTE-158 pembrolizumab in MSI-H/dMMR). Added structured prevalence overall RARE and small-bowel NET ~1.4 per 100000 SEER, a PRRT treatment, and dMMR/MSI-H immune checkpoint blockade with a target_mechanisms link to the mismatch-repair pathophysiology node. A fresh-context red-team review (dismech-pr-review rubric) was run; its blocking finding (lymphoma subtype evidence not lymphoma-specific) was fixed with PMID:25639480, and high-value non-blocking fixes were applied (pathograph MMR-&gt;Invasion link, EC-cell node genetics chr18/CDKN1B aligned to its evidence, MSI/ICB inconsistency resolved). just validate passes schema+terms+references; compliance ~81 percent.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -8091,7 +8456,7 @@ datasets: []
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Small Intestine Cancer", "mondoId": "MONDO:0000956", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Small_Intestine_Cancer", "yamlRevision": "0b736c33168a"};
+        const OS_CONFIG = {"diseaseName": "Small Intestine Cancer", "mondoId": "MONDO:0000956", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Small_Intestine_Cancer", "yamlRevision": "c99f213e9151"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

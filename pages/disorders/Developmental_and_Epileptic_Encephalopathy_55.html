@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4207,6 +4275,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4418,6 +4487,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-pigp-variants" data-dismech-node="Biallelic PIGP Variants" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic PIGP Variants</div>
 
+
                 <div class="item-desc">Compound heterozygous or homozygous PIGP variants. Reported alleles include c.74T&gt;C (p.Met25Thr) with c.456delA (p.Glu153AsnFs*34) in the founding siblings, a recurrent homozygous c.384del in a large inbred family, and a start-codon variant in trans with a 136 kb deletion removing the whole gene. The effect is reduction rather than abolition of PIGP function: patient cells retained reduced PIGP mRNA, and c.384del is predicted to yield a longer-than-wild-type protein with impaired functionality rather than no protein at all.
 </div>
 
@@ -4483,6 +4553,8 @@ This pathophysiological event involves decreased PIGP (hgnc:3046). hgnc:3046 is 
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4503,6 +4575,9 @@ This pathophysiological event involves decreased PIGP (hgnc:3046). hgnc:3046 is 
         <span class="tag tag-classification">functional_impact_category: PARTIAL_LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Germline biallelic PIGP alleles spanning missense, frameshift, start-loss and a 136 kb whole-gene deletion. Both compound heterozygous and homozygous families are reported, so `zygosity` is deliberately left unset rather than picking one — the slot is single-valued and either value would misdescribe half the cohort. The disease state is a partial rather than complete loss of function.</div>
 
@@ -4552,6 +4627,7 @@ This pathophysiological event involves decreased PIGP (hgnc:3046). hgnc:3046 is 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4574,6 +4650,7 @@ This pathophysiological event involves decreased PIGP (hgnc:3046). hgnc:3046 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4602,6 +4679,7 @@ This pathophysiological event involves decreased PIGP (hgnc:3046). hgnc:3046 is 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4627,6 +4705,7 @@ This pathophysiological event involves decreased PIGP (hgnc:3046). hgnc:3046 is 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-first-step-of-gpi-anchor-biosynthesis" data-dismech-node="Impaired First Step of GPI Anchor Biosynthesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired First Step of GPI Anchor Biosynthesis</div>
+
 
                 <div class="item-desc">GPI anchor precursors are assembled in the endoplasmic reticulum through a multistep pathway and then transferred to target proteins, which are further remodelled in the ER and Golgi before reaching the cell surface. PIGP is a subunit of the complex that performs the first step of that pathway; reduced PIGP function throttles flux at the entry point, so the deficit is felt by every downstream GPI-anchored protein rather than by a subset.
 </div>
@@ -4719,6 +4798,7 @@ This pathophysiological event involves decreased GPI anchor biosynthetic process
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4742,6 +4822,7 @@ This pathophysiological event involves decreased GPI anchor biosynthetic process
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-gpi-anchored-protein-surface-expression" data-dismech-node="Reduced GPI-Anchored Protein Surface Expression" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced GPI-Anchored Protein Surface Expression</div>
+
 
                 <div class="item-desc">The measurable cellular lesion. Patient cells show reduced surface levels of GPI-anchored proteins, and this is restored by exogenous expression of wild-type PIGP — the rescue that establishes causation rather than correlation. Because over 150 human proteins are GPI-anchored, the effect is a class-wide reduction in surface density. This entry deliberately does not name a single culprit protein: no experiment attributes the neurological phenotype to any particular GPI-anchored protein, and the sources do not.
 </div>
@@ -4860,6 +4941,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4882,6 +4964,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4910,6 +4993,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4935,6 +5019,7 @@ This pathophysiological event involves neuron (CL:0000540). CL:0000540 is a cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-neurodevelopment-and-cortical-network-excitability" data-dismech-node="Disrupted Neurodevelopment and Cortical Network Excitability" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted Neurodevelopment and Cortical Network Excitability</div>
+
 
                 <div class="item-desc">GPI-anchored proteins play a variety of important roles in development and particularly in neurogenesis, and in synaptic function and plasticity. Reducing the surface density of that class during brain development produces a network that is both developmentally impaired and abnormally excitable — which is what a developmental and epileptic encephalopathy is: the epilepsy and the developmental impairment are two outputs of one lesion, not a cause and its consequence.
 </div>
@@ -5101,6 +5186,7 @@ This pathophysiological event involves dysregulated synaptic signaling (GO:00995
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5123,6 +5209,7 @@ This pathophysiological event involves dysregulated synaptic signaling (GO:00995
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5149,6 +5236,7 @@ This pathophysiological event involves dysregulated synaptic signaling (GO:00995
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-refractory-early-onset-epilepsy" data-dismech-node="Refractory Early-Onset Epilepsy" data-dismech-type="pathophysiology">
                 <div class="item-name">Refractory Early-Onset Epilepsy</div>
+
 
                 <div class="item-desc">Early-onset refractory seizures are the presenting feature. The seizure repertoire reported includes infantile spasms and focal, tonic and tonic-clonic seizures, with a burst-suppression EEG pattern in the largest family.
 </div>
@@ -5219,6 +5307,7 @@ This pathophysiological event involves dysregulated synaptic signaling (GO:00995
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5242,6 +5331,7 @@ This pathophysiological event involves dysregulated synaptic signaling (GO:00995
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-profound-developmental-impairment" data-dismech-node="Profound Developmental Impairment" data-dismech-type="pathophysiology">
                 <div class="item-name">Profound Developmental Impairment</div>
+
 
                 <div class="item-desc">Profound global developmental delay with severe hypotonia. In the large inbred family the course included early dyskinesia progressing to quadriplegia, and two of four affected children died prematurely between ages 2 and 12 years.
 </div>
@@ -5317,6 +5407,7 @@ This pathophysiological event involves dysregulated synaptic signaling (GO:00995
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5430,6 +5521,9 @@ This clinical feature is Progressive microcephaly (HP:0000253). HP:0000253 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5444,6 +5538,7 @@ This clinical feature is Progressive microcephaly (HP:0000253). HP:0000253 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5508,6 +5603,9 @@ This clinical feature is Generalized hypotonia (HP:0001290). HP:0001290 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5522,6 +5620,7 @@ This clinical feature is Generalized hypotonia (HP:0001290). HP:0001290 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5595,6 +5694,9 @@ This clinical feature is Spastic tetraplegia (HP:0002510), qualified as course p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5609,6 +5711,7 @@ This clinical feature is Spastic tetraplegia (HP:0002510), qualified as course p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5673,6 +5776,9 @@ This clinical feature is Epileptic encephalopathy (HP:0200134). HP:0200134 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5687,6 +5793,7 @@ This clinical feature is Epileptic encephalopathy (HP:0200134). HP:0200134 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5742,6 +5849,9 @@ This clinical feature is Infantile spasms (HP:0012469). HP:0012469 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5756,6 +5866,7 @@ This clinical feature is Infantile spasms (HP:0012469). HP:0012469 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5811,6 +5922,9 @@ This clinical feature is EEG with burst suppression (HP:0010851). HP:0010851 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5825,6 +5939,7 @@ This clinical feature is EEG with burst suppression (HP:0010851). HP:0010851 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5880,6 +5995,9 @@ This clinical feature is Profound global developmental delay (HP:0012736). HP:00
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5894,6 +6012,7 @@ This clinical feature is Profound global developmental delay (HP:0012736). HP:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5967,6 +6086,9 @@ This clinical feature is Dyskinesia (HP:0100660), qualified as course progressiv
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5981,6 +6103,7 @@ This clinical feature is Dyskinesia (HP:0100660), qualified as course progressiv
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6036,6 +6159,9 @@ This clinical feature is Thin corpus callosum (HP:0033725). HP:0033725 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6050,6 +6176,7 @@ This clinical feature is Thin corpus callosum (HP:0033725). HP:0033725 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6105,6 +6232,9 @@ This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6119,6 +6249,7 @@ This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6192,6 +6323,9 @@ This clinical feature is Cerebral atrophy (HP:0002059), qualified as course prog
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6206,6 +6340,7 @@ This clinical feature is Cerebral atrophy (HP:0002059), qualified as course prog
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6305,6 +6440,9 @@ This disease-associated gene is PIGP (hgnc:3046). hgnc:3046 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6319,6 +6457,7 @@ This disease-associated gene is PIGP (hgnc:3046). hgnc:3046 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6405,6 +6544,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6415,6 +6557,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -6461,6 +6606,7 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6550,6 +6696,9 @@ This treatment uses pyridoxine (CHEBI:16709). CHEBI:16709 is a therapeutic agent
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6560,6 +6709,9 @@ This treatment uses pyridoxine (CHEBI:16709). CHEBI:16709 is a therapeutic agent
 
 
     </div>
+
+
+
 
 
 
@@ -6593,6 +6745,7 @@ This treatment uses pyridoxine (CHEBI:16709). CHEBI:16709 is a therapeutic agent
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6618,6 +6771,7 @@ This treatment uses pyridoxine (CHEBI:16709). CHEBI:16709 is a therapeutic agent
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6684,6 +6838,9 @@ This treatment is Dietary Intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6694,6 +6851,9 @@ This treatment is Dietary Intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
     </div>
+
+
+
 
 
 
@@ -6725,6 +6885,7 @@ This treatment is Dietary Intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6791,6 +6952,9 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6801,6 +6965,9 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -6847,6 +7014,7 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6924,6 +7092,7 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6946,6 +7115,7 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7005,6 +7175,7 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7061,6 +7232,7 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7083,6 +7255,7 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7172,6 +7345,7 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7198,6 +7372,7 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7222,6 +7397,7 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7294,6 +7470,7 @@ individuals with variants in transamidase and remodelling stage genes"</div>
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7350,6 +7527,7 @@ Two grading notes. `ABOVE_1_IN_1000` is the band that contains 150 per 100,000 (
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8416,6 +8594,37 @@ treatments:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (3)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Ultra-rare, and the counts matter. The disease-defining report is two siblings with compound heterozygous PIGP variants (Johnstone et al., Hum Mol Genet 2017); a large consanguineous family added four affected children homozygous for c.384del (Vetro et al., Neurol Genet 2020); a 2023 report states that PIGP had been related to DEE55 in just seven patients at that point and adds two more siblings with a multiple congenital anomalies-hypotonia-seizures presentation. Every number in this entry is therefore a count of patients, not a frequency, and `frequency` is left unset throughout rather than computed from a cohort this size.
+Two things this entry is deliberately careful about:
+First, the mechanism is a *reduction* in the surface density of a whole class of proteins, not the loss of one effector. That is why the pathophysiology chain runs through &#34;reduced GPI-anchored protein surface expression&#34; as a single node rather than naming individual GPI-anchored proteins: with over 150 of them, and no experiment attributing the seizure phenotype to any particular one, naming a culprit would assert more than the sources do. CD16 appears in the entry as a measured readout and diagnostic marker, not as the pathogenic protein.
+Second, complete PIGP loss is probably not a viable disease state. The reported alleles are hypomorphic in effect — the founding siblings retained reduced but detectable PIGP mRNA, and the recurrent c.384del is predicted to produce a longer-than-wild-type protein with impaired rather than absent functionality. The entry says &#34;reduced&#34;, not &#34;abolished&#34;, throughout.
+No `conforms_to` was declared. `kb/` covers several other inherited GPI deficiencies (Mabry syndrome, CHIME syndrome, multiple congenital anomalies-hypotonia-seizures syndrome) but there is no GPI-anchor biosynthesis module to conform to. Those entries plus this one are the natural first conformers if such a module is created; see the knowledge gap recorded below.
+**Deep-research provenance.** An OpenScientist run (`research/Developmental_and_Epileptic_Encephalopathy_55-deep-research-openscientist.md`, 12/12 references resolved with a confabulation rate of 0.0; of the 12 assessed for relevance the validator scored 7 as on topic and left the remaining 5 unscored rather than judging them off topic) is committed alongside this entry and contributed four sources that first-pass curation from the primary papers had missed: the second family with the recurrent c.456delA allele (PMID:31139695), the group-level constraint that complete GPI deficiency is embryonic lethal (PMID:25803904), the large inherited-GPI-deficiency cohort (PMID:38456468), and the nutritional-intervention review behind the treatments block (PMID:35562242). Every quote used was re-verified against the fetched reference cache rather than taken from the report.
+One preflight note for whoever reads that report next: `just preflight-dr` warns that &#34;GPI&#34; is a rival gene mentioned 72 times. That is a false positive — &#34;GPI&#34; here is glycosylphosphatidylinositol, the anchor, not GPI the glucose-6-phosphate isomerase gene. The report&#39;s OMIM number matches MONDO&#39;s.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Review response: prevalence band, neuroimaging phenotypes, pathograph, allelic events</strong> · 2026-09-04T14:32:59Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Developmental_and_Epileptic_Encephalopathy_55/2026-09-04T143259Z-claude-code-50efab.yaml">View source</a></p>
+                        <p class="research-review-text">Three review-response sessions on PR #10303, following the CREATE record. Round 1 connected all six phenotypes to the pathograph with bare-name downstream targets from the two ORGANISM-level nodes. Round 2 addressed the remaining blocking items: prevalence_class corrected from BAND_1_5_PER_10000 to ABOVE_1_IN_1000 to match its own rate_per_100000 of 150.0, with measure_type regraded to UNKNOWN because the source word is incidence but the figure is a diagnostic yield inside an ascertained cohort; five phenotypes added from the cached full text of PMID:32042915 (thin corpus callosum HP:0033725, ventriculomegaly HP:0002119, cerebral atrophy HP:0002059, progressive microcephaly HP:0000253, spastic tetraplegia HP:0002510); the claim that more than 150 GPI-anchored proteins exist was cited to PMID:32156170, consuming a reference the PR had fetched and left unused; genetic_context allele_type SNV and zygosity COMPOUND_HETEROZYGOUS were replaced by the structured allelic_events list covering missense, frameshift, deletion and copy-number loss, with zygosity left unset and the reason recorded; and the Antiseizure Medication treatment was given the ten-failed-agents sentence that also substantiates the word refractory in a node name. Round 3 fixed two claim-evidence inaccuracies in committed content: the Ketogenic Diet snippet quoted a sentence that never mentions the ketogenic diet and was replaced with the sentence naming it directly, and the deep-research provenance note claimed 12 of 12 references resolved with none off topic where the report frontmatter records on_topic 7 of 12 assessed with no off_topic key at all. Validated with just validate (41 of 41 snippets verified), validate-terms, check-entity-refs, check-duplicate-keys, check-enum-values, check-folded-hyphens, check-snippet-length, check-title-snippets and check-snippet-grading.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Developmental and Epileptic Encephalopathy 55</strong> · 2026-08-31T21:51:23Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Developmental_and_Epileptic_Encephalopathy_55/2026-08-31T215123Z-claude-code-96a72d.yaml">View source</a></p>
+                        <p class="research-review-text">De-novo curation of DEE55 (MONDO:0033364, PIGP) resolving curation claim #10292. Pathograph runs biallelic hypomorphic PIGP variants -&gt; impaired first step of GPI anchor biosynthesis -&gt; reduced GPI-anchored protein surface expression -&gt; disrupted neurodevelopment and cortical excitability -&gt; refractory epilepsy plus profound developmental impairment. The edge into the neurodevelopmental node is marked INDIRECT_UNKNOWN_INTERMEDIATES because no study attributes the phenotype to any of the &gt;150 GPI-anchored proteins; that is recorded as a knowledge gap rather than papered over. Two further gaps recorded: genotype-severity correlation across the DEE55-to-MCAHS spectrum, and the absence of a GPI-anchor-biosynthesis module in kb/modules/ (so no conforms_to was declared). Deep research: one OpenScientist run, committed, 12/12 references resolved with none off topic; it contributed PMID:31139695 (second family, recurrent c.456delA), PMID:25803904 (complete GPI deficiency is embryonic lethal, which grounds the hypomorphic framing), PMID:38456468 and PMID:35562242 (treatments). All quotes were re-verified against the fetched reference cache, not taken from the report. just preflight-dr warns that GPI is a rival gene at 72 mentions; that is a false positive - GPI there is the anchor, not the glucose-6-phosphate isomerase gene - and the report OMIM matches MONDO. One error caught during curation: hgnc:8967 is PIGN, not PIGP; the correct id is hgnc:3046, confirmed against the HGNC REST API after linkml-term-validator flagged the label mismatch. Validated with just validate (29/29 snippets verified), just validate-terms, check-entity-refs, check-duplicate-keys, check-enum-values, check-snippet-length, check-title-snippets, check-snippet-grading and check-folded-hyphens.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1056,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1071,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1125,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1138,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1296,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1306,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1347,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -1596,7 +1633,7 @@
                 
                 <span class="badge badge-category">Module</span>
                 <span class="badge badge-module">phototransduction_cascade_dysfunction</span>
-                <span class="badge badge-count">6 disorders</span>
+                <span class="badge badge-count">7 disorders</span>
                 
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 7</a>
                 
@@ -2123,7 +2160,7 @@ SCOPE - what this module deliberately does NOT cover. The Schubert-Bornschein fo
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">↗</div>
                 <h2 class="card-title">Used By Disorder Entries</h2>
-                <span class="card-count">6</span>
+                <span class="card-count">7</span>
             </div>
             
             <div class="crosslink-list">
@@ -2187,6 +2224,36 @@ SCOPE - what this module deliberately does NOT cover. The Schubert-Bornschein fo
                         , 
                         
                         Loss of Rod Light-Response Generation → Failure of Photoreceptor Light-Response Generation or Timely Recovery
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/GUCA1A-Related_Retinopathy.html">GUCA1A-Related Retinopathy</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        GCAP1 Loss of Calcium-Dependent Inhibitory Control → Phototransduction Cascade Component Defect
+                        
+                        
+                        , 
+                        
+                        RetGC Constitutive Hyperactivity → Loss of Outer-Segment cGMP and Calcium Set-Point Control
+                        
+                        
+                        , 
+                        
+                        Sustained CNG Channel Opening and Outer-Segment Calcium Overload → cGMP and Calcium Overload Handoff to Photoreceptor Degeneration
+                        
+                        
+                        , 
+                        
+                        Impaired Cone Light-Response Generation and Delayed Recovery → Failure of Photoreceptor Light-Response Generation or Timely Recovery
                         
                         
                     </span>
@@ -2292,11 +2359,13 @@ SCOPE - what this module deliberately does NOT cover. The Schubert-Bornschein fo
             
             <div class="item-box anchor-target" id="module-pathophysiology-phototransduction-cascade-component-defect" data-dismech-node="Phototransduction Cascade Component Defect" data-dismech-type="pathophysiology">
                 <div class="item-name">Phototransduction Cascade Component Defect</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The initiating lesion is a variant in a gene encoding a component of the photoreceptor phototransduction cascade. The affected protein may sit on the activation limb - the visual pigment itself, the transducin alpha/beta subunits, the PDE6 catalytic or inhibitory gamma subunit, either subunit of the cyclic-nucleotide-gated channel, or retinal guanylate cyclase and its calcium-sensing GCAP regulators - or on the shutoff limb, which quenches the activated cascade. The lesion is expressed cell-autonomously in rods, in cones, or in both, and this determines which half of the clinical picture dominates.</div>
                 
@@ -2483,6 +2552,13 @@ This pathophysiological event involves photoreceptor outer segment (GO:0001750).
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/GUCA1A-Related_Retinopathy.html">GUCA1A-Related Retinopathy</a>
+                            
+                            <span class="crosslink-desc">as GCAP1 Loss of Calcium-Dependent Inhibitory Control</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/GUCY2D-Related_Retinopathy.html">GUCY2D-Related Retinopathy</a>
                             
                             <span class="crosslink-desc">as RETGC-1 Deficiency</span>
@@ -2524,11 +2600,13 @@ This pathophysiological event involves photoreceptor outer segment (GO:0001750).
             
             <div class="item-box anchor-target" id="module-pathophysiology-loss-of-outer-segment-cgmp-and-calcium-set-point-control" data-dismech-node="Loss of Outer-Segment cGMP and Calcium Set-Point Control" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Outer-Segment cGMP and Calcium Set-Point Control</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">amplifier</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Phototransduction works by holding cGMP - and through the cGMP-gated conductance, Ca2+ - at a set point that light transiently lowers. The concentration is the running balance of synthesis by guanylate cyclase against hydrolysis by PDE6, with Ca2+ feeding back on the cyclase through GCAPs. A cascade lesion breaks that balance in a direction set by the gene: a null CNG channel or PDE6 activator leaves the conductance shut and Ca2+ chronically low; loss of PDE6 activity, or constitutive cyclase activation, leaves cGMP and Ca2+ chronically high; a shutoff-arm lesion leaves the hydrolytic arm running after the light is gone. This is the amplification step that converts a molecular defect into a cell-wide loss of signalling competence.</div>
                 
@@ -2656,6 +2734,13 @@ This pathophysiological event involves photoreceptor outer segment (GO:0001750).
                     <div class="crosslink-list">
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/GUCA1A-Related_Retinopathy.html">GUCA1A-Related Retinopathy</a>
+                            
+                            <span class="crosslink-desc">as RetGC Constitutive Hyperactivity</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/GUCY2D-Related_Retinopathy.html">GUCY2D-Related Retinopathy</a>
                             
                             <span class="crosslink-desc">as Cone Photoreceptor Calcium Overload</span>
@@ -2690,11 +2775,13 @@ This pathophysiological event involves photoreceptor outer segment (GO:0001750).
             
             <div class="item-box anchor-target" id="module-pathophysiology-failure-of-photoreceptor-light-response-generation-or-timely-recovery" data-dismech-node="Failure of Photoreceptor Light-Response Generation or Timely Recovery" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Photoreceptor Light-Response Generation or Timely Recovery</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">central effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The rate-limiting, disorder-agnostic node. Normal vision requires that a photon-triggered fall in cGMP close the outer-segment conductance and hyperpolarize the cell, and that the cascade then be quenched so the cell recovers its dark current and can respond again. A cascade lesion abolishes one or the other. Activation-arm defects mean the light response is never generated - the cell is electrically silent to light. Shutoff-arm defects mean the response is generated but not terminated, so the photoreceptor stays desensitized and dark adaptation takes hours rather than minutes; the dark-adapted state is eventually reached, which is why these patients are night-blind rather than blind. Every conforming disorder funnels through this node, and it is the module&#39;s key conformance target.</div>
                 
@@ -2843,6 +2930,13 @@ This pathophysiological event involves abnormal Regulation of opsin-mediated sig
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/GUCA1A-Related_Retinopathy.html">GUCA1A-Related Retinopathy</a>
+                            
+                            <span class="crosslink-desc">as Impaired Cone Light-Response Generation and Delayed Recovery</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/GUCY2D-Related_Retinopathy.html">GUCY2D-Related Retinopathy</a>
                             
                             <span class="crosslink-desc">as Impaired Phototransduction Recovery</span>
@@ -2870,11 +2964,13 @@ This pathophysiological event involves abnormal Regulation of opsin-mediated sig
             
             <div class="item-box anchor-target" id="module-pathophysiology-collapse-of-the-photoreceptor-derived-electroretinogram-response" data-dismech-node="Collapse of the Photoreceptor-Derived Electroretinogram Response" data-dismech-type="pathophysiology">
                 <div class="item-name">Collapse of the Photoreceptor-Derived Electroretinogram Response</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Because the a-wave of the full-field electroretinogram is the summed photoreceptor light response, a cascade lesion is directly readable as loss of the a-wave generated by the affected cell class, with the b-wave reduced secondarily because the bipolar cells downstream have nothing to be driven by. In the rod-cascade (Riggs) case the scotopic a-wave is lost and the b-wave is small; in the cone-cascade case the photopic and flicker responses are extinguished while scotopic responses are preserved. This is the module&#39;s objective effector-level readout and is what distinguishes a photoreceptor-intrinsic cascade defect from the reciprocal photoreceptor-to-bipolar transmission defect, where the a-wave is preserved and the b-wave is selectively lost.</div>
                 
@@ -3025,11 +3121,13 @@ This pathophysiological event involves decreased Detection of light stimulus (GO
             
             <div class="item-box anchor-target" id="module-pathophysiology-congenital-non-progressive-photoreceptor-dysfunction" data-dismech-node="Congenital Non-Progressive Photoreceptor Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Congenital Non-Progressive Photoreceptor Dysfunction</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The characteristic clinical outcome: visual dysfunction that is present from birth or early infancy and, in the pure signalling forms, remains essentially stationary over decades. Which symptoms dominate is set by which photoreceptor class carries the lesion. A rod-cascade defect gives night blindness with normal daytime acuity and a normal fundus. A cone-cascade defect gives poor visual acuity, nystagmus, photophobia and loss of colour discrimination in all axes, with preserved scotopic vision. Stationarity is the point of contrast with the degenerative retinopathies: the cell is silenced, not lost.</div>
                 
@@ -3079,11 +3177,13 @@ This pathophysiological event involves decreased Visual perception (GO:0007601).
             
             <div class="item-box anchor-target" id="module-pathophysiology-cgmp-and-calcium-overload-handoff-to-photoreceptor-degeneration" data-dismech-node="cGMP and Calcium Overload Handoff to Photoreceptor Degeneration" data-dismech-type="pathophysiology">
                 <div class="item-name">cGMP and Calcium Overload Handoff to Photoreceptor Degeneration</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">A conditional branch, not an obligatory step. When the cascade lesion leaves cGMP and Ca2+ chronically elevated rather than merely abolishing the light response - loss of PDE6 hydrolytic activity being the archetype - the same second messengers that carry the signal become cytotoxic, and the disorder is a progressive retinal degeneration rather than a stationary dysfunction. Cone CNG channel deficiency reaches the same endpoint by a different route, through calcium dysregulation, ER stress and apoptosis. This node exists to mark the seam: the cell-death programme itself is modelled by the photoreceptor_degeneration module and is not re-derived here, and a disorder that crosses this branch should declare conformance to both modules.</div>
                 
@@ -3185,6 +3285,20 @@ This pathophysiological event involves decreased Photoreceptor cell maintenance 
                 
 
                 
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Used by disorders</div>
+                    <div class="crosslink-list">
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/GUCA1A-Related_Retinopathy.html">GUCA1A-Related Retinopathy</a>
+                            
+                            <span class="crosslink-desc">as Sustained CNG Channel Opening and Outer-Segment Calcium Overload</span>
+                            
+                        </div>
+                        
+                    </div>
+                </div>
+                
 
                 
             </div>
@@ -3230,6 +3344,9 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
     
     
     
+    
+    
+    
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
         
@@ -3240,6 +3357,9 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
         
         
     </div>
+    
+    
+    
     
     
     

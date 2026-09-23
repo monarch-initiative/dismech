@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3765,6 +3830,9 @@
 
 
 
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3807,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 13</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 18</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Leukocyte%20Adhesion%20Deficiency%20Type%20II"
@@ -3987,7 +4055,7 @@ Two further things are curated deliberately rather than smoothed over. The immun
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">13</div>
+                <div class="stat-value">18</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4057,6 +4125,126 @@ Two further things are curated deliberately rather than smoothed over. The immun
         <!-- Classifications -->
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        <div class="card">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #d97706;">🏷</div>
+                <h2 class="card-title">Classifications</h2>
+            </div>
+
+
+
+
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">Harrison&#39;s Part</div>
+
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="An inborn error of immunity presenting with recurrent bacterial infection and persistent leukocytosis from failed neutrophil extravasation.">IMMUNE RHEUMATOLOGIC</span>
+
+
+                    <span class="tag tag-classification" title="A Mendelian recessive congenital disorder of glycosylation (SLC35C1-CDG) defined by biallelic loss of a single Golgi transporter.">GENETICS ENVIRONMENT DISEASE</span>
+
+                </div>
+
+            </div>
+
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">IUIS Category</div>
+
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="IUIS 2022 phenotypic classification (Tangye et al., PMID:35748970), Table 5 &#34;Congenital defects of phagocyte number or function&#34;, section 2 (Defects of Motility): row &#34;Leukocyte adhesion deficiency type 2 (LAD2) SLC35C1 AR 605881&#34;, affected cells N + M, affected function rolling and chemotaxis, associated features mild LAD type 1 features with the hh blood group, growth retardation and developmental delay.
+A 1:1 match on disease name, gene and OMIM number, and squarely on the functional axis of the table: neutrophils are produced normally and the lesion is in selectin-ligand-dependent rolling, which is why the blood neutrophil count is high rather than low.">phagocyte defect</span>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+
         <!-- Mappings -->
 
 
@@ -4119,6 +4307,7 @@ Two further things are curated deliberately rather than smoothed over. The immun
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4316,6 +4505,7 @@ Read against the pathograph, it says the two branches have different thresholds:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-slc35c1-loss-of-function-variants" data-dismech-node="Biallelic SLC35C1 Loss-of-Function Variants" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic SLC35C1 Loss-of-Function Variants</div>
 
+
                 <div class="item-desc">Both copies of SLC35C1 carry variants that disable the Golgi GDP-fucose transporter. The founding patient carried R147C in the fourth transmembrane region, and overexpressing that mutant protein in the patient&#39;s own cells failed to rescue fucosylation - which is what established the substitution as causal rather than incidental.</div>
 
 
@@ -4368,6 +4558,8 @@ This genetic context concerns SLC35C1 (hgnc:20197). hgnc:20197 is a gene from th
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4380,6 +4572,9 @@ This genetic context concerns SLC35C1 (hgnc:20197). hgnc:20197 is a gene from th
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Homozygous in the reported founder families; compound heterozygous in the milder sibling pair curated below. Loss of function is asserted on the strength of the failed rescue experiment rather than inferred from variant class alone.</div>
 
@@ -4429,6 +4624,7 @@ This genetic context concerns SLC35C1 (hgnc:20197). hgnc:20197 is a gene from th
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4450,6 +4646,7 @@ This genetic context concerns SLC35C1 (hgnc:20197). hgnc:20197 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4475,6 +4672,7 @@ This genetic context concerns SLC35C1 (hgnc:20197). hgnc:20197 is a gene from th
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-golgi-gdp-fucose-import" data-dismech-node="Impaired Golgi GDP-Fucose Import" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Golgi GDP-Fucose Import</div>
+
 
                 <div class="item-desc">GDP-fucose is made in the cytosol but consumed in the Golgi lumen, so it must cross a membrane to reach the enzymes that use it. That crossing is what fails here. The defect was localised to transport specifically by excluding the alternatives: neither fucosyltransferase activity nor the enzymes of GDP-fucose biosynthesis were deficient, while transport into isolated Golgi vesicles was reduced.</div>
 
@@ -4642,6 +4840,7 @@ This pathophysiological event involves Golgi apparatus (GO:0005794). GO:0005794 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4664,6 +4863,7 @@ This pathophysiological event involves Golgi apparatus (GO:0005794). GO:0005794 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-global-hypofucosylation-of-glycoconjugates" data-dismech-node="Global Hypofucosylation of Glycoconjugates" data-dismech-type="pathophysiology">
                 <div class="item-name">Global Hypofucosylation of Glycoconjugates</div>
+
 
                 <div class="item-desc">With no donor substrate reaching them, the Golgi fucosyltransferases cannot fucosylate their targets, and the deficit is general rather than selective - N-glycans, O-glycans and glycolipids alike. This node is the branch point of the entry: everything below it is a separate consequence of the same missing modification, not a step in a common chain.</div>
 
@@ -4809,6 +5009,7 @@ This pathophysiological event involves decreased fucosyltransferase activity (GO
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4830,6 +5031,7 @@ This pathophysiological event involves decreased fucosyltransferase activity (GO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4855,6 +5057,7 @@ This pathophysiological event involves decreased fucosyltransferase activity (GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-sialyl-lewis-x-selectin-ligands" data-dismech-node="Loss of Sialyl-Lewis X Selectin Ligands" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Sialyl-Lewis X Selectin Ligands</div>
+
 
                 <div class="item-desc">Sialyl-Lewis X on the neutrophil surface is the carbohydrate that E-, P- and L-selectin recognise. Without its fucose it is not assembled, so the neutrophil presents no ligand for the endothelial selectins to catch.</div>
 
@@ -4942,6 +5145,7 @@ This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4964,6 +5168,7 @@ This pathophysiological event involves neutrophil (CL:0000775). CL:0000775 is a 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-leukocyte-rolling-on-activated-endothelium" data-dismech-node="Failure of Leukocyte Rolling on Activated Endothelium" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Leukocyte Rolling on Activated Endothelium</div>
+
 
                 <div class="item-desc">Rolling is the first step of the adhesion cascade: without it the neutrophil never slows enough to engage integrins, never firmly adheres, and never crosses into tissue. The circulating pool therefore rises while the tissue pool falls - which is why the blood count and the infection risk move in opposite directions here.</div>
 
@@ -5173,6 +5378,7 @@ This pathophysiological event involves decreased leukocyte cell-cell adhesion (G
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5195,6 +5401,7 @@ This pathophysiological event involves decreased leukocyte cell-cell adhesion (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-neutrophil-extravasation-to-infection-sites" data-dismech-node="Impaired Neutrophil Extravasation to Infection Sites" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Neutrophil Extravasation to Infection Sites</div>
+
 
                 <div class="item-desc">Neutrophils remain in the circulation instead of reaching tissue, producing the characteristic combination of recurrent bacterial infection with a raised rather than lowered neutrophil count. Periodontal disease follows from the same failure of routine neutrophil surveillance at the gingival sulcus.</div>
 
@@ -5272,6 +5479,37 @@ This pathophysiological event involves decreased inflammatory response (GO:00069
 
 
 
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Recurrent Bacterial Infections</span>
+
+	                            <span class="crosslink-desc">Neutrophils are made and released normally but cannot leave the vessel, so tissue infection proceeds unopposed. This is the defining contrast with a production defect.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Persistent Leukocytosis</span>
+
+	                            <span class="crosslink-desc">The blood-count signature of that failure: neutrophils accumulate in the circulation because they cannot exit it. A high count here indicates the defect rather than excluding it.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Chronic Severe Periodontitis</span>
+
+	                            <span class="crosslink-desc">The gingival sulcus depends on continuous neutrophil traffic, so it is the first tissue to fail when extravasation is lost.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
 
 
     <details class="evidence-details">
@@ -5288,6 +5526,7 @@ This pathophysiological event involves decreased inflammatory response (GO:00069
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5313,6 +5552,7 @@ This pathophysiological event involves decreased inflammatory response (GO:00069
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-red-cell-h-antigen-fucosylation" data-dismech-node="Loss of Red Cell H-Antigen Fucosylation" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Red Cell H-Antigen Fucosylation</div>
+
 
                 <div class="item-desc">The H antigen that ABO antigens are built on requires alpha-1,2 fucosylation of its precursor. Without it, red cells type as Bombay (hh). This branch is diagnostically valuable and clinically silent - it causes no anaemia and no haemolysis - and it is curated separately for exactly that reason: it shares a cause with the immune phenotype but nothing else.</div>
 
@@ -5385,6 +5625,7 @@ This pathophysiological event involves erythrocyte (CL:0000232). CL:0000232 is a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5408,6 +5649,13 @@ This pathophysiological event involves erythrocyte (CL:0000232). CL:0000232 is a
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-growth-failure-and-neurodevelopmental-impairment" data-dismech-node="Growth Failure and Neurodevelopmental Impairment" data-dismech-type="pathophysiology">
                 <div class="item-name">Growth Failure and Neurodevelopmental Impairment</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
+
                 <div class="item-desc">Severe growth retardation and intellectual disability accompany the disorder in the classically affected patients. PROVISIONAL because the mechanism is genuinely open: the phenotype is attributed to hypofucosylation of glycoproteins and glycolipids required for normal growth-factor signalling and neurodevelopment, but the specific fucosylated substrates responsible have not been identified, and no model links a named substrate to the neurodevelopmental outcome.
 The partial-defect siblings are informative here too - they had short stature and developmental delay as their only presenting signs, which suggests this branch is more sensitive to residual transporter activity than the immune branch is.</div>
 
@@ -5427,6 +5675,29 @@ The partial-defect siblings are informative here too - they had short stature an
 
 
 
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Short Stature</span>
+
+	                            <span class="crosslink-desc">Growth failure from global hypofucosylation, which affects far more than the selectin ligands — this is the arm that makes LAD II a syndrome rather than an isolated adhesion defect.</span>
+
+
+	                        </div>
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Severe Intellectual Disability</span>
+
+	                            <span class="crosslink-desc">The neurodevelopmental half of that same systemic glycosylation defect.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
 
 
     <details class="evidence-details">
@@ -5443,6 +5714,7 @@ The partial-defect siblings are informative here too - they had short stature an
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5467,6 +5739,7 @@ The partial-defect siblings are informative here too - they had short stature an
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5515,7 +5788,7 @@ The partial-defect siblings are informative here too - they had short stature an
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"AVTX-803 (oral L-fucose, regulatory-track product)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A purpose-built oral L-fucose product carrying the same substrate-replacement rationale as compassionate-use fucose, but developed as a drug and now in a randomised Phase 3 withdrawal trial with an open-label extension.\\nIt is curated separately from the supplementation record above because the difference is not cosmetic: the 1999 report is a single patient given a sugar, while this is a controlled test of whether the benefit persists and depends on continued dosing. The trial\u0027s primary endpoint is leukocyte sialyl-Lewis X expression - the same measurement used diagnostically - so efficacy is assessed directly against the mechanism rather than through an infection-count proxy that would be underpowered in a disease this rare.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"L-fucose\"]}}, {\"id\": \"Biallelic SLC35C1 Loss-of-Function Variants\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Both copies of SLC35C1 carry variants that disable the Golgi GDP-fucose transporter. The founding patient carried R147C in the fourth transmembrane region, and overexpressing that mutant protein in the patient\u0027s own cells failed to rescue fucosylation - which is what established the substitution as causal rather than incidental.\", \"meta\": {\"evidence_count\": 2, \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Homozygous in the reported founder families; compound heterozygous in the milder sibling pair curated below. Loss of function is asserted on the strength of the failed rescue experiment rather than inferred from variant class alone.\", \"gene_terms\": [{\"label\": \"SLC35C1\", \"id\": \"hgnc:20197\"}]}, \"role\": \"trigger\"}}, {\"id\": \"CHO-gmt5 SLC35C1-knockout cell line\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"A Chinese hamster ovary line in which Slc35c1 was knocked out by zinc-finger nuclease on a background already lacking the CMP-sialic acid transporter, giving N-glycans deficient in both fucose and sialic acid. It was built to solve a specific problem - there was no suitable mutant line for structure-function work on the transporter - and it is the system in which the functional elements of SLC35C1 were mapped.\", \"meta\": {\"model_type\": \"CELL_LINE\", \"publication\": \"PMID:22492235\"}}, {\"id\": \"Failure of Leukocyte Rolling on Activated Endothelium\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Rolling is the first step of the adhesion cascade: without it the neutrophil never slows enough to engage integrins, never firmly adheres, and never crosses into tissue. The circulating pool therefore rises while the tissue pool falls - which is why the blood count and the infection risk move in opposite directions here.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neutrophil\", \"blood vessel endothelial cell\"], \"biological_processes\": [\"leukocyte tethering or rolling\", \"leukocyte cell-cell adhesion\"], \"role\": \"effector\", \"animal_models\": [{\"name\": \"Slc35c1-deficient mouse\", \"species\": \"Mouse\", \"genotype\": \"Slc35c1 -/-\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Reproduces the defining cellular lesion directly and in vivo: selectin-dependent rolling in cremaster venules is essentially abolished, with firm adhesion strongly but incompletely reduced downstream of it.\"}]}}, {\"id\": \"Global Hypofucosylation of Glycoconjugates\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"With no donor substrate reaching them, the Golgi fucosyltransferases cannot fucosylate their targets, and the deficit is general rather than selective - N-glycans, O-glycans and glycolipids alike. This node is the branch point of the entry: everything below it is a separate consequence of the same missing modification, not a step in a common chain.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"fucose metabolic process\"], \"molecular_functions\": [\"fucosyltransferase activity\"], \"role\": \"central_effector\"}}, {\"id\": \"Growth Failure and Neurodevelopmental Impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Severe growth retardation and intellectual disability accompany the disorder in the classically affected patients. PROVISIONAL because the mechanism is genuinely open: the phenotype is attributed to hypofucosylation of glycoproteins and glycolipids required for normal growth-factor signalling and neurodevelopment, but the specific fucosylated substrates responsible have not been identified, and no model links a named substrate to the neurodevelopmental outcome.\\nThe partial-defect siblings are informative here too - they had short stature and developmental delay as their only presenting signs, which suggests this branch is more sensitive to residual transporter activity than the immune branch is.\", \"meta\": {\"evidence_count\": 2, \"role\": \"effector\"}}, {\"id\": \"Impaired Golgi GDP-Fucose Import\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GDP-fucose is made in the cytosol but consumed in the Golgi lumen, so it must cross a membrane to reach the enzymes that use it. That crossing is what fails here. The defect was localised to transport specifically by excluding the alternatives: neither fucosyltransferase activity nor the enzymes of GDP-fucose biosynthesis were deficient, while transport into isolated Golgi vesicles was reduced.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"GDP-fucose transmembrane transport\"], \"molecular_functions\": [\"GDP-fucose transmembrane transporter activity\"], \"role\": \"central_effector\", \"experimental_models\": [{\"name\": \"CHO-gmt5 SLC35C1-knockout cell line\", \"model_type\": \"CELL_LINE\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reproduces the primary lesion - absent SLC35C1 function with consequent loss of glycan fucosylation - in a tractable system.\"}]}}, {\"id\": \"Impaired Neutrophil Extravasation to Infection Sites\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Neutrophils remain in the circulation instead of reaching tissue, producing the characteristic combination of recurrent bacterial infection with a raised rather than lowered neutrophil count. Periodontal disease follows from the same failure of routine neutrophil surveillance at the gingival sulcus.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"inflammatory response\"], \"role\": \"effector\", \"animal_models\": [{\"name\": \"Slc35c1-deficient mouse\", \"species\": \"Mouse\", \"genotype\": \"Slc35c1 -/-\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Neutrophil migration into an inflamed compartment is quantified, giving the extravasation node a measured value rather than an inference from rolling.\"}]}}, {\"id\": \"Infection Prophylaxis and Management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Antimicrobial prophylaxis and prompt treatment of intercurrent infection, which is supportive rather than mechanism-directed. Recorded because it is what patients who do not respond to fucose actually receive.\"}, {\"id\": \"Loss of Red Cell H-Antigen Fucosylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The H antigen that ABO antigens are built on requires alpha-1,2 fucosylation of its precursor. Without it, red cells type as Bombay (hh). This branch is diagnostically valuable and clinically silent - it causes no anaemia and no haemolysis - and it is curated separately for exactly that reason: it shares a cause with the immune phenotype but nothing else.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"erythrocyte\"], \"role\": \"effector\"}}, {\"id\": \"Loss of Sialyl-Lewis X Selectin Ligands\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sialyl-Lewis X on the neutrophil surface is the carbohydrate that E-, P- and L-selectin recognise. Without its fucose it is not assembled, so the neutrophil presents no ligand for the endothelial selectins to catch.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neutrophil\"], \"role\": \"effector\"}}, {\"id\": \"Oral Fucose Supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Oral L-fucose, which is rational rather than empirical: fucose entering by the salvage pathway raises the cytosolic GDP-fucose pool, and a higher substrate concentration can drive enough flux through a crippled transporter to restore fucosylation. It treats the substrate side of a transport problem rather than the transporter.\\nIn the index patient the effect was measurable at the molecular level and then at the clinical one: fucosylated selectin ligands reappeared on neutrophils, serum glycoproteins regained core fucosylation, and over nine months infections and fever stopped while the neutrophil count normalised.\\nIt does not work for everyone, and the reason is genotypic rather than a matter of dose or adherence - the founder-mutation study found the two alleles differed in their response. Treatment is therefore reasonably attempted and must be assessed per patient.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"L-fucose\"]}}, {\"id\": \"Slc35c1-deficient mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A constitutive Slc35c1 knockout, made specifically because leukocyte trafficking cannot be studied in vivo in patients with a disease this rare. It covers the immune branch of the pathograph that the CHO cell line cannot reach - there are leukocytes, endothelium and an inflamed tissue to migrate into.\"}], \"edges\": [{\"source\": \"Biallelic SLC35C1 Loss-of-Function Variants\", \"target\": \"Impaired Golgi GDP-Fucose Import\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The gene product is the transporter, so a disabling variant removes the transport step directly.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Golgi GDP-Fucose Import\", \"target\": \"Global Hypofucosylation of Glycoconjugates\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Substrate starvation of the luminal fucosyltransferases, which are themselves normal.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Global Hypofucosylation of Glycoconjugates\", \"target\": \"Loss of Sialyl-Lewis X Selectin Ligands\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sialyl-Lewis X is a fucosylated tetrasaccharide; without fucose it is not built.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Global Hypofucosylation of Glycoconjugates\", \"target\": \"Loss of Red Cell H-Antigen Fucosylation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The H antigen is made by alpha-1,2 fucosylation of its precursor, which fails for the same reason.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Global Hypofucosylation of Glycoconjugates\", \"target\": \"Growth Failure and Neurodevelopmental Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Attributed to hypofucosylation of glycoproteins and glycolipids needed for normal growth and neurodevelopment, but the responsible substrates have not been identified, so the intermediate steps are genuinely unknown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Sialyl-Lewis X Selectin Ligands\", \"target\": \"Failure of Leukocyte Rolling on Activated Endothelium\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Rolling is selectin-mediated, so removing the ligand removes the interaction.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of Leukocyte Rolling on Activated Endothelium\", \"target\": \"Impaired Neutrophil Extravasation to Infection Sites\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Extravasation requires the rolling step that has been lost.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Oral Fucose Supplementation\", \"target\": \"Impaired Golgi GDP-Fucose Import\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"AVTX-803 (oral L-fucose, regulatory-track product)\", \"target\": \"Impaired Golgi GDP-Fucose Import\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Infection Prophylaxis and Management\", \"target\": \"Impaired Neutrophil Extravasation to Infection Sites\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"CHO-gmt5 SLC35C1-knockout cell line\", \"target\": \"Impaired Golgi GDP-Fucose Import\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces the primary lesion - absent SLC35C1 function with consequent loss of glycan fucosylation - in a tractable system.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"A rodent ovary-derived cell line carrying a second engineered defect in the CMP-sialic acid transporter, so its glycans differ from a patient\u0027s in more than one way. It models the transporter\u0027s biochemistry, not the disease: there is no leukocyte, no endothelium, and therefore nothing about rolling, extravasation or neurodevelopment. The double defect was chosen partly for antibody-engineering utility rather than for disease fidelity.\"}, {\"source\": \"Slc35c1-deficient mouse\", \"target\": \"Failure of Leukocyte Rolling on Activated Endothelium\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces the defining cellular lesion directly and in vivo: selectin-dependent rolling in cremaster venules is essentially abolished, with firm adhesion strongly but incompletely reduced downstream of it.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"A constitutive whole-animal knockout rather than a patient missense allele, so it models complete loss rather than the partial transport that several patients have - and the partial-defect siblings curated in this entry show that distinction decides whether the immune phenotype appears at all.\"}, {\"source\": \"Slc35c1-deficient mouse\", \"target\": \"Impaired Neutrophil Extravasation to Infection Sites\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Neutrophil migration into an inflamed compartment is quantified, giving the extravasation node a measured value rather than an inference from rolling.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"Sterile chemical peritonitis is not bacterial infection at a mucosal surface, so it measures the trafficking defect rather than the clinical consequence.\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"AVTX-803 (oral L-fucose, regulatory-track product)\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"A purpose-built oral L-fucose product carrying the same substrate-replacement rationale as compassionate-use fucose, but developed as a drug and now in a randomised Phase 3 withdrawal trial with an open-label extension.\\nIt is curated separately from the supplementation record above because the difference is not cosmetic: the 1999 report is a single patient given a sugar, while this is a controlled test of whether the benefit persists and depends on continued dosing. The trial\u0027s primary endpoint is leukocyte sialyl-Lewis X expression - the same measurement used diagnostically - so efficacy is assessed directly against the mechanism rather than through an infection-count proxy that would be underpowered in a disease this rare.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"L-fucose\"]}}, {\"id\": \"Biallelic SLC35C1 Loss-of-Function Variants\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Both copies of SLC35C1 carry variants that disable the Golgi GDP-fucose transporter. The founding patient carried R147C in the fourth transmembrane region, and overexpressing that mutant protein in the patient\u0027s own cells failed to rescue fucosylation - which is what established the substitution as causal rather than incidental.\", \"meta\": {\"evidence_count\": 2, \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"LOSS_OF_FUNCTION\", \"description\": \"Homozygous in the reported founder families; compound heterozygous in the milder sibling pair curated below. Loss of function is asserted on the strength of the failed rescue experiment rather than inferred from variant class alone.\", \"gene_terms\": [{\"label\": \"SLC35C1\", \"id\": \"hgnc:20197\"}]}, \"role\": \"trigger\"}}, {\"id\": \"CHO-gmt5 SLC35C1-knockout cell line\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"A Chinese hamster ovary line in which Slc35c1 was knocked out by zinc-finger nuclease on a background already lacking the CMP-sialic acid transporter, giving N-glycans deficient in both fucose and sialic acid. It was built to solve a specific problem - there was no suitable mutant line for structure-function work on the transporter - and it is the system in which the functional elements of SLC35C1 were mapped.\", \"meta\": {\"model_type\": \"CELL_LINE\", \"publication\": \"PMID:22492235\"}}, {\"id\": \"Chronic Severe Periodontitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chronic severe periodontitis, described in the LAD II review literature as the one persistent clinical symptom of the disease. That framing is worth keeping: the infectious episodes in LAD II are milder than in LAD I, so what remains constant is the periodontal disease rather than the systemic infection.\\nMechanistically it follows from the same extravasation failure as the infection phenotype - the gingival sulcus depends on continuous neutrophil surveillance, and neutrophils that cannot leave the vasculature cannot provide it.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000704\"}}, {\"id\": \"Failure of Leukocyte Rolling on Activated Endothelium\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Rolling is the first step of the adhesion cascade: without it the neutrophil never slows enough to engage integrins, never firmly adheres, and never crosses into tissue. The circulating pool therefore rises while the tissue pool falls - which is why the blood count and the infection risk move in opposite directions here.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neutrophil\", \"blood vessel endothelial cell\"], \"biological_processes\": [\"leukocyte tethering or rolling\", \"leukocyte cell-cell adhesion\"], \"role\": \"effector\", \"animal_models\": [{\"name\": \"Slc35c1-deficient mouse\", \"species\": \"Mouse\", \"genotype\": \"Slc35c1 -/-\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Reproduces the defining cellular lesion directly and in vivo: selectin-dependent rolling in cremaster venules is essentially abolished, with firm adhesion strongly but incompletely reduced downstream of it.\"}]}}, {\"id\": \"Global Hypofucosylation of Glycoconjugates\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"With no donor substrate reaching them, the Golgi fucosyltransferases cannot fucosylate their targets, and the deficit is general rather than selective - N-glycans, O-glycans and glycolipids alike. This node is the branch point of the entry: everything below it is a separate consequence of the same missing modification, not a step in a common chain.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"fucose metabolic process\"], \"molecular_functions\": [\"fucosyltransferase activity\"], \"role\": \"central_effector\"}}, {\"id\": \"Growth Failure and Neurodevelopmental Impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Severe growth retardation and intellectual disability accompany the disorder in the classically affected patients. PROVISIONAL because the mechanism is genuinely open: the phenotype is attributed to hypofucosylation of glycoproteins and glycolipids required for normal growth-factor signalling and neurodevelopment, but the specific fucosylated substrates responsible have not been identified, and no model links a named substrate to the neurodevelopmental outcome.\\nThe partial-defect siblings are informative here too - they had short stature and developmental delay as their only presenting signs, which suggests this branch is more sensitive to residual transporter activity than the immune branch is.\", \"meta\": {\"evidence_count\": 2, \"role\": \"effector\", \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Impaired Golgi GDP-Fucose Import\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GDP-fucose is made in the cytosol but consumed in the Golgi lumen, so it must cross a membrane to reach the enzymes that use it. That crossing is what fails here. The defect was localised to transport specifically by excluding the alternatives: neither fucosyltransferase activity nor the enzymes of GDP-fucose biosynthesis were deficient, while transport into isolated Golgi vesicles was reduced.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"GDP-fucose transmembrane transport\"], \"molecular_functions\": [\"GDP-fucose transmembrane transporter activity\"], \"role\": \"central_effector\", \"experimental_models\": [{\"name\": \"CHO-gmt5 SLC35C1-knockout cell line\", \"model_type\": \"CELL_LINE\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Reproduces the primary lesion - absent SLC35C1 function with consequent loss of glycan fucosylation - in a tractable system.\"}]}}, {\"id\": \"Impaired Neutrophil Extravasation to Infection Sites\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Neutrophils remain in the circulation instead of reaching tissue, producing the characteristic combination of recurrent bacterial infection with a raised rather than lowered neutrophil count. Periodontal disease follows from the same failure of routine neutrophil surveillance at the gingival sulcus.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"inflammatory response\"], \"role\": \"effector\", \"animal_models\": [{\"name\": \"Slc35c1-deficient mouse\", \"species\": \"Mouse\", \"genotype\": \"Slc35c1 -/-\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Neutrophil migration into an inflamed compartment is quantified, giving the extravasation node a measured value rather than an inference from rolling.\"}]}}, {\"id\": \"Infection Prophylaxis and Management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Antimicrobial prophylaxis and prompt treatment of intercurrent infection, which is supportive rather than mechanism-directed. Recorded because it is what patients who do not respond to fucose actually receive.\"}, {\"id\": \"Loss of Red Cell H-Antigen Fucosylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The H antigen that ABO antigens are built on requires alpha-1,2 fucosylation of its precursor. Without it, red cells type as Bombay (hh). This branch is diagnostically valuable and clinically silent - it causes no anaemia and no haemolysis - and it is curated separately for exactly that reason: it shares a cause with the immune phenotype but nothing else.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"erythrocyte\"], \"role\": \"effector\"}}, {\"id\": \"Loss of Sialyl-Lewis X Selectin Ligands\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Sialyl-Lewis X on the neutrophil surface is the carbohydrate that E-, P- and L-selectin recognise. Without its fucose it is not assembled, so the neutrophil presents no ligand for the endothelial selectins to catch.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"neutrophil\"], \"role\": \"effector\"}}, {\"id\": \"Oral Fucose Supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Oral L-fucose, which is rational rather than empirical: fucose entering by the salvage pathway raises the cytosolic GDP-fucose pool, and a higher substrate concentration can drive enough flux through a crippled transporter to restore fucosylation. It treats the substrate side of a transport problem rather than the transporter.\\nIn the index patient the effect was measurable at the molecular level and then at the clinical one: fucosylated selectin ligands reappeared on neutrophils, serum glycoproteins regained core fucosylation, and over nine months infections and fever stopped while the neutrophil count normalised.\\nIt does not work for everyone, and the reason is genotypic rather than a matter of dose or adherence - the founder-mutation study found the two alleles differed in their response. Treatment is therefore reasonably attempted and must be assessed per patient.\", \"meta\": {\"evidence_count\": 3, \"therapeutic_agents\": [\"L-fucose\"]}}, {\"id\": \"Persistent Leukocytosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A markedly raised circulating leukocyte count in the presence of active infection - the diagnostic paradox of this disease. The neutrophils are made and released normally but cannot exit the vasculature, so they accumulate in the compartment where they are counted and are missing from the compartment where they are needed.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001974\"}}, {\"id\": \"Recurrent Bacterial Infections\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Recurrent bacterial infection without pus formation at the site, reflecting neutrophils that cannot reach tissue rather than neutrophils that are absent or non-functional.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002718\"}}, {\"id\": \"Severe Intellectual Disability\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe psychomotor and mental retardation in classically affected patients; milder developmental delay where residual transport persists.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0010864\"}}, {\"id\": \"Short Stature\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe growth retardation, present from intrauterine life onward, and one of the two features that can present in isolation when transporter function is only partly lost.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0004322\"}}, {\"id\": \"Slc35c1-deficient mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A constitutive Slc35c1 knockout, made specifically because leukocyte trafficking cannot be studied in vivo in patients with a disease this rare. It covers the immune branch of the pathograph that the CHO cell line cannot reach - there are leukocytes, endothelium and an inflamed tissue to migrate into.\"}], \"edges\": [{\"source\": \"Biallelic SLC35C1 Loss-of-Function Variants\", \"target\": \"Impaired Golgi GDP-Fucose Import\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The gene product is the transporter, so a disabling variant removes the transport step directly.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Golgi GDP-Fucose Import\", \"target\": \"Global Hypofucosylation of Glycoconjugates\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Substrate starvation of the luminal fucosyltransferases, which are themselves normal.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Global Hypofucosylation of Glycoconjugates\", \"target\": \"Loss of Sialyl-Lewis X Selectin Ligands\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sialyl-Lewis X is a fucosylated tetrasaccharide; without fucose it is not built.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Global Hypofucosylation of Glycoconjugates\", \"target\": \"Loss of Red Cell H-Antigen Fucosylation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The H antigen is made by alpha-1,2 fucosylation of its precursor, which fails for the same reason.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Global Hypofucosylation of Glycoconjugates\", \"target\": \"Growth Failure and Neurodevelopmental Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Attributed to hypofucosylation of glycoproteins and glycolipids needed for normal growth and neurodevelopment, but the responsible substrates have not been identified, so the intermediate steps are genuinely unknown.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Loss of Sialyl-Lewis X Selectin Ligands\", \"target\": \"Failure of Leukocyte Rolling on Activated Endothelium\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Rolling is selectin-mediated, so removing the ligand removes the interaction.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failure of Leukocyte Rolling on Activated Endothelium\", \"target\": \"Impaired Neutrophil Extravasation to Infection Sites\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Extravasation requires the rolling step that has been lost.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Neutrophil Extravasation to Infection Sites\", \"target\": \"Recurrent Bacterial Infections\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neutrophils are made and released normally but cannot leave the vessel, so tissue infection proceeds unopposed. This is the defining contrast with a production defect.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Neutrophil Extravasation to Infection Sites\", \"target\": \"Persistent Leukocytosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The blood-count signature of that failure: neutrophils accumulate in the circulation because they cannot exit it. A high count here indicates the defect rather than excluding it.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Neutrophil Extravasation to Infection Sites\", \"target\": \"Chronic Severe Periodontitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The gingival sulcus depends on continuous neutrophil traffic, so it is the first tissue to fail when extravasation is lost.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Growth Failure and Neurodevelopmental Impairment\", \"target\": \"Short Stature\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Growth failure from global hypofucosylation, which affects far more than the selectin ligands \\u2014 this is the arm that makes LAD II a syndrome rather than an isolated adhesion defect.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Growth Failure and Neurodevelopmental Impairment\", \"target\": \"Severe Intellectual Disability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The neurodevelopmental half of that same systemic glycosylation defect.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Oral Fucose Supplementation\", \"target\": \"Impaired Golgi GDP-Fucose Import\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"AVTX-803 (oral L-fucose, regulatory-track product)\", \"target\": \"Impaired Golgi GDP-Fucose Import\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Infection Prophylaxis and Management\", \"target\": \"Impaired Neutrophil Extravasation to Infection Sites\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"CHO-gmt5 SLC35C1-knockout cell line\", \"target\": \"Impaired Golgi GDP-Fucose Import\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces the primary lesion - absent SLC35C1 function with consequent loss of glycan fucosylation - in a tractable system.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"A rodent ovary-derived cell line carrying a second engineered defect in the CMP-sialic acid transporter, so its glycans differ from a patient\u0027s in more than one way. It models the transporter\u0027s biochemistry, not the disease: there is no leukocyte, no endothelium, and therefore nothing about rolling, extravasation or neurodevelopment. The double defect was chosen partly for antibody-engineering utility rather than for disease fidelity.\"}, {\"source\": \"Slc35c1-deficient mouse\", \"target\": \"Failure of Leukocyte Rolling on Activated Endothelium\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces the defining cellular lesion directly and in vivo: selectin-dependent rolling in cremaster venules is essentially abolished, with firm adhesion strongly but incompletely reduced downstream of it.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"A constitutive whole-animal knockout rather than a patient missense allele, so it models complete loss rather than the partial transport that several patients have - and the partial-defect siblings curated in this entry show that distinction decides whether the immune phenotype appears at all.\"}, {\"source\": \"Slc35c1-deficient mouse\", \"target\": \"Impaired Neutrophil Extravasation to Infection Sites\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Neutrophil migration into an inflamed compartment is quantified, giving the extravasation node a measured value rather than an inference from rolling.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"Sterile chemical peritonitis is not bacterial infection at a mucosal surface, so it measures the trafficking defect rather than the clinical consequence.\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5587,6 +5860,9 @@ This clinical feature is Increased total leukocyte count (HP:0001974). HP:000197
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5601,6 +5877,7 @@ This clinical feature is Increased total leukocyte count (HP:0001974). HP:000197
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5625,6 +5902,7 @@ This clinical feature is Increased total leukocyte count (HP:0001974). HP:000197
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5708,6 +5986,9 @@ This clinical feature is Periodontitis (HP:0000704), qualified as course progres
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5722,6 +6003,7 @@ This clinical feature is Periodontitis (HP:0000704), qualified as course progres
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5805,6 +6087,9 @@ This clinical feature is Recurrent bacterial infections (HP:0002718), qualified 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5819,6 +6104,7 @@ This clinical feature is Recurrent bacterial infections (HP:0002718), qualified 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5884,6 +6170,9 @@ This clinical feature is Severe intellectual disability (HP:0010864). HP:0010864
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5898,6 +6187,7 @@ This clinical feature is Severe intellectual disability (HP:0010864). HP:0010864
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5963,6 +6253,9 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5977,6 +6270,7 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6077,6 +6371,9 @@ This disease-associated gene is SLC35C1 (hgnc:20197). hgnc:20197 is a gene from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -6091,6 +6388,7 @@ This disease-associated gene is SLC35C1 (hgnc:20197). hgnc:20197 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6118,6 +6416,7 @@ This disease-associated gene is SLC35C1 (hgnc:20197). hgnc:20197 is a gene from 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6139,6 +6438,7 @@ This disease-associated gene is SLC35C1 (hgnc:20197). hgnc:20197 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6249,6 +6549,9 @@ This treatment uses L-fucose (CHEBI:18287). CHEBI:18287 is a therapeutic agent f
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6259,6 +6562,9 @@ This treatment uses L-fucose (CHEBI:18287). CHEBI:18287 is a therapeutic agent f
 
 
     </div>
+
+
+
 
 
 
@@ -6297,6 +6603,7 @@ It does not work for everyone, and the reason is genotypic rather than a matter 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6343,6 +6650,7 @@ It does not work for everyone, and the reason is genotypic rather than a matter 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6367,6 +6675,7 @@ It does not work for everyone, and the reason is genotypic rather than a matter 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6388,6 +6697,7 @@ It does not work for everyone, and the reason is genotypic rather than a matter 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6476,6 +6786,9 @@ This treatment uses L-fucose (CHEBI:18287). CHEBI:18287 is a therapeutic agent f
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6486,6 +6799,9 @@ This treatment uses L-fucose (CHEBI:18287). CHEBI:18287 is a therapeutic agent f
 
 
     </div>
+
+
+
 
 
 
@@ -6532,6 +6848,7 @@ It is curated separately from the supplementation record above because the diffe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6598,6 +6915,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6608,6 +6928,9 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -6686,6 +7009,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -6696,6 +7022,9 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
     </div>
+
+
+
 
 
 
@@ -6723,6 +7052,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6831,6 +7161,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6852,6 +7183,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6943,6 +7275,7 @@ It is a useful pointer precisely because it is incidental - blood typing is done
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7030,6 +7363,7 @@ It is a useful pointer precisely because it is incidental - blood typing is done
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7101,6 +7435,7 @@ It is a useful pointer precisely because it is incidental - blood typing is done
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7209,6 +7544,7 @@ This clinical trial targets Recurrent bacterial infections (HP:0002718). HP:0002
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7259,6 +7595,7 @@ This clinical trial targets Recurrent bacterial infections (HP:0002718). HP:0002
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7410,6 +7747,7 @@ This clinical trial targets Recurrent bacterial infections (HP:0002718). HP:0002
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7449,6 +7787,7 @@ This clinical trial targets Recurrent bacterial infections (HP:0002718). HP:0002
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7602,6 +7941,7 @@ This clinical trial targets Recurrent bacterial infections (HP:0002718). HP:0002
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7641,6 +7981,7 @@ This clinical trial targets Recurrent bacterial infections (HP:0002718). HP:0002
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7720,6 +8061,7 @@ This clinical trial targets Recurrent bacterial infections (HP:0002718). HP:0002
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7759,6 +8101,7 @@ This clinical trial targets Recurrent bacterial infections (HP:0002718). HP:0002
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7846,6 +8189,40 @@ description: &#39;An autosomal recessive disorder in which a Golgi GDP-fucose tr
 parents:
 - Congenital Disorder of Glycosylation
 - Leukocyte Adhesion Deficiency
+classifications:
+  harrisons_chapter:
+  - classification_value: IMMUNE_RHEUMATOLOGIC
+    notes: &gt;-
+      An inborn error of immunity presenting with recurrent bacterial
+      infection and persistent leukocytosis from failed neutrophil
+      extravasation.
+  - classification_value: GENETICS_ENVIRONMENT_DISEASE
+    notes: &gt;-
+      A Mendelian recessive congenital disorder of glycosylation
+      (SLC35C1-CDG) defined by biallelic loss of a single Golgi transporter.
+  iuis_category:
+    classification_value: phagocyte defect
+    notes: &gt;-
+      IUIS 2022 phenotypic classification (Tangye et al., PMID:35748970),
+      Table 5 &#34;Congenital defects of phagocyte number or function&#34;, section 2
+      (Defects of Motility): row &#34;Leukocyte adhesion deficiency type 2 (LAD2)
+      SLC35C1 AR 605881&#34;, affected cells N + M, affected function rolling and
+      chemotaxis, associated features mild LAD type 1 features with the hh
+      blood group, growth retardation and developmental delay.
+
+      A 1:1 match on disease name, gene and OMIM number, and squarely on the
+      functional axis of the table: neutrophils are produced normally and the
+      lesion is in selectin-ligand-dependent rolling, which is why the blood
+      neutrophil count is high rather than low.
+    evidence:
+    - reference: PMID:35748970
+      reference_title: &#34;Human Inborn Errors of Immunity: 2022 Update on the Classification from the International Union of Immunological Societies Expert Committee.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &#34;Leukocyte adhesion deficiency type 2 (LAD2) SLC35C1 AR 605881&#34;
+      explanation: &gt;-
+        The LAD2 row of IUIS Table 5, quoted verbatim with its gene,
+        inheritance and OMIM number.
 prevalence:
 - population: Worldwide
   measure_type: CASES_IN_LITERATURE
@@ -8084,6 +8461,19 @@ pathophysiology:
     snippet: This disorder leads to an immunodeficiency caused by the absence of carbohydrate-based
       selectin ligands on the surface of neutrophils
     explanation: States the causal route from absent selectin ligands to immunodeficiency.
+  downstream:
+  - target: Recurrent Bacterial Infections
+    causal_link_type: DIRECT
+    description: &gt;-
+      Neutrophils are made and released normally but cannot leave the vessel, so tissue infection proceeds unopposed. This is the defining contrast with a production defect.
+  - target: Persistent Leukocytosis
+    causal_link_type: DIRECT
+    description: &gt;-
+      The blood-count signature of that failure: neutrophils accumulate in the circulation because they cannot exit it. A high count here indicates the defect rather than excluding it.
+  - target: Chronic Severe Periodontitis
+    causal_link_type: DIRECT
+    description: &gt;-
+      The gingival sulcus depends on continuous neutrophil traffic, so it is the first tissue to fail when extravasation is lost.
 - name: Loss of Red Cell H-Antigen Fucosylation
   role: effector
   biological_scale: CELLULAR
@@ -8136,6 +8526,15 @@ pathophysiology:
       this disorder
     explanation: Establishes that this branch can present in isolation, which is the basis for curating
       it as parallel to the immune branch rather than downstream of it.
+  downstream:
+  - target: Short Stature
+    causal_link_type: DIRECT
+    description: &gt;-
+      Growth failure from global hypofucosylation, which affects far more than the selectin ligands — this is the arm that makes LAD II a syndrome rather than an isolated adhesion defect.
+  - target: Severe Intellectual Disability
+    causal_link_type: DIRECT
+    description: &gt;-
+      The neurodevelopmental half of that same systemic glycosylation defect.
 phenotypes:
 - category: Immunologic
   name: Recurrent Bacterial Infections
@@ -8955,6 +9354,8 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -9405,7 +9806,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Leukocyte Adhesion Deficiency Type II", "mondoId": "MONDO:0009953", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Leukocyte_Adhesion_Deficiency_Type_II", "yamlRevision": "c46183c3f973"};
+        const OS_CONFIG = {"diseaseName": "Leukocyte Adhesion Deficiency Type II", "mondoId": "MONDO:0009953", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Leukocyte_Adhesion_Deficiency_Type_II", "yamlRevision": "8eb98d7db04e"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

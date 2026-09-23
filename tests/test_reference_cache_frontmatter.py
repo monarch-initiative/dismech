@@ -189,6 +189,38 @@ def test_check_cache_file_accepts_publication_types(tmp_path: Path):
     assert check_cache_file(good) is None
 
 
+def test_check_cache_file_accepts_cache_staleness_and_access_fields(tmp_path: Path):
+    """The upgraded validator stamps each cache file with the extractor version
+    that wrote it, and records why a full-text fetch was declined.
+
+    These arrived with upstream #62 and #85. The contract forbids unknown
+    fields, so before they were declared here *every* file the upgraded
+    validator touched failed ``just check-reference-cache-frontmatter`` --
+    146 of them after one KB entry was validated. They are optional because the
+    repository holds both generations of cache file at once: a file written
+    before the upgrade carries none of these and must still pass.
+    """
+    good = tmp_path / "PMID_38463381.md"
+    good.write_text(
+        "---\n"
+        "reference_id: PMID:38463381\n"
+        'title: "Disruption of FLNB leads to skeletal malformation."\n'
+        "authors:\n"
+        "- Xu Q\n"
+        "journal: Bone Rep\n"
+        "extractor_version: 1\n"
+        "xml_extraction_version: 1\n"
+        "html_full_text_version: 1\n"
+        "full_text_declined: landing_page_only\n"
+        "full_text_access_type: open\n"
+        "content_type: abstract_only\n"
+        "---\n\n"
+        "# Disruption of FLNB leads to skeletal malformation.\n",
+        encoding="utf-8",
+    )
+    assert check_cache_file(good) is None
+
+
 def test_pmid_cache_missing_both_authors_and_journal_is_rejected(tmp_path: Path):
     """Fabrication-fingerprint defense (#1737): a hand-crafted PMID cache
     with neither ``authors`` nor ``journal`` and a paraphrastic title was

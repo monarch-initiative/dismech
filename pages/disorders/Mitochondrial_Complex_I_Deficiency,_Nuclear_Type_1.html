@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,9 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
 
 
 
@@ -4131,6 +4199,7 @@ The Ndufs4 knockout mouse is one of the most heavily used models in mitochondria
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4152,6 +4221,7 @@ The Ndufs4 knockout mouse is one of the most heavily used models in mitochondria
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4535,6 +4605,7 @@ The stake is counselling. A family told the disease is invariably fatal in infan
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-ndufs4-loss-of-function-variant" data-dismech-node="Biallelic NDUFS4 Loss-of-Function Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic NDUFS4 Loss-of-Function Variant</div>
 
+
                 <div class="item-desc">The reported pathogenic alleles are frameshifts, nonsense variants and splice-altering variants, and what they have in common is more informative than what distinguishes them: almost all of them abolish full-length NDUFS4 protein. Where a truncated product would be predicted, the transcript itself is usually lost as well.
 Founder alleles exist. A homozygous c.393dupA frameshift accounts for Leigh disease in the Hutterite population, where the carrier frequency was estimated at 1 in 27 across more than 1,300 individuals, and founder alleles have also been described in North Africa. A non-consanguineous family reached homozygosity by complete paternal uniparental isodisomy of chromosome 5, which is worth knowing because a single-parent carrier test in that situation is falsely reassuring.</div>
 
@@ -4588,6 +4659,8 @@ This genetic context concerns NDUFS4 (hgnc:7711). hgnc:7711 is a gene from the H
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4600,6 +4673,9 @@ This genetic context concerns NDUFS4 (hgnc:7711). hgnc:7711 is a gene from the H
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Biallelic in every reported patient, most often homozygous through consanguinity or a founder haplotype. Loss of function is asserted rather than inferred from the variant class: the protein is absent on immunoblot in patient fibroblasts.</div>
 
@@ -4649,6 +4725,7 @@ This genetic context concerns NDUFS4 (hgnc:7711). hgnc:7711 is a gene from the H
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4670,6 +4747,7 @@ This genetic context concerns NDUFS4 (hgnc:7711). hgnc:7711 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4697,6 +4775,7 @@ This genetic context concerns NDUFS4 (hgnc:7711). hgnc:7711 is a gene from the H
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4721,6 +4800,7 @@ This genetic context concerns NDUFS4 (hgnc:7711). hgnc:7711 is a gene from the H
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-absence-of-the-ndufs4-accessory-subunit" data-dismech-node="Absence of the NDUFS4 Accessory Subunit" data-dismech-type="pathophysiology">
                 <div class="item-name">Absence of the NDUFS4 Accessory Subunit</div>
+
 
                 <div class="item-desc">NDUFS4 is one of about thirty accessory subunits of complex I, and its position is what makes it load-bearing. It sits at the interface between the N module, which oxidises NADH, and the Q module, which passes the electrons to ubiquinone, and it contacts subunits in both. The current reading of the experimental data is that NDUFS4 controls the attachment of the N module to the rest of the enzyme.
 Losing it takes a second subunit with it. In both Ndufs4-null mouse cells and NDUFS4-mutant patient cells the accessory subunit NDUFA12 is almost entirely absent, while the assembly factor NDUFAF2 - which NDUFA12 would normally displace - accumulates. The relationship is one-way: NDUFA12-mutant patient cells do not lose NDUFS4.</div>
@@ -4851,6 +4931,7 @@ This pathophysiological event involves mitochondrial inner membrane (GO:0005743)
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4872,6 +4953,7 @@ This pathophysiological event involves mitochondrial inner membrane (GO:0005743)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4899,6 +4981,7 @@ This pathophysiological event involves mitochondrial inner membrane (GO:0005743)
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4923,6 +5006,7 @@ This pathophysiological event involves mitochondrial inner membrane (GO:0005743)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-arrest-of-complex-i-assembly-at-the-ci-830-subcomplex" data-dismech-node="Arrest of Complex I Assembly at the CI-830 Subcomplex" data-dismech-type="pathophysiology">
                 <div class="item-name">Arrest of Complex I Assembly at the CI-830 Subcomplex</div>
+
 
                 <div class="item-desc">On a blue native gel, NDUFS4-mutant patient fibroblasts show no fully assembled complex I holoenzyme at all. What is present instead is a catalytically inactive subcomplex of about 830 kDa, carrying NDUFAF2 and lacking the N module. This profile is constant across every NDUFS4 allele that has been tested, which is unusual enough that it was proposed as a screening method: the gel plus the MRI identifies the gene.
 One caveat belongs with the finding. In intact tissue, substantial rotenone-sensitive quinone-reductase activity survives, and Ndufs4-null mouse fibroblasts contain active complex I in situ - so the complete absence of holoenzyme on the gel partly reflects the complex falling apart during solubilisation. The enzyme in a living cell is destabilised, not necessarily wholly absent.</div>
@@ -5018,6 +5102,7 @@ This pathophysiological event involves respiratory chain complex I (GO:0045271).
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5039,6 +5124,7 @@ This pathophysiological event involves respiratory chain complex I (GO:0045271).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5066,6 +5152,7 @@ This pathophysiological event involves respiratory chain complex I (GO:0045271).
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5090,6 +5177,7 @@ This pathophysiological event involves respiratory chain complex I (GO:0045271).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-isolated-complex-i-deficiency" data-dismech-node="Isolated Complex I Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Isolated Complex I Deficiency</div>
+
 
                 <div class="item-desc">The enzymatic consequence, and it is isolated in the strict sense: the expression and activity of the other oxidative phosphorylation complexes are not affected. That is what puts this disease in the complex I deficiency nomenclature rather than in the combined respiratory-chain disorders, and it is measurable in the tissues that are biopsied - muscle in 18 of 22 reported patients, fibroblasts in 12.
 In a patient fibroblast line, complex I activity is severely reduced and, distinctively, insensitive to cAMP stimulation - the NDUFS4 subunit carries the consensus site through which protein kinase A is thought to act on the complex.</div>
@@ -5248,6 +5336,7 @@ This pathophysiological event involves decreased NADH dehydrogenase (ubiquinone)
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5269,6 +5358,7 @@ This pathophysiological event involves decreased NADH dehydrogenase (ubiquinone)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5294,6 +5384,7 @@ This pathophysiological event involves decreased NADH dehydrogenase (ubiquinone)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reductive-stress-and-bioenergetic-failure" data-dismech-node="Reductive Stress and Bioenergetic Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Reductive Stress and Bioenergetic Failure</div>
+
 
                 <div class="item-desc">Downstream of the enzyme defect, patient-derived cells show partial mitochondrial membrane depolarisation, raised reactive oxygen species and raised NAD(P)H, disturbed cytosolic and mitochondrial calcium and ATP handling, and altered mitochondrial morphology. Pyruvate that cannot be oxidised is converted to lactate, which is what raises lactate in plasma and cerebrospinal fluid.
 A CRISPR knockout of NDUFS4 in human induced pluripotent stem cells reproduces the redox half of this directly, with roughly half the complex I activity of isogenic controls and an elevated NADH/NAD+ ratio - useful because it is a human cell with a defined isogenic comparator rather than a patient line with an uncontrolled background.</div>
@@ -5483,6 +5574,7 @@ This pathophysiological event involves decreased ATP biosynthetic process (GO:00
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5504,6 +5596,7 @@ This pathophysiological event involves decreased ATP biosynthetic process (GO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5531,6 +5624,7 @@ This pathophysiological event involves decreased ATP biosynthetic process (GO:00
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5553,6 +5647,7 @@ This pathophysiological event involves decreased ATP biosynthetic process (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-leukocyte-mediated-neuroinflammation" data-dismech-node="Leukocyte-Mediated Neuroinflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">Leukocyte-Mediated Neuroinflammation</div>
+
 
                 <div class="item-desc">Proliferating leukocytes are not just present in the lesions; in the Ndufs4 knockout mouse they are causally required for them. Depleting leukocytes with a CSF1R inhibitor suppressed lesion formation, rescued seizures, respiratory centre function and hyperlactaemia, and substantially extended survival. The same work proposes this as the explanation for why mTOR inhibition works, which had been unexplained for nearly a decade.
 Whether this is true of human NDUFS4 disease is untested. It is recorded because a causal immune step changes what a therapy would target, and because it is the strongest single mechanistic result to come out of this model since the rapamycin finding.</div>
@@ -5721,6 +5816,7 @@ This pathophysiological event involves increased neuroinflammatory response (GO:
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5742,6 +5838,7 @@ This pathophysiological event involves increased neuroinflammatory response (GO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5767,6 +5864,7 @@ This pathophysiological event involves increased neuroinflammatory response (GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-symmetric-necrotizing-brainstem-and-basal-ganglia-lesions" data-dismech-node="Symmetric Necrotizing Brainstem and Basal Ganglia Lesions" data-dismech-type="pathophysiology">
                 <div class="item-name">Symmetric Necrotizing Brainstem and Basal Ganglia Lesions</div>
+
 
                 <div class="item-desc">The neuropathological endpoint, and the reason most NDUFS4 patients are diagnosed as Leigh syndrome. Brainstem lesions were present in 14 of 22 reported NDUFS4 patients and basal ganglia lesions in 9; cortical atrophy was much less common, in 3. The lesion pattern together with the native-gel profile was proposed as the diagnostic signature of NDUFS4 mutations before sequencing.</div>
 
@@ -5910,6 +6008,7 @@ This pathophysiological event occurs in basal ganglia, annotated with basal gang
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5931,6 +6030,7 @@ This pathophysiological event occurs in basal ganglia, annotated with basal gang
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5956,6 +6056,7 @@ This pathophysiological event occurs in basal ganglia, annotated with basal gang
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-secondary-hypertrophic-cardiomyopathy" data-dismech-node="Secondary Hypertrophic Cardiomyopathy" data-dismech-type="pathophysiology">
                 <div class="item-name">Secondary Hypertrophic Cardiomyopathy</div>
+
 
                 <div class="item-desc">Hypertrophic cardiomyopathy occurs in a minority of NDUFS4 patients - 5 of 22 in the published compilation. Heart- and muscle-specific Ndufs4 knockout mice suggest it is a late, secondary consequence of the complex I defect rather than a primary cardiac lesion, which matters for surveillance: it is something to look for over time rather than at presentation.
 An iPSC-derived cardiomyocyte model with NDUFS4 deletion reproduces the cardiac phenotype and links it to a specific molecular step - a fall in NAD+/NADH that leaves the cardiac sodium channel NaV1.5 hyperacetylated, producing bradyarrhythmia.</div>
@@ -6027,6 +6128,7 @@ An iPSC-derived cardiomyocyte model with NDUFS4 deletion reproduces the cardiac 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6051,6 +6153,7 @@ An iPSC-derived cardiomyocyte model with NDUFS4 deletion reproduces the cardiac 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6072,6 +6175,7 @@ An iPSC-derived cardiomyocyte model with NDUFS4 deletion reproduces the cardiac 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6198,6 +6302,9 @@ This clinical feature is Hypertrophic cardiomyopathy (HP:0001639). HP:0001639 is
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6212,6 +6319,7 @@ This clinical feature is Hypertrophic cardiomyopathy (HP:0001639). HP:0001639 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6277,6 +6385,9 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6291,6 +6402,7 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6358,6 +6470,9 @@ This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6372,6 +6487,7 @@ This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6396,6 +6512,7 @@ This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6461,6 +6578,9 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6475,6 +6595,7 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6540,6 +6661,9 @@ This clinical feature is Lactic acidosis (HP:0003128). HP:0003128 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6554,6 +6678,7 @@ This clinical feature is Lactic acidosis (HP:0003128). HP:0003128 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6578,6 +6703,7 @@ This clinical feature is Lactic acidosis (HP:0003128). HP:0003128 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6634,6 +6760,9 @@ This clinical feature is Increased CSF lactate (HP:0002490). HP:0002490 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6648,6 +6777,7 @@ This clinical feature is Increased CSF lactate (HP:0002490). HP:0002490 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6742,6 +6872,9 @@ This clinical feature is Hypotonia (HP:0001252), qualified as infantile onset. H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6756,6 +6889,7 @@ This clinical feature is Hypotonia (HP:0001252), qualified as infantile onset. H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6780,6 +6914,7 @@ This clinical feature is Hypotonia (HP:0001252), qualified as infantile onset. H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6838,6 +6973,9 @@ This clinical feature is Ragged-red muscle fibers (HP:0003200). HP:0003200 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6852,6 +6990,7 @@ This clinical feature is Ragged-red muscle fibers (HP:0003200). HP:0003200 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6917,6 +7056,9 @@ This clinical feature is Developmental regression (HP:0002376). HP:0002376 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6931,6 +7073,7 @@ This clinical feature is Developmental regression (HP:0002376). HP:0002376 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6987,6 +7130,9 @@ This clinical feature is Reduced eye contact (HP:0000817). HP:0000817 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7001,6 +7147,7 @@ This clinical feature is Reduced eye contact (HP:0000817). HP:0000817 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7059,6 +7206,9 @@ This clinical feature is Abnormal pyramidal sign (HP:0007256). HP:0007256 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7073,6 +7223,7 @@ This clinical feature is Abnormal pyramidal sign (HP:0007256). HP:0007256 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7129,6 +7280,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7143,6 +7297,7 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7199,6 +7354,9 @@ This clinical feature is Cerebral cortical atrophy (HP:0002120). HP:0002120 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7213,6 +7371,7 @@ This clinical feature is Cerebral cortical atrophy (HP:0002120). HP:0002120 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7280,6 +7439,9 @@ This clinical feature is Apnea (HP:0002104). HP:0002104 is a phenotype from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7294,6 +7456,7 @@ This clinical feature is Apnea (HP:0002104). HP:0002104 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7361,6 +7524,9 @@ This clinical feature is Decreased activity of mitochondrial complex I (HP:00119
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7375,6 +7541,7 @@ This clinical feature is Decreased activity of mitochondrial complex I (HP:00119
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7473,6 +7640,9 @@ This disease-associated gene is NDUFS4 (hgnc:7711). hgnc:7711 is a gene from the
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive inheritance</span>
@@ -7498,6 +7668,7 @@ This disease-associated gene is NDUFS4 (hgnc:7711). hgnc:7711 is a gene from the
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7519,6 +7690,7 @@ This disease-associated gene is NDUFS4 (hgnc:7711). hgnc:7711 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7602,6 +7774,7 @@ This disease-associated gene is NDUFS4 (hgnc:7711). hgnc:7711 is a gene from the
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7679,6 +7852,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7689,6 +7865,9 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -7719,6 +7898,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7740,6 +7920,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7829,6 +8010,9 @@ This treatment uses sirolimus (CHEBI:9168). CHEBI:9168 is a therapeutic agent fr
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -7839,6 +8023,9 @@ This treatment uses sirolimus (CHEBI:9168). CHEBI:9168 is a therapeutic agent fr
 
 
     </div>
+
+
+
 
 
 
@@ -7879,6 +8066,7 @@ It has not been tested in a controlled trial in NDUFS4 patients. The mechanism w
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7900,6 +8088,7 @@ It has not been tested in a controlled trial in NDUFS4 patients. The mechanism w
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7946,6 +8135,7 @@ It has not been tested in a controlled trial in NDUFS4 patients. The mechanism w
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7970,6 +8160,7 @@ It has not been tested in a controlled trial in NDUFS4 patients. The mechanism w
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7991,6 +8182,7 @@ It has not been tested in a controlled trial in NDUFS4 patients. The mechanism w
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8058,6 +8250,9 @@ This treatment is therapeutic procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8068,6 +8263,9 @@ This treatment is therapeutic procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
     </div>
+
+
+
 
 
 
@@ -8104,6 +8302,7 @@ This treatment is therapeutic procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8150,6 +8349,7 @@ This treatment is therapeutic procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8171,6 +8371,7 @@ This treatment is therapeutic procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8260,6 +8461,9 @@ This treatment uses nicotinamide riboside, annotated with N-ribosylnicotinamide 
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8270,6 +8474,9 @@ This treatment uses nicotinamide riboside, annotated with N-ribosylnicotinamide 
 
 
     </div>
+
+
+
 
 
 
@@ -8306,6 +8513,7 @@ This treatment uses nicotinamide riboside, annotated with N-ribosylnicotinamide 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8349,6 +8557,7 @@ This treatment uses nicotinamide riboside, annotated with N-ribosylnicotinamide 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8416,6 +8625,9 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8426,6 +8638,9 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
     </div>
+
+
+
 
 
 
@@ -8467,6 +8682,7 @@ The negative result is the informative one. Intravenous AAV2/9 carrying human ND
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8488,6 +8704,7 @@ The negative result is the informative one. Intravenous AAV2/9 carrying human ND
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8531,6 +8748,7 @@ The negative result is the informative one. Intravenous AAV2/9 carrying human ND
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -8598,6 +8816,9 @@ This treatment is pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
     <div class="item-meta">
         <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
 
@@ -8608,6 +8829,9 @@ This treatment is pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
     </div>
+
+
+
 
 
 
@@ -8645,6 +8869,7 @@ It has not been tried in patients, and the step it targets has not been demonstr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8729,6 +8954,7 @@ It has not been tried in patients, and the step it targets has not been demonstr
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -8750,6 +8976,7 @@ It has not been tried in patients, and the step it targets has not been demonstr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8808,6 +9035,7 @@ Two routes to a biallelic genotype are worth anticipating. Array comparative gen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8829,6 +9057,7 @@ Two routes to a biallelic genotype are worth anticipating. Array comparative gen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8899,6 +9128,7 @@ Two routes to a biallelic genotype are worth anticipating. Array comparative gen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8952,6 +9182,7 @@ Note that the HPO term for this outcome, HP:0001522 (Death in infancy), sits in 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8973,6 +9204,7 @@ Note that the HPO term for this outcome, HP:0001522 (Death in infancy), sits in 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9028,6 +9260,7 @@ Note that the HPO term for this outcome, HP:0001522 (Death in infancy), sits in 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9049,6 +9282,7 @@ Note that the HPO term for this outcome, HP:0001522 (Death in infancy), sits in 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9140,6 +9374,7 @@ Note that the HPO term for this outcome, HP:0001522 (Death in infancy), sits in 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9164,6 +9399,7 @@ Note that the HPO term for this outcome, HP:0001522 (Death in infancy), sits in 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9185,6 +9421,7 @@ Note that the HPO term for this outcome, HP:0001522 (Death in infancy), sits in 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9240,6 +9477,7 @@ Note that the HPO term for this outcome, HP:0001522 (Death in infancy), sits in 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9359,6 +9597,7 @@ Note that the HPO term for this outcome, HP:0001522 (Death in infancy), sits in 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -9398,6 +9637,7 @@ Note that the HPO term for this outcome, HP:0001522 (Death in infancy), sits in 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9511,6 +9751,7 @@ It is the human counterpart of the tissue-specific mouse work on the cardiac phe
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9550,6 +9791,7 @@ It is the human counterpart of the tissue-specific mouse work on the cardiac phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9704,6 +9946,7 @@ Mice appear healthy for about five weeks, then develop ataxia, lethargy, blindne
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9763,6 +10006,7 @@ Mice appear healthy for about five weeks, then develop ataxia, lethargy, blindne
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9802,6 +10046,7 @@ Mice appear healthy for about five weeks, then develop ataxia, lethargy, blindne
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9881,6 +10126,7 @@ Mice appear healthy for about five weeks, then develop ataxia, lethargy, blindne
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9940,6 +10186,7 @@ Mice appear healthy for about five weeks, then develop ataxia, lethargy, blindne
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9979,6 +10226,7 @@ Mice appear healthy for about five weeks, then develop ataxia, lethargy, blindne
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10058,6 +10306,7 @@ Mice appear healthy for about five weeks, then develop ataxia, lethargy, blindne
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10117,6 +10366,7 @@ Mice appear healthy for about five weeks, then develop ataxia, lethargy, blindne
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10156,6 +10406,7 @@ Mice appear healthy for about five weeks, then develop ataxia, lethargy, blindne
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10235,6 +10486,7 @@ Mice appear healthy for about five weeks, then develop ataxia, lethargy, blindne
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10294,6 +10546,7 @@ Mice appear healthy for about five weeks, then develop ataxia, lethargy, blindne
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10333,6 +10586,7 @@ Mice appear healthy for about five weeks, then develop ataxia, lethargy, blindne
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12919,6 +13173,76 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Why this is a Disease and not a subtype of Leigh Syndrome. This was the substantive question on the claim issue and it does point both ways, so here is the argument as it was actually weighed against the two decided precedents.
+Toward a subtype, the way vanishing white matter 5 went in PR #10424: the Leigh Syndrome entry does genuinely bind NDUFS4. It carries hgnc:7711 in its `genetic:` section with an association, its own autosomal recessive inheritance block and cited evidence, and again in a `pathophysiology[].genes` list. This is not the methylmalonic aciduria cblA situation from PR #10260, where the gene was named in prose with nothing behind it. ClinGen points the same way: its Mitochondrial Diseases panel curates NDUFS4 against Leigh syndrome, MONDO:0009723, not against MONDO:0100224.
+Toward a Disease, which is what this is, four things.
+First, MONDO does not place this concept under Leigh syndrome. MONDO:0100224&#39;s parents are &#34;mitochondrial complex I deficiency, nuclear type&#34; and &#34;inborn mitochondrial myopathy&#34;. That is the structural difference from the VWM5 case, where MONDO:0957873 is a direct child of the umbrella entry&#39;s own term, so a subtype record was recording a relation the ontology already asserted. Here it would be asserting a different one.
+Second, the VWM5 decision turned on two large cohorts showing that which eIF2B subunit is mutated does not predict the disease, so there was no gene-specific pathograph to write. The complex I literature says the opposite. A review comparing 22 NDUFS4 patients against 198 patients with 24 other complex I gene defects concluded NDUFS4 disease is uniformly early-onset and severe, while sibling genes already curated here span Leigh syndrome to isolated optic atrophy. Gene identity carries information in this group.
+Third, there is a gene-specific mechanism to curate and the Leigh entry does not contain it. Leigh&#39;s node is a generic &#34;Complex I deficiency&#34; shared between NDUFS4, NDUFV1 and MT-ND5, with GO annotations for NADH dehydrogenase activity. Nothing there is about NDUFS4 being an accessory subunit at the N-Q module interface, about the CI-830 subcomplex, about the reciprocal loss of NDUFA12 and retention of NDUFAF2, or about the diagnostic constancy of the native-gel profile. Those are the load-bearing facts of this entity and they are all absent upstream.
+Fourth, seven MC1DN entries already exist here - types 2, 6, 12, 23, 24, 31 and 34 - most of which also present as Leigh syndrome, all coexisting with the Leigh Syndrome entry. Type 23 even lists Leigh Syndrome among its `parents:`. Making type 1 the single exception would be the inconsistent choice, and it is the type with the strongest claim to its own entry.
+On the ClinGen point specifically: gene-disease validity curation deliberately lumps to the broadest defensible clinical entity, because the question that curation answers is whether variants in a gene cause disease at all. It is not a nosological ruling about whether the biochemical entity is separable. The entry records the assertion and says which disease it was made against rather than quietly re-labelling it.
+The Leigh Syndrome entry was not modified.
+Named entity check. The preflight passes rather than warns: NDUFS4 is mentioned 55 times in the deep-research report with the next gene at 5, and the OMIM identifier the report cites matches the one MONDO carries. But the gate is not sufficient here, because NDUFS4&#39;s literature is overwhelmingly about Leigh syndrome and overwhelmingly murine, and neither is automatically about this MONDO term. Every claim in this entry is therefore tagged by the population it came from. Two specific traps were checked and avoided. NDUFS4 has a substantial cancer literature - gastric cancer, glioma, prostate cancer, where it is studied as a proliferation or ferroptosis regulator - which is the same protein in a different context and is not cited. And the NADH reductive-stress biomarker study (PMID:39858433) reports a human fibroblast cohort of 22 mitochondrial disease patients whose complex I cases are NDUFA1, MT-ND3, MT-ND5 and ACAD9 - NDUFS4 is not among them - so its human arm is not this disease and is not cited here at all; the mouse arm is Ndufs4 and would have been citable, but adds nothing the iPSC line does not say in a human cell.
+Frequencies. Every band comes from one denominator, the 22-patient 18-family NDUFS4 compilation quoted in PMID:34849584, and each band is stated with its numerator in the phenotype description so it can be checked. Nothing is banded from a broader Leigh series. The Leigh registry (116 participants) and the incidence figure of 1 in 40,000 live births are Leigh-wide numbers and are deliberately not used: no `prevalence` record is given at all, because no MC1DN1-specific prevalence exists and a Leigh figure entered here would be a different disease&#39;s number in this file&#39;s slot.
+Evidence grading. The human anchors are the phenotype counts, the survival data, the allele spectrum, the founder frequency and the isodisomy case. The assembly biochemistry is graded IN_VITRO where it was measured in patient or knockout cells and MODEL_ORGANISM where it was measured in the animal, even when both appear in one paper. Every therapy in the entry is MODEL_ORGANISM or IN_VITRO; none has human efficacy evidence in this gene, and the descriptions say so rather than implying a treatment exists.
+On GeneReviews. PMID:26425749 (&#34;Nuclear Gene-Encoded Leigh Syndrome Spectrum Overview&#34;) is the applicable chapter and is tagged in the top-level `references:` block. It is deliberately NOT cited as evidence anywhere: the cached record carries only the chapter&#39;s statement of purpose and no clinical content, so any snippet from it would attest to the chapter&#39;s aims rather than to a fact about this disease. The phenotypes here are anchored on the NDUFS4 patient compilation instead. This follows the same decision recorded in `Mitochondrial_Complex_I_Deficiency_Nuclear_Type_2`.
+On mitochondrial transfer, which the deep-research report lists as an emerging strategy: it is not curated. The cached sources describe donation of healthy mitochondria in a retinal degeneration context and name tumorigenicity, immune rejection and genetic instability as unresolved obstacles, which is too far from an NDUFS4 mechanism node to attach without overstating it.
+What is deliberately absent. No `prevalence`, for the reason above. No `clinical_trials`: the trials in the deep-research report - vatiquinone in Leigh syndrome, elamipretide in nuclear primary mitochondrial myopathy - enrol Leigh or mitochondrial myopathy populations, not NDUFS4 patients, and recording them here would attribute another population&#39;s trial to this entry. No `datasets`, because a search on the gene symbol returns the cancer and mouse literature rather than an NDUFS4 patient dataset. Two references were fetched and not used because their cache entries have no quotable content: both are Finsterer correspondence letters (PMID:28371352, PMID:30937725), and the second - which argues that early-age Ndufs4 knockout mice are an inappropriate model - would have been directly relevant to the model-mismatch discussion. It is named here so the next curator does not spend the same effort discovering it is unquotable.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Mitochondrial Complex I Deficiency, Nuclear Type 1 (MC1DN1, NDUFS4)</strong> · 2026-09-02T03:47:52Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Mitochondrial_Complex_I_Deficiency_Nuclear_Type_1/2026-09-02T034752Z-claude-code-f0b6b2.yaml">View source</a></p>
+                        <p class="research-review-text">New Disease entry for MONDO:0100224 (MC1DN1, biallelic NDUFS4), curated from primary literature plus a falcon deep-research run (preflight PASS: NDUFS4=55 mentions, next gene 5, OMIM 252010 matching MONDO exactly).
+
+entry_type decision: DISEASE, and this was the substantive question. It points both ways and both precedents were read.
+
+Toward SUBTYPE, as in the VWM5 case (PR #10424): Leigh_Syndrome.yaml genuinely BINDS NDUFS4 - hgnc:7711 in genetic: with an association, its own HP:0000007 inheritance block and cited evidence, plus again in a pathophysiology[].genes list. So this is not the cblA pattern (PR #10260) of a gene named in prose with nothing behind it. ClinGen agrees: its Mitochondrial Diseases GCEP curates NDUFS4 against Leigh syndrome (MONDO:0009723), not against MONDO:0100224.
+
+Toward DISEASE, which is what was done, four reasons.
+1. MONDO does not place MC1DN1 under Leigh syndrome - its parents are &#39;mitochondrial complex I deficiency, nuclear type&#39; (MONDO:0100223) and &#39;inborn mitochondrial myopathy&#39; (MONDO:0009637). This is the structural difference from VWM5, where MONDO:0957873 IS a direct child of the umbrella&#39;s own term.
+2. VWM5 turned on two large cohorts showing subunit identity does not predict phenotype, so no gene-specific pathograph existed. The complex I literature says the opposite: a review comparing 22 NDUFS4 patients against 198 patients with 24 other complex I gene defects found NDUFS4 uniformly early-onset and severe, while sibling genes already curated here span Leigh syndrome to isolated optic atrophy.
+3. There IS a gene-specific mechanism and Leigh does not carry it. Leigh&#39;s node is a generic &#39;Complex I deficiency&#39; shared with NDUFV1 and MT-ND5. Nothing there covers NDUFS4 as an accessory subunit at the N-Q module interface, the CI-830 subcomplex, the reciprocal loss of NDUFA12 with retention of NDUFAF2, or the diagnostic constancy of the native-gel profile.
+4. Seven MC1DN entries already exist (types 2, 6, 12, 23, 24, 31, 34), most presenting as Leigh syndrome, all coexisting with Leigh_Syndrome; type 23 even lists Leigh Syndrome in its parents:. Type 1 would be the single exception.
+
+Leigh_Syndrome.yaml was NOT modified. The ClinGen assertion is recorded in external_assertions with an explicit note that it was curated against Leigh syndrome rather than against this MONDO term, rather than quietly re-labelling it. The stub was deleted.
+
+Named Entity Confusion: preflight passes but is insufficient here, since NDUFS4&#39;s literature is largely Leigh syndrome and largely mouse. Two traps were checked. NDUFS4 has a large cancer literature (gastric, glioma, prostate) - not cited. And PMID:39858433 (NADH reductive stress) has a human fibroblast cohort of 22 mitochondrial disease patients whose complex I cases are NDUFA1, MT-ND3, MT-ND5 and ACAD9 - NDUFS4 is not among them - so its human arm is not this disease and it is not cited at all.
+
+Frequencies: every band comes from one denominator, the 22-patient/18-family NDUFS4 compilation quoted in PMID:34849584, with the numerator stated in each phenotype description. Nothing is banded from a broader Leigh series. Seizures are OCCASIONAL (4/22 = 18%) not FREQUENT; microcephaly is VERY_RARE (1/22 = 4.5%); complex I deficiency in muscle is VERY_FREQUENT (18/22 = 82%). No prevalence record at all, because the available figures (Leigh incidence 1 in 40,000; the 116-participant Leigh registry) are a different disease&#39;s numbers.
+
+Death in infancy is curated under progression: rather than phenotypes:, because HP:0001522 sits in the HPO Mortality/Aging branch and is not in the PhenotypeTerm dynamic enum - following the decision already recorded in Cardiomyopathy-Hypotonia-Lactic_Acidosis_Syndrome. The 2016 &#39;invariably fatal&#39; claim is quoted as the authors&#39; conclusion and immediately balanced by two later survivors (alive at 7, and 8 years old), which is also the subject of a KNOWLEDGE_GAP.
+
+A HUMAN_MODEL_MISMATCH discussion records that the Ndufs4 KO mouse matches the human biochemistry closely (the review says whole-body deletion is a genetically valid strategy because human alleles abolish the protein and the disease is recessive) but not the neuropathological distribution - mouse lesions centre on the vestibular nuclei, olfactory bulb and cerebellum where the human disease is brainstem and basal ganglia. Every therapeutic lead in this disease was validated against the mouse lesion set.
+
+Two references were fetched and not used because their caches have no quotable content: PMID:28371352 and PMID:30937725, both Finsterer correspondence letters. This is recorded in notes so it is not rediscovered.
+
+Ontology note: GO:0005747 (mitochondrial respiratory chain complex I) is obsolete; GO:0045271 (respiratory chain complex I) was used instead.
+
+Follow-up pass in the same session, auditing prose numbers against the caches rather than against memory. Three fixes. A differential-diagnosis sentence said Leigh syndrome is produced by &#39;more than seventy-five genes&#39;; no cached source supports that number, so it now says more than thirty-five with an evidence item quoting PMID:27671926, and the notes record that higher counts appear in the review literature. The rapamycin treatment description said the drug &#39;more than doubled median survival&#39;, which was arithmetic I did rather than a quotable claim; it now gives both figures (untreated median 50 days, treated 114 and 111 days) with an evidence item for each. And one evidence snippet had been truncated mid-phrase at &#39;associated with partial&#39; to avoid a non-ASCII symbol in the source; it was replaced with the propositional tail of the same sentence, which quotes the ROS, NAD(P)H, calcium/ATP and morphology findings in full.
+
+Model-section pass, same session. The undifferentiated NDUFS4-knockout iPSC line keeps experimental_model_type OTHER and now records why: IPSC_DERIVED_MODEL is defined as a *differentiated* model derived from iPSCs and this one deliberately is not, while CELL_LINE is defined for immortalized lines. Added a second experimental_models entry, the NDUFS4-deleted iPSC-derived cardiomyocytes, which does take IPSC_DERIVED_MODEL, links to the cardiomyopathy node with a NaV1.5-acetylation readout, and records in its limitations that the electrical phenotype it explains is murine bradyarrhythmia rather than the hypertrophy seen in 5 of 22 patients. check-snippet-grading caught the acetylation sentence graded two ways across the two blocks; it is the paper&#39;s mouse arm, so both are MODEL_ORGANISM.
+
+Review round 1 (ai4c-reviewer, CHANGES_REQUESTED on 347c4c66). Two blocking findings, both verified before acting and both correct. (a) The GeneReviews chapter PMID:26425749 was cached and tagged by fourteen other entries but absent here; added to references: with the GeneReviews tag plus a notes rationale recording that it is deliberately not cited as evidence because the cached record carries only the chapter&#39;s statement of purpose - the same decision Type 2 records. (b) Two phenotypes above the 10% threshold were omitted while their counts sat inside a snippet the file had already verified: absence of eye contact 10/22 and pyramidal signs 6/22. Both added, both wired into the pathograph as downstream edges of the lesion node.
+
+Two departures from the review, each checked rather than deferred to. The reviewer&#39;s HP identifiers were right but its labels were approximate - HP:0007256 is &#39;Abnormal pyramidal sign&#39;, not &#39;Pyramidal sign&#39;, and HP:0000817 is &#39;Reduced eye contact&#39;, not &#39;Poor eye contact&#39;; the canonical labels are bound. And the reviewer offered FREQUENT or OCCASIONAL for 6/22 &#39;depending on how you read the band edge&#39;; the schema is unambiguous (OCCASIONAL 5-29%, FREQUENT 30-79%) so 27.3% is OCCASIONAL, and the explanation says so rather than leaving it open.
+
+On the microcephaly suggestion, the reviewer was right that the parenthetical did not support itself, but for a different reason than given: the schema defines VERY_RARE as under 5%, not 1-4%, so 4.5% is inside the band. The explanation now cites the schema&#39;s actual boundary and notes that n=1 is a position rather than a rate.
+
+The reviewer judged AAV gene replacement non-blocking because &#39;the research cites them via an uncached source, so there is no quotable snippet&#39;. That turned out to be wrong: the already-cached full text of PMID:34849584 carries the AAV work in detail, including a negative result. Added an AAV-Mediated NDUFS4 Gene Replacement treatment targeting the subunit-absence node, with the AAV-PHP.B efficacy result and - as a REFUTE item - the intravenous AAV2/9 vector that reached muscle, heart and liver, was absent from brain, and did not improve symptoms. That negative result is what makes this a delivery problem rather than a mechanism problem. Mitochondrial transfer remains uncurated, with the reason recorded in notes.
+
+Validation: just validate exit 0 (83/83 snippets verified), just validate-terms exit 0, check-duplicate-keys / check-entity-refs / check-causal-targets all exit 0.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
