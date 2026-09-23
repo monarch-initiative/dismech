@@ -3749,3 +3749,8 @@ jev-audit-inventory *args:
 [positional-arguments]
 jev-audit-report output="reports/jev-audit" *args:
     uv run python -m dismech.classifier.audit_report "$@"
+
+# Import saved assessments and reconcile historical active flags without API calls.
+[positional-arguments]
+jev-audit-cache *args:
+    uv run python -m dismech.classifier.cache "$@"

@@ -20,13 +20,50 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read
 
 concurrency:
   group: jev-evidence-audit
   cancel-in-progress: false
 
 jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      pending_head: ${{ steps.pending.outputs.head }}
+      cache_branch: ${{ steps.pending.outputs.branch }}
+      pr_number: ${{ steps.pending.outputs.pr_number }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Find pending assessment updates
+        id: pending
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          mkdir -p build
+          gh api --paginate --slurp "repos/$GITHUB_REPOSITORY/pulls?state=open&base=main&per_page=100" > build/open-prs.json
+          python - <<'PYCODE'
+          import json
+          import os
+          from pathlib import Path
+          candidates = [p for page in json.loads(Path("build/open-prs.json").read_text()) for p in page
+                        if p["head"]["ref"].startswith("auto/jev-assessments-")
+                        and p["head"]["repo"] and p["head"]["repo"]["full_name"] == os.environ["GITHUB_REPOSITORY"]]
+          if len(candidates) > 1 or any(p["user"]["login"] != "ai4c-agent[bot]" for p in candidates):
+              raise SystemExit("Resolve competing/unrecognized assessment PRs before paid inference")
+          pending = candidates[0] if candidates else None
+          branch = pending["head"]["ref"] if pending else f"auto/jev-assessments-{os.environ['GITHUB_RUN_ID']}-{os.environ['GITHUB_RUN_ATTEMPT']}"
+          with open(os.environ["GITHUB_OUTPUT"], "a") as stream:
+              print("head=" + (pending["head"]["sha"] if pending else ""), file=stream)
+              print("pr_number=" + (str(pending["number"]) if pending else ""), file=stream)
+              print("branch=" + branch, file=stream)
+          PYCODE
+
   audit:
+    needs: prepare
     runs-on: ubuntu-latest
     timeout-minutes: 330
     strategy:
@@ -41,13 +78,16 @@ jobs:
       - uses: astral-sh/setup-uv@v7
       - run: uv sync --frozen --no-dev
       - run: uv tool install rust-just
-      - name: Restore successful judgments
-        if: inputs.dry_run != true
-        uses: actions/cache/restore@v4
-        with:
-          path: build/jev-audit-cache.sqlite
-          key: jev-audit-v1-shard-${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}
-          restore-keys: jev-audit-v1-shard-${{ matrix.shard }}-
+      - name: Reuse assessments awaiting PR review
+        if: inputs.dry_run != true && needs.prepare.outputs.pending_head != ''
+        env:
+          PENDING_HEAD: ${{ needs.prepare.outputs.pending_head }}
+        shell: bash
+        run: |
+          git fetch origin "$PENDING_HEAD"
+          mkdir -p build/jev-pending
+          git archive "$PENDING_HEAD" analysis/classification/jev | tar -x -C build/jev-pending
+          just jev-audit-cache --merge-cache build/jev-pending/analysis/classification/jev
       - name: Audit assertions
         env:
           TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
@@ -65,12 +105,18 @@ jobs:
             exit 1
           fi
           just jev-audit "${args[@]}"
-      - name: Save checkpoints, including after partial failure
-        if: always() && inputs.dry_run != true && hashFiles('build/jev-audit-cache.sqlite') != ''
-        uses: actions/cache/save@v4
-        with:
-          path: build/jev-audit-cache.sqlite
-          key: jev-audit-v1-shard-${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: Collect changed YAML checkpoints, including after partial failure
+        if: always() && inputs.dry_run != true
+        shell: bash
+        run: |
+          while IFS= read -r -d '' file; do
+            if [[ "$file" == analysis/classification/jev/*/evidence_claim_match.yaml ]]; then
+              relative="${file#analysis/classification/jev/}"
+              destination="reports/jev-audit/cache/$relative"
+              mkdir -p "$(dirname "$destination")"
+              cp "$file" "$destination"
+            fi
+          done < <(git ls-files --modified --others --exclude-standard -z -- analysis/classification/jev)
       - name: Upload shard predictions and provenance
         if: always()
         uses: actions/upload-artifact@v7
@@ -79,6 +125,7 @@ jobs:
           path: |
             reports/jev-audit/results.jsonl
             reports/jev-audit/manifest.json
+            reports/jev-audit/cache/
           if-no-files-found: warn
           retention-days: 14
 
@@ -113,3 +160,103 @@ jobs:
           name: jev-recuration-report
           path: reports/jev-audit/
           retention-days: 30
+
+  persist:
+    needs: [prepare, audit]
+    if: always() && needs.prepare.result == 'success' && inputs.dry_run != true && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v7
+      - run: uv sync --frozen --no-dev
+      - run: uv tool install rust-just
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: jev-audit-shard-*
+          path: build/jev-shards
+      - name: Union checkpoints and reconcile against current main
+        env:
+          PENDING_HEAD: ${{ needs.prepare.outputs.pending_head }}
+        shell: bash
+        run: |
+          args=()
+          if [[ -n "$PENDING_HEAD" ]]; then
+            git fetch origin "$PENDING_HEAD"
+            mkdir -p build/jev-pending
+            git archive "$PENDING_HEAD" analysis/classification/jev | tar -x -C build/jev-pending
+            args+=(--merge-cache build/jev-pending/analysis/classification/jev)
+          fi
+          for cache in build/jev-shards/*/cache; do
+            [[ -d "$cache" ]] && args+=(--merge-cache "$cache")
+          done
+          just jev-audit-cache "${args[@]}"
+      - name: Preserve combined checkpoint before publication
+        uses: actions/upload-artifact@v7
+        with:
+          name: jev-assessment-history
+          path: analysis/classification/jev/
+          retention-days: 90
+      - name: Generate assessment publisher token
+        id: publisher
+        uses: actions/create-github-app-token@d72941d797fd3113feb6b93fd0dec494b13a2547 # v1
+        with:
+          app-id: ${{ secrets.AI4C_AGENT_APP_ID }}
+          private-key: ${{ secrets.AI4C_AGENT_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+      - name: Propose assessment history updates
+        env:
+          GH_TOKEN: ${{ steps.publisher.outputs.token }}
+          PENDING_HEAD: ${{ needs.prepare.outputs.pending_head }}
+          CACHE_BRANCH: ${{ needs.prepare.outputs.cache_branch }}
+          PR_NUMBER: ${{ needs.prepare.outputs.pr_number }}
+        shell: bash
+        run: |
+          gh auth setup-git
+          git config user.name 'ai4c-agent[bot]'
+          git config user.email 'ai4c-agent[bot]@users.noreply.github.com'
+          # A private index changes only assessment files on the pending PR's
+          # exact head. It never checks out or executes that branch's code.
+          parent="${PENDING_HEAD:-$(git rev-parse HEAD)}"
+          if [[ -n "$PR_NUMBER" ]]; then
+            state=$(gh pr view "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --json state --jq .state)
+            current=$(gh pr view "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --json headRefOid --jq .headRefOid)
+            if [[ "$current" != "$PENDING_HEAD" ]]; then
+              echo '::error::Assessment PR changed during the audit; recover the saved shard checkpoints before rerunning.'
+              exit 1
+            fi
+            if [[ "$state" == MERGED ]]; then
+              parent=$(git rev-parse HEAD)
+              CACHE_BRANCH="auto/jev-assessments-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+              PR_NUMBER=''
+            elif [[ "$state" != OPEN ]]; then
+              echo '::error::Assessment PR was closed; checkpoints remain in the shard artifacts.'
+              exit 1
+            fi
+          fi
+          export GIT_INDEX_FILE="$RUNNER_TEMP/jev-publish.index"
+          git read-tree "$parent"
+          git add -- analysis/classification/jev
+          if git diff --cached --quiet "$parent"; then
+            echo 'No assessment changes to publish.'
+            exit 0
+          fi
+          tree=$(git write-tree)
+          commit=$(git commit-tree "$tree" -p "$parent" -m 'Update Jev assessment history')
+          git push origin "$commit:refs/heads/$CACHE_BRANCH"
+          # Existing PRs keep their review state; this never requests auto-merge.
+          if [[ -z "$PR_NUMBER" ]]; then
+            cat > "$RUNNER_TEMP/jev-pr.md" <<'BODY'
+          Records successful Jev assessments in per-disease YAML for reuse by later audits. Exact claim snapshots, scores and original assessment dates are retained; active flags reflect the disease files inspected by this run.
+
+          These are model judgments for recuration triage. The workflow does not change disease assertions or curated benchmark labels. Only completed assessments are saved, so a partial audit can still make useful progress.
+          BODY
+            gh pr create --repo "$GITHUB_REPOSITORY" --base main --head "$CACHE_BRANCH" \
+              --title 'Update Jev assessment history' --body-file "$RUNNER_TEMP/jev-pr.md"
+          fi

@@ -25,6 +25,14 @@ from dismech.classifier.claims import extract_claim
 from dismech.classifier.typesafe import TypeSafeClassifier
 
 
+@pytest.fixture(autouse=True)
+def isolate_kb_cache_environment(monkeypatch):
+    # Record the original environment before the CLI calls default_off().
+    import os
+
+    monkeypatch.setenv("DISMECH_KB_CACHE", os.environ.get("DISMECH_KB_CACHE", "1"))
+
+
 def evidence(text="Example disease causes fever."):
     return {"reference": "PMID:1", "supports": "SUPPORT", "snippet": text}
 
@@ -139,7 +147,7 @@ def test_invalid_direction_and_subtype_are_data_errors(tmp_path):
 
 
 def test_successes_resume_errors_retry_and_input_changes_invalidate(tmp_path):
-    cache = ResultCache(tmp_path / "cache.sqlite")
+    cache = ResultCache(tmp_path / "cache")
     selected = [r for r in rows(tmp_path) if r["status"] == "ready"]
     fake = FakeClassifier(fail={2})
     first = list(assess(selected, fake, cache, workers=1))
@@ -164,7 +172,7 @@ def test_successes_resume_errors_retry_and_input_changes_invalidate(tmp_path):
 
 
 def test_report_counts_unique_assertions_not_snippets_or_aspects(tmp_path):
-    cache = ResultCache(tmp_path / "cache.sqlite")
+    cache = ResultCache(tmp_path / "cache")
     result = list(assess(rows(tmp_path), FakeClassifier(), cache, workers=1))
     with (tmp_path / "results.jsonl").open("w") as stream:
         for row in result:
@@ -192,7 +200,7 @@ def test_dry_run_needs_no_key_and_writes_no_cache(tmp_path, monkeypatch):
     file.write_text(yaml.safe_dump(disease()))
     monkeypatch.delenv("TYPESAFE_API_KEY", raising=False)
     output = tmp_path / "output"
-    cache = tmp_path / "no.sqlite"
+    cache = tmp_path / "no-cache"
     result = CliRunner().invoke(
         main,
         [
@@ -228,7 +236,7 @@ def test_auth_failure_stops_paid_requests_without_dropping_inventory(tmp_path):
                 "hidden", request=response.request, response=response
             )
 
-    cache = ResultCache(tmp_path / "cache.sqlite")
+    cache = ResultCache(tmp_path / "cache")
     fake = Unauthorized()
     result = list(assess(rows(tmp_path), fake, cache, workers=1))
     assert len(result) == 7
@@ -240,7 +248,7 @@ def test_auth_failure_stops_paid_requests_without_dropping_inventory(tmp_path):
 def test_time_budget_preserves_cached_results_and_reports_unassessed(
     tmp_path, monkeypatch
 ):
-    cache = ResultCache(tmp_path / "cache.sqlite")
+    cache = ResultCache(tmp_path / "cache")
     selected = [r for r in rows(tmp_path) if r["status"] == "ready"]
     fake = FakeClassifier()
     list(assess(selected[:1], fake, cache, workers=1))
@@ -382,7 +390,7 @@ def test_time_limited_cli_and_merged_report_are_incomplete(tmp_path, monkeypatch
             "--output",
             str(output),
             "--cache",
-            str(tmp_path / "cache.sqlite"),
+            str(tmp_path / "cache"),
             "--max-seconds",
             "1",
         ],

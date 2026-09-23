@@ -2,12 +2,10 @@
 
 import hashlib
 import json
-import sqlite3
 import subprocess
 import time
 from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from dataclasses import asdict
-from datetime import UTC, datetime
 from pathlib import Path
 
 import click
@@ -16,6 +14,13 @@ import httpx
 from dismech import kb_cache
 from dismech.classifier.aspects import aspect_output_schema, aspect_prompt
 from dismech.classifier.base import ClassificationTask
+from dismech.classifier.cache import (
+    DEFAULT_ROOT,
+    ResultCache,
+    cache_key,
+    digest,
+    timestamp,
+)
 from dismech.classifier.claims import (
     ANNOTATIONS,
     class_slots,
@@ -26,16 +31,6 @@ from dismech.classifier.claims import (
 from dismech.classifier.rubric import CRITERIA
 from dismech.classifier.structured import structured_claim_task
 from dismech.classifier.typesafe import TypeSafeClassifier
-
-
-def timestamp():
-    return datetime.now(UTC).isoformat()
-
-
-def digest(value):
-    return hashlib.sha256(
-        json.dumps(value, sort_keys=True, ensure_ascii=False).encode()
-    ).hexdigest()
 
 
 def iter_assertions(document):
@@ -159,36 +154,6 @@ def tasks_for(claim):
     ]
 
 
-def cache_key(model, tasks):
-    return digest({"format": 1, "model": model, "tasks": [asdict(t) for t in tasks]})
-
-
-class ResultCache:
-    """Successful judgments only, keyed by the complete model input and rubric."""
-
-    def __init__(self, path):
-        path.parent.mkdir(parents=True, exist_ok=True)
-        self.connection = sqlite3.connect(path)
-        self.connection.execute(
-            "CREATE TABLE IF NOT EXISTS results (key TEXT PRIMARY KEY, value TEXT NOT NULL)"
-        )
-
-    def get(self, key):
-        row = self.connection.execute(
-            "SELECT value FROM results WHERE key = ?", (key,)
-        ).fetchone()
-        return json.loads(row[0]) if row else None
-
-    def put(self, key, value):
-        self.connection.execute(
-            "INSERT OR REPLACE INTO results VALUES (?, ?)", (key, json.dumps(value))
-        )
-        self.connection.commit()
-
-    def close(self):
-        self.connection.close()
-
-
 def classify(classifier, tasks):
     try:
         return {
@@ -209,11 +174,15 @@ def classify(classifier, tasks):
         }
 
 
-def assess(rows, classifier, cache, workers, refresh=False, max_seconds=0):
+def assess(
+    rows, classifier, cache, workers, refresh=False, max_seconds=0, revision=None
+):
     """Bound both concurrency and memory; checkpoint each completed request."""
     deadline = time.monotonic() + max_seconds if max_seconds else float("inf")
     iterator = iter(rows)
     pending = {}
+    submitted = {}
+    refreshed = set()
     exhausted = False
     fatal = False
     with ThreadPoolExecutor(max_workers=workers) as pool:
@@ -233,9 +202,14 @@ def assess(rows, classifier, cache, workers, refresh=False, max_seconds=0):
                     yield dict(row, status="invalid_input", error=str(exc))
                     continue
                 key = cache_key(classifier.model, tasks)
-                saved = None if refresh else cache.get(key)
+                saved = (
+                    None if refresh and key not in refreshed else cache.get(row, key)
+                )
                 if saved is not None:
                     yield dict(row, **saved, cache_key=key, cached=True)
+                    continue
+                if key in submitted and submitted[key] in pending:
+                    pending[submitted[key]][0].append(row)
                     continue
                 if fatal or time.monotonic() >= deadline:
                     reason = (
@@ -245,18 +219,26 @@ def assess(rows, classifier, cache, workers, refresh=False, max_seconds=0):
                     )
                     yield dict(row, status="not_assessed", error=reason)
                     continue
-                pending[pool.submit(classify, classifier, tasks)] = (row, key)
+                future = pool.submit(classify, classifier, tasks)
+                pending[future] = ([row], key, tasks)
+                submitted[key] = future
             if not pending:
                 continue
             done, _ = wait(pending, return_when=FIRST_COMPLETED)
             for future in done:
-                row, key = pending.pop(future)
+                waiting, key, tasks = pending.pop(future)
+                submitted.pop(key, None)
                 outcome = future.result()
                 if outcome["status"] == "assessed":
-                    cache.put(key, outcome)
+                    if refresh:
+                        refreshed.add(key)
+                    cache.put(
+                        waiting[0], key, outcome, tasks, classifier.model, revision
+                    )
                 elif outcome.get("http_status") in {401, 403}:
                     fatal = True
-                yield dict(row, **outcome, cache_key=key, cached=False)
+                for index, row in enumerate(waiting):
+                    yield dict(row, **outcome, cache_key=key, cached=index > 0)
 
 
 def read_jsonl(path):
@@ -290,7 +272,7 @@ def git_revision():
     "--cache",
     "cache_path",
     type=click.Path(path_type=Path),
-    default="build/jev-audit-cache.sqlite",
+    default=DEFAULT_ROOT,
     show_default=True,
 )
 @click.option("--model", default="jev-1.13.0", show_default=True)
@@ -325,7 +307,11 @@ def git_revision():
     default=0,
     help="Stop new API calls after this time; still report cached and unassessed inputs. 0 means unlimited.",
 )
-@click.option("--refresh", is_flag=True, help="Reassess even successful cached inputs.")
+@click.option(
+    "--refresh",
+    is_flag=True,
+    help="Reassess cached inputs, preserving previous responses.",
+)
 def main(
     inputs,
     output,
@@ -408,11 +394,21 @@ def main(
     click.echo(f"Inventory: {sum(counts.values())} assertion/evidence pairs; {counts}")
     cache = None if dry_run else ResultCache(cache_path)
     try:
+        if cache is not None:
+            cache.reconcile(files, metadata["source_revision"])
         rows = read_jsonl(output / "inventory.jsonl")
         outcomes = (
             rows
             if dry_run
-            else assess(rows, classifier, cache, workers, refresh, max_seconds)
+            else assess(
+                rows,
+                classifier,
+                cache,
+                workers,
+                refresh,
+                max_seconds,
+                metadata["source_revision"],
+            )
         )
         with (output / "results.jsonl").open("w") as stream:
             for index, row in enumerate(outcomes, 1):
@@ -423,6 +419,7 @@ def main(
         metadata["complete"] = True
     finally:
         if cache is not None:
+            cache.reconcile(files, metadata["source_revision"])
             cache.close()
         metadata["finished_at"] = timestamp()
         if (output / "results.jsonl").exists():
