@@ -1,0 +1,115 @@
+name: Jev evidence audit
+
+on:
+  schedule:
+    - cron: "17 9 * * 1"  # weekly Monday 09:17 UTC; reuse unchanged Jev judgments
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Inventory only (no API calls)
+        type: boolean
+        default: false
+      limit:
+        description: Maximum pairs per shard (0 = all)
+        type: string
+        default: '0'
+      model:
+        description: TypeSafe model
+        type: string
+        default: jev-1.13.0
+
+permissions:
+  contents: read
+
+concurrency:
+  group: jev-evidence-audit
+  cancel-in-progress: false
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        shard: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v7
+      - run: uv sync --frozen --no-dev
+      - run: uv tool install rust-just
+      - name: Restore successful judgments
+        if: inputs.dry_run != true
+        uses: actions/cache/restore@v4
+        with:
+          path: build/jev-audit-cache.sqlite
+          key: jev-audit-v1-shard-${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: jev-audit-v1-shard-${{ matrix.shard }}-
+      - name: Audit assertions
+        env:
+          TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
+          AUDIT_DRY_RUN: ${{ inputs.dry_run || false }}
+          AUDIT_LIMIT: ${{ inputs.limit || '0' }}
+          AUDIT_MODEL: ${{ inputs.model || 'jev-1.13.0' }}
+          AUDIT_SHARD: ${{ matrix.shard }}
+        shell: bash
+        run: |
+          args=(--model "$AUDIT_MODEL" --limit "$AUDIT_LIMIT" --shard-count 16 --shard-index "$AUDIT_SHARD" --workers 4 --max-seconds 18000)
+          if [[ "$AUDIT_DRY_RUN" == true ]]; then
+            args+=(--dry-run)
+          elif [[ -z "$TYPESAFE_API_KEY" ]]; then
+            echo '::error::Set the TYPESAFE_API_KEY repository or organization Actions secret.'
+            exit 1
+          fi
+          just jev-audit "${args[@]}"
+      - name: Save checkpoints, including after partial failure
+        if: always() && inputs.dry_run != true && hashFiles('build/jev-audit-cache.sqlite') != ''
+        uses: actions/cache/save@v4
+        with:
+          path: build/jev-audit-cache.sqlite
+          key: jev-audit-v1-shard-${{ matrix.shard }}-${{ github.run_id }}-${{ github.run_attempt }}
+      - name: Upload shard predictions and provenance
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: jev-audit-shard-${{ matrix.shard }}
+          path: |
+            reports/jev-audit/results.jsonl
+            reports/jev-audit/manifest.json
+          if-no-files-found: warn
+          retention-days: 14
+
+  report:
+    needs: audit
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@v7
+      - run: uv sync --frozen --no-dev
+      - run: uv tool install rust-just
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: jev-audit-shard-*
+          path: build/jev-shards
+      - name: Combine results and rank entries
+        run: just jev-audit-report reports/jev-audit --merge build/jev-shards --expected-shards 16
+      - name: Add report to run summary
+        if: always()
+        shell: bash
+        run: |
+          if [[ -f reports/jev-audit/summary.md ]]; then
+            cat reports/jev-audit/summary.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+      - name: Upload recuration report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: jev-recuration-report
+          path: reports/jev-audit/
+          retention-days: 30

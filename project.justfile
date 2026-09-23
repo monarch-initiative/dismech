@@ -3733,3 +3733,19 @@ matching-graph disease matching_report *flags:
 [group('Phenoagent')]
 phenopacket-eval paths="tests/phenoagent/data/phenopackets":
     uv run python -m phenoagent.eval {{paths}} --json workdirs/eval/phenopacket-eval.json --markdown workdirs/eval/phenopacket-eval.md
+
+# Audit disease assertion/snippet pairs with Jev; CSVs in reports/jev-audit.
+# Example: just jev-audit --section phenotypes --limit 20
+[positional-arguments]
+jev-audit *args:
+    uv run python -m dismech.classifier.audit "$@"
+
+# Inventory every assertion without paid API calls.
+[positional-arguments]
+jev-audit-inventory *args:
+    uv run python -m dismech.classifier.audit --dry-run --output reports/jev-inventory "$@"
+
+# Regenerate CSVs from saved results, optionally combining CI shards.
+[positional-arguments]
+jev-audit-report output="reports/jev-audit" *args:
+    uv run python -m dismech.classifier.audit_report "$@"
