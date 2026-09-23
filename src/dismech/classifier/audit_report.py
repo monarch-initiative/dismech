@@ -2,8 +2,8 @@
 
 import csv
 import json
-from pathlib import Path
 import shutil
+from pathlib import Path
 
 import click
 
@@ -164,18 +164,23 @@ def write_reports(output, complete=True):
             writer.writerow(entry | {"rank": rank})
     totals["entries"] = len(ordered)
     totals["mismatch_assertions"] = sum(e["mismatch_assertions"] for e in ordered)
+    totals["complete"] = complete and totals["errors"] == 0
     summary = [
         "# Jev claim/evidence audit",
         "",
-        f"{totals['entries']} entries; {totals['pairs']} assertion/evidence pairs; "
-        f"{totals['assessed_pairs']} assessed ({totals['cached_pairs']} reused); {totals['errors']} API/unassessed errors; {totals['input_errors']} invalid inputs.",
+        (
+            f"{totals['entries']} entries; {totals['pairs']} assertion/evidence pairs; "
+            f"{totals['assessed_pairs']} assessed ({totals['cached_pairs']} reused); {totals['errors']} API/unassessed errors; {totals['input_errors']} invalid inputs."
+        ),
         "",
         "Model judgments prioritize recuration; they are not curated labels or measures of disease-entry truth.",
         "PARTIAL means incomplete, weak, mixed or uncertain snippet support. Missing evidence and failed requests have no model label.",
         "",
-        "Entries are ordered by distinct assertions with a MISMATCH, then maximum mismatch probability, "
-        "then distinct assertions with PARTIAL, then missing evidence. Root and non-root counts are separate. "
-        "Multiple snippets/aspects cannot inflate the distinct-assertion count; an assertion may appear in both mismatch and partial counts.",
+        (
+            "Entries are ordered by distinct assertions with a MISMATCH, then maximum mismatch probability, "
+            "then distinct assertions with PARTIAL, then missing evidence. Root and non-root counts are separate. "
+            "Multiple snippets/aspects cannot inflate the distinct-assertion count; an assertion may appear in both mismatch and partial counts."
+        ),
         "",
         "Full reports: `entries.csv`, `aspects.csv`; provenance and exact inputs: `manifest.json`, `results.jsonl`.",
         "",
@@ -187,7 +192,7 @@ def write_reports(output, complete=True):
         summary.append(
             f"| {disease} | {entry['mismatch_assertions']} | {entry['partial_assertions']} | {entry['assessed_pairs']} |"
         )
-    if not complete:
+    if not totals["complete"]:
         summary[:0] = [
             "**INCOMPLETE RUN: missing or unfinished work. Counts below cover only available results.**",
             "",
@@ -245,7 +250,7 @@ def merge_shards(output, source, expected):
     }
     metadata.update(write_reports(output, complete=complete))
     (output / "manifest.json").write_text(json.dumps(metadata, indent=2) + "\n")
-    return complete
+    return metadata["complete"]
 
 
 @click.command()

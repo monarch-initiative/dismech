@@ -624,6 +624,20 @@ exactly.
 **Rationale.** The exact-quote-plus-validation pipeline is DisMech's primary defense
 against AI hallucination and is core to the project's scientific credibility.
 
+### Jev judgments prioritize recuration; they do not replace curation
+
+**Decision.** The scheduled Jev audit sends public disease assertions and their
+selected snippets to TypeSafe to assess claim/evidence agreement. MATCH,
+MISMATCH and PARTIAL are advisory report labels, assessed per aspect and for the
+whole claim. They never automatically change KB assertions, `supports` or
+`directness`, or become benchmark curator labels.
+
+**Rationale.** A model can identify likely snippet-selection problems at corpus
+scale, while the decision to change a claim or its evidence remains a curation
+task. This audit evaluates snippet support rather than source quality or the
+claim's truth elsewhere. Missing evidence, API errors and incomplete runs remain
+separate from model judgments. See [the audit guide](../jev-evidence-audit.md).
+
 ### 6a. Superseded hypotheses are retained and marked, not deleted (2026-08-02)
 
 **Decision.** When a disease-level mechanistic hypothesis has been overturned, it is

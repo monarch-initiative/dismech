@@ -120,11 +120,14 @@ Sixteen stable filename-hash partitions run with at most four jobs in parallel,
 each with four API workers. Each job stops scheduling new requests after five
 hours so it has time to save its checkpoint and report before the job timeout.
 Successful judgments are restored/saved through the Actions cache, including after
-partial failures. Cache eviction can cause reassessment and additional API usage.
+partial failures. GitHub evicts caches that have not been accessed for seven days,
+so a delayed or skipped weekly run can lose its checkpoint and cause reassessment
+and additional API usage. See [GitHub's cache retention policy](https://docs.github.com/en/actions/using-workflows/caching-dependencies-to-speed-up-workflows#usage-limits-and-eviction-policy).
 
 Download **`jev-recuration-report`** from the Actions run for combined CSVs, raw
 predictions and provenance. Per-shard prediction artifacts are also retained.
-Missing or unfinished shards produce an explicitly incomplete combined report
+Missing shards, failed API requests, or pairs left unassessed after a time limit
+produce `complete: false` and an explicitly incomplete combined report
 and a failed report job; they are not presented as a full-corpus audit.
 
 To combine downloaded shard artifacts locally:

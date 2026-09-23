@@ -5,8 +5,9 @@ from pathlib import Path
 
 import yaml
 
+from dismech.classifier.rubric import CRITERIA
+from dismech.classifier.rubric import INSTRUCTIONS as RUBRIC_INSTRUCTIONS
 from dismech.classifier.structured import structured_claim_task
-from dismech.classifier.rubric import CRITERIA, INSTRUCTIONS as RUBRIC_INSTRUCTIONS
 
 DEFAULT_FIELDS = ("term", "description", "frequency", "temporality")
 INSTRUCTIONS = (
@@ -148,4 +149,4 @@ def aspect_output_schema(claim, fields=DEFAULT_FIELDS):
 
 
 def aspect_prompt():
-    return dict(name="claim_aspects", version="4", instructions=INSTRUCTIONS)
+    return {"name": "claim_aspects", "version": "4", "instructions": INSTRUCTIONS}

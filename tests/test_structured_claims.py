@@ -1,11 +1,11 @@
-from copy import deepcopy
 import json
+from copy import deepcopy
 
 import pytest
 
-from dismech.classifier.claims import extract_claim, resolve
-from dismech.classifier.structured import structured_claim_task, mismatch_reason_task
 from dismech.classifier.aspects import aspect_output_schema
+from dismech.classifier.claims import extract_claim, resolve
+from dismech.classifier.structured import mismatch_reason_task, structured_claim_task
 
 
 def document():

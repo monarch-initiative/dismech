@@ -1,7 +1,7 @@
 """Aspect construction and batched transport contracts, without API calls."""
 
-from dataclasses import replace
 import json
+from dataclasses import replace
 
 import httpx
 import pytest
@@ -12,18 +12,18 @@ from dismech.classifier.typesafe import TypeSafeClassifier
 
 
 def claim():
-    return dict(
-        about={"disease": {"name": "Probe"}},
-        assertion_type="Phenotype",
-        assertion={
+    return {
+        "about": {"disease": {"name": "Probe"}},
+        "assertion_type": "Phenotype",
+        "assertion": {
             "description": "Recurrent fever",
             "frequency": "OCCASIONAL",
             "phenotype_term": {
                 "term": {"id": "HP:0001954", "label": "Recurrent fever"}
             },
         },
-        selected_evidence={"snippet": "Fevers.", "supports": "SUPPORT"},
-    )
+        "selected_evidence": {"snippet": "Fevers.", "supports": "SUPPORT"},
+    }
 
 
 def test_questions_follow_present_fields_and_schema_semantics():

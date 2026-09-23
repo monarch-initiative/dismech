@@ -1,19 +1,19 @@
 """TypeSafe HTTP adapter using the project's existing httpx dependency."""
 
-from dataclasses import asdict
 import hashlib
 import json
 import math
 import os
 import time
+from dataclasses import asdict
 
 import httpx
 
 from dismech.classifier.base import (
-    Classification,
-    ClassificationTask,
-    ClassificationBatch,
     ChoiceAnswer,
+    Classification,
+    ClassificationBatch,
+    ClassificationTask,
 )
 
 

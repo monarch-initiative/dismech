@@ -4,7 +4,8 @@ from copy import deepcopy
 
 from dismech.classifier.base import ClassificationTask
 from dismech.classifier.claims import assertion_content, without_annotations
-from dismech.classifier.rubric import CRITERIA, INSTRUCTIONS as RUBRIC_INSTRUCTIONS
+from dismech.classifier.rubric import CRITERIA
+from dismech.classifier.rubric import INSTRUCTIONS as RUBRIC_INSTRUCTIONS
 
 INSTRUCTIONS = (
     """Does selected_evidence justify the declared relationship to the WHOLE assertion?
@@ -66,16 +67,16 @@ def structured_claim_task(
     if evidence.get("directness") not in {None, "DIRECT", "INDIRECT", "UNKNOWN"}:
         raise ValueError("Invalid directness")
     state = deepcopy(
-        dict(
-            about=about,
-            assertion_type=claim["assertion_type"],
-            assertion=assertion,
-            selected_evidence={
+        {
+            "about": about,
+            "assertion_type": claim["assertion_type"],
+            "assertion": assertion,
+            "selected_evidence": {
                 k: evidence[k]
                 for k in ("snippet", "supports", "directness")
                 if k in evidence
             },
-        )
+        }
     )
     if source_text is not None:
         if not isinstance(source_text, str) or not source_text.strip():

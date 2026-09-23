@@ -1,9 +1,9 @@
 """Derive whole structured assertions from DM YAML without rewriting their meaning."""
 
-from copy import deepcopy
-from functools import lru_cache
-from pathlib import Path
 import re
+from copy import deepcopy
+from functools import cache, lru_cache
+from pathlib import Path
 from typing import Any
 
 from linkml_runtime.utils.schemaview import SchemaView
@@ -50,7 +50,7 @@ def schema() -> SchemaView:
     return SchemaView(str(Path(__file__).parents[1] / "schema/dismech.yaml"))
 
 
-@lru_cache(maxsize=None)
+@cache
 def class_slots(class_name: str) -> dict:
     """Induce slots once per class during corpus walks."""
     return {s.name: s for s in schema().class_induced_slots(class_name)}
@@ -162,11 +162,11 @@ def extract_claim(
         parent = resolve(document, path)
         if isinstance(parent, dict):
             bindings.append(
-                dict(
-                    path=path,
-                    value=local_context(parent, class_at(path)),
-                    role="ancestor",
-                )
+                {
+                    "path": path,
+                    "value": local_context(parent, class_at(path)),
+                    "role": "ancestor",
+                }
             )
             scopes.append(parent)
     # Include the original subtype definition, not an inferred disease rename.
@@ -183,11 +183,11 @@ def extract_claim(
             if len(matches) != 1:
                 raise ValueError(f"Subtype must resolve uniquely: {name}")
             i, subtype = matches[0]
-            binding = dict(
-                path=f"/has_subtypes/{i}",
-                value=local_context(subtype, "Subtype"),
-                role="subtype",
-            )
+            binding = {
+                "path": f"/has_subtypes/{i}",
+                "value": local_context(subtype, "Subtype"),
+                "role": "subtype",
+            }
             if binding not in bindings:
                 bindings.append(binding)
     for path in context_paths:
@@ -197,20 +197,21 @@ def extract_claim(
             )
         value = resolve(document, path)
         bindings.append(
-            dict(path=path, value=without_annotations(value), role="explicit")
+            {"path": path, "value": without_annotations(value), "role": "explicit"}
         )
-    return dict(
-        about=dict(disease=identity, context=bindings),
-        assertion_type=assertion_type,
-        assertion=(
+    return {
+        "about": {"disease": identity, "context": bindings},
+        "assertion_type": assertion_type,
+        "assertion": (
             without_annotations(original)
             if include_downstream
             else assertion_content(original, assertion_type)
         ),
-        selected_evidence=deepcopy(evidence),
-        origin=dict(
-            assertion_path=assertion_path,
-            evidence_path=evidence_path,
-            context_paths=["/" + k for k in identity] + [b["path"] for b in bindings],
-        ),
-    )
+        "selected_evidence": deepcopy(evidence),
+        "origin": {
+            "assertion_path": assertion_path,
+            "evidence_path": evidence_path,
+            "context_paths": ["/" + k for k in identity]
+            + [b["path"] for b in bindings],
+        },
+    }

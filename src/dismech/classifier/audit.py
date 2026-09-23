@@ -1,14 +1,14 @@
 """Audit all disease assertion/snippet pairs with Jev (report only)."""
 
-from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
-from dataclasses import asdict
-from datetime import datetime, timezone
 import hashlib
 import json
-from pathlib import Path
 import sqlite3
 import subprocess
 import time
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
+from dataclasses import asdict
+from datetime import UTC, datetime
+from pathlib import Path
 
 import click
 import httpx
@@ -29,7 +29,7 @@ from dismech.classifier.typesafe import TypeSafeClassifier
 
 
 def timestamp():
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 def digest(value):
@@ -267,7 +267,7 @@ def read_jsonl(path):
 
 def git_revision():
     result = subprocess.run(
-        ["git", "rev-parse", "HEAD"], capture_output=True, text=True
+        ["git", "rev-parse", "HEAD"], capture_output=True, text=True, check=False
     )
     return result.stdout.strip() if result.returncode == 0 else None
 

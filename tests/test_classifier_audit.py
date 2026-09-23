@@ -1,15 +1,15 @@
 """Bulk audits preserve scope, resume paid work, and distinguish failures."""
 
-from copy import deepcopy
-from dataclasses import asdict
 import csv
 import json
 import time
+from copy import deepcopy
+from dataclasses import asdict
 
-from click.testing import CliRunner
 import httpx
 import pytest
 import yaml
+from click.testing import CliRunner
 
 from dismech.classifier.audit import (
     ResultCache,
@@ -153,7 +153,8 @@ def test_successes_resume_errors_retry_and_input_changes_invalidate(tmp_path):
     assert all(r["cached"] for r in third)
     changed = deepcopy(selected[:1])
     changed[0]["claim"]["selected_evidence"]["snippet"] += " In adults only."
-    assert not list(assess(changed, fake, cache, workers=1))[0]["cached"]
+    (changed_result,) = assess(changed, fake, cache, workers=1)
+    assert not changed_result["cached"]
     assert fake.calls == 6
     tasks = tasks_for(selected[0]["claim"])
     assert cache_key("other-model", tasks) != cache_key(fake.model, tasks)
@@ -172,7 +173,7 @@ def test_report_counts_unique_assertions_not_snippets_or_aspects(tmp_path):
     assert totals["pairs"] == 7
     assert totals["assessed_pairs"] == 4
     assert totals["mismatch_assertions"] == 1
-    entry = list(csv.DictReader((tmp_path / "entries.csv").open()))[0]
+    entry = next(iter(csv.DictReader((tmp_path / "entries.csv").open())))
     assert entry["mismatch_aspects"] == "2"
     assert entry["mismatch_assertions"] == "1"
     assert entry["root_partial"] == "4"
@@ -256,21 +257,21 @@ def test_merge_rejects_mixed_settings_and_marks_missing_shards(tmp_path):
     source = tmp_path / "shards"
     shard = source / "zero"
     shard.mkdir(parents=True)
-    manifest = dict(
-        model="jev-test",
-        source_revision="abc",
-        schema_sha256="s",
-        classifier_sha256="c",
-        shard_count=2,
-        shard_index=0,
-        sections=[],
-        inputs=["kb/disorders"],
-        limit=0,
-        dry_run=False,
-        prompt={},
-        criteria={},
-        complete=True,
-    )
+    manifest = {
+        "model": "jev-test",
+        "source_revision": "abc",
+        "schema_sha256": "s",
+        "classifier_sha256": "c",
+        "shard_count": 2,
+        "shard_index": 0,
+        "sections": [],
+        "inputs": ["kb/disorders"],
+        "limit": 0,
+        "dry_run": False,
+        "prompt": {},
+        "criteria": {},
+        "complete": True,
+    }
     (shard / "manifest.json").write_text(json.dumps(manifest))
     (shard / "results.jsonl").write_text("")
     output = tmp_path / "combined"
@@ -360,3 +361,40 @@ def test_transport_retries_transient_failures(failure, monkeypatch):
     )
     assert len(classifier.classify_many(tasks).answers) == len(tasks)
     assert len(calls) == 2
+
+
+def test_time_limited_cli_and_merged_report_are_incomplete(tmp_path, monkeypatch):
+    from dismech.classifier import audit
+
+    source = tmp_path / "shards"
+    output = source / "zero"
+    file = tmp_path / "data.yaml"
+    file.write_text(yaml.safe_dump(disease()))
+    fake = FakeClassifier()
+    monkeypatch.setattr(audit, "TypeSafeClassifier", lambda model: fake)
+    ticks = iter([0, 2])
+    monkeypatch.setattr(audit.time, "monotonic", lambda: next(ticks, 2))
+    result = CliRunner().invoke(
+        main,
+        [
+            "--input",
+            str(file),
+            "--output",
+            str(output),
+            "--cache",
+            str(tmp_path / "cache.sqlite"),
+            "--max-seconds",
+            "1",
+        ],
+    )
+    assert result.exit_code == 1, result.output
+    assert fake.calls == 0
+    manifest = json.loads((output / "manifest.json").read_text())
+    assert manifest["pairs"] == 7
+    assert manifest["errors"] == 4
+    assert not manifest["complete"]
+    assert "INCOMPLETE RUN" in (output / "summary.md").read_text()
+    assert not merge_shards(tmp_path / "combined", source, 1)
+    combined = json.loads((tmp_path / "combined" / "manifest.json").read_text())
+    assert not combined["complete"]
+    assert "INCOMPLETE RUN" in (tmp_path / "combined" / "summary.md").read_text()
