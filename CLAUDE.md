@@ -2434,8 +2434,20 @@ or NCIT (for drug classes).
 
 **Ontology selection:**
 - **CHEBI**: preferred for specific small-molecule drugs (`CHEBI:36796` duloxetine, `CHEBI:46345` 5-fluorouracil)
+  and for chemical classes (`CHEBI:50858` corticosteroid)
 - **NCIT**: use for drug classes, or for biologics/newer drugs that lack a CHEBI term
-  (`NCIT:C20401` Monoclonal Antibody, `NCIT:C2322` Corticosteroid, `NCIT:C65216` Adalimumab)
+  (`NCIT:C20401` Monoclonal Antibody, `NCIT:C65216` Adalimumab)
+- **Not every NCIT drug class is admissible.** `therapeutic_agent` binds to the
+  `ChemicalEntityTerm` dynamic enum, whose NCIT root is `NCIT:C1909` (Pharmacologic
+  Substance). NCIT files some classes elsewhere, so they fail validation even though the
+  CURIE and label are correct: `NCIT:C2322` Corticosteroid sits under Hormone, and
+  `NCIT:C572` Immunoglobulin is outside the enum too (use `CHEBI:50858` and
+  `NCIT:C80829` Human Immunoglobulin G). A quick positive check is
+  `grep -qx "NCIT:C2322" <(cut -d, -f1 cache/enums/chemicalentityterm_*.csv)`, but the
+  enum cache only holds terms something in `kb/` has already bound, so a hit means
+  admissible and a miss means *unknown*, not excluded. The authoritative answer is
+  `just validate-terms <file>` after binding the term, which expands the enum from the
+  ontology (issue #10978; the wider reachability question is #7355).
 - Leave `therapeutic_agent` absent when the treatment is non-pharmacological
   (surgery, physical therapy, counseling, dietary intervention — use `dietary_modifications` for the latter)
 
@@ -2601,7 +2613,7 @@ with no per-disease research needed, when that action term's own definition
 |---|---|
 | `NCIT:C154430`, `NCIT:C15329`, `NCIT:C16186`, `NCIT:C15289` (surgical procedure / resection / transplantation) | `SURGERY` |
 | `NCIT:C15313` (radiation therapy) | `RADIOTHERAPY` |
-| `NCIT:C15447` (dietary intervention), `NCIT:C15302` (physical therapy), `NCIT:C159273` (speech therapy), `NCIT:C121351` (occupational therapy), `NCIT:C181743` (behavioral counseling) | `BEHAVIORAL` |
+| `NCIT:C15447` (dietary intervention), `NCIT:C15302` (physical therapy), `NCIT:C159273` (speech language therapy), `NCIT:C121351` (occupational therapy), `NCIT:C181743` (behavioral counseling) | `BEHAVIORAL` |
 | `NCIT:C15238` (gene therapy) | `GENE_THERAPY` |
 | `NCIT:C15431` (hematopoietic cell transplantation — explicitly listed as a `CELL_THERAPY` example) | `CELL_THERAPY` |
 | `NCIT:C15346` (vaccination) | `VACCINE` |
