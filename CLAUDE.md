@@ -443,6 +443,39 @@ red for the whole corpus on every edit. See
 [`docs/deep-research-template-versioning.md`](docs/deep-research-template-versioning.md)
 and issue #10183.
 
+### `docs/` and `notes:` Are Written For a Human Reader, Not the Agent That Wrote Them
+
+The denser register `docs/` and `notes:` are allowed (see the
+`github-communication` skill's scope note) is a licence for domain vocabulary,
+not a licence to skip having a reader in mind. A `docs/` file (outside
+`docs/superpowers/`, which is explicitly an agent-facing investigation/plan/spec
+log) or a `notes:` field should tell a curator something about the disease,
+the schema, the corpus, or a decision — not narrate the writing agent's own
+compliance with its own process rules.
+
+PR #12535 is the worked example. It added a "curation retrospective" to
+`docs/reports/` — dense, well-sourced, every figure independently
+re-verified by review — whose actual content was three sections of first-person
+reflection on the writing agent's own workflow ("Everything I intend to change
+has to go in one push, including the things I find on my own after the verdict
+lands") under a title, "Custody of a Claim", that told a reader nothing about
+what was inside. A maintainer closed it, reading it correctly as an agent
+writing itself a note that happened to be committed to the repository rather
+than kept in its own context. The one piece of the document with lasting value
+— a table of ontology identifiers written from memory and what they actually
+resolve to — was exactly the kind of fact this rule asks for, and belongs next
+to the *Every CURIE is read from a source in the same step it is written* rule
+above rather than buried in a retrospective essay.
+
+The test before committing prose to `docs/` or `notes:`: if a passage were
+deleted, would a curator who has never seen this session lose a fact about the
+subject matter — or only lose a reflection on how the writing agent did its
+job? The latter belongs in the PR or issue thread that already carries that
+conversation, under the `github-communication` skill's plain-language rules,
+where a human reviewer will actually see it once and it will not persist as
+permanent content. See issue #8908 for the related, broader problem of
+elliptical AI prose in PR/issue bodies themselves.
+
 ### Hypothesis Provider Data and Analysis Artifacts
 
 A hypothesis exploration under
