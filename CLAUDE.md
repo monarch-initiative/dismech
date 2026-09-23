@@ -2442,9 +2442,12 @@ or NCIT (for drug classes).
   Substance). NCIT files some classes elsewhere, so they fail validation even though the
   CURIE and label are correct: `NCIT:C2322` Corticosteroid sits under Hormone, and
   `NCIT:C572` Immunoglobulin is outside the enum too (use `CHEBI:50858` and
-  `NCIT:C80829` Human Immunoglobulin G). Check membership before binding:
-  `grep -qx "NCIT:C2322" <(cut -d, -f1 cache/enums/chemicalentityterm_*.csv) && echo in || echo not`
-  (issue #10978; the wider reachability question is #7355).
+  `NCIT:C80829` Human Immunoglobulin G). A quick positive check is
+  `grep -qx "NCIT:C2322" <(cut -d, -f1 cache/enums/chemicalentityterm_*.csv)`, but the
+  enum cache only holds terms something in `kb/` has already bound, so a hit means
+  admissible and a miss means *unknown*, not excluded. The authoritative answer is
+  `just validate-terms <file>` after binding the term, which expands the enum from the
+  ontology (issue #10978; the wider reachability question is #7355).
 - Leave `therapeutic_agent` absent when the treatment is non-pharmacological
   (surgery, physical therapy, counseling, dietary intervention — use `dietary_modifications` for the latter)
 
