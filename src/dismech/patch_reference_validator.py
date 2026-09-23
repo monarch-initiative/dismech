@@ -23,9 +23,9 @@ from functools import wraps
 from urllib.parse import urlsplit, urlunsplit
 
 from bs4 import BeautifulSoup
+from linkml_reference_validator.etl.acquire import ContentAcquirer
 from ruamel.yaml import YAML
 
-from linkml_reference_validator.etl.acquire import ContentAcquirer
 from dismech.doi_cache_case import is_doi_reference, resolve_doi_cache_path
 from dismech.frontmatter import contains_frontmatter_delimiter, split_frontmatter
 
