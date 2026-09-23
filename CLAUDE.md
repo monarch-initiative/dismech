@@ -2147,6 +2147,36 @@ Beyond genes, the same shape applies to any descriptor where `preferred_term`
 names the entity and `term` binds it. Genes are the sharpest case because the
 label is usually an exact symbol.
 
+### Gene-Disease Validity Comes From the Source It Cites (dismech#10179)
+
+`Genetic.validity` records how well established a gene-disease association is,
+on the ClinGen ladder, separately from `relationship_type` (what kind of
+relationship it is). When the entry cites a ClinGen `CGGV:` assertion, the tier
+is already written in that assertion's cached row, so **copy it, do not judge
+it**. A tier belongs to a gene-disease *pair*: an assertion only counts for the
+entry when its MONDO disease is the entry's `disease_term`, a `has_subtypes`
+term, or an `exactMatch` MONDO mapping.
+
+```bash
+just check-gene-validity                              # gate: recorded tier vs cited ClinGen
+just list-gene-validity --format tsv --kind backfill  # the mechanical worklist
+just list-gene-validity kb/disorders/MyDisease.yaml
+```
+
+Only `conflict` (a recorded tier no same-disease assertion carries) fails. The
+report classes are `backfill` (one same-disease tier, copy it), `ambiguous`
+(same-disease assertions disagree, usually two modes of inheritance), and
+`other_disease` (ClinGen classified the gene for a different MONDO disease,
+often a broader lumping: do not copy that tier without deciding the entities are
+the same). It also reports `overstated`, where `relationship_type: CAUSATIVE`,
+which the schema defines as ClinGen Definitive or Strong, sits on a gene ClinGen
+rates lower, and `uncached`, a cited `CGGV:` with no cache file. The audit never
+edits `kb/`; a bulk backfill would collide with every open curation PR.
+
+Leave `validity` absent when no source states one. Nothing records *who*
+assigned a tier, so a value on a gene the entry does not cite ClinGen for cannot
+be told apart from a curator's own reading.
+
 ### Descriptor Qualifier Slots
 
 Common clinical qualifiers on ontology-bound descriptors should use explicit slots on
