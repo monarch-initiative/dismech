@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,18 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4206,6 +4283,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4230,6 +4308,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4251,6 +4330,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4431,6 +4511,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4549,6 +4630,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4673,6 +4755,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4794,6 +4877,7 @@
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4828,6 +4912,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-de-novo-aff4-alf-homology-domain-missense-variant" data-dismech-node="De Novo AFF4 ALF-Homology-Domain Missense Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">De Novo AFF4 ALF-Homology-Domain Missense Variant</div>
+
 
                 <div class="item-desc">A single heterozygous de novo missense variant in AFF4 (chromosome 5q31.1). The reported alleles cluster in a 14-amino-acid stretch (residues ~251-263) of the ALF (AF4/LAF4/FMR2) homology domain: p.Pro253Arg, p.Pro253Leu, p.Thr254Ala, p.Thr254Ser, p.Ala255Thr, p.Ala255Val, p.Arg258Trp, p.Met260Thr and p.Met260Val. p.Arg258Trp is the recurrent allele. This node records the genomic lesion only; no truncating or whole-gene-deletion allele has been implicated, which is itself an argument against haploinsufficiency.</div>
 
@@ -4923,6 +5008,8 @@ This genetic context concerns AFF4 (hgnc:17869). hgnc:17869 is a gene from the H
 
 
 
+
+
         <span class="tag tag-classification">allele_type: missense</span>
 
 
@@ -4942,6 +5029,9 @@ This genetic context concerns AFF4 (hgnc:17869). hgnc:17869 is a gene from the H
         <span class="tag tag-classification">functional_impact_category: GAIN_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">A single de novo heterozygous missense allele in the AFF4 ALF homology domain. The consequence is gain of function - escape from SIAH1-mediated degradation - not haploinsufficiency; no truncating allele has been implicated.</div>
 
@@ -4991,6 +5081,7 @@ This genetic context concerns AFF4 (hgnc:17869). hgnc:17869 is a gene from the H
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5012,6 +5103,7 @@ This genetic context concerns AFF4 (hgnc:17869). hgnc:17869 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5039,6 +5131,7 @@ This genetic context concerns AFF4 (hgnc:17869). hgnc:17869 is a gene from the H
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5063,6 +5156,7 @@ This genetic context concerns AFF4 (hgnc:17869). hgnc:17869 is a gene from the H
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-siah1-mediated-degradation-of-aff4" data-dismech-node="Loss of SIAH1-Mediated Degradation of AFF4" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of SIAH1-Mediated Degradation of AFF4</div>
+
 
                 <div class="item-desc">Wild-type AFF4 is cleared by the SIAH1 ubiquitin E3 ligase through the proteasome. Co-expression experiments in HEK293T cells show that each CHOPS allele resists SIAH1-driven degradation, and proteasome inhibition with MG132 restores wild-type AFF4 levels - confirming the route being escaped is proteasomal. The same escape was demonstrated independently for the later alleles p.Ala255Thr and p.Pro253Arg. This is a protein-turnover defect, distinct from the abundance change it produces.</div>
 
@@ -5229,6 +5323,7 @@ This pathophysiological event involves decreased SIAH1 ubiquitin ligase binding,
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5250,6 +5345,7 @@ This pathophysiological event involves decreased SIAH1 ubiquitin ligase binding,
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5277,6 +5373,7 @@ This pathophysiological event involves decreased SIAH1 ubiquitin ligase binding,
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5299,6 +5396,7 @@ This pathophysiological event involves decreased SIAH1 ubiquitin ligase binding,
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-accumulation-of-chromatin-associated-aff4-protein" data-dismech-node="Accumulation of Chromatin-Associated AFF4 Protein" data-dismech-type="pathophysiology">
                 <div class="item-name">Accumulation of Chromatin-Associated AFF4 Protein</div>
+
 
                 <div class="item-desc">AFF4 protein is elevated in patient-derived skin fibroblasts while AFF4 mRNA is unchanged, confirming a post-translational cause. The excess partitions specifically to the chromatin fraction, and the other SEC components ELL2 and CDK9 are not correspondingly increased - so the complex is not simply more abundant; its scaffold is over-represented on chromatin. Deleting the mutant allele in a patient line lowers AFF4 back down, attributing the accumulation to the mutant allele rather than to a trans effect.</div>
 
@@ -5470,6 +5568,7 @@ This pathophysiological event involves super elongation complex (GO:0032783). GO
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5491,6 +5590,7 @@ This pathophysiological event involves super elongation complex (GO:0032783). GO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5518,6 +5618,7 @@ This pathophysiological event involves super elongation complex (GO:0032783). GO
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5540,6 +5641,7 @@ This pathophysiological event involves super elongation complex (GO:0032783). GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dysregulated-sec-dependent-transcriptional-elongation" data-dismech-node="Dysregulated SEC-Dependent Transcriptional Elongation" data-dismech-type="pathophysiology">
                 <div class="item-name">Dysregulated SEC-Dependent Transcriptional Elongation</div>
+
 
                 <div class="item-desc">The super elongation complex mobilises promoter-proximally paused RNA polymerase II, with its P-TEFb (CDK9-cyclin T1) module phosphorylating Ser2 of the RNAP2 C-terminal domain to license productive elongation. With AFF4 over-represented on chromatin, genome-wide binding of AFF4, RNAP2 and cohesin is altered and direct AFF4 target genes are de-repressed: MYC, JUN, TMEM100, ZNF711 and FAM13C are all significantly upregulated in patient fibroblasts. This is the gain-of-function read-out that names the mechanism.</div>
 
@@ -5699,6 +5801,7 @@ This pathophysiological event involves increased positive regulation of transcri
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5720,6 +5823,7 @@ This pathophysiological event involves increased positive regulation of transcri
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5747,6 +5851,7 @@ This pathophysiological event involves increased positive regulation of transcri
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5771,6 +5876,7 @@ This pathophysiological event involves increased positive regulation of transcri
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-attenuation-of-enhancer-complexes-and-enhancer-promoter-looping" data-dismech-node="Attenuation of Enhancer Complexes and Enhancer-Promoter Looping" data-dismech-type="pathophysiology">
                 <div class="item-name">Attenuation of Enhancer Complexes and Enhancer-Promoter Looping</div>
+
 
                 <div class="item-desc">Chromosome-architecture analysis of CHOPS and CdLS patient cell lines found cohesin, the cohesin loader NIPBL, BRD4 and H3K27ac all reduced at most enhancers, with attenuation of enhancer-promoter loops, while topologically associating domains were preserved. The lesion is therefore at the level of enhancer complex maintenance and looping, not at the level of large-scale genome compartmentalisation - and it is shared with CdLS, which is the structural basis of the two disorders&#39; phenotypic overlap.</div>
 
@@ -5917,6 +6023,7 @@ This pathophysiological event involves cohesin complex (GO:0008278). GO:0008278 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5938,6 +6045,7 @@ This pathophysiological event involves cohesin complex (GO:0008278). GO:0008278 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5965,6 +6073,7 @@ This pathophysiological event involves cohesin complex (GO:0008278). GO:0008278 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5987,6 +6096,7 @@ This pathophysiological event involves cohesin complex (GO:0008278). GO:0008278 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-global-transcriptional-dysregulation-of-developmental-gene-programmes" data-dismech-node="Global Transcriptional Dysregulation of Developmental Gene Programmes" data-dismech-type="pathophysiology">
                 <div class="item-name">Global Transcriptional Dysregulation of Developmental Gene Programmes</div>
+
 
                 <div class="item-desc">Expression profiling of patient fibroblasts identifies hundreds of dysregulated genes. Upregulated genes are enriched for homeobox proteins, skeletal system development and morphogenesis, anterior/posterior pattern formation, and embryonic organ development; downregulated genes are enriched for actin-binding and extracellular-matrix genes. The dysregulated set correlates positively with that of CdLS fibroblasts. This is the disorder-agnostic convergence point that CHOPS syndrome shares with the wider class of transcriptional-regulation disorders.</div>
 
@@ -6137,6 +6247,7 @@ This pathophysiological event involves abnormal skeletal system development (GO:
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6158,6 +6269,7 @@ This pathophysiological event involves abnormal skeletal system development (GO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6183,6 +6295,7 @@ This pathophysiological event involves abnormal skeletal system development (GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-multisystem-developmental-malformation-and-growth-dysregulation" data-dismech-node="Multisystem Developmental Malformation and Growth Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Multisystem Developmental Malformation and Growth Dysregulation</div>
+
 
                 <div class="item-desc">The organism-level convergence node: craniofacial, cardiac, pulmonary, skeletal, genitourinary, ocular and neurodevelopmental structures are all affected, with linear growth failure that is not corrected by a normal growth hormone response. Phenotypes attach here.</div>
 
@@ -6588,6 +6701,7 @@ This pathophysiological event involves abnormal lung development (GO:0030324). G
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6609,6 +6723,7 @@ This pathophysiological event involves abnormal lung development (GO:0030324). G
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6634,6 +6749,7 @@ This pathophysiological event involves abnormal lung development (GO:0030324). G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-food-seeking-behaviour-and-impaired-satiety" data-dismech-node="Food-Seeking Behaviour and Impaired Satiety" data-dismech-type="pathophysiology">
                 <div class="item-name">Food-Seeking Behaviour and Impaired Satiety</div>
+
 
                 <div class="item-desc">Excessive food-seeking behaviour with impaired satiety is near-universal and is one of the features that distinguishes CHOPS syndrome from CdLS. On a food-related problems questionnaire originally designed for Prader-Willi syndrome, the impairment-of-satiety items scored highest, every respondent reported their child helping themselves to forbidden food, and most families had found it necessary to lock food away. The node is behavioural and deliberately makes no hypothalamic claim - no mechanism linking AFF4 to appetite regulation has been demonstrated.</div>
 
@@ -6711,6 +6827,7 @@ This pathophysiological event involves abnormal lung development (GO:0030324). G
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6735,6 +6852,7 @@ This pathophysiological event involves abnormal lung development (GO:0030324). G
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6756,6 +6874,7 @@ This pathophysiological event involves abnormal lung development (GO:0030324). G
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6825,7 +6944,7 @@ This pathophysiological event involves abnormal lung development (GO:0030324). G
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Cardiovascular<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Cardiovascular<span class="pill-count">(6)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Digestive<span class="pill-count">(2)</span></button>
 
@@ -6833,9 +6952,9 @@ This pathophysiological event involves abnormal lung development (GO:0030324). G
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Eye<span class="pill-count">(5)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Genitourinary<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Genitourinary<span class="pill-count">(5)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Head and Neck<span class="pill-count">(7)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Head and Neck<span class="pill-count">(10)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Immune<span class="pill-count">(1)</span></button>
 
@@ -6843,13 +6962,13 @@ This pathophysiological event involves abnormal lung development (GO:0030324). G
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-10">Limbs<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-11">Musculoskeletal<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-11">Musculoskeletal<span class="pill-count">(4)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-12">Nervous System<span class="pill-count">(7)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-12">Nervous System<span class="pill-count">(10)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-13">Growth<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-13">Respiratory<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-14">Other<span class="pill-count">(16)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-14">Growth<span class="pill-count">(2)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6894,6 +7013,9 @@ This clinical feature is Pulmonary hemorrhage (HP:0040223). HP:0040223 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6908,6 +7030,7 @@ This clinical feature is Pulmonary hemorrhage (HP:0040223). HP:0040223 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6940,7 +7063,7 @@ This clinical feature is Pulmonary hemorrhage (HP:0040223). HP:0040223 is a phen
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Cardiovascular
-                    <span class="cat-count">4</span>
+                    <span class="cat-count">6</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-patent-ductus-arteriosus" data-dismech-node="Patent Ductus Arteriosus" data-dismech-type="phenotype">
@@ -7002,6 +7125,9 @@ This clinical feature is Patent ductus arteriosus (HP:0001643), qualified as con
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7016,6 +7142,7 @@ This clinical feature is Patent ductus arteriosus (HP:0001643), qualified as con
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7101,6 +7228,9 @@ This clinical feature is Ventricular septal defect (HP:0001629), qualified as co
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7118,6 +7248,7 @@ This clinical feature is Ventricular septal defect (HP:0001629), qualified as co
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7126,6 +7257,80 @@ This clinical feature is Ventricular septal defect (HP:0001629), qualified as co
 
 
                 <div class="evidence-explanation">Five of eleven individuals is 45%, within the FREQUENT band.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-patent-foramen-ovale" data-dismech-node="Patent Foramen Ovale" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Patent Foramen Ovale
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001655" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001655</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Patent foramen ovale (HP:0001655). HP:0001655 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31058441" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31058441" target="_blank">PMID:31058441</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"and three had a patent foramen ovale (PFO)"</div>
+
+
+                <div class="evidence-explanation">Three of eleven individuals is 27%, within the OCCASIONAL band.</div>
 
 
 
@@ -7159,15 +7364,18 @@ This clinical feature is Ventricular septal defect (HP:0001629), qualified as co
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004890" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0004890</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004890" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0004890</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Pulmonary hypertension, annotated with Elevated pulmonary artery pressure (HP:0004890). HP:0004890 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7187,6 +7395,7 @@ This clinical feature is Pulmonary hypertension, annotated with Elevated pulmona
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7231,15 +7440,18 @@ This clinical feature is Pulmonary hypertension, annotated with Elevated pulmona
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002616" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0002616</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002616" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0002616</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Dilated aortic root, annotated with Aortic root aneurysm (HP:0002616). HP:0002616 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7262,6 +7474,7 @@ This clinical feature is Dilated aortic root, annotated with Aortic root aneurys
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7270,6 +7483,130 @@ This clinical feature is Dilated aortic root, annotated with Aortic root aneurys
 
 
                 <div class="evidence-explanation">Names the two individuals with a dilated aortic root; two of eleven is 18%, within the OCCASIONAL band.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-moyamoya-phenomenon-and-systemic-vasculopathy" data-dismech-node="Moyamoya Phenomenon and Systemic Vasculopathy" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Moyamoya Phenomenon and Systemic Vasculopathy
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011834" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0011834</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Moyamoya phenomenon (HP:0011834). HP:0011834 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33248856" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33248856" target="_blank">PMID:33248856</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"She was also diagnosed with Moyamoya disease at 6 years of age and had undergone synangiosis surgery thrice. Her renal arteries and infrarenal aorta were diffusely narrowed."</div>
+
+
+                <div class="evidence-explanation">Documents the vasculopathy in an individual with a confirmed AFF4 variant, but only in a single case.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33248856" data-dismech-supports="REFUTE">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33248856" target="_blank">PMID:33248856</a>
+                    </span>
+
+
+                    <span class="evidence-support support-REFUTE">REFUTE</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"No additional candidate variants for her vascular manifestation were found except a susceptibility variant, c.14429G &gt; A (p.Arg4810Lys) in RNF213, inherited from asymptomatic mother."</div>
+
+
+                <div class="evidence-explanation">Reports a competing explanation for the vasculopathy in the same genome - a known RNF213 moyamoya susceptibility allele - which cuts against attributing the finding to AFF4. Graded INDIRECT because the quoted result is the alternative allele rather than a direct test of the AFF4 attribution.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33248856" data-dismech-supports="NO_EVIDENCE">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33248856" target="_blank">PMID:33248856</a>
+                    </span>
+
+
+                    <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"More clinical observations and functional studies are required to clarify this association."</div>
+
+
+                <div class="evidence-explanation">The authors explicitly decline to assert the association, so the quoted sentence carries no observation bearing either way on whether the vasculopathy is an AFF4 consequence. Recorded so the entry states that the link is unestablished rather than implying it is supported.</div>
 
 
 
@@ -7310,15 +7647,18 @@ This clinical feature is Dilated aortic root, annotated with Aortic root aneurys
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0011968</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0011968</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7338,6 +7678,7 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7380,15 +7721,18 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002019" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002019</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002019" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002019</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Constipation (HP:0002019). HP:0002019 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7408,6 +7752,7 @@ This clinical feature is Constipation (HP:0002019). HP:0002019 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7459,15 +7804,18 @@ This clinical feature is Constipation (HP:0002019). HP:0002019 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0000365</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000365</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7487,6 +7835,7 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7536,15 +7885,18 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000520" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000520</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000520" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000520</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Proptosis (HP:0000520). HP:0000520 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7564,6 +7916,7 @@ This clinical feature is Proptosis (HP:0000520). HP:0000520 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7606,15 +7959,18 @@ This clinical feature is Proptosis (HP:0000520). HP:0000520 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000518</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000518</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7634,6 +7990,7 @@ This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7658,6 +8015,7 @@ This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7700,15 +8058,18 @@ This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000545" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000545</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000545" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000545</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Myopia (HP:0000545). HP:0000545 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7728,6 +8089,7 @@ This clinical feature is Myopia (HP:0000545). HP:0000545 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7752,6 +8114,7 @@ This clinical feature is Myopia (HP:0000545). HP:0000545 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7794,15 +8157,18 @@ This clinical feature is Myopia (HP:0000545). HP:0000545 is a phenotype from the
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000486" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000486</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000486" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0000486</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7822,6 +8188,7 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7864,15 +8231,18 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000508</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0000508</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7892,6 +8262,7 @@ This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7924,7 +8295,7 @@ This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Genitourinary
-                    <span class="cat-count">3</span>
+                    <span class="cat-count">5</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-cryptorchidism" data-dismech-node="Cryptorchidism" data-dismech-type="phenotype">
@@ -7941,15 +8312,18 @@ This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000028" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0000028</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000028" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0000028</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7969,6 +8343,7 @@ This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8009,15 +8384,18 @@ This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000047" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0000047</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000047" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0000047</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypospadias (HP:0000047). HP:0000047 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8040,6 +8418,7 @@ This clinical feature is Hypospadias (HP:0000047). HP:0000047 is a phenotype fro
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8048,6 +8427,80 @@ This clinical feature is Hypospadias (HP:0000047). HP:0000047 is a phenotype fro
 
 
                 <div class="evidence-explanation">Single-individual observation; frequency omitted for the same reason.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-small-genitalia" data-dismech-node="Small Genitalia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Small Genitalia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Hypoplastic male external genitalia</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000050" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0000050</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Small genitalia, annotated with Hypoplastic male external genitalia (HP:0000050). HP:0000050 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31058441" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31058441" target="_blank">PMID:31058441</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Genital abnormalities in males included cryptorchidism (Case-2), hypospadias (Case-5), and small genitalia (Case-5 and Case-11)."</div>
+
+
+                <div class="evidence-explanation">Names the two individuals with small genitalia. Frequency is omitted because the denominator is males only and is not stated.</div>
 
 
 
@@ -8079,10 +8532,10 @@ This clinical feature is Hypospadias (HP:0000047). HP:0000047 is a phenotype fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000085" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0000085</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000085" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0000085</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Horseshoe kidney (HP:0000085), qualified as congenital onset. HP:0000085 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8122,6 +8575,9 @@ This clinical feature is Horseshoe kidney (HP:0000085), qualified as congenital 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8136,6 +8592,81 @@ This clinical feature is Horseshoe kidney (HP:0000085), qualified as congenital 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Other anomalies of the genitourinary system included horseshoe kidney (Case-1, 5) and vesicoureteral reflux (Case-2, 3)."</div>
+
+
+                <div class="evidence-explanation">Two of eleven individuals is 18%, within the OCCASIONAL band.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-vesicoureteral-reflux" data-dismech-node="Vesicoureteral Reflux" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Vesicoureteral Reflux
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000076" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0000076</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Vesicoureteral reflux (HP:0000076). HP:0000076 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31058441" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31058441" target="_blank">PMID:31058441</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8168,7 +8699,7 @@ This clinical feature is Horseshoe kidney (HP:0000085), qualified as congenital 
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
-                    <span class="cat-count">7</span>
+                    <span class="cat-count">10</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-coarse-facial-features" data-dismech-node="Coarse Facial Features" data-dismech-type="phenotype">
@@ -8187,10 +8718,10 @@ This clinical feature is Horseshoe kidney (HP:0000085), qualified as congenital 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000280" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0000280</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000280" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0000280</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Coarse facial features (HP:0000280), qualified as course progressive. HP:0000280 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8219,6 +8750,9 @@ This clinical feature is Coarse facial features (HP:0000280), qualified as cours
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8233,6 +8767,7 @@ This clinical feature is Coarse facial features (HP:0000280), qualified as cours
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8260,6 +8795,7 @@ This clinical feature is Coarse facial features (HP:0000280), qualified as cours
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8268,6 +8804,80 @@ This clinical feature is Coarse facial features (HP:0000280), qualified as cours
 
 
                 <div class="evidence-explanation">Cohort confirmation of coarse facies and facial fullness.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-synophrys" data-dismech-node="Synophrys" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Synophrys
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000664" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0000664</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Synophrys (HP:0000664). HP:0000664 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31058441" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31058441" target="_blank">PMID:31058441</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"All 11 individuals presented with features reminiscent of Cornelia de Lange syndrome such as synophrys, upturned nasal tip, arched eyebrows, and long eyelashes."</div>
+
+
+                <div class="evidence-explanation">Reports synophrys in 11 of 11 individuals, supporting VERY_FREQUENT.</div>
 
 
 
@@ -8299,15 +8909,18 @@ This clinical feature is Coarse facial features (HP:0000280), qualified as cours
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002553" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0002553</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002553" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0002553</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Highly arched eyebrow (HP:0002553). HP:0002553 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8330,6 +8943,7 @@ This clinical feature is Highly arched eyebrow (HP:0002553). HP:0002553 is a phe
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8338,6 +8952,80 @@ This clinical feature is Highly arched eyebrow (HP:0002553). HP:0002553 is a phe
 
 
                 <div class="evidence-explanation">Arched eyebrows reported in 11 of 11 individuals.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-long-eyelashes" data-dismech-node="Long Eyelashes" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Long Eyelashes
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000527" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0000527</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Long eyelashes (HP:0000527). HP:0000527 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31058441" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31058441" target="_blank">PMID:31058441</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"All 11 individuals presented with features reminiscent of Cornelia de Lange syndrome such as synophrys, upturned nasal tip, arched eyebrows, and long eyelashes."</div>
+
+
+                <div class="evidence-explanation">Long eyelashes reported in 11 of 11 individuals.</div>
 
 
 
@@ -8367,15 +9055,18 @@ This clinical feature is Highly arched eyebrow (HP:0002553). HP:0002553 is a phe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000463" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0000463</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000463" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0000463</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Anteverted nares (HP:0000463). HP:0000463 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8398,6 +9089,7 @@ This clinical feature is Anteverted nares (HP:0000463). HP:0000463 is a phenotyp
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8406,6 +9098,80 @@ This clinical feature is Anteverted nares (HP:0000463). HP:0000463 is a phenotyp
 
 
                 <div class="evidence-explanation">GeneReviews lists anteverted nares among the characteristic facial features.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-wide-anterior-fontanel" data-dismech-node="Wide Anterior Fontanel" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Wide Anterior Fontanel
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000260" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0000260</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Wide anterior fontanel (HP:0000260). HP:0000260 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31058441" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31058441" target="_blank">PMID:31058441</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Other noted recurrent features were large anterior fontanelle (Case-1, 2, 5), and Wormian skull bones (Case-1, 5)."</div>
+
+
+                <div class="evidence-explanation">Names the three individuals with a large anterior fontanelle; three of eleven is 27%, within the OCCASIONAL band.</div>
 
 
 
@@ -8435,15 +9201,18 @@ This clinical feature is Anteverted nares (HP:0000463). HP:0000463 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011800" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0011800</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011800" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0011800</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Midface retrusion (HP:0011800). HP:0011800 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8463,6 +9232,7 @@ This clinical feature is Midface retrusion (HP:0011800). HP:0011800 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8505,15 +9275,18 @@ This clinical feature is Midface retrusion (HP:0011800). HP:0011800 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002645" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0002645</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002645" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0002645</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Wormian bones (HP:0002645). HP:0002645 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8533,6 +9306,7 @@ This clinical feature is Wormian bones (HP:0002645). HP:0002645 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8573,15 +9347,18 @@ This clinical feature is Wormian bones (HP:0002645). HP:0002645 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006297" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0006297</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0006297" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0006297</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Enamel hypoplasia (HP:0006297). HP:0006297 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8601,6 +9378,7 @@ This clinical feature is Enamel hypoplasia (HP:0006297). HP:0006297 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8625,6 +9403,7 @@ This clinical feature is Enamel hypoplasia (HP:0006297). HP:0006297 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8665,15 +9444,18 @@ This clinical feature is Enamel hypoplasia (HP:0006297). HP:0006297 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0009804" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0009804</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0009804" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0009804</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Tooth agenesis (HP:0009804). HP:0009804 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8693,6 +9475,7 @@ This clinical feature is Tooth agenesis (HP:0009804). HP:0009804 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8744,15 +9527,18 @@ This clinical feature is Tooth agenesis (HP:0009804). HP:0009804 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002090" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0002090</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002090" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0002090</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Pneumonia (HP:0002090). HP:0002090 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8772,6 +9558,7 @@ This clinical feature is Pneumonia (HP:0002090). HP:0002090 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8823,15 +9610,18 @@ This clinical feature is Pneumonia (HP:0002090). HP:0002090 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000956" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0000956</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000956" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0000956</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Acanthosis nigricans (HP:0000956). HP:0000956 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8851,6 +9641,7 @@ This clinical feature is Acanthosis nigricans (HP:0000956). HP:0000956 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8902,15 +9693,18 @@ This clinical feature is Acanthosis nigricans (HP:0000956). HP:0000956 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001156" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0001156</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001156" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0001156</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Brachydactyly (HP:0001156). HP:0001156 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8930,6 +9724,7 @@ This clinical feature is Brachydactyly (HP:0001156). HP:0001156 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8954,6 +9749,7 @@ This clinical feature is Brachydactyly (HP:0001156). HP:0001156 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8994,15 +9790,18 @@ This clinical feature is Brachydactyly (HP:0001156). HP:0001156 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0200055" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0200055</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0200055" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0200055</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Small hand (HP:0200055). HP:0200055 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9022,6 +9821,7 @@ This clinical feature is Small hand (HP:0200055). HP:0200055 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9054,12 +9854,14 @@ This clinical feature is Small hand (HP:0200055). HP:0200055 is a phenotype from
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">4</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-reduced-bone-mineral-density" data-dismech-node="Reduced Bone Mineral Density" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-vertebral-body-morphology" data-dismech-node="Abnormal Vertebral Body Morphology" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Reduced Bone Mineral Density
+                        Abnormal Vertebral Body Morphology
+
+                        <span class="phenotype-freq">FREQUENT</span>
 
 
 
@@ -9068,18 +9870,23 @@ This clinical feature is Small hand (HP:0200055). HP:0200055 is a phenotype from
 
                     <span class="phenotype-id">
 
+                        <span class="phenotype-term-label">Abnormal form of the vertebral bodies</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004349" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0004349</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003312" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0003312</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Reduced bone mineral density (HP:0004349). HP:0004349 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Abnormal form of the vertebral bodies (HP:0003312). HP:0003312 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9099,6 +9906,104 @@ This clinical feature is Reduced bone mineral density (HP:0004349). HP:0004349 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Skeletal abnormalities are also common, and those include abnormal shape of vertebral bodies, hypoplastic long bones, and low bone mineral density."</div>
+
+
+                <div class="evidence-explanation">Reports abnormal vertebral body shape as a common skeletal finding.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31058441" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31058441" target="_blank">PMID:31058441</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"An abnormal shape of the vertebral bodies with decreased height, pronounced from T8 to L1, was noted in Case-1"</div>
+
+
+                <div class="evidence-explanation">Radiographic detail of the vertebral involvement.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-reduced-bone-mineral-density" data-dismech-node="Reduced Bone Mineral Density" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Reduced Bone Mineral Density
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004349" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0004349</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Reduced bone mineral density (HP:0004349). HP:0004349 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31058441" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31058441" target="_blank">PMID:31058441</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9126,6 +10031,7 @@ This clinical feature is Reduced bone mineral density (HP:0004349). HP:0004349 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9149,13 +10055,186 @@ This clinical feature is Reduced bone mineral density (HP:0004349). HP:0004349 i
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypoplastic-long-bones" data-dismech-node="Hypoplastic Long Bones" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hypoplastic Long Bones
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Short long bone</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003026" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0003026</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypoplastic long bones, annotated with Short long bone (HP:0003026). HP:0003026 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31058441" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31058441" target="_blank">PMID:31058441</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Skeletal abnormalities are also common, and those include abnormal shape of vertebral bodies, hypoplastic long bones, and low bone mineral density."</div>
+
+
+                <div class="evidence-explanation">Lists hypoplastic long bones among the common skeletal features. The sentence gives no denominator, which is why frequency is omitted.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31058441" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31058441" target="_blank">PMID:31058441</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Hypoplasia of the proximal radii bilaterally, hypoplasia of the fibula bilaterally was noted in Case-3"</div>
+
+
+                <div class="evidence-explanation">Radiographic detail naming the specific long bones affected.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-filum-terminale-lipoma" data-dismech-node="Filum Terminale Lipoma" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Filum Terminale Lipoma
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_6000184" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-55">HP:6000184</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Lipoma of the filum terminale, annotated with Filum terminale lipoma (HP:6000184). HP:6000184 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31058441" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31058441" target="_blank">PMID:31058441</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"two patients (Case-1 and 10) had a neurological anomaly of a low-lying conus with lipoma of the filum terminale"</div>
+
+
+                <div class="evidence-explanation">Names the two individuals with a filum terminale lipoma; two of eleven is 18%, within the OCCASIONAL band.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
 
             <details class="phenotype-category-group" id="pheno-cat-12">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">7</span>
+                    <span class="cat-count">10</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-developmental-delay-and-intellectual-disability" data-dismech-node="Developmental Delay and Intellectual Disability" data-dismech-type="phenotype">
@@ -9174,10 +10253,10 @@ This clinical feature is Reduced bone mineral density (HP:0004349). HP:0004349 i
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0001249</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-56">HP:0001249</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-56">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Intellectual disability (HP:0001249), qualified as infantile onset. HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9217,6 +10296,9 @@ This clinical feature is Intellectual disability (HP:0001249), qualified as infa
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9231,6 +10313,7 @@ This clinical feature is Intellectual disability (HP:0001249), qualified as infa
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9255,6 +10338,7 @@ This clinical feature is Intellectual disability (HP:0001249), qualified as infa
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9297,10 +10381,10 @@ This clinical feature is Intellectual disability (HP:0001249), qualified as infa
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-57">HP:0001263</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Global developmental delay (HP:0001263), qualified as infantile onset. HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -9340,6 +10424,9 @@ This clinical feature is Global developmental delay (HP:0001263), qualified as i
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9354,6 +10441,7 @@ This clinical feature is Global developmental delay (HP:0001263), qualified as i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9398,15 +10486,18 @@ This clinical feature is Global developmental delay (HP:0001263), qualified as i
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002591" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0002591</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002591" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-58">HP:0002591</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-58">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Polyphagia (HP:0002591). HP:0002591 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9426,6 +10517,7 @@ This clinical feature is Polyphagia (HP:0002591). HP:0002591 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9450,6 +10542,7 @@ This clinical feature is Polyphagia (HP:0002591). HP:0002591 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9492,15 +10585,18 @@ This clinical feature is Polyphagia (HP:0002591). HP:0002591 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000708" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0000708</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000708" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-59">HP:0000708</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-59">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Disruptive and self-absorbed behaviour, annotated with Atypical behavior (HP:0000708). HP:0000708 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -9520,6 +10616,7 @@ This clinical feature is Disruptive and self-absorbed behaviour, annotated with 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9547,6 +10644,7 @@ This clinical feature is Disruptive and self-absorbed behaviour, annotated with 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9570,462 +10668,6 @@ This clinical feature is Disruptive and self-absorbed behaviour, annotated with 
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-sleep-apnea" data-dismech-node="Sleep Apnea" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Sleep Apnea
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0010535" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0010535</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Sleep apnea (HP:0010535). HP:0010535 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:31058441" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31058441" target="_blank">PMID:31058441</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Pulmonary alveolar hemorrhage occurred in Case-1 and Case-7, and sleep apnea was documented in Case-1, 3, 9."</div>
-
-
-                <div class="evidence-explanation">Three of eleven individuals is 27%, within the OCCASIONAL band.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-corpus-callosum-hypoplasia" data-dismech-node="Corpus Callosum Hypoplasia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Corpus Callosum Hypoplasia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Hypoplasia of the corpus callosum</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002079" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0002079</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hypoplasia of the corpus callosum (HP:0002079). HP:0002079 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:42273204" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42273204" target="_blank">PMID:42273204</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"neuroimaging findings indicative of cortical atrophy and corpus callosum hypoplasia"</div>
-
-
-                <div class="evidence-explanation">Single case report of these neuroimaging findings.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-cerebral-cortical-atrophy" data-dismech-node="Cerebral Cortical Atrophy" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Cerebral Cortical Atrophy
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002120" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0002120</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Cerebral cortical atrophy (HP:0002120). HP:0002120 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:42273204" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42273204" target="_blank">PMID:42273204</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"neuroimaging findings indicative of cortical atrophy and corpus callosum hypoplasia"</div>
-
-
-                <div class="evidence-explanation">Single case report of these neuroimaging findings.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-13">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Growth
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-short-stature" data-dismech-node="Short Stature" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Short Stature
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0004322</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Short stature (HP:0004322), qualified as course progressive. HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">Course: PROGRESSIVE</span>
-
-
-
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (3 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:31058441" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31058441" target="_blank">PMID:31058441</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"All 11 individuals had short stature and obesity."</div>
-
-
-                <div class="evidence-explanation">11 of 11 individuals, supporting the VERY_FREQUENT band.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:31058441" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31058441" target="_blank">PMID:31058441</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"However, the measurements at the latest clinic visit indicated average height was around −5 SD, although HC remained around −2 SD"</div>
-
-
-                <div class="evidence-explanation">Documents the progressive worsening of the height deficit.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:42273204" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42273204" target="_blank">PMID:42273204</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The patient exhibited significant growth failure despite an adequate growth hormone response."</div>
-
-
-                <div class="evidence-explanation">Shows growth failure is not explained by growth hormone deficiency.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-obesity" data-dismech-node="Obesity" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Obesity
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001513" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0001513</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Obesity (HP:0001513). HP:0001513 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:31058441" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31058441" target="_blank">PMID:31058441</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"All 11 individuals had short stature and obesity."</div>
-
-
-                <div class="evidence-explanation">11 of 11 individuals, supporting the VERY_FREQUENT band.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:31058441" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31058441" target="_blank">PMID:31058441</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Obesity, pulmonary involvement, skeletal findings, and distinct craniofacial features are the most notable features distinguishing CHOPS syndrome from CdLS."</div>
-
-
-                <div class="evidence-explanation">Establishes obesity as a discriminating feature against the main differential.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-14">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">16</span>
-                </summary>
-
                 <div class="item-box phenotype-box anchor-target" id="phenotype-temper-tantrums" data-dismech-node="Temper Tantrums" data-dismech-type="phenotype">
                     <div class="item-name">
                         Temper Tantrums
@@ -10042,15 +10684,18 @@ This clinical feature is Obesity (HP:0001513). HP:0001513 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0025160" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-55">HP:0025160</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0025160" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-60">HP:0025160</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-60">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Temper tantrums, annotated with Abnormal temper tantrums (HP:0025160). HP:0025160 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10070,6 +10715,7 @@ This clinical feature is Temper tantrums, annotated with Abnormal temper tantrum
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10114,15 +10760,18 @@ This clinical feature is Temper tantrums, annotated with Abnormal temper tantrum
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100025" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-56">HP:0100025</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100025" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-61">HP:0100025</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-56">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-61">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Over-affectionate behaviour, annotated with Overfriendliness (HP:0100025). HP:0100025 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10142,6 +10791,7 @@ This clinical feature is Over-affectionate behaviour, annotated with Overfriendl
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10168,149 +10818,9 @@ This clinical feature is Over-affectionate behaviour, annotated with Overfriendl
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-synophrys" data-dismech-node="Synophrys" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-sleep-apnea" data-dismech-node="Sleep Apnea" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Synophrys
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000664" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-57">HP:0000664</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-57">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Synophrys (HP:0000664). HP:0000664 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:31058441" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31058441" target="_blank">PMID:31058441</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"All 11 individuals presented with features reminiscent of Cornelia de Lange syndrome such as synophrys, upturned nasal tip, arched eyebrows, and long eyelashes."</div>
-
-
-                <div class="evidence-explanation">Reports synophrys in 11 of 11 individuals, supporting VERY_FREQUENT.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-long-eyelashes" data-dismech-node="Long Eyelashes" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Long Eyelashes
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000527" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-58">HP:0000527</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-58">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Long eyelashes (HP:0000527). HP:0000527 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:31058441" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31058441" target="_blank">PMID:31058441</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"All 11 individuals presented with features reminiscent of Cornelia de Lange syndrome such as synophrys, upturned nasal tip, arched eyebrows, and long eyelashes."</div>
-
-
-                <div class="evidence-explanation">Long eyelashes reported in 11 of 11 individuals.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-wide-anterior-fontanel" data-dismech-node="Wide Anterior Fontanel" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Wide Anterior Fontanel
+                        Sleep Apnea
 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
@@ -10324,15 +10834,18 @@ This clinical feature is Long eyelashes (HP:0000527). HP:0000527 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000260" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-59">HP:0000260</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0010535" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-62">HP:0010535</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-59">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-62">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Wide anterior fontanel (HP:0000260). HP:0000260 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Sleep apnea (HP:0010535). HP:0010535 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10355,81 +10868,12 @@ This clinical feature is Wide anterior fontanel (HP:0000260). HP:0000260 is a ph
 
 
 
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Other noted recurrent features were large anterior fontanelle (Case-1, 2, 5), and Wormian skull bones (Case-1, 5)."</div>
-
-
-                <div class="evidence-explanation">Names the three individuals with a large anterior fontanelle; three of eleven is 27%, within the OCCASIONAL band.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-patent-foramen-ovale" data-dismech-node="Patent Foramen Ovale" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Patent Foramen Ovale
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001655" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-60">HP:0001655</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-60">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Patent foramen ovale (HP:0001655). HP:0001655 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:31058441" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31058441" target="_blank">PMID:31058441</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"and three had a patent foramen ovale (PFO)"</div>
+                <div class="evidence-snippet">"Pulmonary alveolar hemorrhage occurred in Case-1 and Case-7, and sleep apnea was documented in Case-1, 3, 9."</div>
 
 
                 <div class="evidence-explanation">Three of eleven individuals is 27%, within the OCCASIONAL band.</div>
@@ -10448,6 +10892,237 @@ This clinical feature is Patent foramen ovale (HP:0001655). HP:0001655 is a phen
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-corpus-callosum-hypoplasia" data-dismech-node="Corpus Callosum Hypoplasia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Corpus Callosum Hypoplasia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Hypoplasia of the corpus callosum</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002079" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-63">HP:0002079</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-63">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypoplasia of the corpus callosum (HP:0002079). HP:0002079 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42273204" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42273204" target="_blank">PMID:42273204</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"neuroimaging findings indicative of cortical atrophy and corpus callosum hypoplasia"</div>
+
+
+                <div class="evidence-explanation">Single case report of these neuroimaging findings.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cerebral-cortical-atrophy" data-dismech-node="Cerebral Cortical Atrophy" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Cerebral Cortical Atrophy
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002120" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-64">HP:0002120</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-64">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cerebral cortical atrophy (HP:0002120). HP:0002120 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:42273204" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42273204" target="_blank">PMID:42273204</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"neuroimaging findings indicative of cortical atrophy and corpus callosum hypoplasia"</div>
+
+
+                <div class="evidence-explanation">Single case report of these neuroimaging findings.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-low-lying-conus-medullaris" data-dismech-node="Low-Lying Conus Medullaris" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Low-Lying Conus Medullaris
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormal conus terminalis morphology</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0031938" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-65">HP:0031938</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-65">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Low-lying conus medullaris, annotated with Abnormal conus terminalis morphology (HP:0031938). HP:0031938 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31058441" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31058441" target="_blank">PMID:31058441</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"two patients (Case-1 and 10) had a neurological anomaly of a low-lying conus with lipoma of the filum terminale"</div>
+
+
+                <div class="evidence-explanation">Names the two individuals with a low-lying conus; two of eleven is 18%, within the OCCASIONAL band.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-13">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Respiratory
+                    <span class="cat-count">3</span>
+                </summary>
+
                 <div class="item-box phenotype-box anchor-target" id="phenotype-chronic-lung-disease" data-dismech-node="Chronic Lung Disease" data-dismech-type="phenotype">
                     <div class="item-name">
                         Chronic Lung Disease
@@ -10464,10 +11139,10 @@ This clinical feature is Patent foramen ovale (HP:0001655). HP:0001655 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006528" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-61">HP:0006528</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0006528" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-66">HP:0006528</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-61">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-66">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Chronic lung disease (HP:0006528), qualified as temporality chronic. HP:0006528 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -10496,6 +11171,9 @@ This clinical feature is Chronic lung disease (HP:0006528), qualified as tempora
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -10510,6 +11188,7 @@ This clinical feature is Chronic lung disease (HP:0006528), qualified as tempora
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10534,6 +11213,7 @@ This clinical feature is Chronic lung disease (HP:0006528), qualified as tempora
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10576,10 +11256,10 @@ This clinical feature is Chronic lung disease (HP:0006528), qualified as tempora
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001601" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-62">HP:0001601</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001601" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-67">HP:0001601</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-62">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-67">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Laryngomalacia (HP:0001601), qualified as congenital onset. HP:0001601 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -10619,6 +11299,9 @@ This clinical feature is Laryngomalacia (HP:0001601), qualified as congenital on
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -10633,6 +11316,7 @@ This clinical feature is Laryngomalacia (HP:0001601), qualified as congenital on
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10657,6 +11341,7 @@ This clinical feature is Laryngomalacia (HP:0001601), qualified as congenital on
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10699,15 +11384,18 @@ This clinical feature is Laryngomalacia (HP:0001601), qualified as congenital on
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001607" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-63">HP:0001607</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001607" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-68">HP:0001607</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-63">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-68">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Subglottic stenosis (HP:0001607). HP:0001607 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -10727,6 +11415,7 @@ This clinical feature is Subglottic stenosis (HP:0001607). HP:0001607 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10753,271 +11442,20 @@ This clinical feature is Subglottic stenosis (HP:0001607). HP:0001607 is a pheno
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-vertebral-body-morphology" data-dismech-node="Abnormal Vertebral Body Morphology" data-dismech-type="phenotype">
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-14">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Growth
+                    <span class="cat-count">2</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-short-stature" data-dismech-node="Short Stature" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Abnormal Vertebral Body Morphology
+                        Short Stature
 
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Abnormal form of the vertebral bodies</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003312" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-64">HP:0003312</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-64">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal form of the vertebral bodies (HP:0003312). HP:0003312 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:31058441" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31058441" target="_blank">PMID:31058441</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Skeletal abnormalities are also common, and those include abnormal shape of vertebral bodies, hypoplastic long bones, and low bone mineral density."</div>
-
-
-                <div class="evidence-explanation">Reports abnormal vertebral body shape as a common skeletal finding.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:31058441" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31058441" target="_blank">PMID:31058441</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"An abnormal shape of the vertebral bodies with decreased height, pronounced from T8 to L1, was noted in Case-1"</div>
-
-
-                <div class="evidence-explanation">Radiographic detail of the vertebral involvement.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hypoplastic-long-bones" data-dismech-node="Hypoplastic Long Bones" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hypoplastic Long Bones
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Short long bone</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003026" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-65">HP:0003026</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-65">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hypoplastic long bones, annotated with Short long bone (HP:0003026). HP:0003026 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:31058441" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31058441" target="_blank">PMID:31058441</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Skeletal abnormalities are also common, and those include abnormal shape of vertebral bodies, hypoplastic long bones, and low bone mineral density."</div>
-
-
-                <div class="evidence-explanation">Lists hypoplastic long bones among the common skeletal features. The sentence gives no denominator, which is why frequency is omitted.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:31058441" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31058441" target="_blank">PMID:31058441</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Hypoplasia of the proximal radii bilaterally, hypoplasia of the fibula bilaterally was noted in Case-3"</div>
-
-
-                <div class="evidence-explanation">Radiographic detail naming the specific long bones affected.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-small-genitalia" data-dismech-node="Small Genitalia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Small Genitalia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Hypoplastic male external genitalia</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000050" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-66">HP:0000050</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-66">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Small genitalia, annotated with Hypoplastic male external genitalia (HP:0000050). HP:0000050 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:31058441" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31058441" target="_blank">PMID:31058441</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Genital abnormalities in males included cryptorchidism (Case-2), hypospadias (Case-5), and small genitalia (Case-5 and Case-11)."</div>
-
-
-                <div class="evidence-explanation">Names the two individuals with small genitalia. Frequency is omitted because the denominator is males only and is not stated.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-vesicoureteral-reflux" data-dismech-node="Vesicoureteral Reflux" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Vesicoureteral Reflux
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
 
@@ -11029,225 +11467,36 @@ This clinical feature is Small genitalia, annotated with Hypoplastic male extern
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000076" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-67">HP:0000076</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-67">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Vesicoureteral reflux (HP:0000076). HP:0000076 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:31058441" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31058441" target="_blank">PMID:31058441</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Other anomalies of the genitourinary system included horseshoe kidney (Case-1, 5) and vesicoureteral reflux (Case-2, 3)."</div>
-
-
-                <div class="evidence-explanation">Two of eleven individuals is 18%, within the OCCASIONAL band.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-filum-terminale-lipoma" data-dismech-node="Filum Terminale Lipoma" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Filum Terminale Lipoma
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_6000184" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-68">HP:6000184</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-68">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Lipoma of the filum terminale, annotated with Filum terminale lipoma (HP:6000184). HP:6000184 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:31058441" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31058441" target="_blank">PMID:31058441</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"two patients (Case-1 and 10) had a neurological anomaly of a low-lying conus with lipoma of the filum terminale"</div>
-
-
-                <div class="evidence-explanation">Names the two individuals with a filum terminale lipoma; two of eleven is 18%, within the OCCASIONAL band.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-low-lying-conus-medullaris" data-dismech-node="Low-Lying Conus Medullaris" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Low-Lying Conus Medullaris
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Abnormal conus terminalis morphology</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0031938" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-69">HP:0031938</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-69">HP:0004322</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-69">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Low-lying conus medullaris, annotated with Abnormal conus terminalis morphology (HP:0031938). HP:0031938 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Short stature (HP:0004322), qualified as course progressive. HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Course: PROGRESSIVE</span>
+
+
+
+
 
                     </div>
 
 
 
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:31058441" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31058441" target="_blank">PMID:31058441</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"two patients (Case-1 and 10) had a neurological anomaly of a low-lying conus with lipoma of the filum terminale"</div>
-
-
-                <div class="evidence-explanation">Names the two individuals with a low-lying conus; two of eleven is 18%, within the OCCASIONAL band.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-moyamoya-phenomenon-and-systemic-vasculopathy" data-dismech-node="Moyamoya Phenomenon and Systemic Vasculopathy" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Moyamoya Phenomenon and Systemic Vasculopathy
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011834" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-70">HP:0011834</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-70">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Moyamoya phenomenon (HP:0011834). HP:0011834 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
 
 
 
@@ -11259,10 +11508,10 @@ This clinical feature is Moyamoya phenomenon (HP:0011834). HP:0011834 is a pheno
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:33248856" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:31058441" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33248856" target="_blank">PMID:33248856</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31058441" target="_blank">PMID:31058441</a>
                     </span>
 
 
@@ -11270,53 +11519,54 @@ This clinical feature is Moyamoya phenomenon (HP:0011834). HP:0011834 is a pheno
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"She was also diagnosed with Moyamoya disease at 6 years of age and had undergone synangiosis surgery thrice. Her renal arteries and infrarenal aorta were diffusely narrowed."</div>
+                <div class="evidence-snippet">"All 11 individuals had short stature and obesity."</div>
 
 
-                <div class="evidence-explanation">Documents the vasculopathy in an individual with a confirmed AFF4 variant, but only in a single case.</div>
+                <div class="evidence-explanation">11 of 11 individuals, supporting the VERY_FREQUENT band.</div>
 
 
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:33248856" data-dismech-supports="REFUTE">
+            <div class="evidence-item" data-dismech-evidence="PMID:31058441" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33248856" target="_blank">PMID:33248856</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31058441" target="_blank">PMID:31058441</a>
                     </span>
 
 
-                    <span class="evidence-support support-REFUTE">REFUTE</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"No additional candidate variants for her vascular manifestation were found except a susceptibility variant, c.14429G &gt; A (p.Arg4810Lys) in RNF213, inherited from asymptomatic mother."</div>
+                <div class="evidence-snippet">"However, the measurements at the latest clinic visit indicated average height was around −5 SD, although HC remained around −2 SD"</div>
 
 
-                <div class="evidence-explanation">Reports a competing explanation for the vasculopathy in the same genome - a known RNF213 moyamoya susceptibility allele - which cuts against attributing the finding to AFF4. Graded INDIRECT because the quoted result is the alternative allele rather than a direct test of the AFF4 attribution.</div>
+                <div class="evidence-explanation">Documents the progressive worsening of the height deficit.</div>
 
 
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:33248856" data-dismech-supports="NO_EVIDENCE">
+            <div class="evidence-item" data-dismech-evidence="PMID:42273204" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33248856" target="_blank">PMID:33248856</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/42273204" target="_blank">PMID:42273204</a>
                     </span>
 
 
-                    <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11324,10 +11574,109 @@ This clinical feature is Moyamoya phenomenon (HP:0011834). HP:0011834 is a pheno
 
                 </div>
 
-                <div class="evidence-snippet">"More clinical observations and functional studies are required to clarify this association."</div>
+                <div class="evidence-snippet">"The patient exhibited significant growth failure despite an adequate growth hormone response."</div>
 
 
-                <div class="evidence-explanation">The authors explicitly decline to assert the association, so the quoted sentence carries no observation bearing either way on whether the vasculopathy is an AFF4 consequence. Recorded so the entry states that the link is unestablished rather than implying it is supported.</div>
+                <div class="evidence-explanation">Shows growth failure is not explained by growth hormone deficiency.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-obesity" data-dismech-node="Obesity" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Obesity
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001513" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-70">HP:0001513</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-70">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Obesity (HP:0001513). HP:0001513 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31058441" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31058441" target="_blank">PMID:31058441</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"All 11 individuals had short stature and obesity."</div>
+
+
+                <div class="evidence-explanation">11 of 11 individuals, supporting the VERY_FREQUENT band.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31058441" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31058441" target="_blank">PMID:31058441</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Obesity, pulmonary involvement, skeletal findings, and distinct craniofacial features are the most notable features distinguishing CHOPS syndrome from CdLS."</div>
+
+
+                <div class="evidence-explanation">Establishes obesity as a discriminating feature against the main differential.</div>
 
 
 
@@ -11419,6 +11768,9 @@ This disease-associated gene is AFF4 (hgnc:17869). hgnc:17869 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -11433,6 +11785,7 @@ This disease-associated gene is AFF4 (hgnc:17869). hgnc:17869 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11460,6 +11813,7 @@ This disease-associated gene is AFF4 (hgnc:17869). hgnc:17869 is a gene from the
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11481,6 +11835,7 @@ This disease-associated gene is AFF4 (hgnc:17869). hgnc:17869 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11566,6 +11921,31 @@ This treatment is rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical interv
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Early intervention, special education and behavioural support for the mild-to-moderate intellectual disability and the disruptive/food-seeking behavioural profile. There is no disease-modifying therapy for CHOPS syndrome; management is entirely supportive and organ-directed.</div>
 
 
@@ -11587,6 +11967,7 @@ This treatment is rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical interv
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11651,6 +12032,31 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Dietary management directed at the obesity, which is driven by impaired satiety and food-seeking behaviour rather than by a metabolic defect; families commonly need to restrict access to food.</div>
 
 
@@ -11690,6 +12096,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11754,6 +12161,31 @@ This treatment is gastrostomy tube placement, annotated with Gastrostomy Tube Pr
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Feeding therapy with gastrostomy placement where oral intake is unsafe or inadequate; six of eleven individuals in the largest series required a G-tube.</div>
 
 
@@ -11778,6 +12210,7 @@ This treatment is gastrostomy tube placement, annotated with Gastrostomy Tube Pr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11799,6 +12232,7 @@ This treatment is gastrostomy tube placement, annotated with Gastrostomy Tube Pr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11863,6 +12297,31 @@ This treatment is respiratory therapy (NCIT:C15322). NCIT:C15322 is a clinical i
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Standard respiratory management, with tracheostomy where laryngomalacia or subglottic stenosis compromises the airway; three of eleven individuals in the largest series were tracheostomised. Because the chronic lung disease has no identified aetiology, treatment is symptomatic rather than mechanism-directed.</div>
 
 
@@ -11884,6 +12343,7 @@ This treatment is respiratory therapy (NCIT:C15322). NCIT:C15322 is a clinical i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11948,6 +12408,31 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Standard cardiac surgical and medical management of the PDA, VSD and other lesions, and of vertebral anomalies.</div>
 
 
@@ -11969,6 +12454,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12033,6 +12519,31 @@ This treatment is cataract surgery (NCIT:C157809). NCIT:C157809 is a clinical in
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Subspecialist surgical management of the cataracts, which include congenital cataract.</div>
 
 
@@ -12054,6 +12565,7 @@ This treatment is cataract surgery (NCIT:C157809). NCIT:C157809 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12118,6 +12630,31 @@ This treatment is therapeutic procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Correction of refractive errors and strabismus, with at least annual ophthalmological assessment. The generic procedure term is kept deliberately: this entry spans refraction, spectacle correction and strabismus management, which no single more specific NCIT clinical-action term covers.</div>
 
 
@@ -12139,6 +12676,7 @@ This treatment is therapeutic procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12171,6 +12709,31 @@ This treatment is therapeutic procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Device</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Amplification as needed for the hearing loss seen in the majority of affected individuals, with annual audiology evaluation. NCIT has no clinical-action term for hearing aid fitting - the former MAXO &#34;hearing aid usage&#34; concept had no NCIT equivalent and was dropped - so `term:` is deliberately omitted rather than bound to a generic procedure term that would misdescribe a device intervention.</div>
 
 
@@ -12192,6 +12755,7 @@ This treatment is therapeutic procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12256,6 +12820,31 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Counseling covering the de novo autosomal dominant mechanism, the roughly 1% sib recurrence risk from possible parental gonadal mosaicism, and the availability of prenatal and preimplantation testing.</div>
 
 
@@ -12277,6 +12866,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12387,6 +12977,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12408,6 +12999,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12467,6 +13059,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12488,6 +13081,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12565,6 +13159,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -12586,6 +13181,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12739,6 +13335,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -12778,6 +13375,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12857,6 +13455,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -12896,6 +13495,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13028,6 +13628,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -13067,6 +13668,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -13198,6 +13800,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -15916,6 +16519,41 @@ datasets: []
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Phenotype review: CHOPS_Syndrome</strong> · 2026-08-27T01:31:35Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/CHOPS_Syndrome/2026-08-27T013135Z-claude-code-dc7cfa.yaml">View source</a></p>
+                        <p class="research-review-text">Campaign phenotype review (snippet-claim consistency, optimal HPO binding, pathograph connectivity) of all 49 phenotypes against cached sources (PMID:31058441 full text, GeneReviews PMID:41712746, case reports) and the Falcon deep-research report. Term fixes: Recurrent pneumonia (HP:0006532) broadened to Pneumonia (HP:0002090) because the cohort paper reports only &#39;a history of pneumonia&#39;; Pulmonary Arterial Hypertension renamed and preferred-term adjusted to source granularity Pulmonary hypertension (HP:0002092 kept as HPO&#39;s general PH term); Dilated Aortic Root rebound from HP:0001679 to HP:0002616, whose definition is exactly aortic root dilatation with &#39;Aortic root dilatation&#39; as exact synonym, contradicting the entry&#39;s previous claim that no live term existed; Over-Affectionate Social Behaviour rebound HP:0012433 to HP:0100025 Overfriendliness; Hypoplastic Long Bones rebound HP:0045060 to HP:0003026 Short long bone. Split two bundled entries: Cerebral Atrophy and Corpus Callosum Hypoplasia into Corpus Callosum Hypoplasia (HP:0002079) plus Cerebral Cortical Atrophy (HP:0002120, matching the source wording &#39;cortical atrophy&#39;); Enamel Hypoplasia and Tooth Agenesis into Enamel Hypoplasia (HP:0006297) plus Tooth Agenesis (HP:0009804). Pathograph: added top-level genes AFF4 to the variant node so the causal gene wires into the mechanism graph (0/1 to 1/1); added 36 downstream edges from the organism-level convergence node Multisystem Developmental Malformation and Growth Dysregulation (DIRECT for structural congenital malformations, INDIRECT_UNKNOWN_INTERMEDIATES for functional/behavioural features) and 3 edges from Food-Seeking Behaviour and Impaired Satiety (Hyperphagia DIRECT, Obesity DIRECT with GeneReviews edge evidence, Acanthosis Nigricans INDIRECT_KNOWN_INTERMEDIATES via obesity-associated insulin resistance). Connectivity 0/49 to 39/51. Deliberately left unexplained (12): the parenchymal/functional pulmonary set (chronic lung disease, pneumonia, alveolar haemorrhage, pulmonary hypertension, sleep apnea - aetiology explicitly undetermined per PMID:31058441; the existing pulmonary KNOWLEDGE_GAP now attaches to these phenotypes), dilated aortic root, constipation, the single-case dental and neuroimaging findings, and the unestablished moyamoya/vasculopathy association. Validated: just validate, validate-terms, check-duplicate-keys, check-entity-refs, folded-hyphens/snippet-length/title-snippets baselines, and just validate-disorders all pass; 139/139 snippets verified.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: CHOPS Syndrome (MONDO:0014609, AFF4)</strong> · 2026-08-19T19:33:45Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/CHOPS_Syndrome/2026-08-19T193345Z-claude-code-8bff6f.yaml">View source</a></p>
+                        <p class="research-review-text">New KB entry for CHOPS syndrome (MONDO:0014609, OMIM:616368, AFF4/hgnc:17869), the AFF4 super-elongation-complex gain-of-function multiple congenital anomaly / intellectual disability syndrome.
+
+NEC preflight (mandatory for this long compound MONDO label): `just preflight-dr research/CHOPS_Syndrome-deep-research-falcon.md MONDO:0014609` returned PASS - canonical gene AFF4 mentioned 55 times, next gene SIAH1 at 5; report OMIM 616368 matched the MONDO OMIM xref. Identity was anchored independently with `runoak -i sqlite:obo:mondo info MONDO:0014609 -O obo`, which gives xref OMIM:616368, relationship RO:0004003 HGNC:17869 (AFF4), and &#34;CHOPS syndrome&#34; as an EXACT synonym - the basis for the file slug.
+
+Deep research: falcon (Edison), 624s, 30 citations. Its own reference_validation block reported 5/5 references resolved, 0 unresolved, 0 off topic. The report was used as a lead only; every snippet in the entry was taken from a cached abstract or PMC full text, not from the report. The report contributed one reference not otherwise found (PMID:37528066, Che et al. on distinct AFF1/AFF4 SEC roles), which is cited with an explicit caveat that the experiment is AFF4 loss rather than gain.
+
+GeneReviews baseline: PMID:41712746 &#34;AFF4-Related CHOPS Syndrome&#34; exists and is tagged in the top-level references block. Its Clinical Characteristics and Management sections were cross-referenced against the phenotypes and treatments sections.
+
+Pathophysiology is de-bundled into seven atomic nodes: de novo ALF-homology-domain missense variant; loss of SIAH1-mediated degradation; accumulation of chromatin-associated AFF4; dysregulated SEC-dependent transcriptional elongation; a parallel enhancer-complex and enhancer-promoter-looping arm shared with Cornelia de Lange syndrome; global transcriptional dysregulation of developmental gene programmes; and an organism-level malformation node. Food-seeking behaviour is a separate node reached by an INDIRECT_UNKNOWN_INTERMEDIATES edge because no mechanism links AFF4 to appetite.
+
+Four KNOWLEDGE_GAP discussions record what is not known: the pulmonary mechanism (the largest clinical series itself calls the chronic lung disease aetiology undetermined), the appetite mechanism, whether the single-case moyamoya and systemic vasculopathy association is real (confounded by an RNF213 susceptibility allele in the same genome; curated with PARTIAL evidence), and how the CHOPS phenotype partitions between the CdLS-shared enhancer arm and the CHOPS-specific elongation arm.
+
+Models: patient dermal fibroblasts and the HEK293T AFF4/SIAH1 co-overexpression assay under experimental_models; the ENU &#34;robotic&#34; Aff1 mouse under animal_models as PARTIALLY_RECAPITULATES with LOW fidelity, its limitations stating it is the paralogue and produces ataxia, not CHOPS - there is no animal model of the disorder itself.
+
+Validation run and read: `just validate` passed schema, terms, and 127/127 snippets verified against cached references; `just count-verified-snippets` 127/127; `just validate-terms` passed; `scripts/check_snippet_length.py --against-ref origin/main` reported no new snippets under 5 words; `just check-title-snippets` reported no new title-quoting snippets; `just check-duplicate-keys` OK; `just check-term-cache-integrity` OK; `just validate-disorders kb/disorders/CHOPS_Syndrome.yaml` passed 127/127. `pytest tests/test_data.py -k CHOPS_Syndrome` 16 passed. A full `pytest tests/test_data.py` run showed one unrelated pre-existing failure in Travelers_Diarrhea.yaml (bare-URL evidence references); that file is byte-identical to origin/main and untouched here. linkml-data-qc compliance 94.9% (weighted 95.3%).
+
+datasets is deliberately empty: no CHOPS-specific dataset exists, and searching the causal gene would surface AFF4&#39;s HIV and leukaemia literature rather than this disorder - the Named Entity Confusion risk CLAUDE.md warns about for dataset discovery.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

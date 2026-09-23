@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,18 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4138,6 +4215,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4159,6 +4237,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4235,6 +4314,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4259,6 +4339,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4280,6 +4361,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4414,6 +4496,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4501,6 +4584,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4642,6 +4726,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4788,6 +4873,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4924,6 +5010,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4945,6 +5032,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5023,6 +5111,7 @@
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5044,6 +5133,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5081,6 +5171,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-lactobacillus-dominance-and-vaginal-acidification" data-dismech-node="Loss of Lactobacillus Dominance and Vaginal Acidification" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Lactobacillus Dominance and Vaginal Acidification</div>
+
 
                 <div class="item-desc">The initiating state change. A healthy premenopausal vagina is dominated by Lactobacillus species whose copious lactic acid holds the lumen below pH 4.5; in BV that community is replaced, lactic acid production falls and pH rises. Two points matter for everything downstream. The species identity is not interchangeable - L. crispatus-dominated communities are the most protective, whereas L. iners, which makes only the L-isomer of lactic acid, sits at an intermediate and unstable position and is the species most associated with transition into and relapse after BV. And the trigger itself is unexplained: what precipitates the shift in an individual woman is the central unanswered question of the field, curated as a knowledge gap below. `GO:0006885 regulation of pH` is deliberately not bound here: the pH claim this node makes is about the chemistry of the vaginal lumen, not about a cellular homeostatic process, and GO annotates the latter. The mechanism that produces the pH change is carried by the lactate term below, and the luminal measurement itself is curated as an Amsel criterion under `definitions`.
 </div>
@@ -5194,6 +5285,7 @@ This pathophysiological event occurs in vagina (UBERON:0000996). UBERON:0000996 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5215,6 +5307,7 @@ This pathophysiological event occurs in vagina (UBERON:0000996). UBERON:0000996 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5242,6 +5335,7 @@ This pathophysiological event occurs in vagina (UBERON:0000996). UBERON:0000996 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5266,6 +5360,7 @@ This pathophysiological event occurs in vagina (UBERON:0000996). UBERON:0000996 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-polymicrobial-anaerobic-overgrowth" data-dismech-node="Polymicrobial Anaerobic Overgrowth" data-dismech-type="pathophysiology">
                 <div class="item-name">Polymicrobial Anaerobic Overgrowth</div>
+
 
                 <div class="item-desc">Expansion of a dense, diverse consortium - Gardnerella spp., Prevotella (Hoylesella) spp., Fannyhessea (Atopobium) vaginae, Mobiluncus, Megasphaera, Sneathia and others - to concentrations orders of magnitude above baseline. This node is deliberately named for the community rather than for an organism: no single member reproduces the syndrome on inoculation, and each is recoverable from women without disease. Treating the consortium as the unit is what makes the broad anaerobic coverage of metronidazole and clindamycin the rational therapy, and it is why an organism-specific agent has never been developed.
 </div>
@@ -5403,6 +5498,7 @@ This pathophysiological event occurs in vagina (UBERON:0000996). UBERON:0000996 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5424,6 +5520,7 @@ This pathophysiological event occurs in vagina (UBERON:0000996). UBERON:0000996 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5449,6 +5546,7 @@ This pathophysiological event occurs in vagina (UBERON:0000996). UBERON:0000996 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biogenic-amine-production-and-amplified-lactobacillus-suppression" data-dismech-node="Biogenic Amine Production and Amplified Lactobacillus Suppression" data-dismech-type="pathophysiology">
                 <div class="item-name">Biogenic Amine Production and Amplified Lactobacillus Suppression</div>
+
 
                 <div class="item-desc">Amino acid decarboxylation by the expanded anaerobes produces putrescine, cadaverine, tyramine and trimethylamine. These are usually treated as a symptom - they are what the whiff test detects and what patients describe as a fishy odour - but the measurements curated here make them a mechanism as well: they inhibit the growth of vaginal lactobacilli and independently reduce their lactic acid output. That closes a positive feedback loop back onto the trigger node, which is why the dysbiotic state is self-reinforcing rather than self-limiting, and it is the reason this node is curated separately from the odour phenotype it produces.
 </div>
@@ -5541,6 +5639,7 @@ This pathophysiological event involves increased amine biosynthetic process (GO:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5562,6 +5661,7 @@ This pathophysiological event involves increased amine biosynthetic process (GO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5589,6 +5689,7 @@ This pathophysiological event involves increased amine biosynthetic process (GO:
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5611,6 +5712,7 @@ This pathophysiological event involves increased amine biosynthetic process (GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-epithelial-adhesion-and-gardnerella-dominated-adherent-biofilm" data-dismech-node="Epithelial Adhesion and Gardnerella-Dominated Adherent Biofilm" data-dismech-type="pathophysiology">
                 <div class="item-name">Epithelial Adhesion and Gardnerella-Dominated Adherent Biofilm</div>
+
 
                 <div class="item-desc">Gardnerella adheres to the vaginal epithelium and forms a confluent, structured biofilm into which other consortium members are incorporated. This is the one structural feature that FISH on vaginal biopsies found specific to BV rather than merely more abundant in it, and it is the physical object that makes BV a persistent rather than an episodic condition: a sessile, matrix-embedded community tolerates antimicrobial exposure that clears planktonic organisms. Prevotella (Hoylesella) timonensis adheres comparably well, so adhesion is not a Gardnerella monopoly even though biofilm architecture appears to be.
 </div>
@@ -5830,6 +5932,7 @@ This pathophysiological event occurs in vagina (UBERON:0000996). UBERON:0000996 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5851,6 +5954,7 @@ This pathophysiological event occurs in vagina (UBERON:0000996). UBERON:0000996 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5878,6 +5982,7 @@ This pathophysiological event occurs in vagina (UBERON:0000996). UBERON:0000996 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5900,6 +6005,7 @@ This pathophysiological event occurs in vagina (UBERON:0000996). UBERON:0000996 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-exfoliation-of-bacteria-coated-epithelial-cells-clue-cells" data-dismech-node="Exfoliation of Bacteria-Coated Epithelial Cells (Clue Cells)" data-dismech-type="pathophysiology">
                 <div class="item-name">Exfoliation of Bacteria-Coated Epithelial Cells (Clue Cells)</div>
+
 
                 <div class="item-desc">Squamous epithelial cells so heavily coated with adherent organisms that their borders are obscured are shed into the vaginal fluid. Immunofluorescence on clue cells identifies the adherent rods as Gardnerella rather than Mobiluncus, Bacteroides or Fusobacterium, which is the observation that ties the microscopic diagnostic sign to a specific adhesion mechanism rather than to generic anaerobic overgrowth. This node is curated as a cellular event, not as a diagnostic test; the test that reads it is curated under `definitions`.
 </div>
@@ -5994,6 +6100,7 @@ This pathophysiological event occurs in vagina (UBERON:0000996). UBERON:0000996 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6015,6 +6122,7 @@ This pathophysiological event occurs in vagina (UBERON:0000996). UBERON:0000996 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6040,6 +6148,7 @@ This pathophysiological event occurs in vagina (UBERON:0000996). UBERON:0000996 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-vaginolysin-mediated-epithelial-pore-formation-and-signalling" data-dismech-node="Vaginolysin-Mediated Epithelial Pore Formation and Signalling" data-dismech-type="pathophysiology">
                 <div class="item-name">Vaginolysin-Mediated Epithelial Pore Formation and Signalling</div>
+
 
                 <div class="item-desc">Gardnerella secretes vaginolysin, a cholesterol-dependent cytolysin whose receptor is human CD59. Two consequences matter and they are different in kind. At lytic concentrations the toxin kills; at sublytic concentrations - which is the physiological situation - it triggers rapid membrane blebbing, activates epithelial p38 MAPK and induces IL-8. The receptor dependence is the reason BV has no natural animal model: vaginolysin is human-specific because CD59 is, and transfecting human CD59 into non-human cells is what confers susceptibility. That constraint is curated as a human/model mismatch below rather than left implicit.
 </div>
@@ -6200,6 +6309,7 @@ This pathophysiological event involves increased killing of cells of another org
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6221,6 +6331,7 @@ This pathophysiological event involves increased killing of cells of another org
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6248,6 +6359,7 @@ This pathophysiological event involves increased killing of cells of another org
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6272,6 +6384,7 @@ This pathophysiological event involves increased killing of cells of another org
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bacterial-sialidase-and-glycosidase-degradation-of-the-mucus-barrier" data-dismech-node="Bacterial Sialidase and Glycosidase Degradation of the Mucus Barrier" data-dismech-type="pathophysiology">
                 <div class="item-name">Bacterial Sialidase and Glycosidase Degradation of the Mucus Barrier</div>
+
 
                 <div class="item-desc">The consortium secretes sialidases, fucosidases, beta-galactosidase and beta-N-acetylhexosaminidase that strip terminal sugars from cervicovaginal mucins and from the epithelial glycocalyx. This is the arm of BV pathogenesis with the clearest line to hard clinical outcomes, and it has been misattributed for two decades: biochemical work focused on Gardnerella, but vaginal Prevotella species are now shown to be a major and globally conserved source of vaginal sialidase, with P. (Hoylesella) timonensis carrying both sialidases and an unusual complement of fucosidases. Notably, the same 1999 study that found sialidase, beta-galactosidase and beta-N-acetylhexosaminidase elevated in BV found no increase in O-glycanase, proteinase, sulphatase or whole-mucinase activity - the degradation is glycosidic and selective, not general proteolysis, and that distinction is preserved here rather than flattened into &#34;mucinase activity&#34;.
 </div>
@@ -6393,6 +6506,7 @@ This pathophysiological event occurs in mucus (UBERON:0000912). UBERON:0000912 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6414,6 +6528,7 @@ This pathophysiological event occurs in mucus (UBERON:0000912). UBERON:0000912 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6441,6 +6556,7 @@ This pathophysiological event occurs in mucus (UBERON:0000912). UBERON:0000912 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6465,6 +6581,7 @@ This pathophysiological event occurs in mucus (UBERON:0000912). UBERON:0000912 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-cervicovaginal-mucus-adhesive-barrier-function" data-dismech-node="Loss of Cervicovaginal Mucus Adhesive Barrier Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Cervicovaginal Mucus Adhesive Barrier Function</div>
+
 
                 <div class="item-desc">Cervicovaginal mucus normally traps virions and particles. In BV that trapping fails: fluorescently labelled HIV virions move significantly faster through mucus from women with BV than through mucus from L. crispatus-dominant women, whether or not the woman has symptoms. The mechanistically important finding is *how* it fails - electron microscopy and nanoparticle work localise the defect to reduced adhesive interactions, with the physical pore structure of the gel intact. The barrier is not torn open; it stops being sticky. The same loss of trapping is seen with L. iners-dominant mucus, which is why treating BV to a Nugent-normal endpoint does not necessarily restore the barrier.
 </div>
@@ -6557,6 +6674,7 @@ This pathophysiological event occurs in uterine cervix (UBERON:0000002). UBERON:
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6578,6 +6696,7 @@ This pathophysiological event occurs in uterine cervix (UBERON:0000002). UBERON:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6605,6 +6724,7 @@ This pathophysiological event occurs in uterine cervix (UBERON:0000002). UBERON:
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6627,6 +6747,7 @@ This pathophysiological event occurs in uterine cervix (UBERON:0000002). UBERON:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-epithelial-barrier-disruption-and-mucosal-immune-activation" data-dismech-node="Epithelial Barrier Disruption and Mucosal Immune Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Epithelial Barrier Disruption and Mucosal Immune Activation</div>
+
 
                 <div class="item-desc">Despite the &#34;-osis&#34; in its name, BV is not immunologically silent. Vaginal IL-1alpha and soluble E-cadherin - a biomarker of epithelial barrier disruption - are elevated, and a lactobacillus-deficient community is accompanied by increased numbers of activated mucosal CD4+ T cells. The causal reading is supported by intervention: repleting L. crispatus with a live biotherapeutic lowered both IL-1alpha and soluble E-cadherin, so the inflammatory state tracks the community rather than merely co-occurring with it. This node is what converts a microbiological state into an HIV-relevant one, because activated mucosal CD4+ T cells are the target cell.
 </div>
@@ -6837,6 +6958,7 @@ This pathophysiological event involves increased T cell activation (GO:0042110).
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6858,6 +6980,7 @@ This pathophysiological event involves increased T cell activation (GO:0042110).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6885,6 +7008,7 @@ This pathophysiological event involves increased T cell activation (GO:0042110).
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6907,6 +7031,7 @@ This pathophysiological event involves increased T cell activation (GO:0042110).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-susceptibility-to-hiv-and-other-genital-tract-infections" data-dismech-node="Increased Susceptibility to HIV and Other Genital Tract Infections" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased Susceptibility to HIV and Other Genital Tract Infections</div>
+
 
                 <div class="item-desc">The consequence that dominates BV&#39;s public-health importance. Meta-analysis of incidence studies puts the relative risk of HIV acquisition at 1.6, and a prospective South African cohort found over four-fold higher risk for the most diverse lactobacillus-deficient communities. Two distinct mechanisms feed this node and are curated separately upstream: loss of mucus trapping (a physical barrier failure) and recruitment of activated mucosal CD4+ T cells (target-cell supply). The evidence is not uniform across every downstream infection, and the PID arm in particular is a documented disagreement between two prospective cohorts rather than a settled result. Both are retained below. The Longitudinal Study of Vaginal Flora (N = 2956) found both Nugent-BV (aHR 1.53) and symptomatic Amsel-BV (aHR 2.15) associated with incident PID at the subsequent visit; the two intervals overlap and the study does not test the difference between them, so the figures do not establish a gradient by exposure definition. A community-based cohort found no association between a Gardnerella-dominated microbiome and subsequent PID. The two differ in ascertainment on both sides - Nugent and Amsel criteria against microbiome sequencing for the exposure, and clinic-based tenderness criteria against community follow-up for the outcome - and the negative study reports few PID cases, so this node records the association as contested rather than resolving it in either direction.
 </div>
@@ -6984,6 +7109,7 @@ This pathophysiological event involves dysregulated response to bacterium (GO:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7005,6 +7131,7 @@ This pathophysiological event involves dysregulated response to bacterium (GO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7032,6 +7159,7 @@ This pathophysiological event involves dysregulated response to bacterium (GO:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7056,6 +7184,7 @@ This pathophysiological event involves dysregulated response to bacterium (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ascending-infection-and-adverse-pregnancy-outcomes" data-dismech-node="Ascending Infection and Adverse Pregnancy Outcomes" data-dismech-type="pathophysiology">
                 <div class="item-name">Ascending Infection and Adverse Pregnancy Outcomes</div>
+
 
                 <div class="item-desc">In pregnancy the same barrier failure permits organisms to reach the choriodecidual space, and BV detected early in pregnancy is associated with late miscarriage and preterm delivery independent of prior preterm birth. The enzyme measurement makes this more than an association: among women already in preterm labour with BV or intermediate flora, those with detectable vaginal sialidase had a higher rate of early preterm birth, which links the outcome to the specific molecular activity curated upstream rather than to the Nugent score alone. Screening-and-treatment trials have nonetheless been inconsistent, so this node records a mechanism and a risk association, not a demonstrated preventable fraction.
 </div>
@@ -7116,6 +7245,7 @@ This pathophysiological event occurs in uterine cervix (UBERON:0000002). UBERON:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7137,6 +7267,7 @@ This pathophysiological event occurs in uterine cervix (UBERON:0000002). UBERON:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7164,6 +7295,7 @@ This pathophysiological event occurs in uterine cervix (UBERON:0000002). UBERON:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7188,6 +7320,7 @@ This pathophysiological event occurs in uterine cervix (UBERON:0000002). UBERON:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biofilm-persistence-after-antimicrobial-therapy" data-dismech-node="Biofilm Persistence After Antimicrobial Therapy" data-dismech-type="pathophysiology">
                 <div class="item-name">Biofilm Persistence After Antimicrobial Therapy</div>
+
 
                 <div class="item-desc">The first of two competing accounts of why BV comes back. Metronidazole and clindamycin cure 70-85% of episodes within a month, yet more than half of women relapse within six months. On this account the adherent Gardnerella biofilm survives the antibiotic course and the BV-associated bacteria re-emerge from it - a relapse of the same community rather than a new acquisition. Note what this node does not claim: no assay currently distinguishes a surviving biofilm from a reacquired one in an individual woman, so this is an inference from the biofilm&#39;s demonstrated existence and known antimicrobial tolerance, not a measured event.
 </div>
@@ -7302,6 +7435,7 @@ This pathophysiological event involves increased biofilm formation (GO:0042710).
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7323,6 +7457,7 @@ This pathophysiological event involves increased biofilm formation (GO:0042710).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7348,6 +7483,7 @@ This pathophysiological event involves increased biofilm formation (GO:0042710).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reinfection-from-an-untreated-sexual-partner" data-dismech-node="Reinfection from an Untreated Sexual Partner" data-dismech-type="pathophysiology">
                 <div class="item-name">Reinfection from an Untreated Sexual Partner</div>
+
 
                 <div class="item-desc">The second account. BV-associated bacteria are exchanged between partners during sex, and on this reading a woman cured by antibiotics is reinoculated by an untreated regular partner. Six partner-treatment trials in the 1980s and 1990s were negative and the hypothesis fell out of favour; guidelines do not recommend partner treatment. The 2025 StepUp randomised trial reopened it decisively - it was stopped early by its data and safety monitoring board because treating the woman alone was inferior to treating both partners, with 12-week recurrence 35% versus 63%. This node is therefore curated as a real causal route, not as a historical hypothesis, while the biofilm route is retained alongside it.
 </div>
@@ -7424,6 +7560,7 @@ This pathophysiological event involves increased biofilm formation (GO:0042710).
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7445,6 +7582,7 @@ This pathophysiological event involves increased biofilm formation (GO:0042710).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7472,6 +7610,7 @@ This pathophysiological event involves increased biofilm formation (GO:0042710).
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7494,6 +7633,7 @@ This pathophysiological event involves increased biofilm formation (GO:0042710).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-recurrent-bacterial-vaginosis" data-dismech-node="Recurrent Bacterial Vaginosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Recurrent Bacterial Vaginosis</div>
+
 
                 <div class="item-desc">Re-establishment of the dysbiotic community after apparently successful treatment - the outcome that defines the clinical problem, since short-term cure is not the difficulty. Both upstream routes converge here and neither can be excluded in an individual woman, because they present identically. That indistinguishability is not a curation shortcut; it is the field&#39;s stated position and is recorded as a knowledge gap below. The node is not a terminal state: a recurrent episode is diagnosed by the same Amsel and Nugent criteria as an incident one, so it re-enters the graph at the trigger node and the entry is a cycle rather than a chain. That is the structural reason short-term cure and sustained cure come apart.
 </div>
@@ -7548,6 +7688,7 @@ This pathophysiological event involves increased biofilm formation (GO:0042710).
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7569,6 +7710,7 @@ This pathophysiological event involves increased biofilm formation (GO:0042710).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7594,6 +7736,7 @@ This pathophysiological event involves increased biofilm formation (GO:0042710).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-anaerobe-ribosomal-translation-clindamycin-and-tetracycline-target" data-dismech-node="Anaerobe Ribosomal Translation (Clindamycin and Tetracycline Target)" data-dismech-type="pathophysiology">
                 <div class="item-name">Anaerobe Ribosomal Translation (Clindamycin and Tetracycline Target)</div>
+
 
                 <div class="item-desc">Protein synthesis in the BV consortium is the molecular target of clindamycin, the lincosamide alternative to metronidazole and the agent applied topically to the penile skin of male partners in the StepUp regimen. It is curated as its own node so that the clindamycin arm of therapy attaches to a mechanism rather than to the disease as a whole - metronidazole, whose nitroimidazole mechanism is reductive DNA damage in anaerobes, does not act here and is deliberately not attached to this node.
 </div>
@@ -7671,6 +7814,7 @@ This pathophysiological event involves decreased translation (GO:0006412). GO:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7692,6 +7836,7 @@ This pathophysiological event involves decreased translation (GO:0006412). GO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7759,9 +7904,9 @@ This pathophysiological event involves decreased translation (GO:0006412). GO:00
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Prenatal and Birth<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Genitourinary<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Other<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Prenatal and Birth<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -7770,86 +7915,7 @@ This pathophysiological event involves decreased translation (GO:0006412). GO:00
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Prenatal and Birth
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-premature-birth" data-dismech-node="Premature birth" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Premature birth
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001622" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001622</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Premature birth (HP:0001622). HP:0001622 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:8124116" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/8124116" target="_blank">PMID:8124116</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Multiple logistic analysis showed that there was an increased incidence of preterm delivery in women with a previous preterm delivery (9/24; odds ratio 25; 95% confidence interval 9 to 70; P &lt; 0.001) and bacterial vaginosis (9/115; 2.8; 1.1 to 7.4; P = 0.04)."</div>
-
-
-                <div class="evidence-explanation">Gives the absolute count behind the OCCASIONAL band: 9 of 115 pregnant women with BV delivered preterm, which is within the 5-29% range for that frequency term.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-2">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
+                    Genitourinary
                     <span class="cat-count">1</span>
                 </summary>
 
@@ -7871,15 +7937,18 @@ This clinical feature is Premature birth (HP:0001622). HP:0001622 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0034269" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0034269</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0034269" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0034269</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Thin homogeneous malodorous vaginal discharge, annotated with Abnormal vaginal discharge (HP:0034269). HP:0034269 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7899,6 +7968,7 @@ This clinical feature is Thin homogeneous malodorous vaginal discharge, annotate
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7926,6 +7996,7 @@ This clinical feature is Thin homogeneous malodorous vaginal discharge, annotate
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7950,6 +8021,7 @@ This clinical feature is Thin homogeneous malodorous vaginal discharge, annotate
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7958,6 +8030,89 @@ This clinical feature is Thin homogeneous malodorous vaginal discharge, annotate
 
 
                 <div class="evidence-explanation">Basis for the FREQUENT rather than VERY_FREQUENT band: more than half of women meeting the case definition had no symptoms at all, so symptomatic discharge is present in a minority-to-half of cases.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Prenatal and Birth
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-premature-birth" data-dismech-node="Premature birth" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Premature birth
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001622" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001622</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Premature birth (HP:0001622). HP:0001622 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:8124116" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/8124116" target="_blank">PMID:8124116</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Multiple logistic analysis showed that there was an increased incidence of preterm delivery in women with a previous preterm delivery (9/24; odds ratio 25; 95% confidence interval 9 to 70; P &lt; 0.001) and bacterial vaginosis (9/115; 2.8; 1.1 to 7.4; P = 0.04)."</div>
+
+
+                <div class="evidence-explanation">Gives the absolute count behind the OCCASIONAL band: 9 of 115 pregnant women with BV delivered preterm, which is within the 5-29% range for that frequency term.</div>
 
 
 
@@ -8083,6 +8238,31 @@ This treatment uses metronidazole (CHEBI:6909). CHEBI:6909 is a therapeutic agen
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">First-line therapy, oral or as 0.75% intravaginal gel. A nitroimidazole prodrug reductively activated inside anaerobes, so its selectivity is for the metabolic environment of the consortium rather than for any BV organism specifically - which is exactly the property a polymicrobial dysbiosis needs. It cures most episodes and prevents few recurrences, and this entry attaches it to the overgrowth node only, not to the biofilm node, because clearing planktonic anaerobes is what it is shown to do.
 </div>
 
@@ -8114,6 +8294,7 @@ This treatment uses metronidazole (CHEBI:6909). CHEBI:6909 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8160,6 +8341,7 @@ This treatment uses metronidazole (CHEBI:6909). CHEBI:6909 is a therapeutic agen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8181,6 +8363,7 @@ This treatment uses metronidazole (CHEBI:6909). CHEBI:6909 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8266,6 +8449,31 @@ This treatment uses secnidazole (CHEBI:140628). CHEBI:140628 is a therapeutic ag
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">A 5-nitroimidazole given as a single 2 g oral dose of granules, FDA-approved for BV in 2017. Mechanistically it is metronidazole&#39;s class-mate - the same reductive activation inside anaerobes - so it attaches to the same overgrowth node and not to the biofilm node. What it changes is exposure kinetics rather than target: a roughly 17-hour half-life against metronidazole&#39;s 8 hours is what makes one dose sufficient, which matters for a disease whose first-line regimens run 5 to 7 days and whose recurrence is partly a compliance problem. Superiority was shown against placebo rather than against metronidazole, so this entry does not claim it is more effective than first-line therapy.
 </div>
 
@@ -8297,6 +8505,7 @@ This treatment uses secnidazole (CHEBI:140628). CHEBI:140628 is a therapeutic ag
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8340,6 +8549,7 @@ This treatment uses secnidazole (CHEBI:140628). CHEBI:140628 is a therapeutic ag
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8425,6 +8635,31 @@ This treatment uses tinidazole (CHEBI:63627). CHEBI:63627 is a therapeutic agent
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">A second-generation 5-nitroimidazole, FDA-approved for BV and a CDC-recommended alternative regimen, given orally as 1 g daily for 5 days or 2 g daily for 2 days. Like secnidazole it shares metronidazole&#39;s reductive-activation mechanism and is attached to the overgrowth node only. It is curated here partly because its pivotal trial used the strict five-criterion FDA cure definition, which is why its reported cure rates (27-37%) look far worse than the 70-85% quoted for first-line regimens elsewhere in this entry - the difference is the endpoint, not the drug, and that discrepancy is itself worth recording in a disease whose literature mixes Amsel, Nugent and molecular definitions.
 </div>
 
@@ -8456,6 +8691,7 @@ This treatment uses tinidazole (CHEBI:63627). CHEBI:63627 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8502,6 +8738,7 @@ This treatment uses tinidazole (CHEBI:63627). CHEBI:63627 is a therapeutic agent
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8523,6 +8760,7 @@ This treatment uses tinidazole (CHEBI:63627). CHEBI:63627 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8609,6 +8847,31 @@ This treatment uses dequalinium chloride (CHEBI:31466). CHEBI:31466 is a therape
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">A broad-spectrum quaternary-ammonium antiseptic given as a 10 mg vaginal tablet for six days, widely used in Europe and non-inferior to oral metronidazole in a phase 4 double-dummy trial. It is curated as a distinct arm rather than as another antibiotic because it is not one: a membrane-active antiseptic exerts no selection pressure of the kind that drives nitroimidazole resistance, which is the stated reason the trial was run. It attaches to the same overgrowth node, since the evidence is a clinical cure rate and not a demonstration of action on the biofilm.
 </div>
 
@@ -8640,6 +8903,7 @@ This treatment uses dequalinium chloride (CHEBI:31466). CHEBI:31466 is a therape
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8686,6 +8950,7 @@ This treatment uses dequalinium chloride (CHEBI:31466). CHEBI:31466 is a therape
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8707,6 +8972,7 @@ This treatment uses dequalinium chloride (CHEBI:31466). CHEBI:31466 is a therape
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8792,6 +9058,31 @@ This treatment uses clindamycin (CHEBI:3745). CHEBI:3745 is a therapeutic agent 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Lincosamide alternative to metronidazole, given as 2% intravaginal cream, and the topical component applied to penile skin in the StepUp partner-treatment regimen. Unlike metronidazole it has a defined molecular target in this entry - the bacterial ribosome - which is why it carries a module-conforming target node.
 </div>
 
@@ -8823,6 +9114,7 @@ This treatment uses clindamycin (CHEBI:3745). CHEBI:3745 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8873,6 +9165,7 @@ This treatment uses clindamycin (CHEBI:3745). CHEBI:3745 is a therapeutic agent 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8913,6 +9206,7 @@ This treatment uses clindamycin (CHEBI:3745). CHEBI:3745 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8977,6 +9271,31 @@ This treatment is vaginal live biotherapeutic (Lactobacillus crispatus) administ
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">A vaginally applied live biotherapeutic containing a naturally occurring human vaginal strain of L. crispatus, given after a course of metronidazole. It is the only intervention curated here that acts on the trigger node rather than on the consortium: it does not kill anaerobes, it repopulates the niche. Recurrence at 12 weeks fell from 45% to 30%, and a randomised immunology substudy showed lower vaginal IL-1alpha and soluble E-cadherin, so the effect reaches the epithelial-activation node as well as the community-state node.
 </div>
 
@@ -9008,6 +9327,7 @@ This treatment is vaginal live biotherapeutic (Lactobacillus crispatus) administ
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9058,6 +9378,7 @@ This treatment is vaginal live biotherapeutic (Lactobacillus crispatus) administ
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9101,6 +9422,7 @@ This treatment is vaginal live biotherapeutic (Lactobacillus crispatus) administ
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9122,6 +9444,7 @@ This treatment is vaginal live biotherapeutic (Lactobacillus crispatus) administ
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9224,6 +9547,31 @@ This treatment uses clindamycin (CHEBI:3745). CHEBI:3745 is a therapeutic agent 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Treating the woman&#39;s regular male partner with 7 days of oral metronidazole plus 2% clindamycin cream applied to penile skin, alongside her own first-line therapy. This is the only intervention here aimed at the reinfection route rather than at the woman&#39;s own vaginal community, and it is a reversal: six trials in the 1980s-90s were negative and guidelines do not recommend it, but the 2025 StepUp trial was stopped early because withholding it was inferior. Curated as a treatment because the trial result is randomised and positive, with the guideline lag recorded in the notes.
 </div>
 
@@ -9255,6 +9603,7 @@ This treatment uses clindamycin (CHEBI:3745). CHEBI:3745 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9298,6 +9647,7 @@ This treatment uses clindamycin (CHEBI:3745). CHEBI:3745 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9366,6 +9716,7 @@ This treatment uses clindamycin (CHEBI:3745). CHEBI:3745 is a therapeutic agent 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9414,6 +9765,7 @@ This treatment uses clindamycin (CHEBI:3745). CHEBI:3745 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9474,6 +9826,7 @@ This treatment uses clindamycin (CHEBI:3745). CHEBI:3745 is a therapeutic agent 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9498,6 +9851,7 @@ This treatment uses clindamycin (CHEBI:3745). CHEBI:3745 is a therapeutic agent 
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9551,6 +9905,7 @@ This treatment uses clindamycin (CHEBI:3745). CHEBI:3745 is a therapeutic agent 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9575,6 +9930,7 @@ This treatment uses clindamycin (CHEBI:3745). CHEBI:3745 is a therapeutic agent 
 
 
                     <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9667,6 +10023,7 @@ This treatment uses clindamycin (CHEBI:3745). CHEBI:3745 is a therapeutic agent 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9724,6 +10081,7 @@ This treatment uses clindamycin (CHEBI:3745). CHEBI:3745 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9824,6 +10182,7 @@ This treatment uses clindamycin (CHEBI:3745). CHEBI:3745 is a therapeutic agent 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9845,6 +10204,7 @@ This treatment uses clindamycin (CHEBI:3745). CHEBI:3745 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9927,6 +10287,7 @@ This treatment uses clindamycin (CHEBI:3745). CHEBI:3745 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10030,6 +10391,7 @@ This clinical trial targets Thin homogeneous malodorous vaginal discharge, annot
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10106,6 +10468,7 @@ This clinical trial targets Thin homogeneous malodorous vaginal discharge, annot
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10160,6 +10523,7 @@ This clinical trial targets Thin homogeneous malodorous vaginal discharge, annot
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10181,6 +10545,7 @@ This clinical trial targets Thin homogeneous malodorous vaginal discharge, annot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10325,6 +10690,7 @@ This clinical trial targets Thin homogeneous malodorous vaginal discharge, annot
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -10364,6 +10730,7 @@ This clinical trial targets Thin homogeneous malodorous vaginal discharge, annot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12674,6 +13041,125 @@ notes: &gt;
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (3)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Scope. This entry models bacterial vaginosis as a community state, so no single organism is curated as &#34;the&#34; cause and no `genetic:` section is present - BV is not a Mendelian or susceptibility-gene disease and none of the cited work supports a host genetic arm. The 2026-08-25 completeness sweep did surface candidate-gene association studies (IL-1B, TNFA, TLR variants), but they are small, single-population and unreplicated, and no GWAS exists; the sweep&#39;s own recommendation was to leave the section absent rather than curate them, and that recommendation is followed here.
+What is deliberately absent. There is no aerobic vaginitis, desquamative inflammatory vaginitis, candidiasis or trichomoniasis content here; those are separate entities with different communities and different treatments. Metronidazole is not attached to the ribosomal-translation node because its nitroimidazole mechanism is unrelated to it. No `conforms_to` is claimed against `intracellular_pathogen_persistence`: the BV consortium is extracellular and biofilm-associated, and the cell-penetrance constraint that module encodes does not apply.
+Provenance. The entry was built directly from primary literature identified by PubMed search, and every snippet was checked against the cached reference before commit. A deep-research report was produced afterwards rather than before (`research/Bacterial_Vaginosis-deep-research-claude.md`, 2026-08-25) as a content-completeness sweep in response to PR review; it found the licensed-treatment gap that this revision closes, and its remaining recommendations - a host-MMP barrier arm, the preterm-birth association-versus-intervention controversy, the virulent-strain conceptual model of pathogenesis, and a molecular diagnostic definition - are recorded there as follow-ups and are deliberately not folded into this revision.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Review response on PR #9073: licensed treatments, evidence retagging, DR sweep</strong> · 2026-08-25T12:53:13Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Bacterial_Vaginosis/2026-08-25T125313Z-claude-code-7fb002.yaml">View source</a></p>
+                        <p class="research-review-text">Response to the 2026-08-20 ai4c-reviewer CHANGES_REQUESTED review on PR #9073, plus a
+merge of origin/main to clear a conflict the branch had accumulated.
+
+Branch refresh. The conflict was confined to two derived cache files,
+cache/chebi/terms.csv and cache/enums/chemicalentityterm_b3afbb412a9e.csv. Resolved by
+taking main&#39;s rows wholesale and then re-deriving this entry&#39;s own rows with
+`just validate-terms`, rather than hand-placing any row. The resulting cache diff is
+additive only (CHEBI:18127 cadaverine restored; CHEBI:140628 and CHEBI:31466 added).
+
+Blocking finding 1 - no deep-research artifact. Produced
+research/Bacterial_Vaginosis-deep-research-claude.md, a PubMed E-utilities
+completeness sweep over eight dimensions (treatments, adverse outcomes, pathogenesis
+models, host genetics, immune/barrier mechanism, diagnostics, sialidase provenance,
+datasets). Every PMID, title, journal and publication type in it was read back from
+the NCBI record rather than recalled. `just preflight-dr` returns SKIP because
+MONDO:0005316 has no RO:0004003 causal gene, so the gene-identity check cannot
+discriminate; `just qc-deep-research --only Bacterial_Vaginosis` reports 0 missing and
+0 unresolved references. The sweep is recorded honestly as having been run *after*
+curation rather than before, in the entry&#39;s provenance notes.
+
+Blocking finding 2 - missing licensed treatments. Added three:
+
+- Secnidazole (CHEBI:140628), single 2 g oral dose, FDA-approved 2017. PMID:28867602,
+  phase 3 double-blind placebo-controlled, 189 women at 21 US centres.
+- Tinidazole (CHEBI:63627), FDA-approved and a CDC alternative regimen. PMID:17666604,
+  multicentre placebo-controlled trial, plus its registration record NCT00229216 added
+  to clinical_trials.
+- Dequalinium chloride (CHEBI:31466), a non-antibiotic antiseptic. PMID:38696172,
+  phase 4 double-dummy non-inferiority trial against oral metronidazole.
+
+All three attach to Polymicrobial Anaerobic Overgrowth and none to the ribosomal
+translation node, matching the existing treatment of metronidazole: secnidazole and
+tinidazole share metronidazole&#39;s nitroimidazole reductive-activation mechanism, and
+the dequalinium evidence is a clinical cure rate rather than a demonstrated action on
+the biofilm. The tinidazole entry deliberately curates both halves of its
+endpoint-dependent result - the 36.8%/27.4% cure rates under the strict five-criterion
+FDA definition and the paper&#39;s own statement that efficacy was greater under
+traditional criteria - so that those figures are not read against the 70-85% quoted
+from Amsel-based series elsewhere in the same entry.
+
+Blocking finding 3 - background prose quoted as findings. Three items fixed:
+
+- PMID:39162399 on the biofilm/adhesion node re-quoted from the abstract&#39;s opening
+  background sentence to the study&#39;s own adhesion result, which supports the node
+  directly and is the sentence the reviewer identified.
+- Two PMID:18390664 items (Gardnerella carriage in asymptomatic women; the absence of
+  a suitable animal model) retagged from IN_VITRO to OTHER, with each explanation now
+  stating that the sentence is the authors&#39; introduction rather than an outcome of
+  their cytolysin experiments. Both are genuinely in that paper&#39;s introduction, citing
+  its own references, and were verified against the cached full text.
+
+Non-blocking findings also taken:
+
+- Finding 5. GO:0006885 regulation of pH removed from the trigger node. The claim is
+  about the chemistry of the vaginal lumen, not a cellular homeostatic process, and GO
+  annotates the latter. The reason is recorded in the node description rather than
+  left as a silent deletion; the mechanism is still carried by GO:0019249 lactate
+  biosynthetic process and the luminal measurement by the Amsel pH definition.
+- Finding 6. A DIRECT edge added from Recurrent Bacterial Vaginosis back to Loss of
+  Lactobacillus Dominance and Vaginal Acidification, closing the cycle the entry
+  argues for. Evidenced by the LACTIN-V recurrence definition (recurrence is
+  operationalised as re-meeting the same Amsel and Nugent criteria as an incident
+  case) and by PMID:34470644 naming failure to recolonise with lactobacilli among the
+  drivers of recurrence.
+
+Finding 4 - three compound node names - was not taken. The reviewer marked it
+non-blocking and noted that each is a tight mechanistic pair rather than a chain;
+splitting them would fragment shared evidence.
+
+Finding 7 - phenotype coverage - was left for a follow-up. The sweep surfaced the
+meta-analytic preterm-birth literature and a live controversy in it (a robust
+association whose causal reading is undermined by the failure of the corresponding
+intervention), which is a discussion rather than a frequency band and is recorded in
+the report as a follow-up rather than curated here.
+
+Validation run in the worktree: `just validate-disorders` passes schema, terms and
+references with 99/99 snippets verified against cached references (88/88 before this
+revision);
+`just validate-history` clean on this record.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Bacterial Vaginosis (MONDO:0005316)</strong> · 2026-08-20T05:13:08Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Bacterial_Vaginosis/2026-08-20T051308Z-claude-code-563777.yaml">View source</a></p>
+                        <p class="research-review-text">New disorder entry created for the obstetrics/gynaecology coverage gap tracked in issue #7837.
+
+Modelled as a community-state disease rather than a single-organism infection: no infectious agent is curated as sufficient, and the Gardnerella entry carries a PARTIAL evidence item recording that carriage occurs in asymptomatic women. Fifteen pathophysiology nodes run from loss of Lactobacillus dominance through the adherent Gardnerella biofilm, vaginolysin-mediated epithelial signalling and bacterial sialidase degradation of the cervicovaginal mucus barrier, to HIV susceptibility, adverse pregnancy outcomes, and recurrence.
+
+Load-bearing curation decisions:
+- Recurrence is curated as two competing mechanistic hypotheses converging on one node: biofilm_persistence_relapse (CANONICAL, because the biofilm is directly demonstrated on biopsy) and sexual_reinfection (EMERGING, on the strength of the 2025 StepUp randomised trial stopped early for benefit, PMID:40043236). Neither is asserted as operative in an individual woman; the indistinguishability is curated as a KNOWLEDGE_GAP.
+- Biogenic amine production is a pathophysiology node with a feedback edge onto the trigger node, not merely the odour phenotype, because the cited work shows amines slow lactobacillus growth and independently cut lactic acid output.
+- The mucus-barrier node records that the defect is in adhesive rather than structural properties (PMID:31971984), and is deliberately not described as the barrier being torn open.
+- Negative and constraining results are retained rather than dropped: no increase in O-glycanase, proteinase or whole-mucinase activity in BV (PMID:10454178); prolidase and anti-Gvh IgA did not predict preterm birth (PMID:12388968); and a prospective REFUTE item against the BV-to-PID inference (PMID:35086915).
+- conforms_to is claimed only at bacterial_protein_synthesis_inhibition#Bacterial mRNA Translation by the Ribosome, for the clindamycin arm. Metronidazole is explicitly not attached to that node, and intracellular_pathogen_persistence is explicitly not claimed.
+- A HUMAN_MODEL_MISMATCH discussion records the receptor-level reason BV has no animal model (vaginolysin requires human CD59) alongside the absence of a lactobacillus-dominant vagina in model species; the one murine model is curated as PARTIALLY_RECAPITULATES with fidelity LOW.
+- The StepUp trial has no NCT number and is keyed on ICTRP:ACTRN12619000196145 (ANZCTR) fetched with just ictrp-fetch.
+- Two environmental exposures are curated with influences_mechanisms but no exposure_term; ECTO was searched for sexual-activity and contraceptive-device exposure concepts and nothing suitable was found, which is recorded in each entry notes field rather than left implicit.
+
+Validation: just validate (schema, terms and references) passes, reporting 88 of 88 snippets verified against cached references. just check-duplicate-keys, just check-title-snippets and just check-term-cache-integrity are all clean. Cache diffs are purely additive: 10 new rows across 8 files, all written by the validator, with no reordering churn. No deep-research provider report was used; all references were found by PubMed search and fetched with just fetch-reference.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

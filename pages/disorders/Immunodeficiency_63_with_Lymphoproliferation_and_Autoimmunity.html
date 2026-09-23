@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,18 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4111,6 +4188,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4132,6 +4210,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4335,6 +4414,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4409,6 +4489,7 @@
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4443,6 +4524,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-il2rb-loss-of-function-reduces-cd122-surface-expression" data-dismech-node="IL2RB Loss of Function Reduces CD122 Surface Expression" data-dismech-type="pathophysiology">
                 <div class="item-name">IL2RB Loss of Function Reduces CD122 Surface Expression</div>
+
 
                 <div class="item-desc">Biallelic IL2RB variants reduce or abolish surface CD122. The mechanisms differ between alleles, and a recombinant system reproduced both the loss of surface expression and the loss of IL-2 binding.</div>
 
@@ -4495,6 +4577,72 @@ This pathophysiological event involves IL2RB (hgnc:6009). hgnc:6009 is a gene fr
 
 
 
+    <div class="item-meta">
+        <span class="tag tag-classification">Genetic context</span>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        IL2RB
+
+
+    <a href="https://bioregistry.io/hgnc:6009" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:6009</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this genetic context concerns this gene
+This genetic context concerns IL2RB (hgnc:6009). hgnc:6009 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        <span class="tag tag-classification">variant_origin: GERMLINE</span>
+
+
+
+
+        <span class="tag tag-classification">zygosity: HOMOZYGOUS</span>
+
+
+
+        <span class="tag tag-classification">functional_impact_category: PARTIAL_LOSS_OF_FUNCTION</span>
+
+    </div>
+
+
+
+
+    <div class="context-detail">Homozygous IL2RB alleles. Recorded as PARTIAL_LOSS_OF_FUNCTION: the characterised alleles are hypomorphic, with decreased but not absent CD122 surface expression and residual signalling.</div>
+
+
+
 
 
 
@@ -4524,7 +4672,7 @@ This pathophysiological event involves IL2RB (hgnc:6009). hgnc:6009 is a gene fr
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (3 references)
         </summary>
         <div class="evidence-list">
 
@@ -4536,6 +4684,7 @@ This pathophysiological event involves IL2RB (hgnc:6009). hgnc:6009 is a gene fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4563,6 +4712,7 @@ This pathophysiological event involves IL2RB (hgnc:6009). hgnc:6009 is a gene fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4571,6 +4721,31 @@ This pathophysiological event involves IL2RB (hgnc:6009). hgnc:6009 is a gene fr
 
 
                 <div class="evidence-explanation">A hypomorphic allele reduces rather than abolishes surface expression, which is why the node is written as reduced expression rather than absence.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31040184" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31040184" target="_blank">PMID:31040184</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Collectively, the immunophenotypic and functional data support a hypomorphic nature for this IL2RB mutation, resulting in decreased, but not absent, protein expression and dysregulated signaling capability."</div>
+
+
+                <div class="evidence-explanation">Patient immunophenotyping establishing the allele as hypomorphic rather than null.</div>
 
 
 
@@ -4586,6 +4761,7 @@ This pathophysiological event involves IL2RB (hgnc:6009). hgnc:6009 is a gene fr
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failed-il-2-and-il-15-signalling" data-dismech-node="Failed IL-2 and IL-15 Signalling" data-dismech-type="pathophysiology">
                 <div class="item-name">Failed IL-2 and IL-15 Signalling</div>
 
+
                 <div class="item-desc">IL-2- and IL-15-dependent STAT5 signalling is impaired. The mouse knock-in model shows a second consequence that follows from the receptor not consuming its ligands: serum IL-2 and IL-15 rise.</div>
 
 
@@ -4600,11 +4776,11 @@ This pathophysiological event involves IL2RB (hgnc:6009). hgnc:6009 is a gene fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-2">CL:0000084</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0000084</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves T cell (CL:0000084). CL:0000084 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4641,11 +4817,11 @@ This pathophysiological event involves T cell (CL:0000084). CL:0000084 is a cell
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0038110" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0038110</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0038110" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0038110</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased interleukin-2-mediated signaling pathway (GO:0038110). GO:0038110 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4675,11 +4851,11 @@ This pathophysiological event involves decreased interleukin-2-mediated signalin
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0035723" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-4">GO:0035723</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0035723" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0035723</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased interleukin-15-mediated signaling pathway (GO:0035723). GO:0035723 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4780,6 +4956,7 @@ This pathophysiological event involves decreased interleukin-15-mediated signali
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4803,6 +4980,7 @@ This pathophysiological event involves decreased interleukin-15-mediated signali
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-regulatory-t-cell-deficiency" data-dismech-node="Regulatory T Cell Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Regulatory T Cell Deficiency</div>
 
+
                 <div class="item-desc">Regulatory T cells are severely reduced, measured directly by immunophenotyping in patients from both index cohorts. In the mouse model this is also the causally decisive population: transferring wild-type Tregs into mutant animals suppresses the autoimmunity without correcting the mutant Tregs themselves.</div>
 
 
@@ -4817,11 +4995,11 @@ This pathophysiological event involves decreased interleukin-15-mediated signali
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000815" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-5">CL:0000815</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000815" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000815</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves regulatory T cell (CL:0000815). CL:0000815 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4858,11 +5036,11 @@ This pathophysiological event involves regulatory T cell (CL:0000815). CL:000081
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0045066" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0045066</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0045066" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0045066</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased regulatory T cell differentiation (GO:0045066). GO:0045066 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4945,6 +5123,7 @@ This pathophysiological event involves decreased regulatory T cell differentiati
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4966,6 +5145,7 @@ This pathophysiological event involves decreased regulatory T cell differentiati
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4993,6 +5173,7 @@ This pathophysiological event involves decreased regulatory T cell differentiati
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5016,6 +5197,7 @@ This pathophysiological event involves decreased regulatory T cell differentiati
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nk-cell-maturation-defect" data-dismech-node="NK Cell Maturation Defect" data-dismech-type="pathophysiology">
                 <div class="item-name">NK Cell Maturation Defect</div>
 
+
                 <div class="item-desc">NK cells are present and expanded, but developmentally immature. Across the p.Ser40Leu, p.Leu77Pro and p.Pro222_Gln225del alleles, peripheral NK numbers and frequencies were all increased, with elevated CD56-bright frequencies and negligible CD57. Cytotoxicity is preserved; the deficit is in differentiation and, selectively, in IL-2/IL-15-driven IFN-gamma production.</div>
 
 
@@ -5030,11 +5212,11 @@ This pathophysiological event involves decreased regulatory T cell differentiati
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000623" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000623</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000623" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-8">CL:0000623</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves natural killer cell (CL:0000623). CL:0000623 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5071,11 +5253,11 @@ This pathophysiological event involves natural killer cell (CL:0000623). CL:0000
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001779" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0001779</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001779" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0001779</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal natural killer cell differentiation (GO:0001779). GO:0001779 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5160,6 +5342,7 @@ This pathophysiological event involves abnormal natural killer cell differentiat
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5184,6 +5367,7 @@ This pathophysiological event involves abnormal natural killer cell differentiat
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5205,6 +5389,7 @@ This pathophysiological event involves abnormal natural killer cell differentiat
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5233,6 +5418,7 @@ This pathophysiological event involves abnormal natural killer cell differentiat
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-effector-memory-cd8-t-cell-expansion" data-dismech-node="Effector Memory CD8 T Cell Expansion" data-dismech-type="pathophysiology">
                 <div class="item-name">Effector Memory CD8 T Cell Expansion</div>
 
+
                 <div class="item-desc">Expansion of effector memory CD8 T cells, part of the lymphoproliferative arm of the disease.</div>
 
 
@@ -5247,11 +5433,11 @@ This pathophysiological event involves abnormal natural killer cell differentiat
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000084</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000084" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000084</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves T cell (CL:0000084). CL:0000084 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5288,11 +5474,11 @@ This pathophysiological event involves T cell (CL:0000084). CL:0000084 is a cell
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0043029" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0043029</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0043029" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0043029</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal T cell homeostasis (GO:0043029). GO:0043029 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5355,6 +5541,7 @@ This pathophysiological event involves abnormal T cell homeostasis (GO:0043029).
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5378,6 +5565,7 @@ This pathophysiological event involves abnormal T cell homeostasis (GO:0043029).
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-peripheral-tolerance" data-dismech-node="Loss of Peripheral Tolerance" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Peripheral Tolerance</div>
 
+
                 <div class="item-desc">Autoantibodies, hypergammaglobulinaemia and multisystem autoimmunity, affecting bowel and skin in particular.</div>
 
 
@@ -5399,11 +5587,11 @@ This pathophysiological event involves abnormal T cell homeostasis (GO:0043029).
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0043029" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0043029</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0043029" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0043029</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal T cell homeostasis (GO:0043029). GO:0043029 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5453,6 +5641,7 @@ This pathophysiological event involves abnormal T cell homeostasis (GO:0043029).
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5475,6 +5664,7 @@ This pathophysiological event involves abnormal T cell homeostasis (GO:0043029).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-control-of-cytomegalovirus" data-dismech-node="Impaired Control of Cytomegalovirus" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Control of Cytomegalovirus</div>
+
 
                 <div class="item-desc">Cytomegalovirus disease is one of the near-constant clinical features, and it is the part of the phenotype that makes this an immunodeficiency rather than a pure immune dysregulation disorder.</div>
 
@@ -5513,6 +5703,7 @@ This pathophysiological event involves abnormal T cell homeostasis (GO:0043029).
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5535,6 +5726,7 @@ This pathophysiological event involves abnormal T cell homeostasis (GO:0043029).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lymphoproliferation" data-dismech-node="Lymphoproliferation" data-dismech-type="pathophysiology">
                 <div class="item-name">Lymphoproliferation</div>
+
 
                 <div class="item-desc">Lymphadenopathy and organomegaly. This is the feature that places IL2RB among the ALPS-like primary immune regulatory disorders.</div>
 
@@ -5570,6 +5762,7 @@ This pathophysiological event involves abnormal T cell homeostasis (GO:0043029).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5618,7 +5811,7 @@ This pathophysiological event involves abnormal T cell homeostasis (GO:0043029).
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Effector Memory CD8 T Cell Expansion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Expansion of effector memory CD8 T cells, part of the lymphoproliferative arm of the disease.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"T cell\"], \"biological_processes\": [\"T cell homeostasis\"]}}, {\"id\": \"Failed IL-2 and IL-15 Signalling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"IL-2- and IL-15-dependent STAT5 signalling is impaired. The mouse knock-in model shows a second consequence that follows from the receptor not consuming its ligands: serum IL-2 and IL-15 rise.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"T cell\"], \"biological_processes\": [\"interleukin-2-mediated signaling pathway\", \"interleukin-15-mediated signaling pathway\"], \"animal_models\": [{\"name\": \"Il2rb hypomorphic knock-in mouse\", \"species\": \"Mouse\", \"genotype\": \"Homologous knock-in of the human hypomorphic IL2RB mutation\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Reproduces the reduced surface receptor, the impaired STAT5 signalling and the raised serum cytokine levels.\"}]}}, {\"id\": \"Ganciclovir or valganciclovir for CMV suppression\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Continuous antiviral suppression rather than treatment of episodes: viraemia escalated whenever it was not maintained, with peak loads of 154,386 and 362,908 copies/ml.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"ganciclovir\", \"valganciclovir\"]}}, {\"id\": \"Haematopoietic stem cell transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The only reported intervention that addresses the receptor defect rather than its consequences, and the endpoint both index siblings were carried to. At least two patients have been transplanted successfully, and in the p.Pro222_Gln225del patient autoimmunity has stayed controlled for five years afterwards -- notably, despite waning donor chimerism and falling numbers of wild-type Treg cells, which suggests the durable benefit does not require a fully replaced compartment.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"IL2RB\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"IL2RB\"], \"gene_terms\": [{\"label\": \"IL2RB\", \"id\": \"hgnc:6009\"}], \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 4}}, {\"id\": \"IL2RB Loss of Function Reduces CD122 Surface Expression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic IL2RB variants reduce or abolish surface CD122. The mechanisms differ between alleles, and a recombinant system reproduced both the loss of surface expression and the loss of IL-2 binding.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"IL2RB\"], \"gene_terms\": [{\"label\": \"IL2RB\", \"id\": \"hgnc:6009\"}]}}, {\"id\": \"Il2rb hypomorphic knock-in mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A knock-in carrying the homologous human hypomorphic mutation, built specifically because the conventional Il2rb knockout has no NK cells and so does not match the human disease.\"}, {\"id\": \"Impaired Control of Cytomegalovirus\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cytomegalovirus disease is one of the near-constant clinical features, and it is the part of the phenotype that makes this an immunodeficiency rather than a pure immune dysregulation disorder.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Loss of Peripheral Tolerance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Autoantibodies, hypergammaglobulinaemia and multisystem autoimmunity, affecting bowel and skin in particular.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"T cell homeostasis\"]}}, {\"id\": \"Lymphoproliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Lymphadenopathy and organomegaly. This is the feature that places IL2RB among the ALPS-like primary immune regulatory disorders.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Methylprednisolone induction for autoimmunity\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"First-line control of the autoimmune manifestations. Both index siblings received it from 2 and 3 months respectively, before transitioning to sirolimus. It is a bridge, not a durable answer.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"methylprednisolone\"]}}, {\"id\": \"NK Cell Maturation Defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NK cells are present and expanded, but developmentally immature. Across the p.Ser40Leu, p.Leu77Pro and p.Pro222_Gln225del alleles, peripheral NK numbers and frequencies were all increased, with elevated CD56-bright frequencies and negligible CD57. Cytotoxicity is preserved; the deficit is in differentiation and, selectively, in IL-2/IL-15-driven IFN-gamma production.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"natural killer cell\"], \"biological_processes\": [\"natural killer cell differentiation\"], \"animal_models\": [{\"name\": \"Il2rb hypomorphic knock-in mouse\", \"species\": \"Mouse\", \"genotype\": \"Homologous knock-in of the human hypomorphic IL2RB mutation\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"The knock-in mouse\u0027s NK phenotype runs opposite to the human one. Patients accumulate immature CD56-bright NK cells; the mutant mice instead lose mature stage E (CD11b+CD27+) cells and accumulate the terminally differentiated cytotoxic (CD11b+CD27-) subset.\"}]}}, {\"id\": \"Regulatory T Cell Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Regulatory T cells are severely reduced, measured directly by immunophenotyping in patients from both index cohorts. In the mouse model this is also the causally decisive population: transferring wild-type Tregs into mutant animals suppresses the autoimmunity without correcting the mutant Tregs themselves.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"regulatory T cell\"], \"biological_processes\": [\"regulatory T cell differentiation\"], \"animal_models\": [{\"name\": \"Il2rb hypomorphic knock-in mouse\", \"species\": \"Mouse\", \"genotype\": \"Homologous knock-in of the human hypomorphic IL2RB mutation\", \"relationship\": \"RESCUES\", \"fidelity\": \"HIGH\", \"description\": \"Neonatal transfer of wild-type Tregs into mutant animals largely restores conventional T-cell distribution and STAT5 signalling, and suppresses autoimmunity, without affecting the endogenous mutant Tregs. This is the strongest causal evidence in the entry that Treg failure drives the autoimmune arm.\"}]}}, {\"id\": \"Sirolimus maintenance\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"mTOR inhibition as the maintenance immunosuppressant, carried until transplant. Sirolimus is also used for GvHD prophylaxis in this disease\u0027s transplants.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"sirolimus\"]}}, {\"id\": \"p.Gln96*\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A truncating allele, and the severe end of the spectrum: the kindred carrying it comprised two fetuses and a neonate who died of respiratory failure. Unlike the three hypomorphic alleles, this one is not compatible with the infantile immune-dysregulation presentation.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"IL2RB\"], \"gene_terms\": [{\"label\": \"IL2RB\", \"id\": \"hgnc:6009\"}]}}, {\"id\": \"p.Leu77Pro\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Misfolded and intracellularly sequestered, so surface IL-2Rbeta is severely reduced, yet the mutant retains some signalling capacity where it does reach the surface.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"IL2RB\"], \"gene_terms\": [{\"label\": \"IL2RB\", \"id\": \"hgnc:6009\"}]}}, {\"id\": \"p.Pro222_Gln225del\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A 9-bp in-frame deletion disrupting the conserved extracellular WSXWS motif, drastically reducing surface expression. This is the allele in the two index siblings and the one with five-year post-transplant follow-up.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"IL2RB\"], \"gene_terms\": [{\"label\": \"IL2RB\", \"id\": \"hgnc:6009\"}]}}, {\"id\": \"p.Ser40Leu\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Sits at a ligand-binding interface. Surface expression is only partially reduced, but the receptor cannot induce STAT5 phosphorylation, so this is a signalling defect rather than an expression defect.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"IL2RB\"], \"gene_terms\": [{\"label\": \"IL2RB\", \"id\": \"hgnc:6009\"}]}}], \"edges\": [{\"source\": \"IL2RB Loss of Function Reduces CD122 Surface Expression\", \"target\": \"Failed IL-2 and IL-15 Signalling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Without the shared beta chain, neither IL-2 nor IL-15 can signal normally.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failed IL-2 and IL-15 Signalling\", \"target\": \"Regulatory T Cell Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Regulatory T cells depend on IL-2 for their development and maintenance, so they are the population that fails first.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failed IL-2 and IL-15 Signalling\", \"target\": \"NK Cell Maturation Defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"IL-15 signals through the same beta chain and drives NK-cell development and terminal differentiation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failed IL-2 and IL-15 Signalling\", \"target\": \"Effector Memory CD8 T Cell Expansion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"With Treg restraint removed and IL-15 dysregulated, effector memory CD8 T cells expand.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Regulatory T Cell Deficiency\", \"target\": \"Loss of Peripheral Tolerance\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"NK Cell Maturation Defect\", \"target\": \"Impaired Control of Cytomegalovirus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cytotoxicity is NOT the failing step. Patient NK cells degranulate and kill targets normally, and do so better after IL-2 or IL-15 priming. What fails is differentiation toward adaptive NK cells and, selectively, IFN-gamma production in response to IL-2/IL-15 while the IL-12/IL-18 route stays intact.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"failed differentiation toward adaptive (memory-like) NK cells\", \"selective resistance to IL-2/IL-15-driven IFN-gamma production\"]}, {\"source\": \"Effector Memory CD8 T Cell Expansion\", \"target\": \"Lymphoproliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Haematopoietic stem cell transplantation\", \"target\": \"IL2RB Loss of Function Reduces CD122 Surface Expression\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Methylprednisolone induction for autoimmunity\", \"target\": \"Loss of Peripheral Tolerance\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Sirolimus maintenance\", \"target\": \"Loss of Peripheral Tolerance\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Ganciclovir or valganciclovir for CMV suppression\", \"target\": \"Impaired Control of Cytomegalovirus\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Il2rb hypomorphic knock-in mouse\", \"target\": \"Failed IL-2 and IL-15 Signalling\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces the reduced surface receptor, the impaired STAT5 signalling and the raised serum cytokine levels.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"Mouse and human differ in the NK compartment for this receptor, so the model is informative for the T-cell arm and much less so for the NK arm.\"}, {\"source\": \"Il2rb hypomorphic knock-in mouse\", \"target\": \"Regulatory T Cell Deficiency\", \"predicate\": \"rescues\", \"is_orphan\": false, \"description\": \"Neonatal transfer of wild-type Tregs into mutant animals largely restores conventional T-cell distribution and STAT5 signalling, and suppresses autoimmunity, without affecting the endogenous mutant Tregs. This is the strongest causal evidence in the entry that Treg failure drives the autoimmune arm.\", \"relationship\": \"RESCUES\", \"fidelity\": \"HIGH\", \"limitations\": \"The rescue is in mouse, and no equivalent Treg-directed intervention has been reported in a patient.\"}, {\"source\": \"Il2rb hypomorphic knock-in mouse\", \"target\": \"NK Cell Maturation Defect\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"The knock-in mouse\u0027s NK phenotype runs opposite to the human one. Patients accumulate immature CD56-bright NK cells; the mutant mice instead lose mature stage E (CD11b+CD27+) cells and accumulate the terminally differentiated cytotoxic (CD11b+CD27-) subset.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"Because the direction is inverted, nothing about the human NK maturation arrest, and therefore nothing about the CMV susceptibility it is thought to cause, can be tested in this model. The paper\u0027s authors say as much. The separate conventional Il2rb knockout, which has no NK cells at all, is a third and equally non-transferable phenotype; it is not curated here because this entry models only the knock-in.\"}, {\"source\": \"IL2RB\", \"target\": \"IL2RB Loss of Function Reduces CD122 Surface Expression\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"p.Leu77Pro\", \"target\": \"IL2RB\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Ser40Leu\", \"target\": \"IL2RB\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Pro222_Gln225del\", \"target\": \"IL2RB\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Gln96*\", \"target\": \"IL2RB\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Effector Memory CD8 T Cell Expansion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Expansion of effector memory CD8 T cells, part of the lymphoproliferative arm of the disease.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"T cell\"], \"biological_processes\": [\"T cell homeostasis\"]}}, {\"id\": \"Failed IL-2 and IL-15 Signalling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"IL-2- and IL-15-dependent STAT5 signalling is impaired. The mouse knock-in model shows a second consequence that follows from the receptor not consuming its ligands: serum IL-2 and IL-15 rise.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"T cell\"], \"biological_processes\": [\"interleukin-2-mediated signaling pathway\", \"interleukin-15-mediated signaling pathway\"], \"animal_models\": [{\"name\": \"Il2rb hypomorphic knock-in mouse\", \"species\": \"Mouse\", \"genotype\": \"Homologous knock-in of the human hypomorphic IL2RB mutation\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"description\": \"Reproduces the reduced surface receptor, the impaired STAT5 signalling and the raised serum cytokine levels.\"}]}}, {\"id\": \"Ganciclovir or valganciclovir for CMV suppression\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Continuous antiviral suppression rather than treatment of episodes: viraemia escalated whenever it was not maintained, with peak loads of 154,386 and 362,908 copies/ml.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"ganciclovir\", \"valganciclovir\"]}}, {\"id\": \"Haematopoietic stem cell transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"The only reported intervention that addresses the receptor defect rather than its consequences, and the endpoint both index siblings were carried to. At least two patients have been transplanted successfully, and in the p.Pro222_Gln225del patient autoimmunity has stayed controlled for five years afterwards -- notably, despite waning donor chimerism and falling numbers of wild-type Treg cells, which suggests the durable benefit does not require a fully replaced compartment.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"IL2RB\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"IL2RB\"], \"gene_terms\": [{\"label\": \"IL2RB\", \"id\": \"hgnc:6009\"}], \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 4}}, {\"id\": \"IL2RB Loss of Function Reduces CD122 Surface Expression\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic IL2RB variants reduce or abolish surface CD122. The mechanisms differ between alleles, and a recombinant system reproduced both the loss of surface expression and the loss of IL-2 binding.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"IL2RB\"], \"gene_terms\": [{\"label\": \"IL2RB\", \"id\": \"hgnc:6009\"}], \"genetic_context\": {\"variant_origin\": \"GERMLINE\", \"zygosity\": \"HOMOZYGOUS\", \"functional_impact_category\": \"PARTIAL_LOSS_OF_FUNCTION\", \"description\": \"Homozygous IL2RB alleles. Recorded as PARTIAL_LOSS_OF_FUNCTION: the characterised alleles are hypomorphic, with decreased but not absent CD122 surface expression and residual signalling.\", \"gene_terms\": [{\"label\": \"IL2RB\", \"id\": \"hgnc:6009\"}]}}}, {\"id\": \"Il2rb hypomorphic knock-in mouse\", \"node_type\": \"animal_model\", \"color\": \"#ede9fe\", \"is_orphan\": false, \"description\": \"A knock-in carrying the homologous human hypomorphic mutation, built specifically because the conventional Il2rb knockout has no NK cells and so does not match the human disease.\"}, {\"id\": \"Impaired Control of Cytomegalovirus\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Cytomegalovirus disease is one of the near-constant clinical features, and it is the part of the phenotype that makes this an immunodeficiency rather than a pure immune dysregulation disorder.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Loss of Peripheral Tolerance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Autoantibodies, hypergammaglobulinaemia and multisystem autoimmunity, affecting bowel and skin in particular.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"T cell homeostasis\"]}}, {\"id\": \"Lymphoproliferation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Lymphadenopathy and organomegaly. This is the feature that places IL2RB among the ALPS-like primary immune regulatory disorders.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Methylprednisolone induction for autoimmunity\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"First-line control of the autoimmune manifestations. Both index siblings received it from 2 and 3 months respectively, before transitioning to sirolimus. It is a bridge, not a durable answer.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"methylprednisolone\"]}}, {\"id\": \"NK Cell Maturation Defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"NK cells are present and expanded, but developmentally immature. Across the p.Ser40Leu, p.Leu77Pro and p.Pro222_Gln225del alleles, peripheral NK numbers and frequencies were all increased, with elevated CD56-bright frequencies and negligible CD57. Cytotoxicity is preserved; the deficit is in differentiation and, selectively, in IL-2/IL-15-driven IFN-gamma production.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"natural killer cell\"], \"biological_processes\": [\"natural killer cell differentiation\"], \"animal_models\": [{\"name\": \"Il2rb hypomorphic knock-in mouse\", \"species\": \"Mouse\", \"genotype\": \"Homologous knock-in of the human hypomorphic IL2RB mutation\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"description\": \"The knock-in mouse\u0027s NK phenotype runs opposite to the human one. Patients accumulate immature CD56-bright NK cells; the mutant mice instead lose mature stage E (CD11b+CD27+) cells and accumulate the terminally differentiated cytotoxic (CD11b+CD27-) subset.\"}]}}, {\"id\": \"Regulatory T Cell Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Regulatory T cells are severely reduced, measured directly by immunophenotyping in patients from both index cohorts. In the mouse model this is also the causally decisive population: transferring wild-type Tregs into mutant animals suppresses the autoimmunity without correcting the mutant Tregs themselves.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"regulatory T cell\"], \"biological_processes\": [\"regulatory T cell differentiation\"], \"animal_models\": [{\"name\": \"Il2rb hypomorphic knock-in mouse\", \"species\": \"Mouse\", \"genotype\": \"Homologous knock-in of the human hypomorphic IL2RB mutation\", \"relationship\": \"RESCUES\", \"fidelity\": \"HIGH\", \"description\": \"Neonatal transfer of wild-type Tregs into mutant animals largely restores conventional T-cell distribution and STAT5 signalling, and suppresses autoimmunity, without affecting the endogenous mutant Tregs. This is the strongest causal evidence in the entry that Treg failure drives the autoimmune arm.\"}]}}, {\"id\": \"Sirolimus maintenance\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"mTOR inhibition as the maintenance immunosuppressant, carried until transplant. Sirolimus is also used for GvHD prophylaxis in this disease\u0027s transplants.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"sirolimus\"]}}, {\"id\": \"p.Gln96*\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A truncating allele, and the severe end of the spectrum: the kindred carrying it comprised two fetuses and a neonate who died of respiratory failure. Unlike the three hypomorphic alleles, this one is not compatible with the infantile immune-dysregulation presentation.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"IL2RB\"], \"gene_terms\": [{\"label\": \"IL2RB\", \"id\": \"hgnc:6009\"}]}}, {\"id\": \"p.Leu77Pro\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Misfolded and intracellularly sequestered, so surface IL-2Rbeta is severely reduced, yet the mutant retains some signalling capacity where it does reach the surface.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"IL2RB\"], \"gene_terms\": [{\"label\": \"IL2RB\", \"id\": \"hgnc:6009\"}]}}, {\"id\": \"p.Pro222_Gln225del\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"A 9-bp in-frame deletion disrupting the conserved extracellular WSXWS motif, drastically reducing surface expression. This is the allele in the two index siblings and the one with five-year post-transplant follow-up.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"IL2RB\"], \"gene_terms\": [{\"label\": \"IL2RB\", \"id\": \"hgnc:6009\"}]}}, {\"id\": \"p.Ser40Leu\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Sits at a ligand-binding interface. Surface expression is only partially reduced, but the receptor cannot induce STAT5 phosphorylation, so this is a signalling defect rather than an expression defect.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"IL2RB\"], \"gene_terms\": [{\"label\": \"IL2RB\", \"id\": \"hgnc:6009\"}]}}], \"edges\": [{\"source\": \"IL2RB Loss of Function Reduces CD122 Surface Expression\", \"target\": \"Failed IL-2 and IL-15 Signalling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Without the shared beta chain, neither IL-2 nor IL-15 can signal normally.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failed IL-2 and IL-15 Signalling\", \"target\": \"Regulatory T Cell Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Regulatory T cells depend on IL-2 for their development and maintenance, so they are the population that fails first.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failed IL-2 and IL-15 Signalling\", \"target\": \"NK Cell Maturation Defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"IL-15 signals through the same beta chain and drives NK-cell development and terminal differentiation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Failed IL-2 and IL-15 Signalling\", \"target\": \"Effector Memory CD8 T Cell Expansion\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"With Treg restraint removed and IL-15 dysregulated, effector memory CD8 T cells expand.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Regulatory T Cell Deficiency\", \"target\": \"Loss of Peripheral Tolerance\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"NK Cell Maturation Defect\", \"target\": \"Impaired Control of Cytomegalovirus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cytotoxicity is NOT the failing step. Patient NK cells degranulate and kill targets normally, and do so better after IL-2 or IL-15 priming. What fails is differentiation toward adaptive NK cells and, selectively, IFN-gamma production in response to IL-2/IL-15 while the IL-12/IL-18 route stays intact.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\", \"intermediate_mechanisms\": [\"failed differentiation toward adaptive (memory-like) NK cells\", \"selective resistance to IL-2/IL-15-driven IFN-gamma production\"]}, {\"source\": \"Effector Memory CD8 T Cell Expansion\", \"target\": \"Lymphoproliferation\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Haematopoietic stem cell transplantation\", \"target\": \"IL2RB Loss of Function Reduces CD122 Surface Expression\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Methylprednisolone induction for autoimmunity\", \"target\": \"Loss of Peripheral Tolerance\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Sirolimus maintenance\", \"target\": \"Loss of Peripheral Tolerance\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Ganciclovir or valganciclovir for CMV suppression\", \"target\": \"Impaired Control of Cytomegalovirus\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Il2rb hypomorphic knock-in mouse\", \"target\": \"Failed IL-2 and IL-15 Signalling\", \"predicate\": \"models\", \"is_orphan\": false, \"description\": \"Reproduces the reduced surface receptor, the impaired STAT5 signalling and the raised serum cytokine levels.\", \"relationship\": \"RECAPITULATES\", \"fidelity\": \"HIGH\", \"limitations\": \"Mouse and human differ in the NK compartment for this receptor, so the model is informative for the T-cell arm and much less so for the NK arm.\"}, {\"source\": \"Il2rb hypomorphic knock-in mouse\", \"target\": \"Regulatory T Cell Deficiency\", \"predicate\": \"rescues\", \"is_orphan\": false, \"description\": \"Neonatal transfer of wild-type Tregs into mutant animals largely restores conventional T-cell distribution and STAT5 signalling, and suppresses autoimmunity, without affecting the endogenous mutant Tregs. This is the strongest causal evidence in the entry that Treg failure drives the autoimmune arm.\", \"relationship\": \"RESCUES\", \"fidelity\": \"HIGH\", \"limitations\": \"The rescue is in mouse, and no equivalent Treg-directed intervention has been reported in a patient.\"}, {\"source\": \"Il2rb hypomorphic knock-in mouse\", \"target\": \"NK Cell Maturation Defect\", \"predicate\": \"fails_to_model\", \"is_orphan\": false, \"description\": \"The knock-in mouse\u0027s NK phenotype runs opposite to the human one. Patients accumulate immature CD56-bright NK cells; the mutant mice instead lose mature stage E (CD11b+CD27+) cells and accumulate the terminally differentiated cytotoxic (CD11b+CD27-) subset.\", \"relationship\": \"FAILS_TO_RECAPITULATE\", \"fidelity\": \"LOW\", \"limitations\": \"Because the direction is inverted, nothing about the human NK maturation arrest, and therefore nothing about the CMV susceptibility it is thought to cause, can be tested in this model. The paper\u0027s authors say as much. The separate conventional Il2rb knockout, which has no NK cells at all, is a third and equally non-transferable phenotype; it is not curated here because this entry models only the knock-in.\"}, {\"source\": \"IL2RB\", \"target\": \"IL2RB Loss of Function Reduces CD122 Surface Expression\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"p.Leu77Pro\", \"target\": \"IL2RB\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Ser40Leu\", \"target\": \"IL2RB\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Pro222_Gln225del\", \"target\": \"IL2RB\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"p.Gln96*\", \"target\": \"IL2RB\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5637,19 +5830,17 @@ This pathophysiological event involves abnormal T cell homeostasis (GO:0043029).
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(2)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Cardiovascular<span class="pill-count">(2)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Digestive<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Immune<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Immune<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Respiratory<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Respiratory<span class="pill-count">(2)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Growth<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Other<span class="pill-count">(3)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5659,7 +5850,7 @@ This pathophysiological event involves abnormal T cell homeostasis (GO:0043029).
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Blood
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-autoimmune-hemolytic-anemia" data-dismech-node="Autoimmune hemolytic anemia" data-dismech-type="phenotype">
@@ -5678,15 +5869,18 @@ This pathophysiological event involves abnormal T cell homeostasis (GO:0043029).
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001890" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001890</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001890" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001890</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Autoimmune hemolytic anemia (HP:0001890). HP:0001890 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5706,6 +5900,7 @@ This clinical feature is Autoimmune hemolytic anemia (HP:0001890). HP:0001890 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5733,6 +5928,7 @@ This clinical feature is Autoimmune hemolytic anemia (HP:0001890). HP:0001890 is
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5741,6 +5937,100 @@ This clinical feature is Autoimmune hemolytic anemia (HP:0001890). HP:0001890 is
 
 
                 <div class="evidence-explanation">A specific patient&#39;s presentation, giving both the severity and the age.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypergammaglobulinemia" data-dismech-node="Hypergammaglobulinemia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hypergammaglobulinemia
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Increased circulating immunoglobulin concentration</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010702" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0010702</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypergammaglobulinemia, annotated with Increased circulating immunoglobulin concentration (HP:0010702), qualified as temporality chronic. HP:0010702 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Temporal: CHRONIC</span>
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31040185" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31040185" target="_blank">PMID:31040185</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Nearly all patients presented with autoantibodies, hypergammaglobulinemia, bowel inflammation, dermatological abnormalities, lymphadenopathy, and cytomegalovirus disease."</div>
+
+
+                <div class="evidence-explanation">Hypergammaglobulinaemia is listed among the near-universal features. HPO has no term named &#34;hypergammaglobulinemia&#34;, so the binding is to the general raised-immunoglobulin term and the preferred_term keeps the clinical word.</div>
 
 
 
@@ -5781,15 +6071,18 @@ This clinical feature is Autoimmune hemolytic anemia (HP:0001890). HP:0001890 is
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001433" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001433</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001433" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001433</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hepatosplenomegaly (HP:0001433). HP:0001433 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Banded OCCASIONAL rather than FREQUENT because the supporting sentence describes those two patients out of roughly ten reported worldwide, not a cohort proportion.</div>
@@ -5811,6 +6104,7 @@ This clinical feature is Hepatosplenomegaly (HP:0001433). HP:0001433 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5853,15 +6147,18 @@ This clinical feature is Hepatosplenomegaly (HP:0001433). HP:0001433 is a phenot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0002716</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002716" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0002716</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5881,6 +6178,7 @@ This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5934,15 +6232,18 @@ This clinical feature is Lymphadenopathy (HP:0002716). HP:0002716 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002583" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0002583</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002583" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0002583</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Colitis (HP:0002583). HP:0002583 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5962,6 +6263,7 @@ This clinical feature is Colitis (HP:0002583). HP:0002583 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5994,7 +6296,7 @@ This clinical feature is Colitis (HP:0002583). HP:0002583 is a phenotype from th
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Immune
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-autoimmunity" data-dismech-node="Autoimmunity" data-dismech-type="phenotype">
@@ -6013,15 +6315,18 @@ This clinical feature is Colitis (HP:0002583). HP:0002583 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002960" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0002960</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002960" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0002960</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Autoimmunity (HP:0002960). HP:0002960 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6044,6 +6349,7 @@ This clinical feature is Autoimmunity (HP:0002960). HP:0002960 is a phenotype fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6052,6 +6358,82 @@ This clinical feature is Autoimmunity (HP:0002960). HP:0002960 is a phenotype fr
 
 
                 <div class="evidence-explanation">&#34;Nearly all patients&#34; maps to the VERY_FREQUENT band.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cytomegalovirus-disease" data-dismech-node="Cytomegalovirus disease" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Cytomegalovirus disease
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Severe cytomegalovirus infection</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0031692" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0031692</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Severe cytomegalovirus infection (HP:0031692). HP:0031692 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31040185" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31040185" target="_blank">PMID:31040185</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Nearly all patients presented with autoantibodies, hypergammaglobulinemia, bowel inflammation, dermatological abnormalities, lymphadenopathy, and cytomegalovirus disease."</div>
+
+
+                <div class="evidence-explanation">CMV disease is listed among the near-universal features.</div>
 
 
 
@@ -6085,15 +6467,18 @@ This clinical feature is Autoimmunity (HP:0002960). HP:0002960 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000964" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000964</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000964" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000964</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Eczematoid dermatitis (HP:0000964). HP:0000964 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6113,6 +6498,7 @@ This clinical feature is Eczematoid dermatitis (HP:0000964). HP:0000964 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6145,8 +6531,109 @@ This clinical feature is Eczematoid dermatitis (HP:0000964). HP:0000964 is a phe
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Respiratory
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-interstitial-lung-disease" data-dismech-node="Interstitial lung disease" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Interstitial lung disease
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Interstitial pneumonitis</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006515" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0006515</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Interstitial pneumonitis (HP:0006515). HP:0006515 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31040184" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31040184" target="_blank">PMID:31040184</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Clinically, she presented with CMV viremia (28,294 copies/ml) and severe autoimmune hemolytic anemia at 2 mo and later lymphocytic interstitial pneumonitis at 4 mo."</div>
+
+
+                <div class="evidence-explanation">A specific interstitial lung lesion with its age of onset.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40570369" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40570369" target="_blank">PMID:40570369</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"These patients clinically presented with failure to thrive, hepatosplenomegaly, chronic diarrhea and colitis, interstitial lung disease, anemia, and susceptibility to cytomegalovirus (CMV) infection."</div>
+
+
+                <div class="evidence-explanation">Interstitial lung disease is listed among the human presenting features.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-neonatal-respiratory-failure" data-dismech-node="Neonatal respiratory failure" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -6164,15 +6651,18 @@ This clinical feature is Eczematoid dermatitis (HP:0000964). HP:0000964 is a phe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002878" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0002878</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002878" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0002878</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Respiratory failure (HP:0002878). HP:0002878 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6192,6 +6682,7 @@ This clinical feature is Respiratory failure (HP:0002878). HP:0002878 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6243,15 +6734,18 @@ This clinical feature is Respiratory failure (HP:0002878). HP:0002878 is a pheno
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001508</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001508</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Banded as for hepatosplenomegaly above: the supporting sentence describes two patients out of roughly ten reported worldwide, not a cohort proportion.</div>
@@ -6276,6 +6770,7 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6284,273 +6779,6 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
                 <div class="evidence-explanation">Listed first among the human clinical presentations.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-7">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">3</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-interstitial-lung-disease" data-dismech-node="Interstitial lung disease" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Interstitial lung disease
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Interstitial pneumonitis</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0006515" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0006515</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Interstitial pneumonitis (HP:0006515). HP:0006515 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:31040184" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31040184" target="_blank">PMID:31040184</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Clinically, she presented with CMV viremia (28,294 copies/ml) and severe autoimmune hemolytic anemia at 2 mo and later lymphocytic interstitial pneumonitis at 4 mo."</div>
-
-
-                <div class="evidence-explanation">A specific interstitial lung lesion with its age of onset.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:40570369" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40570369" target="_blank">PMID:40570369</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"These patients clinically presented with failure to thrive, hepatosplenomegaly, chronic diarrhea and colitis, interstitial lung disease, anemia, and susceptibility to cytomegalovirus (CMV) infection."</div>
-
-
-                <div class="evidence-explanation">Interstitial lung disease is listed among the human presenting features.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hypergammaglobulinemia" data-dismech-node="Hypergammaglobulinemia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hypergammaglobulinemia
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Increased circulating immunoglobulin concentration</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0010702" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0010702</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hypergammaglobulinemia, annotated with Increased circulating immunoglobulin concentration (HP:0010702), qualified as temporality chronic. HP:0010702 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">Temporal: CHRONIC</span>
-
-
-
-
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:31040185" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31040185" target="_blank">PMID:31040185</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Nearly all patients presented with autoantibodies, hypergammaglobulinemia, bowel inflammation, dermatological abnormalities, lymphadenopathy, and cytomegalovirus disease."</div>
-
-
-                <div class="evidence-explanation">Hypergammaglobulinaemia is listed among the near-universal features. HPO has no term named &#34;hypergammaglobulinemia&#34;, so the binding is to the general raised-immunoglobulin term and the preferred_term keeps the clinical word.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-cytomegalovirus-disease" data-dismech-node="Cytomegalovirus disease" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Cytomegalovirus disease
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Severe cytomegalovirus infection</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0031692" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0031692</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Severe cytomegalovirus infection (HP:0031692). HP:0031692 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:31040185" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31040185" target="_blank">PMID:31040185</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Nearly all patients presented with autoantibodies, hypergammaglobulinemia, bowel inflammation, dermatological abnormalities, lymphadenopathy, and cytomegalovirus disease."</div>
-
-
-                <div class="evidence-explanation">CMV disease is listed among the near-universal features.</div>
 
 
 
@@ -6621,10 +6849,10 @@ This clinical feature is Severe cytomegalovirus infection (HP:0031692). HP:00316
                         Gene: IL2RB
 
 
-    <a href="https://bioregistry.io/hgnc:6009" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-23">hgnc:6009</a>
+    <a href="https://bioregistry.io/hgnc:6009" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-24">hgnc:6009</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is IL2RB (hgnc:6009). hgnc:6009 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -6636,6 +6864,9 @@ This disease-associated gene is IL2RB (hgnc:6009). hgnc:6009 is a gene from the 
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -6663,6 +6894,7 @@ This disease-associated gene is IL2RB (hgnc:6009). hgnc:6009 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6684,6 +6916,7 @@ This disease-associated gene is IL2RB (hgnc:6009). hgnc:6009 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6717,6 +6950,7 @@ This disease-associated gene is IL2RB (hgnc:6009). hgnc:6009 is a gene from the 
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -6727,10 +6961,10 @@ This disease-associated gene is IL2RB (hgnc:6009). hgnc:6009 is a gene from the 
             Gene: IL2RB
 
 
-    <a href="https://bioregistry.io/hgnc:6009" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-24">hgnc:6009</a>
+    <a href="https://bioregistry.io/hgnc:6009" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-25">hgnc:6009</a>
 
 
-            <span class="pill-tip" role="tooltip" id="pill-tip-24">HUGO Gene Nomenclature Committee (hgnc)
+            <span class="pill-tip" role="tooltip" id="pill-tip-25">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this variant is in this gene
 This variant is in IL2RB (hgnc:6009). hgnc:6009 is a gene from the HUGO Gene Nomenclature Committee.</span>
         </span>
@@ -6738,7 +6972,13 @@ This variant is in IL2RB (hgnc:6009). hgnc:6009 is a gene from the HUGO Gene Nom
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Misfolded and intracellularly sequestered, so surface IL-2Rbeta is severely reduced, yet the mutant retains some signalling capacity where it does reach the surface.</div>
@@ -6765,6 +7005,7 @@ This variant is in IL2RB (hgnc:6009). hgnc:6009 is a gene from the HUGO Gene Nom
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6798,6 +7039,7 @@ This variant is in IL2RB (hgnc:6009). hgnc:6009 is a gene from the HUGO Gene Nom
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -6808,10 +7050,10 @@ This variant is in IL2RB (hgnc:6009). hgnc:6009 is a gene from the HUGO Gene Nom
             Gene: IL2RB
 
 
-    <a href="https://bioregistry.io/hgnc:6009" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-25">hgnc:6009</a>
+    <a href="https://bioregistry.io/hgnc:6009" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-26">hgnc:6009</a>
 
 
-            <span class="pill-tip" role="tooltip" id="pill-tip-25">HUGO Gene Nomenclature Committee (hgnc)
+            <span class="pill-tip" role="tooltip" id="pill-tip-26">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this variant is in this gene
 This variant is in IL2RB (hgnc:6009). hgnc:6009 is a gene from the HUGO Gene Nomenclature Committee.</span>
         </span>
@@ -6819,7 +7061,13 @@ This variant is in IL2RB (hgnc:6009). hgnc:6009 is a gene from the HUGO Gene Nom
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Sits at a ligand-binding interface. Surface expression is only partially reduced, but the receptor cannot induce STAT5 phosphorylation, so this is a signalling defect rather than an expression defect.</div>
@@ -6846,6 +7094,7 @@ This variant is in IL2RB (hgnc:6009). hgnc:6009 is a gene from the HUGO Gene Nom
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6879,6 +7128,7 @@ This variant is in IL2RB (hgnc:6009). hgnc:6009 is a gene from the HUGO Gene Nom
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -6889,10 +7139,10 @@ This variant is in IL2RB (hgnc:6009). hgnc:6009 is a gene from the HUGO Gene Nom
             Gene: IL2RB
 
 
-    <a href="https://bioregistry.io/hgnc:6009" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-26">hgnc:6009</a>
+    <a href="https://bioregistry.io/hgnc:6009" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-27">hgnc:6009</a>
 
 
-            <span class="pill-tip" role="tooltip" id="pill-tip-26">HUGO Gene Nomenclature Committee (hgnc)
+            <span class="pill-tip" role="tooltip" id="pill-tip-27">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this variant is in this gene
 This variant is in IL2RB (hgnc:6009). hgnc:6009 is a gene from the HUGO Gene Nomenclature Committee.</span>
         </span>
@@ -6900,7 +7150,13 @@ This variant is in IL2RB (hgnc:6009). hgnc:6009 is a gene from the HUGO Gene Nom
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A 9-bp in-frame deletion disrupting the conserved extracellular WSXWS motif, drastically reducing surface expression. This is the allele in the two index siblings and the one with five-year post-transplant follow-up.</div>
@@ -6930,6 +7186,7 @@ This variant is in IL2RB (hgnc:6009). hgnc:6009 is a gene from the HUGO Gene Nom
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6951,6 +7208,7 @@ This variant is in IL2RB (hgnc:6009). hgnc:6009 is a gene from the HUGO Gene Nom
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6984,6 +7242,7 @@ This variant is in IL2RB (hgnc:6009). hgnc:6009 is a gene from the HUGO Gene Nom
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -6994,10 +7253,10 @@ This variant is in IL2RB (hgnc:6009). hgnc:6009 is a gene from the HUGO Gene Nom
             Gene: IL2RB
 
 
-    <a href="https://bioregistry.io/hgnc:6009" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-27">hgnc:6009</a>
+    <a href="https://bioregistry.io/hgnc:6009" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-28">hgnc:6009</a>
 
 
-            <span class="pill-tip" role="tooltip" id="pill-tip-27">HUGO Gene Nomenclature Committee (hgnc)
+            <span class="pill-tip" role="tooltip" id="pill-tip-28">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this variant is in this gene
 This variant is in IL2RB (hgnc:6009). hgnc:6009 is a gene from the HUGO Gene Nomenclature Committee.</span>
         </span>
@@ -7005,7 +7264,13 @@ This variant is in IL2RB (hgnc:6009). hgnc:6009 is a gene from the HUGO Gene Nom
 
 
 
+
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">A truncating allele, and the severe end of the spectrum: the kindred carrying it comprised two fetuses and a neonate who died of respiratory failure. Unlike the three hypomorphic alleles, this one is not compatible with the infantile immune-dysregulation presentation.</div>
@@ -7032,6 +7297,7 @@ This variant is in IL2RB (hgnc:6009). hgnc:6009 is a gene from the HUGO Gene Nom
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7127,7 +7393,7 @@ This variant is in IL2RB (hgnc:6009). hgnc:6009 is a gene from the HUGO Gene Nom
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-28">hematopoietic cell transplantation<span class="pill-tip" role="tooltip" id="pill-tip-28">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-29">hematopoietic cell transplantation<span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is hematopoietic cell transplantation (NCIT:C15431). NCIT:C15431 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7155,6 +7421,31 @@ This treatment is hematopoietic cell transplantation (NCIT:C15431). NCIT:C15431 
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Cell therapy</span>
+
+
+
+
+
+    </div>
+
+
+
+
 
 
 
@@ -7202,6 +7493,7 @@ This treatment is hematopoietic cell transplantation (NCIT:C15431). NCIT:C15431 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7226,6 +7518,7 @@ This treatment is hematopoietic cell transplantation (NCIT:C15431). NCIT:C15431 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7247,6 +7540,7 @@ This treatment is hematopoietic cell transplantation (NCIT:C15431). NCIT:C15431 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7278,7 +7572,7 @@ This treatment is hematopoietic cell transplantation (NCIT:C15431). NCIT:C15431 
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-29">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-30">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7319,16 +7613,41 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C647" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-30">NCIT:C647</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C647" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-31">NCIT:C647</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)
 Relation: this treatment uses this therapeutic agent
 This treatment uses methylprednisolone (NCIT:C647). NCIT:C647 is a therapeutic agent from the NCI Thesaurus.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
 
 
 
@@ -7374,6 +7693,7 @@ This treatment uses methylprednisolone (NCIT:C647). NCIT:C647 is a therapeutic a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7402,7 +7722,7 @@ This treatment uses methylprednisolone (NCIT:C647). NCIT:C647 is a therapeutic a
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-31">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-32">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7443,16 +7763,41 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_9168" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-32">CHEBI:9168</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_9168" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-33">CHEBI:9168</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses sirolimus (CHEBI:9168). CHEBI:9168 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
 
 
 
@@ -7498,6 +7843,7 @@ This treatment uses sirolimus (CHEBI:9168). CHEBI:9168 is a therapeutic agent fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7526,7 +7872,7 @@ This treatment uses sirolimus (CHEBI:9168). CHEBI:9168 is a therapeutic agent fr
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-33">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-34">Pharmacotherapy<span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7567,11 +7913,11 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_465284" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-34">CHEBI:465284</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_465284" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-35">CHEBI:465284</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses ganciclovir (CHEBI:465284). CHEBI:465284 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
@@ -7584,16 +7930,41 @@ This treatment uses ganciclovir (CHEBI:465284). CHEBI:465284 is a therapeutic ag
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_63635" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-35">CHEBI:63635</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_63635" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-36">CHEBI:63635</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses valganciclovir (CHEBI:63635). CHEBI:63635 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
 
 
 
@@ -7636,6 +8007,7 @@ This treatment uses valganciclovir (CHEBI:63635). CHEBI:63635 is a therapeutic a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7698,6 +8070,7 @@ This treatment uses valganciclovir (CHEBI:63635). CHEBI:63635 is a therapeutic a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7767,6 +8140,7 @@ This treatment uses valganciclovir (CHEBI:63635). CHEBI:63635 is a therapeutic a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7832,6 +8206,7 @@ This treatment uses valganciclovir (CHEBI:63635). CHEBI:63635 is a therapeutic a
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7879,6 +8254,7 @@ This treatment uses valganciclovir (CHEBI:63635). CHEBI:63635 is a therapeutic a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7947,6 +8323,7 @@ This treatment uses valganciclovir (CHEBI:63635). CHEBI:63635 is a therapeutic a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8029,6 +8406,7 @@ This treatment uses valganciclovir (CHEBI:63635). CHEBI:63635 is a therapeutic a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8178,6 +8556,7 @@ This treatment uses valganciclovir (CHEBI:63635). CHEBI:63635 is a therapeutic a
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8217,6 +8596,7 @@ This treatment uses valganciclovir (CHEBI:63635). CHEBI:63635 is a therapeutic a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8296,6 +8676,7 @@ This treatment uses valganciclovir (CHEBI:63635). CHEBI:63635 is a therapeutic a
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8335,6 +8716,7 @@ This treatment uses valganciclovir (CHEBI:63635). CHEBI:63635 is a therapeutic a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8414,6 +8796,7 @@ This treatment uses valganciclovir (CHEBI:63635). CHEBI:63635 is a therapeutic a
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8453,6 +8836,7 @@ This treatment uses valganciclovir (CHEBI:63635). CHEBI:63635 is a therapeutic a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8628,6 +9012,19 @@ pathophysiology:
     term:
       id: hgnc:6009
       label: IL2RB
+  genetic_context:
+    gene:
+      preferred_term: IL2RB
+      term:
+        id: hgnc:6009
+        label: IL2RB
+    variant_origin: GERMLINE
+    zygosity: HOMOZYGOUS
+    functional_impact_category: PARTIAL_LOSS_OF_FUNCTION
+    description: &gt;-
+      Homozygous IL2RB alleles. Recorded as PARTIAL_LOSS_OF_FUNCTION: the characterised
+      alleles are hypomorphic, with decreased but not absent CD122 surface expression
+      and residual signalling.
   evidence:
   - reference: PMID:31040185
     reference_title: &#34;Human interleukin-2 receptor β mutations associated with defects in immunity and peripheral tolerance.&#34;
@@ -8650,6 +9047,13 @@ pathophysiology:
     explanation: &gt;-
       A hypomorphic allele reduces rather than abolishes surface expression,
       which is why the node is written as reduced expression rather than absence.
+  - reference: PMID:31040184
+    reference_title: &#34;A novel human IL2RB mutation results in T and NK cell-driven immune dysregulation.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Collectively, the immunophenotypic and functional data support a hypomorphic nature for this IL2RB mutation, resulting in decreased, but not absent, protein expression and dysregulated signaling capability.&#34;
+    explanation: &gt;-
+      Patient immunophenotyping establishing the allele as hypomorphic rather than null.
   downstream:
   - target: Failed IL-2 and IL-15 Signalling
     causal_link_type: DIRECT
@@ -9886,6 +10290,68 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Immunodeficiency 63 with Lymphoproliferation and Autoimmunity</strong> · 2026-08-31T15:42:33Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Immunodeficiency_63_with_Lymphoproliferation_and_Autoimmunity/2026-08-31T154233Z-claude-code-ba6bf1.yaml">View source</a></p>
+                        <p class="research-review-text">Created kb/disorders/Immunodeficiency_63_with_Lymphoproliferation_and_Autoimmunity.yaml
+(MONDO:0032782, IL2RB / CD122).
+
+Deep research: Perplexity (sonar-deep-research) -&gt;
+research/Immunodeficiency_63_with_Lymphoproliferation_and_Autoimmunity-deep-research-perplexity.md.
+The report&#39;s own inline validation set `term_validation.needs_review: true`, and it
+earned it: 13 of 59 checked labels name a different term. Among them the report
+offered NCIT:C15206 as &#34;Hematopoietic Stem Cell Transplantation&#34; (NCIT calls it
+&#34;Clinical Study&#34;), HP:0002239 as &#34;Cytomegalovirus infection&#34; (HPO: &#34;Gastrointestinal
+hemorrhage&#34;), HP:0008354 as &#34;Hypergammaglobulinemia&#34; (HPO: &#34;Factor X activation
+deficiency&#34;), and UBERON:0002150 as &#34;lymphoid tissue&#34; (UBERON: &#34;superior cerebellar
+peduncle&#34;). HP:0030315 does not exist; HP:0005407 and GO:0035724 are obsolete. None
+of these was bound here - every ontology term in this entry was resolved
+independently against the committed caches or the OLS API.
+
+The reference side was weaker than it looks. `reference_validation` reports 6/6
+resolved, confabulation_rate 0.0, on_topic 4 - but the rendered &#34;## Reference
+Validation&#34; section prints &#34;On topic 4 / Off topic 0&#34; and then &#34;All extracted
+references resolved successfully&#34;, so the 2 references that were neither on nor off
+topic are invisible in the section a curator actually reads. The block also carries
+no `needs_review` key and no per-reference list, so there is no way to tell which
+4 of 6 were judged on topic. Inspecting the citation list by hand found the reason
+to care: it includes two papers about TNFRSF9/CD137 deficiency (a different
+receptor and a different disease) and one about IL-2Rbeta in flounder
+(Paralichthys olivaceus). `just preflight-dr ... MONDO:0032782` still PASSes,
+because it scores the body&#39;s gene vocabulary (IL2RB mentioned 159 times) and does
+not look at the citation list at all. Citation #17 is the bare string &#34;ACMG/AMP
+guidelines&#34; rather than an identifier.
+
+Evidence was therefore taken from independently verified PubMed records:
+PMID:31040185 (Zhang 2019 JEM, 8 patients / 4 consanguineous families),
+PMID:31040184 (Fernandez 2019 JEM, the WSXWS siblings), PMID:40570369 (hypomorphic
+Il2rb knock-in mouse with the wild-type Treg transfer rescue), PMID:31068380 (JEM
+commentary on both index papers), PMID:34447369 (ALPS-like PIRD systematic review).
+
+No GeneReviews chapter exists for IMD63.
+
+Two deliberate epistemic choices are recorded in the entry rather than smoothed
+over. The human Treg reduction in PMID:31040184 is described by its own authors as
+&#34;anticipated&#34; - inferred from the signalling defect, not measured - so the entry
+says so in the explanation and lets the mouse paper carry the measurement. And the
+two index cohorts do not agree about the NK compartment (partial retained
+expression and function versus expanded CD56-bright with absent terminal
+differentiation); that disagreement is filed as an open KNOWLEDGE_GAP rather than
+resolved by picking one. A separate HUMAN_MODEL_MISMATCH records that the
+conventional Il2rb knockout mouse has no NK cells at all while patients do.
+
+Validation: `just validate` passes schema, term and reference checks with 40/40
+snippets verified. check-entity-refs, check-duplicate-keys, check-folded-hyphens,
+check-snippet-length, check-title-snippets and check-snippet-grading all pass.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -10388,7 +10854,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Immunodeficiency 63 with Lymphoproliferation and Autoimmunity", "mondoId": "MONDO:0032782", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Immunodeficiency_63_with_Lymphoproliferation_and_Autoimmunity", "yamlRevision": "8d6225fb033f"};
+        const OS_CONFIG = {"diseaseName": "Immunodeficiency 63 with Lymphoproliferation and Autoimmunity", "mondoId": "MONDO:0032782", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Immunodeficiency_63_with_Lymphoproliferation_and_Autoimmunity", "yamlRevision": "2506470de77c"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

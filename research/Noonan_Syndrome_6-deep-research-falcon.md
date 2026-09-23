@@ -1274,3 +1274,17 @@ Checked with `linkml-reference-validator` 0.2.1.
 | Off topic | 0 |
 
 All extracted references resolved successfully.
+
+## Term Validation
+
+Checked with `linkml-term-validator` 0.4.5, through the `ols:` adapter.
+
+| Outcome | Count |
+| --- | --- |
+| Terms checked | 51 |
+| Resolved | 51 |
+| Unresolved (possible confabulation) | 0 |
+| Obsolete | 0 |
+| Unverifiable | 0 |
+
+Every term resolved, and every label the report gave matched.

@@ -89,6 +89,7 @@ fallback-version = "0.0.0"
 testpaths = ["tests"]
 markers = [
   "kb_data: whole-KB data-conformance sweep parametrized over every KB file (schema validation, required-field, foreign-key, and mechanism-target checks). Slow and CPU-bound; in CI it is gated on schema / conformance-test changes and run in parallel. Select with `just test-kb`; exclude with `just test-code` (pytest -m 'not kb_data').",
+  "oak_db: needs a local OAK SQLite build (`just fetch-ontology-dbs ...`). Distinct from kb_data, which is about KB files rather than ontology databases. Deselected by `just test-code`, and each such test must ALSO check for the build file itself via `dismech.oak_db.local_build_present` -- opening the adapter is not a check, because semsql downloads a missing build rather than failing (3.6 GB on a CI runner). Local-only in practice; do not rely on one as a CI gate.",
 ]
 
 # Ref.: https://github.com/codespell-project/codespell
@@ -112,6 +113,12 @@ skip = [
   # ("procedure is performe…", correctly spelled "performed" in the schema).
   "docs/schema/*",
   "elements/*",
+  # Frozen verbatim curator snapshots for the inter-annotator studies. These are
+  # byte-for-byte copies of curated entries as they stood at a point in time and
+  # must never be edited, exactly like references_cache/* and research/* above,
+  # so a hit here can only ever be a quoted source's spelling (e.g. "AAs" in
+  # "evaluate for AAs and their complications").
+  "experiments/**/*.curator-*.yaml",
 ]
 
 # Reminder: words have to be lowercased for the ignore-words-list
@@ -140,6 +147,8 @@ skip = [
 # exra (extra-articular rheumatoid arthritis abbreviation in source abstracts)
 ignore-words-list = "linke,infarction,cyclin,abl,connectin,inactivate,heterogenous,homogenous,ues,mis,ond,te,cafs,caf,acapella,bu,survivin,trough,tese,selectin,pase,ect,vas,esge,ege,targetting,precice,als,lod,ndds,anc,tme,uesd,edn,contributs,occuring,histocompatability,gord,ser,ehr,continious,lamas,metrix,mater,murr,ans,occurence,olt,sting,transferrin,unusal,fals,exra,bloc"
 quiet-level = 3
+# Preserve the exact ontology synonym without ignoring the short token globally.
+ignore-regex = 'pyridox\(am\)ine'
 
 # Ref.: https://github.com/astral-sh/ruff
 [tool.ruff]
@@ -179,3 +188,10 @@ ignore = [
 # is a deliberate choice made just above. Scoped to scripts/ so E402 still
 # applies to src/ and tests/, where the idiom has no excuse.
 "scripts/*" = ["E402"]
+# Boomer analyses are standalone scripts; their tests import those scripts after
+# adding the analysis directory to sys.path. A scoped ignore works with both
+# the pinned pre-commit Ruff and CI's newer Ruff, unlike unused inline noqa tags.
+"analyses/boomer/scripts/*" = ["E402"]
+"tests/test_boomer_batch.py" = ["E402"]
+"tests/test_boomer_icd10_enrichment.py" = ["E402"]
+"tests/test_boomer_proxy_merges.py" = ["E402"]

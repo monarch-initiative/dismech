@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3756,6 +3821,18 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3798,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 29</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 30</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Postural%20Orthostatic%20Tachycardia%20Syndrome"
@@ -3967,7 +4044,7 @@
             <a class="stat-link" href="#discussions">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💬</div>
-                <div class="stat-value">2</div>
+                <div class="stat-value">3</div>
                 <div class="stat-label">Gaps</div>
             </div>
             </a>
@@ -3976,7 +4053,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">29</div>
+                <div class="stat-value">30</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3995,7 +4072,7 @@
             <a class="stat-link" href="#treatments">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">💊</div>
-                <div class="stat-value">8</div>
+                <div class="stat-value">9</div>
                 <div class="stat-label">Medical Actions</div>
             </div>
             </a>
@@ -4118,7 +4195,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (3 references)
         </summary>
         <div class="evidence-list">
 
@@ -4130,6 +4207,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4157,6 +4235,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4165,6 +4244,31 @@
 
 
                 <div class="evidence-explanation">Demonstrates small fiber neuropathy with cardiac sympathetic denervation in neuropathic POTS patients.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24386408" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24386408" target="_blank">PMID:24386408</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Nine of 24 subjects had neuropathic POTS and had significantly lower resting and tilted heart rates; reduced parasympathetic function; and lower phase 4 valsalva maneuver overshoot compared with those with non-neuropathic POTS (P&lt;0.05)."</div>
+
+
+                <div class="evidence-explanation">Applies an operational research definition of the subtype (abnormal IENFD plus abnormal small-fiber and sudomotor function) and shows that the resulting group differs physiologically from non-neuropathic POTS. Note that this combined criterion is a research definition, not a validated consensus standard: no formal diagnostic criteria for neuropathic POTS exist, and a single abnormal IENFD, QSART, or sweat test is not sufficient to assign the subtype.</div>
 
 
 
@@ -4216,6 +4320,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4281,6 +4386,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4307,6 +4413,33 @@
 
         <!-- Comorbidities -->
 
+        <div class="card" id="comorbidities">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ede9fe; color: #6d28d9;">C</div>
+                <h2 class="card-title">Comorbidities</h2>
+            </div>
+            <div class="mapping-section">
+
+                <div class="mapping-item">
+                    <div class="mapping-title">
+                        <a href="../comorbidities/com_Hypermobile_Ehlers-Danlos_Syndrome__Postural_Orthostatic_Tachycardia_Syndrome.html">Hypermobile Ehlers-Danlos Syndrome &lt;-&gt; Postural Orthostatic Tachycardia Syndrome</a>
+                    </div>
+                    <div class="tag-list">
+
+                        <span class="tag tag-parent">Disease B</span>
+
+
+                        <span class="tag tag-classification">UNKNOWN</span>
+
+
+                        <span class="tag tag-mechanistic">CANDIDATE</span>
+
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
 
         <!-- Mechanistic Hypotheses -->
 
@@ -4330,9 +4463,18 @@
                 </div>
 
 
+                <div class="hypothesis-evidence-balance">
+                    <span class="hypothesis-evidence-balance-label">Evidence balance</span>
+
+                    <span class="evidence-support support-SUPPORT">2 support</span>
+
+                </div>
+
 
                 <div class="item-desc" style="margin-top: 8px;">Autoantibodies against adrenergic, muscarinic, angiotensin II type 1, or related autonomic receptors directly perturb autonomic signaling or contribute to autonomic nerve injury after immune triggers such as infection. This model treats receptor autoantibodies as potentially causal rather than merely biomarkers of systemic immune dysregulation.</div>
 
+
+                <div class="mapping-notes">OpenScientist deep-research verdict (2026-06-04), as assessed on 2026-07-31: PARTIALLY SUPPORTED. See kb/hypotheses/Postural_Orthostatic_Tachycardia_Syndrome/autoimmune_receptor_model. Patient IgG shows receptor-modulating activity in small cell-based studies and active peptide immunization reproduces POTS-like hemodynamics in rabbits, so the mechanism class is biologically plausible; neither result establishes an antibody-defined human POTS subtype. Key qualifications from the assessment: (1) the rabbit immunization studies (PMID:31547749, PMID:36873318, PMID:35118574) come from a single research program and test experimentally induced antibodies rather than patient-derived IgG, so they are not independent replications; (2) the functional cell-based bioassay signal is concentrated in one collaborating laboratory network and has no independent blinded replication; (3) the largest standard-ELISA study (116 POTS versus 81 controls, 11 cardiovascular GPCR targets) found no group difference for any receptor (PMID:35766055); (4) the iSTAND IVIG trial was negative in clinically selected presumed-autoimmune POTS (PMID:38311655), although it did not select on a validated receptor-antibody biomarker and used albumin, which controls for volume expansion; (5) the report&#39;s claims that AT1R is the most consistently elevated target across assay platforms, that Epstein-Barr virus mimicry supplies the upstream trigger, and that a coherent antibody subtype covers 30 to 50 percent of POTS were each rejected on source check. Patient-IgG passive transfer and independent functional-assay replication remain the decisive missing tests and are tracked in the receptor-autoantibody causality knowledge gap below.</div>
 
 
                 <div class="crosslink-block">
@@ -4429,6 +4571,70 @@
 
 
 
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31547749" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31547749" target="_blank">PMID:31547749</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"At 6 weeks after immunization, there was a greater percent increase in heart rate upon tilting compared with preimmune baseline."</div>
+
+
+                <div class="evidence-explanation">Active coimmunization of rabbits with alpha-1 and beta-1 adrenergic receptor peptides produced postural tachycardia, showing that induced receptor-modulating antibodies are sufficient for POTS-like hemodynamics. The experiment used immunization-induced rather than patient-derived IgG, so it supports the model by inference and does not show that human POTS antibodies act this way.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37999672" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37999672" target="_blank">PMID:37999672</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Antiadrenergic autoantibodies and inflammatory cytokines were lower in the active arm compared with the sham arm at 2 months (P &lt; 0.05)."</div>
+
+
+                <div class="evidence-explanation">In a small sham-controlled neuromodulation trial, reduced postural tachycardia was accompanied by lower antiadrenergic autoantibody activity, which is consistent with the antibodies being disease-relevant rather than inert. The trial did not manipulate antibodies directly, so it cannot separate antibody reduction from other autonomic effects of vagal stimulation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
 
             </div>
 
@@ -4452,7 +4658,7 @@
 
                     <span class="evidence-support support-SUPPORT">3 support</span>
 
-                    <span class="evidence-support support-REFUTE">2 refute</span>
+                    <span class="evidence-support support-REFUTE">3 refute</span>
 
                 </div>
 
@@ -4460,7 +4666,7 @@
                 <div class="item-desc" style="margin-top: 8px;">Partial postganglionic sympathetic denervation, often framed as small-fiber autonomic neuropathy, impairs lower-extremity vasoconstriction, causing orthostatic venous pooling, reduced central blood volume, and reflex tachycardia.</div>
 
 
-                <div class="mapping-notes">OpenScientist deep-research verdict (2026-07-06): PARTIALLY SUPPORTED. See kb/hypotheses/Postural_Orthostatic_Tachycardia_Syndrome/neuropathic_denervation_model. The downstream causal chain (regional lower-extremity sympathetic denervation -&gt; impaired vasoconstriction -&gt; venous pooling -&gt; reduced preload -&gt; reflex tachycardia) is well established by convergent human clinical evidence, but the model cannot serve as a universal POTS mechanism and should be retained as ALTERNATIVE with explicit restriction to the neuropathic subtype. Key qualifications: (1) small fiber neuropathy is present in only ~24-50% of POTS patients depending on testing method and referral population (Zhang 2022, PMID:36349067, n=356: 24% reduced IENFD, 33% reduced QSART), so the neuropathic pattern is a substantial minority, not all POTS; (2) denervation is regional, not global -- cardiac sympathetic innervation is preserved or even enhanced (Goldstein 2002), so the model describes a lower-body vasoconstrictor deficit rather than generalized autonomic failure; (3) exercise training induces remission in up to 71% of patients (George 2016), which is difficult to reconcile with fixed structural denervation and points to a large functional/ deconditioning component; (4) an entirely non-denervation mechanism (NET/SLC6A2 deficiency) produces an identical phenotype (Shirey-Rice 2013), and controlled immunotherapy trials for a presumed autoimmune-neuropathic pathway have been negative (iSTAND IVIG, PMID:38311655). The upstream trigger for the neuropathy (autoimmune, post-viral, genetic, or hEDS-associated) remains the single most important unresolved knowledge gap, and SFN-to-POTS causality is correlational only.</div>
+                <div class="mapping-notes">OpenScientist deep-research verdict (2026-07-06): PARTIALLY SUPPORTED. See kb/hypotheses/Postural_Orthostatic_Tachycardia_Syndrome/neuropathic_denervation_model. The downstream causal chain (regional lower-extremity sympathetic denervation -&gt; impaired vasoconstriction -&gt; venous pooling -&gt; reduced preload -&gt; reflex tachycardia) is well established by convergent human clinical evidence, but the model cannot serve as a universal POTS mechanism and should be retained as ALTERNATIVE with explicit restriction to the neuropathic subtype. Key qualifications: (1) small fiber neuropathy is present in only ~24-50% of POTS patients depending on testing method and referral population (Zhang 2022, PMID:36349067, n=356: 24% reduced IENFD, 33% reduced QSART), so the neuropathic pattern is a substantial minority, not all POTS; (2) denervation is regional, not global -- cardiac sympathetic innervation is preserved or even enhanced (Goldstein 2002), so the model describes a lower-body vasoconstrictor deficit rather than generalized autonomic failure; (3) exercise training induces remission in up to 71% of patients (George 2016), which is difficult to reconcile with fixed structural denervation and points to a large functional/ deconditioning component; (4) an entirely non-denervation mechanism (NET/SLC6A2 deficiency) produces an identical phenotype (Shirey-Rice 2013), and controlled immunotherapy trials for a presumed autoimmune-neuropathic pathway have been negative (iSTAND IVIG, PMID:38311655). The upstream trigger for the neuropathy (autoimmune, post-viral, genetic, or hEDS-associated) remains the single most important unresolved knowledge gap, and SFN-to-POTS causality is correlational only. Assessment of that report on 2026-07-31 added two further qualifications. First, the 24 to 50 percent range above pools different tests, thresholds, and selected referral populations (sudomotor abnormality in Mayo referrals, retrospective IENFD series, biopsy of a selected minority in Zhang 2022) and is not a case-control estimate of biopsy-confirmed SFN prevalence: a prospective Swedish case-control study found comparable IENFD in 43 POTS patients and 54 controls (PMID:40608783). Second, no study has demonstrated the full denervation-to-pooling-to-tachycardia chain within one objectively defined neuropathic-POTS cohort; the supporting physiology (PMID:11018167, PMID:11295714, PMID:12653674) and the operational subtype definition (PMID:24386408) come from separate cohorts.</div>
 
 
                 <div class="crosslink-block">
@@ -4525,7 +4731,7 @@
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (5 references)
+            Show evidence (6 references)
         </summary>
         <div class="evidence-list">
 
@@ -4537,6 +4743,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4564,6 +4771,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4588,6 +4796,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4602,7 +4811,7 @@
             </div>
 
 
-            <div class="evidence-more">+ 2 more references</div>
+            <div class="evidence-more">+ 3 more references</div>
 
         </div>
     </details>
@@ -4745,7 +4954,7 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #eef2ff; color: #4f46e5;">?</div>
                 <h2 class="card-title">Discussions and Knowledge Gaps</h2>
-                <span class="card-count">2</span>
+                <span class="card-count">3</span>
             </div>
 
             <div class="item-box discussion-box anchor-target" id="gap_pots_receptor_autoantibody_causality">
@@ -4983,6 +5192,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5007,6 +5217,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5028,6 +5239,7 @@
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -5168,6 +5380,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5192,6 +5405,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5200,6 +5414,305 @@
 
 
                 <div class="evidence-explanation">Supports treating MCAS and etiological classification as unresolved rather than as a settled POTS causal subtype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box discussion-box anchor-target" id="gap_pots_small_fiber_neuropathy_causal_primacy">
+                <div class="item-name">Does small-fiber and postganglionic sympathetic denervation cause the POTS phenotype, or does it co-occur with it in a subset identified by whichever autonomic test happened to be applied?</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-discussion-kind">KNOWLEDGE GAP</span>
+
+
+                    <span class="tag tag-discussion-status">OPEN</span>
+
+
+                    <span class="entity-ref-chip">gap_pots_small_fiber_neuropathy_causal_primacy</span>
+
+                </div>
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Attached to</div>
+                    <div class="entity-ref-list">
+
+
+
+
+    <a class="entity-ref-chip" href="#hypothesis-neuropathic-denervation-model">mechanistic_hypotheses#neuropathic_denervation_model</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-sympathetic-denervation">pathophysiology#Sympathetic Denervation</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#subtype-neuropathic-pots">has_subtypes#Neuropathic POTS</a>
+
+
+
+                    </div>
+                </div>
+
+
+                <div class="item-desc" style="margin-top: 10px;">Every study linking small-fiber neuropathy to POTS is cross-sectional. No perturbation has shown that inducing, preventing, or reversing small-fiber loss correspondingly causes, prevents, or resolves the orthostatic tachycardia. Reported prevalence swings with the test and the referral population, and the one prospective case-control comparison found no IENFD difference at all, so the subset that a test identifies may not be the subset in which denervation drives the phenotype. Two features of the current evidence keep the question open in both directions: the physiology of impaired lower-limb vasoconstriction and pooling is robust, but it has never been demonstrated end to end within a single objectively defined neuropathic cohort, and the interventions that would test causality (immunotherapy for the presumed upstream immune injury) have been negative without reversing nerve fiber density.</div>
+
+
+                <div class="experiment-section">
+                    <div class="experiment-section-title">Proposed experiments</div>
+                    <div class="experiment-list">
+
+
+    <div class="experiment-card">
+        <div class="experiment-header">
+            <div>
+                <div class="experiment-title">Exercise training trial stratified by baseline nerve fiber density</div>
+
+            </div>
+
+            <div class="experiment-id">exp_pots_exercise_rct_stratified_by_ienfd</div>
+
+        </div>
+
+        <div class="item-desc" style="margin-top: 8px;">Randomize POTS patients to a three-month exercise training program after stratifying on baseline IENFD and QSART, with repeat skin biopsy, sudomotor testing, standing heart rate, and plasma norepinephrine at completion. If structural denervation is causal, the reduced-IENFD stratum should remit less often than the normal-IENFD stratum; comparable remission across strata would indicate that the denervation finding is not what determines the phenotype.</div>
+
+
+
+
+
+
+
+
+
+    <div class="experiment-section">
+        <div class="experiment-section-title">Would support</div>
+        <div class="entity-ref-list">
+
+
+
+
+    <a class="entity-ref-chip" href="#hypothesis-neuropathic-denervation-model">mechanistic_hypotheses#neuropathic_denervation_model</a>
+
+
+
+
+
+
+    <a class="entity-ref-chip" href="#pathophysiology-sympathetic-denervation">pathophysiology#Sympathetic Denervation</a>
+
+
+
+        </div>
+    </div>
+
+
+
+
+
+
+
+    <div class="experiment-section">
+        <div class="experiment-section-title">Supporting outcome</div>
+        <ul class="experiment-outcome-list">
+
+            <li>Remission rates are substantially lower in the reduced-IENFD stratum, and patients whose heart-rate criterion resolves show corresponding recovery of nerve fiber density or sudomotor function.</li>
+
+        </ul>
+    </div>
+
+
+
+
+    <div class="experiment-section">
+        <div class="experiment-section-title">Refuting outcome</div>
+        <ul class="experiment-outcome-list">
+
+            <li>Remission rates are similar across strata and nerve fiber density is unchanged in patients who remit, indicating that the orthostatic tachycardia resolves independently of the structural finding.</li>
+
+        </ul>
+    </div>
+
+
+
+
+
+
+
+    </div>
+
+
+
+    <div class="experiment-card">
+        <div class="experiment-header">
+            <div>
+                <div class="experiment-title">Prospective post-viral cohort with serial skin biopsy and autonomic testing</div>
+
+            </div>
+
+            <div class="experiment-id">exp_pots_prospective_post_viral_serial_biopsy_cohort</div>
+
+        </div>
+
+        <div class="item-desc" style="margin-top: 8px;">Follow a cohort from an acute viral illness with serial IENFD, QSART, and orthostatic testing at 3, 6, and 12 months to establish whether small-fiber loss precedes the onset of orthostatic tachycardia. Temporal precedence is the minimum evidence that the cross-sectional studies cannot supply.</div>
+
+
+
+
+
+
+
+
+
+    <div class="experiment-section">
+        <div class="experiment-section-title">Would support</div>
+        <div class="entity-ref-list">
+
+
+
+
+    <a class="entity-ref-chip" href="#hypothesis-neuropathic-denervation-model">mechanistic_hypotheses#neuropathic_denervation_model</a>
+
+
+
+        </div>
+    </div>
+
+
+
+
+
+
+
+    <div class="experiment-section">
+        <div class="experiment-section-title">Supporting outcome</div>
+        <ul class="experiment-outcome-list">
+
+            <li>IENFD decline is detectable before the heart-rate criterion is met, and is greater in participants who go on to develop POTS than in those who do not.</li>
+
+        </ul>
+    </div>
+
+
+
+
+    <div class="experiment-section">
+        <div class="experiment-section-title">Refuting outcome</div>
+        <ul class="experiment-outcome-list">
+
+            <li>Orthostatic tachycardia appears without preceding IENFD decline, or IENFD falls equally in participants who never develop POTS.</li>
+
+        </ul>
+    </div>
+
+
+
+
+
+
+
+    </div>
+
+
+                    </div>
+                </div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40608783" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40608783" target="_blank">PMID:40608783</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In the present study, there was no significant difference in IENFD between POTS and controls."</div>
+
+
+                <div class="evidence-explanation">A prospective case-control comparison finding no nerve fiber density difference supports keeping the causal role of small-fiber neuropathy open, since the earlier prevalence figures came from selected and largely retrospective testing populations.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24386408" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24386408" target="_blank">PMID:24386408</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"POTS subtypes may be distinguished using small fiber and autonomic structural and functional criteria."</div>
+
+
+                <div class="evidence-explanation">The strongest operational subtype study distinguishes neuropathic from non-neuropathic POTS on combined structural and functional criteria, but it is cross-sectional and perturbs nothing, so it establishes a separable group rather than causal primacy for the denervation.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36367813" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36367813" target="_blank">PMID:36367813</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"This pilot study did not detect a benefit of treatment with IVIG in patients with SFN and autoantibodies to TS-HDS and FGFR-3."</div>
+
+
+                <div class="evidence-explanation">Controlled immunotherapy did not improve nerve fiber density or symptoms in antibody-associated small-fiber neuropathy, removing one route to testing an immune cause of the denervation. The trial enrolled small-fiber neuropathy rather than POTS, so it bears on this gap by inference and does not test the pooling mechanism.</div>
 
 
 
@@ -5226,6 +5739,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sympathetic-denervation" data-dismech-node="Sympathetic Denervation" data-dismech-type="pathophysiology">
                 <div class="item-name">Sympathetic Denervation</div>
+
 
                 <div class="item-desc">Partial sympathetic denervation, particularly of the lower extremities, impairs norepinephrine release at sympathetic nerve terminals. This leads to failure of peripheral vasoconstriction upon standing.</div>
 
@@ -5369,6 +5883,7 @@ This pathophysiological event involves Norepinephrine secretion (GO:0048243). GO
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5390,6 +5905,7 @@ This pathophysiological event involves Norepinephrine secretion (GO:0048243). GO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5415,6 +5931,7 @@ This pathophysiological event involves Norepinephrine secretion (GO:0048243). GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-venous-pooling-and-reduced-preload" data-dismech-node="Venous Pooling and Reduced Preload" data-dismech-type="pathophysiology">
                 <div class="item-name">Venous Pooling and Reduced Preload</div>
+
 
                 <div class="item-desc">Excessive venous blood pooling in the splanchnic and lower limb vasculature upon standing reduces venous return and cardiac preload, triggering compensatory tachycardia via the baroreflex.</div>
 
@@ -5597,7 +6114,7 @@ This pathophysiological event involves Vasoconstriction (GO:0042310). GO:0042310
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (3 references)
         </summary>
         <div class="evidence-list">
 
@@ -5609,6 +6126,7 @@ This pathophysiological event involves Vasoconstriction (GO:0042310). GO:0042310
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5636,6 +6154,7 @@ This pathophysiological event involves Vasoconstriction (GO:0042310). GO:0042310
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5644,6 +6163,31 @@ This pathophysiological event involves Vasoconstriction (GO:0042310). GO:0042310
 
 
                 <div class="evidence-explanation">Treatments targeting venous pooling confirm its role in the pathophysiology.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:12653674" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12653674" target="_blank">PMID:12653674</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"POTS patients had markedly increased heart rate and calf blood flow, unstable blood pressure, and pooling in the lower extremities, regardless of subgroup."</div>
+
+
+                <div class="evidence-explanation">Plethysmographic study of 29 POTS patients against neurocardiogenic syncope patients and healthy controls demonstrates lower-extremity pooling with abnormal peripheral vascular physiology specific to POTS, giving this node direct physiologic support rather than review-level assertion.</div>
 
 
 
@@ -5658,6 +6202,7 @@ This pathophysiological event involves Vasoconstriction (GO:0042310). GO:0042310
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-compensatory-reflex-tachycardia" data-dismech-node="Compensatory Reflex Tachycardia" data-dismech-type="pathophysiology">
                 <div class="item-name">Compensatory Reflex Tachycardia</div>
+
 
                 <div class="item-desc">Reduced cardiac preload from venous pooling triggers an excessive baroreceptor-mediated increase in heart rate to maintain cardiac output. This compensatory tachycardia is the defining hemodynamic abnormality of POTS.</div>
 
@@ -5777,6 +6322,7 @@ This pathophysiological event involves Positive regulation of heart rate by nore
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5798,6 +6344,7 @@ This pathophysiological event involves Positive regulation of heart rate by nore
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5823,6 +6370,7 @@ This pathophysiological event involves Positive regulation of heart rate by nore
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-excessive-sympathetic-activation" data-dismech-node="Excessive Sympathetic Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Excessive Sympathetic Activation</div>
+
 
                 <div class="item-desc">Elevated central sympathetic outflow produces excessive circulating norepinephrine, resulting in hyperadrenergic symptoms including standing hypertension, tremor, and anxiety. This may be a primary central nervous system abnormality or a compensatory response to hypovolemia.</div>
 
@@ -5951,6 +6499,7 @@ This pathophysiological event involves Positive regulation of norepinephrine sec
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5972,6 +6521,7 @@ This pathophysiological event involves Positive regulation of norepinephrine sec
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5997,6 +6547,7 @@ This pathophysiological event involves Positive regulation of norepinephrine sec
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-autoimmune-autonomic-dysfunction" data-dismech-node="Autoimmune Autonomic Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Autoimmune Autonomic Dysfunction</div>
+
 
                 <div class="item-desc">Autoantibodies targeting G-protein coupled autonomic receptors may interfere with normal autonomic signaling, contributing to the autonomic dysregulation seen in POTS. Adrenergic and muscarinic receptor antibodies have been reported in some cohorts, while a recent cohort instead found elevated angiotensin II type 1 receptor antibodies, leaving receptor specificity and causality unresolved.</div>
 
@@ -6197,7 +6748,7 @@ This pathophysiological event involves abnormal Renin-angiotensin-aldosterone sy
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (4 references)
+            Show evidence (6 references)
         </summary>
         <div class="evidence-list">
 
@@ -6209,6 +6760,7 @@ This pathophysiological event involves abnormal Renin-angiotensin-aldosterone sy
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6236,6 +6788,7 @@ This pathophysiological event involves abnormal Renin-angiotensin-aldosterone sy
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6260,6 +6813,7 @@ This pathophysiological event involves abnormal Renin-angiotensin-aldosterone sy
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6274,7 +6828,7 @@ This pathophysiological event involves abnormal Renin-angiotensin-aldosterone sy
             </div>
 
 
-            <div class="evidence-more">+ 1 more reference</div>
+            <div class="evidence-more">+ 3 more references</div>
 
         </div>
     </details>
@@ -6284,6 +6838,7 @@ This pathophysiological event involves abnormal Renin-angiotensin-aldosterone sy
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-post-infectious-trigger" data-dismech-node="Post-Infectious Trigger" data-dismech-type="pathophysiology">
                 <div class="item-name">Post-Infectious Trigger</div>
+
 
                 <div class="item-desc">Viral infections, including SARS-CoV-2, can precipitate POTS onset through immunological stress, potentially triggering autoimmune responses against autonomic nervous system components.</div>
 
@@ -6359,6 +6914,7 @@ This pathophysiological event involves abnormal Renin-angiotensin-aldosterone sy
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6380,6 +6936,7 @@ This pathophysiological event involves abnormal Renin-angiotensin-aldosterone sy
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6405,6 +6962,7 @@ This pathophysiological event involves abnormal Renin-angiotensin-aldosterone sy
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiovascular-deconditioning" data-dismech-node="Cardiovascular Deconditioning" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiovascular Deconditioning</div>
+
 
                 <div class="item-desc">Chronic physical inactivity due to symptom burden leads to cardiac atrophy and reduced heart size, further reducing stroke volume and worsening orthostatic intolerance in a vicious cycle.</div>
 
@@ -6514,6 +7072,7 @@ This pathophysiological event involves Cardiac muscle cell (CL:0000746). CL:0000
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6559,7 +7118,7 @@ This pathophysiological event involves Cardiac muscle cell (CL:0000746). CL:0000
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal Autonomic Nervous System Physiology\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dysregulation of the autonomic nervous system is the hallmark of POTS, manifesting as impaired cardiovascular reflexes and multi-system autonomic dysfunction.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"reports_on\": [{\"target\": \"Sympathetic Denervation\", \"relationship\": \"READOUT_OF\", \"direction\": \"PRESENT_ABSENT\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Autonomic function testing demonstrating impaired cardiovascular reflexes reports the partial peripheral sympathetic denervation postulated in neuropathic POTS.\"}, {\"target\": \"Excessive Sympathetic Activation\", \"relationship\": \"READOUT_OF\", \"direction\": \"PRESENT_ABSENT\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"The same autonomic testing abnormality also reports the opposite pole of the syndrome, excessive central sympathetic outflow, so the finding is shared across mechanistic subtypes rather than specific to one.\"}], \"term_id\": \"HP:0012332\"}}, {\"id\": \"Acrocyanosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bluish-red discoloration of the dependent extremities upon standing, reflecting venous pooling and poor peripheral circulation.\", \"meta\": {\"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001063\"}}, {\"id\": \"Autoimmune Autonomic Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Autoantibodies targeting G-protein coupled autonomic receptors may interfere with normal autonomic signaling, contributing to the autonomic dysregulation seen in POTS. Adrenergic and muscarinic receptor antibodies have been reported in some cohorts, while a recent cohort instead found elevated angiotensin II type 1 receptor antibodies, leaving receptor specificity and causality unresolved.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"B cell\"], \"biological_processes\": [\"B cell mediated immunity\", \"Renin-angiotensin-aldosterone system regulation\"]}}, {\"id\": \"Brain Fog\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cognitive impairment characterized by difficulty concentrating, poor memory, and mental clouding, particularly when upright.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0033630\"}}, {\"id\": \"Cardiovascular Deconditioning\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic physical inactivity due to symptom burden leads to cardiac atrophy and reduced heart size, further reducing stroke volume and worsening orthostatic intolerance in a vicious cycle.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Cardiac muscle cell\"], \"subtypes\": [\"Hypovolemic POTS\"]}}, {\"id\": \"Chest Pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Non-cardiac chest pain, frequently described as pressure or tightness, exacerbated by upright posture.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0100749\"}}, {\"id\": \"Compensatory Reflex Tachycardia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced cardiac preload from venous pooling triggers an excessive baroreceptor-mediated increase in heart rate to maintain cardiac output. This compensatory tachycardia is the defining hemodynamic abnormality of POTS.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Positive regulation of heart rate by norepinephrine\"], \"subtypes\": [\"Neuropathic POTS\", \"Hyperadrenergic POTS\", \"Hypovolemic POTS\"]}}, {\"id\": \"Compression Garments\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Abdominal binders and lower extremity compression stockings to reduce venous pooling and improve venous return upon standing.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Dizziness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Lightheadedness or dizziness upon standing, resulting from cerebral hypoperfusion due to inadequate cardiovascular compensation during orthostatic stress.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002321\"}}, {\"id\": \"Dyspnea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Subjective breathlessness, particularly upon standing or exertion, despite normal pulmonary function.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002094\"}}, {\"id\": \"Excessive Sympathetic Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Elevated central sympathetic outflow produces excessive circulating norepinephrine, resulting in hyperadrenergic symptoms including standing hypertension, tremor, and anxiety. This may be a primary central nervous system abnormality or a compensatory response to hypovolemia.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Positive regulation of norepinephrine secretion\"], \"subtypes\": [\"Hyperadrenergic POTS\"]}}, {\"id\": \"Exercise Intolerance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced ability to perform physical activity, with exaggerated heart rate response and symptom exacerbation during exercise.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003546\"}}, {\"id\": \"Exercise Training\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Graded exercise programs, particularly recumbent exercise initially, have been shown to improve cardiovascular conditioning, expand blood volume, and reduce orthostatic tachycardia in POTS patients. After 3 months of training, over 50% of patients no longer met criteria for POTS.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Fatigue\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chronic, debilitating fatigue that significantly impairs daily activities and is one of the most disabling symptoms of POTS.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0012378\"}}, {\"id\": \"Headache\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Headaches, often orthostatic in nature, worsening upon standing and improving when recumbent.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002315\"}}, {\"id\": \"Nausea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Nausea, often postprandial or positional, related to splanchnic blood pooling and gastrointestinal dysmotility.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002018\"}}, {\"id\": \"Orthostatic Tachycardia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sustained heart rate increase of 30 bpm or more (or \u003e40 bpm in adolescents) within 10 minutes of standing or head-up tilt, without orthostatic hypotension.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"reports_on\": [{\"target\": \"Compensatory Reflex Tachycardia\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"The heart-rate increment measured during standing or head-up tilt is the bedside measurement of the compensatory reflex tachycardia mechanism; the 30 bpm threshold is the diagnostic cut-point applied to that measurement.\"}], \"term_id\": \"HP:0012173\"}}, {\"id\": \"Palpitations\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Awareness of rapid or forceful heartbeat, often triggered by standing or exertion.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001962\"}}, {\"id\": \"Pharmacotherapy - Beta-Blockers\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Low-dose propranolol (20 mg) to attenuate the excessive heart rate response upon standing. Higher doses may worsen symptoms despite greater heart rate reduction.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"propranolol\"]}}, {\"id\": \"Pharmacotherapy - Fludrocortisone\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Mineralocorticoid that promotes sodium and fluid retention to expand intravascular volume.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"fludrocortisone\"]}}, {\"id\": \"Pharmacotherapy - Ivabradine\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Ivabradine selectively inhibits the funny (If) current in sinoatrial node pacemaker cells, lowering heart rate without reducing blood pressure or myocardial contractility. In a randomized, double-blind, placebo-controlled crossover trial it improved heart rate and quality of life in patients with hyperadrenergic POTS.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"ivabradine\"]}}, {\"id\": \"Pharmacotherapy - Midodrine\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Alpha-1 adrenergic agonist that promotes peripheral vasoconstriction, improving venous return and reducing orthostatic symptoms.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"midodrine\"]}}, {\"id\": \"Pharmacotherapy - Pyridostigmine\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Pyridostigmine is an acetylcholinesterase inhibitor that enhances cardiovagal (parasympathetic) tone, attenuating orthostatic tachycardia and symptom burden without raising blood pressure. It offers a parasympathomimetic alternative to sympatholytic strategies.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"pyridostigmine\"]}}, {\"id\": \"Post-Infectious Trigger\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Viral infections, including SARS-CoV-2, can precipitate POTS onset through immunological stress, potentially triggering autoimmune responses against autonomic nervous system components.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Sympathetic Denervation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Partial sympathetic denervation, particularly of the lower extremities, impairs norepinephrine release at sympathetic nerve terminals. This leads to failure of peripheral vasoconstriction upon standing.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Sympathetic neuron\"], \"biological_processes\": [\"Norepinephrine secretion\"], \"subtypes\": [\"Neuropathic POTS\"]}}, {\"id\": \"Syncope\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Transient loss of consciousness due to cerebral hypoperfusion, occurring in a subset of patients.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001279\"}}, {\"id\": \"Tremor\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Postural tremor, particularly in hyperadrenergic POTS, associated with elevated catecholamine levels.\", \"meta\": {\"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001337\"}}, {\"id\": \"Venous Pooling and Reduced Preload\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Excessive venous blood pooling in the splanchnic and lower limb vasculature upon standing reduces venous return and cardiac preload, triggering compensatory tachycardia via the baroreflex.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Vascular associated smooth muscle cell\"], \"biological_processes\": [\"Vasoconstriction\"], \"subtypes\": [\"Neuropathic POTS\", \"Hypovolemic POTS\"]}}, {\"id\": \"Volume Expansion and Salt Supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Increased fluid intake (2-3 liters/day) and sodium supplementation (6-10 g/day) to expand plasma volume and improve venous return.\", \"meta\": {\"evidence_count\": 2}}], \"edges\": [{\"source\": \"Sympathetic Denervation\", \"target\": \"Venous Pooling and Reduced Preload\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of sympathetic vasoconstriction in the lower extremities allows excessive venous pooling upon standing, reducing cardiac preload.\", \"hypothesis_groups\": [\"neuropathic_denervation_model\"]}, {\"source\": \"Venous Pooling and Reduced Preload\", \"target\": \"Compensatory Reflex Tachycardia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced stroke volume from venous pooling triggers baroreceptor-mediated sympathetic activation and compensatory heart rate increase.\", \"hypothesis_groups\": [\"neuropathic_denervation_model\", \"hypovolemic_deconditioning_model\"]}, {\"source\": \"Venous Pooling and Reduced Preload\", \"target\": \"Dizziness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced venous return lowers stroke volume and cerebral perfusion on standing, which patients experience as lightheadedness.\"}, {\"source\": \"Venous Pooling and Reduced Preload\", \"target\": \"Syncope\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"When the compensatory heart-rate response fails to maintain cerebral perfusion, the fall in cerebral blood flow can progress to transient loss of consciousness.\"}, {\"source\": \"Venous Pooling and Reduced Preload\", \"target\": \"Brain Fog\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained reduction in cerebral perfusion during upright posture impairs attention, concentration, and working memory.\"}, {\"source\": \"Venous Pooling and Reduced Preload\", \"target\": \"Headache\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered cerebral perfusion during orthostatic stress contributes to the headache reported on standing.\"}, {\"source\": \"Venous Pooling and Reduced Preload\", \"target\": \"Acrocyanosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Blood pooling in the dependent extremities on standing produces the bluish-red discoloration and sluggish peripheral circulation.\"}, {\"source\": \"Compensatory Reflex Tachycardia\", \"target\": \"Palpitations\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The exaggerated upright heart rate is perceived directly by the patient as a rapid or forceful heartbeat.\"}, {\"source\": \"Compensatory Reflex Tachycardia\", \"target\": \"Chest Pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained tachycardia raises myocardial oxygen demand and shortens diastolic filling time, which can present as exertional or orthostatic chest discomfort.\"}, {\"source\": \"Compensatory Reflex Tachycardia\", \"target\": \"Dyspnea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Tachycardia with a reduced stroke volume limits the cardiac output available on standing and exertion, producing breathlessness.\"}, {\"source\": \"Compensatory Reflex Tachycardia\", \"target\": \"Exercise Intolerance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Because the heart rate reserve is already consumed at rest in the upright posture, little remains for exertion, capping achievable workload.\"}, {\"source\": \"Compensatory Reflex Tachycardia\", \"target\": \"Fatigue\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The chronic effort of sustaining cardiac output through heart rate alone, together with reduced stroke volume, leaves patients persistently exhausted.\"}, {\"source\": \"Excessive Sympathetic Activation\", \"target\": \"Compensatory Reflex Tachycardia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excessive catecholamine release drives the exaggerated heart rate response.\", \"hypothesis_groups\": [\"hyperadrenergic_model\"]}, {\"source\": \"Excessive Sympathetic Activation\", \"target\": \"Tremor\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Elevated circulating norepinephrine acts on peripheral beta-2 adrenergic receptors in skeletal muscle to produce the postural tremor seen in hyperadrenergic POTS.\", \"hypothesis_groups\": [\"hyperadrenergic_model\"]}, {\"source\": \"Autoimmune Autonomic Dysfunction\", \"target\": \"Sympathetic Denervation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Autoimmune-mediated damage to autonomic nerves may cause the partial sympathetic denervation seen in neuropathic POTS.\", \"hypothesis_groups\": [\"autoimmune_receptor_model\"]}, {\"source\": \"Autoimmune Autonomic Dysfunction\", \"target\": \"Venous Pooling and Reduced Preload\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"AT1R autoantibody activity may disrupt angiotensin II receptor responsiveness and contribute indirectly to low effective circulating volume or low preload in a subset of POTS.\", \"hypothesis_groups\": [\"autoimmune_receptor_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Autoimmune Autonomic Dysfunction\", \"target\": \"Nausea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Autonomic dysregulation extends beyond the cardiovascular system to gastrointestinal motility, so the same disturbance produces nausea alongside the orthostatic features.\", \"hypothesis_groups\": [\"autoimmune_receptor_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Post-Infectious Trigger\", \"target\": \"Autoimmune Autonomic Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Viral infection may trigger autoantibody production against autonomic receptors.\", \"hypothesis_groups\": [\"autoimmune_receptor_model\"]}, {\"source\": \"Cardiovascular Deconditioning\", \"target\": \"Venous Pooling and Reduced Preload\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cardiac atrophy reduces stroke volume, compounding the effect of venous pooling.\", \"hypothesis_groups\": [\"hypovolemic_deconditioning_model\"]}, {\"source\": \"Exercise Training\", \"target\": \"Cardiovascular Deconditioning\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Exercise Training\", \"target\": \"Venous Pooling and Reduced Preload\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Volume Expansion and Salt Supplementation\", \"target\": \"Venous Pooling and Reduced Preload\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Pharmacotherapy - Beta-Blockers\", \"target\": \"Compensatory Reflex Tachycardia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Pharmacotherapy - Midodrine\", \"target\": \"Venous Pooling and Reduced Preload\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Pharmacotherapy - Fludrocortisone\", \"target\": \"Venous Pooling and Reduced Preload\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Compression Garments\", \"target\": \"Venous Pooling and Reduced Preload\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Pharmacotherapy - Ivabradine\", \"target\": \"Compensatory Reflex Tachycardia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Pharmacotherapy - Pyridostigmine\", \"target\": \"Compensatory Reflex Tachycardia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Compensatory Reflex Tachycardia\", \"target\": \"Orthostatic Tachycardia\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"The heart-rate increment measured during standing or head-up tilt is the bedside measurement of the compensatory reflex tachycardia mechanism; the 30 bpm threshold is the diagnostic cut-point applied to that measurement.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Sympathetic Denervation\", \"target\": \"Abnormal Autonomic Nervous System Physiology\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Autonomic function testing demonstrating impaired cardiovascular reflexes reports the partial peripheral sympathetic denervation postulated in neuropathic POTS.\", \"relationship\": \"READOUT_OF\", \"direction\": \"PRESENT_ABSENT\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Excessive Sympathetic Activation\", \"target\": \"Abnormal Autonomic Nervous System Physiology\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"The same autonomic testing abnormality also reports the opposite pole of the syndrome, excessive central sympathetic outflow, so the finding is shared across mechanistic subtypes rather than specific to one.\", \"relationship\": \"READOUT_OF\", \"direction\": \"PRESENT_ABSENT\", \"endpoint_context\": \"DIAGNOSTIC\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal Autonomic Nervous System Physiology\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dysregulation of the autonomic nervous system is the hallmark of POTS, manifesting as impaired cardiovascular reflexes and multi-system autonomic dysfunction.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"reports_on\": [{\"target\": \"Sympathetic Denervation\", \"relationship\": \"READOUT_OF\", \"direction\": \"PRESENT_ABSENT\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Autonomic function testing demonstrating impaired cardiovascular reflexes reports the partial peripheral sympathetic denervation postulated in neuropathic POTS.\"}, {\"target\": \"Excessive Sympathetic Activation\", \"relationship\": \"READOUT_OF\", \"direction\": \"PRESENT_ABSENT\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"The same autonomic testing abnormality also reports the opposite pole of the syndrome, excessive central sympathetic outflow, so the finding is shared across mechanistic subtypes rather than specific to one.\"}], \"term_id\": \"HP:0012332\"}}, {\"id\": \"Acrocyanosis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bluish-red discoloration of the dependent extremities upon standing, reflecting venous pooling and poor peripheral circulation.\", \"meta\": {\"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001063\"}}, {\"id\": \"Autoimmune Autonomic Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Autoantibodies targeting G-protein coupled autonomic receptors may interfere with normal autonomic signaling, contributing to the autonomic dysregulation seen in POTS. Adrenergic and muscarinic receptor antibodies have been reported in some cohorts, while a recent cohort instead found elevated angiotensin II type 1 receptor antibodies, leaving receptor specificity and causality unresolved.\", \"meta\": {\"evidence_count\": 6, \"cell_types\": [\"B cell\"], \"biological_processes\": [\"B cell mediated immunity\", \"Renin-angiotensin-aldosterone system regulation\"]}}, {\"id\": \"Brain Fog\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cognitive impairment characterized by difficulty concentrating, poor memory, and mental clouding, particularly when upright.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0033630\"}}, {\"id\": \"Cardiovascular Deconditioning\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Chronic physical inactivity due to symptom burden leads to cardiac atrophy and reduced heart size, further reducing stroke volume and worsening orthostatic intolerance in a vicious cycle.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Cardiac muscle cell\"], \"subtypes\": [\"Hypovolemic POTS\"]}}, {\"id\": \"Chest Pain\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Non-cardiac chest pain, frequently described as pressure or tightness, exacerbated by upright posture.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0100749\"}}, {\"id\": \"Compensatory Reflex Tachycardia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced cardiac preload from venous pooling triggers an excessive baroreceptor-mediated increase in heart rate to maintain cardiac output. This compensatory tachycardia is the defining hemodynamic abnormality of POTS.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Positive regulation of heart rate by norepinephrine\"], \"subtypes\": [\"Neuropathic POTS\", \"Hyperadrenergic POTS\", \"Hypovolemic POTS\"]}}, {\"id\": \"Compression Garments\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Abdominal binders and lower extremity compression stockings to reduce venous pooling and improve venous return upon standing.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Dizziness\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Lightheadedness or dizziness upon standing, resulting from cerebral hypoperfusion due to inadequate cardiovascular compensation during orthostatic stress.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002321\"}}, {\"id\": \"Dyspnea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Subjective breathlessness, particularly upon standing or exertion, despite normal pulmonary function.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002094\"}}, {\"id\": \"Excessive Sympathetic Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Elevated central sympathetic outflow produces excessive circulating norepinephrine, resulting in hyperadrenergic symptoms including standing hypertension, tremor, and anxiety. This may be a primary central nervous system abnormality or a compensatory response to hypovolemia.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Positive regulation of norepinephrine secretion\"], \"subtypes\": [\"Hyperadrenergic POTS\"]}}, {\"id\": \"Exercise Intolerance\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Reduced ability to perform physical activity, with exaggerated heart rate response and symptom exacerbation during exercise.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0003546\"}}, {\"id\": \"Exercise Training\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Graded exercise programs, particularly recumbent exercise initially, have been shown to improve cardiovascular conditioning, expand blood volume, and reduce orthostatic tachycardia in POTS patients. After 3 months of training, over 50% of patients no longer met criteria for POTS.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Fatigue\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Chronic, debilitating fatigue that significantly impairs daily activities and is one of the most disabling symptoms of POTS.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0012378\"}}, {\"id\": \"Headache\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Headaches, often orthostatic in nature, worsening upon standing and improving when recumbent.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002315\"}}, {\"id\": \"Nausea\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Nausea, often postprandial or positional, related to splanchnic blood pooling and gastrointestinal dysmotility.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002018\"}}, {\"id\": \"Orthostatic Tachycardia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Sustained heart rate increase of 30 bpm or more (or \u003e40 bpm in adolescents) within 10 minutes of standing or head-up tilt, without orthostatic hypotension.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OBLIGATE\", \"reports_on\": [{\"target\": \"Compensatory Reflex Tachycardia\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"The heart-rate increment measured during standing or head-up tilt is the bedside measurement of the compensatory reflex tachycardia mechanism; the 30 bpm threshold is the diagnostic cut-point applied to that measurement.\"}], \"term_id\": \"HP:0012173\"}}, {\"id\": \"Palpitations\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Awareness of rapid or forceful heartbeat, often triggered by standing or exertion.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0001962\"}}, {\"id\": \"Pharmacotherapy - Beta-Blockers\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Low-dose propranolol (20 mg) to attenuate the excessive heart rate response upon standing. Higher doses may worsen symptoms despite greater heart rate reduction.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"propranolol\"]}}, {\"id\": \"Pharmacotherapy - Fludrocortisone\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Mineralocorticoid that promotes sodium and fluid retention to expand intravascular volume.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"fludrocortisone\"]}}, {\"id\": \"Pharmacotherapy - Ivabradine\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Ivabradine selectively inhibits the funny (If) current in sinoatrial node pacemaker cells, lowering heart rate without reducing blood pressure or myocardial contractility. In a randomized, double-blind, placebo-controlled crossover trial it improved heart rate and quality of life in patients with hyperadrenergic POTS.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"ivabradine\"]}}, {\"id\": \"Pharmacotherapy - Midodrine\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Alpha-1 adrenergic agonist that promotes peripheral vasoconstriction, improving venous return and reducing orthostatic symptoms.\", \"meta\": {\"evidence_count\": 2, \"therapeutic_agents\": [\"midodrine\"]}}, {\"id\": \"Pharmacotherapy - Pyridostigmine\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Pyridostigmine is an acetylcholinesterase inhibitor that enhances cardiovagal (parasympathetic) tone, attenuating orthostatic tachycardia and symptom burden without raising blood pressure. It offers a parasympathomimetic alternative to sympatholytic strategies.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"pyridostigmine\"]}}, {\"id\": \"Post-Infectious Trigger\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Viral infections, including SARS-CoV-2, can precipitate POTS onset through immunological stress, potentially triggering autoimmune responses against autonomic nervous system components.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Sympathetic Denervation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Partial sympathetic denervation, particularly of the lower extremities, impairs norepinephrine release at sympathetic nerve terminals. This leads to failure of peripheral vasoconstriction upon standing.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Sympathetic neuron\"], \"biological_processes\": [\"Norepinephrine secretion\"], \"subtypes\": [\"Neuropathic POTS\"]}}, {\"id\": \"Syncope\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Transient loss of consciousness due to cerebral hypoperfusion, occurring in a subset of patients.\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001279\"}}, {\"id\": \"Transcutaneous Auricular Vagus Nerve Stimulation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Low-level noninvasive stimulation of the auricular branch of the vagus nerve at the tragus, delivered by ear clip for one hour daily. In a small sham-controlled randomized trial it reduced postural tachycardia over two months, with lower antiadrenergic autoantibody activity and inflammatory cytokines in the active arm. It remains investigational: the trial enrolled 26 women at a single centre and shares investigators with the group that reported the antiadrenergic autoantibody assays.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Tremor\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Postural tremor, particularly in hyperadrenergic POTS, associated with elevated catecholamine levels.\", \"meta\": {\"frequency\": \"OCCASIONAL\", \"term_id\": \"HP:0001337\"}}, {\"id\": \"Venous Pooling and Reduced Preload\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Excessive venous blood pooling in the splanchnic and lower limb vasculature upon standing reduces venous return and cardiac preload, triggering compensatory tachycardia via the baroreflex.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Vascular associated smooth muscle cell\"], \"biological_processes\": [\"Vasoconstriction\"], \"subtypes\": [\"Neuropathic POTS\", \"Hypovolemic POTS\"]}}, {\"id\": \"Volume Expansion and Salt Supplementation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Increased fluid intake (2-3 liters/day) and sodium supplementation (6-10 g/day) to expand plasma volume and improve venous return.\", \"meta\": {\"evidence_count\": 2}}], \"edges\": [{\"source\": \"Sympathetic Denervation\", \"target\": \"Venous Pooling and Reduced Preload\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of sympathetic vasoconstriction in the lower extremities allows excessive venous pooling upon standing, reducing cardiac preload.\", \"hypothesis_groups\": [\"neuropathic_denervation_model\"]}, {\"source\": \"Venous Pooling and Reduced Preload\", \"target\": \"Compensatory Reflex Tachycardia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced stroke volume from venous pooling triggers baroreceptor-mediated sympathetic activation and compensatory heart rate increase.\", \"hypothesis_groups\": [\"neuropathic_denervation_model\", \"hypovolemic_deconditioning_model\"]}, {\"source\": \"Venous Pooling and Reduced Preload\", \"target\": \"Dizziness\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced venous return lowers stroke volume and cerebral perfusion on standing, which patients experience as lightheadedness.\"}, {\"source\": \"Venous Pooling and Reduced Preload\", \"target\": \"Syncope\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"When the compensatory heart-rate response fails to maintain cerebral perfusion, the fall in cerebral blood flow can progress to transient loss of consciousness.\"}, {\"source\": \"Venous Pooling and Reduced Preload\", \"target\": \"Brain Fog\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained reduction in cerebral perfusion during upright posture impairs attention, concentration, and working memory.\"}, {\"source\": \"Venous Pooling and Reduced Preload\", \"target\": \"Headache\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Altered cerebral perfusion during orthostatic stress contributes to the headache reported on standing.\"}, {\"source\": \"Venous Pooling and Reduced Preload\", \"target\": \"Acrocyanosis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Blood pooling in the dependent extremities on standing produces the bluish-red discoloration and sluggish peripheral circulation.\"}, {\"source\": \"Compensatory Reflex Tachycardia\", \"target\": \"Palpitations\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The exaggerated upright heart rate is perceived directly by the patient as a rapid or forceful heartbeat.\"}, {\"source\": \"Compensatory Reflex Tachycardia\", \"target\": \"Chest Pain\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Sustained tachycardia raises myocardial oxygen demand and shortens diastolic filling time, which can present as exertional or orthostatic chest discomfort.\"}, {\"source\": \"Compensatory Reflex Tachycardia\", \"target\": \"Dyspnea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Tachycardia with a reduced stroke volume limits the cardiac output available on standing and exertion, producing breathlessness.\"}, {\"source\": \"Compensatory Reflex Tachycardia\", \"target\": \"Exercise Intolerance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Because the heart rate reserve is already consumed at rest in the upright posture, little remains for exertion, capping achievable workload.\"}, {\"source\": \"Compensatory Reflex Tachycardia\", \"target\": \"Fatigue\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The chronic effort of sustaining cardiac output through heart rate alone, together with reduced stroke volume, leaves patients persistently exhausted.\"}, {\"source\": \"Excessive Sympathetic Activation\", \"target\": \"Compensatory Reflex Tachycardia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Excessive catecholamine release drives the exaggerated heart rate response.\", \"hypothesis_groups\": [\"hyperadrenergic_model\"]}, {\"source\": \"Excessive Sympathetic Activation\", \"target\": \"Tremor\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Elevated circulating norepinephrine acts on peripheral beta-2 adrenergic receptors in skeletal muscle to produce the postural tremor seen in hyperadrenergic POTS.\", \"hypothesis_groups\": [\"hyperadrenergic_model\"]}, {\"source\": \"Autoimmune Autonomic Dysfunction\", \"target\": \"Sympathetic Denervation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Autoimmune-mediated damage to autonomic nerves may cause the partial sympathetic denervation seen in neuropathic POTS.\", \"hypothesis_groups\": [\"autoimmune_receptor_model\"]}, {\"source\": \"Autoimmune Autonomic Dysfunction\", \"target\": \"Venous Pooling and Reduced Preload\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"AT1R autoantibody activity may disrupt angiotensin II receptor responsiveness and contribute indirectly to low effective circulating volume or low preload in a subset of POTS.\", \"hypothesis_groups\": [\"autoimmune_receptor_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Autoimmune Autonomic Dysfunction\", \"target\": \"Nausea\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Autonomic dysregulation extends beyond the cardiovascular system to gastrointestinal motility, so the same disturbance produces nausea alongside the orthostatic features.\", \"hypothesis_groups\": [\"autoimmune_receptor_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Post-Infectious Trigger\", \"target\": \"Autoimmune Autonomic Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Viral infection may trigger autoantibody production against autonomic receptors.\", \"hypothesis_groups\": [\"autoimmune_receptor_model\"]}, {\"source\": \"Cardiovascular Deconditioning\", \"target\": \"Venous Pooling and Reduced Preload\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Cardiac atrophy reduces stroke volume, compounding the effect of venous pooling.\", \"hypothesis_groups\": [\"hypovolemic_deconditioning_model\"]}, {\"source\": \"Exercise Training\", \"target\": \"Cardiovascular Deconditioning\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Exercise Training\", \"target\": \"Venous Pooling and Reduced Preload\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Volume Expansion and Salt Supplementation\", \"target\": \"Venous Pooling and Reduced Preload\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Pharmacotherapy - Beta-Blockers\", \"target\": \"Compensatory Reflex Tachycardia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Pharmacotherapy - Midodrine\", \"target\": \"Venous Pooling and Reduced Preload\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Pharmacotherapy - Fludrocortisone\", \"target\": \"Venous Pooling and Reduced Preload\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Compression Garments\", \"target\": \"Venous Pooling and Reduced Preload\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Pharmacotherapy - Ivabradine\", \"target\": \"Compensatory Reflex Tachycardia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Pharmacotherapy - Pyridostigmine\", \"target\": \"Compensatory Reflex Tachycardia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Transcutaneous Auricular Vagus Nerve Stimulation\", \"target\": \"Compensatory Reflex Tachycardia\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Compensatory Reflex Tachycardia\", \"target\": \"Orthostatic Tachycardia\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"The heart-rate increment measured during standing or head-up tilt is the bedside measurement of the compensatory reflex tachycardia mechanism; the 30 bpm threshold is the diagnostic cut-point applied to that measurement.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Sympathetic Denervation\", \"target\": \"Abnormal Autonomic Nervous System Physiology\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Autonomic function testing demonstrating impaired cardiovascular reflexes reports the partial peripheral sympathetic denervation postulated in neuropathic POTS.\", \"relationship\": \"READOUT_OF\", \"direction\": \"PRESENT_ABSENT\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Excessive Sympathetic Activation\", \"target\": \"Abnormal Autonomic Nervous System Physiology\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"The same autonomic testing abnormality also reports the opposite pole of the syndrome, excessive central sympathetic outflow, so the finding is shared across mechanistic subtypes rather than specific to one.\", \"relationship\": \"READOUT_OF\", \"direction\": \"PRESENT_ABSENT\", \"endpoint_context\": \"DIAGNOSTIC\"}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6633,6 +7192,9 @@ This clinical feature is Palpitations (HP:0001962). HP:0001962 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6647,6 +7209,7 @@ This clinical feature is Palpitations (HP:0001962). HP:0001962 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6703,6 +7266,9 @@ This clinical feature is Syncope (HP:0001279). HP:0001279 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6717,6 +7283,7 @@ This clinical feature is Syncope (HP:0001279). HP:0001279 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6782,6 +7349,9 @@ This clinical feature is Nausea (HP:0002018). HP:0002018 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6796,6 +7366,7 @@ This clinical feature is Nausea (HP:0002018). HP:0002018 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6863,6 +7434,9 @@ This clinical feature is Dizziness, annotated with Vertigo (HP:0002321). HP:0002
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6877,6 +7451,7 @@ This clinical feature is Dizziness, annotated with Vertigo (HP:0002321). HP:0002
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6946,6 +7521,9 @@ This clinical feature is Acrocyanosis (HP:0001063). HP:0001063 is a phenotype fr
 
 
 
+
+
+
                 </div>
 
             </details>
@@ -6987,6 +7565,9 @@ This clinical feature is Orthostatic tachycardia (HP:0012173). HP:0012173 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7001,6 +7582,7 @@ This clinical feature is Orthostatic tachycardia (HP:0012173). HP:0012173 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7057,6 +7639,9 @@ This clinical feature is Brain fog (HP:0033630). HP:0033630 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7071,6 +7656,7 @@ This clinical feature is Brain fog (HP:0033630). HP:0033630 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7127,6 +7713,9 @@ This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7141,6 +7730,7 @@ This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7201,6 +7791,9 @@ This clinical feature is Tremor (HP:0001337). HP:0001337 is a phenotype from the
 
 
 
+
+
+
                 </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-autonomic-nervous-system-physiology" data-dismech-node="Abnormal Autonomic Nervous System Physiology" data-dismech-type="phenotype">
@@ -7233,6 +7826,9 @@ This clinical feature is Abnormal autonomic nervous system physiology (HP:001233
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7247,6 +7843,7 @@ This clinical feature is Abnormal autonomic nervous system physiology (HP:001233
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7312,6 +7909,9 @@ This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7326,6 +7926,7 @@ This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7391,6 +7992,9 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7405,6 +8009,7 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7461,6 +8066,9 @@ This clinical feature is Exercise intolerance (HP:0003546). HP:0003546 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7475,6 +8083,7 @@ This clinical feature is Exercise intolerance (HP:0003546). HP:0003546 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7499,6 +8108,7 @@ This clinical feature is Exercise intolerance (HP:0003546). HP:0003546 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7555,6 +8165,9 @@ This clinical feature is Chest pain (HP:0100749). HP:0100749 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7569,6 +8182,7 @@ This clinical feature is Chest pain (HP:0100749). HP:0100749 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7671,6 +8285,9 @@ This disease-associated gene is SLC6A2 (norepinephrine transporter, NET), annota
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7685,6 +8302,7 @@ This disease-associated gene is SLC6A2 (norepinephrine transporter, NET), annota
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7709,6 +8327,7 @@ This disease-associated gene is SLC6A2 (norepinephrine transporter, NET), annota
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7748,7 +8367,7 @@ This disease-associated gene is SLC6A2 (norepinephrine transporter, NET), annota
             <div class="card-header">
                 <div class="card-icon" style="background: #ede9fe; color: #7c3aed;">💊</div>
                 <h2 class="card-title">Medical Actions</h2>
-                <span class="card-count">8</span>
+                <span class="card-count">9</span>
             </div>
 
             <div class="item-box treatment-box anchor-target" id="treatment-exercise-training" data-dismech-node="Exercise Training" data-dismech-type="treatment">
@@ -7787,6 +8406,31 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
 
 
 
@@ -7844,6 +8488,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7908,6 +8553,31 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Increased fluid intake (2-3 liters/day) and sodium supplementation (6-10 g/day) to expand plasma volume and improve venous return.</div>
 
 
@@ -7950,6 +8620,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7971,6 +8642,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8057,6 +8729,20 @@ This treatment uses propranolol (CHEBI:8499). CHEBI:8499 is a therapeutic agent 
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Low-dose propranolol (20 mg) to attenuate the excessive heart rate response upon standing. Higher doses may worsen symptoms despite greater heart rate reduction.</div>
 
 
@@ -8099,6 +8785,7 @@ This treatment uses propranolol (CHEBI:8499). CHEBI:8499 is a therapeutic agent 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8120,6 +8807,7 @@ This treatment uses propranolol (CHEBI:8499). CHEBI:8499 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8206,6 +8894,20 @@ This treatment uses midodrine (CHEBI:6933). CHEBI:6933 is a therapeutic agent fr
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Alpha-1 adrenergic agonist that promotes peripheral vasoconstriction, improving venous return and reducing orthostatic symptoms.</div>
 
 
@@ -8233,7 +8935,7 @@ This treatment uses midodrine (CHEBI:6933). CHEBI:6933 is a therapeutic agent fr
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
@@ -8248,6 +8950,7 @@ This treatment uses midodrine (CHEBI:6933). CHEBI:6933 is a therapeutic agent fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8256,6 +8959,33 @@ This treatment uses midodrine (CHEBI:6933). CHEBI:6933 is a therapeutic agent fr
 
 
                 <div class="evidence-explanation">Mentions vasoconstrictors generically for neuropathic POTS but does not specifically name midodrine.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:9244228" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/9244228" target="_blank">PMID:9244228</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Midodrine decreased both supine and upright HR (all HR values are given as bpm) at 2 hours (from 78+/-2 supine to 108+/-5 upright before treatment and from 69+/-2 supine to 95+/-5 upright after treatment, P&lt;.005 for supine and P&lt;.01 for upright)."</div>
+
+
+                <div class="evidence-explanation">Intervention study in 13 patients with idiopathic orthostatic tachycardia (an earlier name for POTS) directly measuring the effect of the alpha-1 agonist on supine and upright heart rate. The authors read the response as replacing inadequate lower-extremity vascular tone; it is consistent with a peripheral vasoconstrictor deficit but is not evidence of structural nerve loss, since saline infusion lowered upright heart rate as well.</div>
 
 
 
@@ -8331,6 +9061,20 @@ This treatment uses fludrocortisone (CHEBI:50885). CHEBI:50885 is a therapeutic 
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Mineralocorticoid that promotes sodium and fluid retention to expand intravascular volume.</div>
 
 
@@ -8370,6 +9114,7 @@ This treatment uses fludrocortisone (CHEBI:50885). CHEBI:50885 is a therapeutic 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8434,6 +9179,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Abdominal binders and lower extremity compression stockings to reduce venous pooling and improve venous return upon standing.</div>
 
 
@@ -8476,6 +9235,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8497,6 +9257,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8583,6 +9344,31 @@ This treatment uses ivabradine (CHEBI:85966). CHEBI:85966 is a therapeutic agent
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Ivabradine selectively inhibits the funny (If) current in sinoatrial node pacemaker cells, lowering heart rate without reducing blood pressure or myocardial contractility. In a randomized, double-blind, placebo-controlled crossover trial it improved heart rate and quality of life in patients with hyperadrenergic POTS.</div>
 
 
@@ -8622,6 +9408,7 @@ This treatment uses ivabradine (CHEBI:85966). CHEBI:85966 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8708,6 +9495,31 @@ This treatment uses pyridostigmine (CHEBI:8665). CHEBI:8665 is a therapeutic age
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Pyridostigmine is an acetylcholinesterase inhibitor that enhances cardiovagal (parasympathetic) tone, attenuating orthostatic tachycardia and symptom burden without raising blood pressure. It offers a parasympathomimetic alternative to sympatholytic strategies.</div>
 
 
@@ -8750,6 +9562,7 @@ This treatment uses pyridostigmine (CHEBI:8665). CHEBI:8665 is a therapeutic age
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8758,6 +9571,135 @@ This treatment uses pyridostigmine (CHEBI:8665). CHEBI:8665 is a therapeutic age
 
 
                 <div class="evidence-explanation">Randomized crossover trial showing pyridostigmine attenuates orthostatic tachycardia and reduces symptom burden in POTS.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box treatment-box anchor-target" id="treatment-transcutaneous-auricular-vagus-nerve-stimulation" data-dismech-node="Transcutaneous Auricular Vagus Nerve Stimulation" data-dismech-type="treatment">
+                <div class="item-name">
+                    Transcutaneous Auricular Vagus Nerve Stimulation
+                </div>
+                <div class="item-meta">
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+
+
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-39">transcutaneous auricular vagus nerve stimulation<span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)
+Relation: this treatment is this clinical intervention
+This treatment is transcutaneous auricular vagus nerve stimulation, annotated with Peripheral Nerve Stimulation (NCIT:C21025). NCIT:C21025 is a clinical intervention from the NCI Thesaurus.</span>
+                    </span>
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Peripheral Nerve Stimulation</span>
+
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C21025" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C21025">NCIT:C21025</a>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Device</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
+                <div class="item-desc">Low-level noninvasive stimulation of the auricular branch of the vagus nerve at the tragus, delivered by ear clip for one hour daily. In a small sham-controlled randomized trial it reduced postural tachycardia over two months, with lower antiadrenergic autoantibody activity and inflammatory cytokines in the active arm. It remains investigational: the trial enrolled 26 women at a single centre and shares investigators with the group that reported the antiadrenergic autoantibody assays.</div>
+
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+                            INHIBITS
+                        </span>
+                        <strong style="color: #5b21b6;">Compensatory Reflex Tachycardia</strong>
+
+                        <span style="color: #7c3aed;"> &mdash; Afferent stimulation of the auricular vagal branch raises cardiovagal tone, which is the measured effect in the trial: the postural heart-rate increment that defines the syndrome was roughly halved relative to sham.</span>
+
+
+
+
+                    </div>
+
+                </div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37999672" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37999672" target="_blank">PMID:37999672</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Postural tachycardia was significantly less in the active arm compared with the sham arm at 2 months (mean postural increase in heart rate 17.6 ± 9.9 beats/min vs 31.7 ± 14.4 beats/min; P = 0.01)."</div>
+
+
+                <div class="evidence-explanation">Double-blind sham-controlled randomized trial (12 active, 14 sham) reporting a reduction in the defining orthostatic heart-rate rise after two months of daily tragus stimulation.</div>
 
 
 
@@ -8896,11 +9838,11 @@ This treatment uses pyridostigmine (CHEBI:8665). CHEBI:8665 is a therapeutic age
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012173" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0012173</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012173" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0012173</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets Orthostatic tachycardia (HP:0012173). HP:0012173 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8923,6 +9865,7 @@ This clinical trial targets Orthostatic tachycardia (HP:0012173). HP:0012173 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9015,6 +9958,22 @@ has_subtypes:
     explanation: &gt;-
       Demonstrates small fiber neuropathy with cardiac sympathetic denervation in
       neuropathic POTS patients.
+  - reference: PMID:24386408
+    reference_title: &#34;Structural and functional small fiber abnormalities in the neuropathic postural tachycardia syndrome.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Nine of 24 subjects had neuropathic POTS and had significantly lower resting
+      and tilted heart rates; reduced parasympathetic function; and lower phase 4
+      valsalva maneuver overshoot compared with those with non-neuropathic POTS
+      (P&lt;0.05).
+    explanation: &gt;-
+      Applies an operational research definition of the subtype (abnormal IENFD plus
+      abnormal small-fiber and sudomotor function) and shows that the resulting group
+      differs physiologically from non-neuropathic POTS. Note that this combined
+      criterion is a research definition, not a validated consensus standard: no
+      formal diagnostic criteria for neuropathic POTS exist, and a single abnormal
+      IENFD, QSART, or sweat test is not sufficient to assign the subtype.
 - name: Hyperadrenergic POTS
   description: &gt;-
     Characterized by elevated standing norepinephrine levels (&gt;600 pg/mL), often with
@@ -9056,6 +10015,60 @@ mechanistic_hypotheses:
     to autonomic nerve injury after immune triggers such as infection. This model
     treats receptor autoantibodies as potentially causal rather than merely
     biomarkers of systemic immune dysregulation.
+  notes: &gt;-
+    OpenScientist deep-research verdict (2026-06-04), as assessed on 2026-07-31:
+    PARTIALLY SUPPORTED. See
+    kb/hypotheses/Postural_Orthostatic_Tachycardia_Syndrome/autoimmune_receptor_model.
+    Patient IgG shows receptor-modulating activity in small cell-based studies and
+    active peptide immunization reproduces POTS-like hemodynamics in rabbits, so
+    the mechanism class is biologically plausible; neither result establishes an
+    antibody-defined human POTS subtype. Key qualifications from the assessment:
+    (1) the rabbit immunization studies (PMID:31547749, PMID:36873318, PMID:35118574)
+    come from a single research program and test experimentally induced antibodies
+    rather than patient-derived IgG, so they are not independent replications;
+    (2) the functional cell-based bioassay signal is concentrated in one
+    collaborating laboratory network and has no independent blinded replication;
+    (3) the largest standard-ELISA study (116 POTS versus 81 controls, 11
+    cardiovascular GPCR targets) found no group difference for any receptor
+    (PMID:35766055); (4) the iSTAND IVIG trial was negative in clinically selected
+    presumed-autoimmune POTS (PMID:38311655), although it did not select on a
+    validated receptor-antibody biomarker and used albumin, which controls for
+    volume expansion; (5) the report&#39;s claims that AT1R is the most consistently
+    elevated target across assay platforms, that Epstein-Barr virus mimicry supplies
+    the upstream trigger, and that a coherent antibody subtype covers 30 to 50
+    percent of POTS were each rejected on source check. Patient-IgG passive transfer
+    and independent functional-assay replication remain the decisive missing tests
+    and are tracked in the receptor-autoantibody causality knowledge gap below.
+  evidence:
+  - reference: PMID:31547749
+    reference_title: &#34;Adrenergic Autoantibody-Induced Postural Tachycardia Syndrome in Rabbits.&#34;
+    supports: SUPPORT
+    directness: INDIRECT
+    evidence_source: MODEL_ORGANISM
+    snippet: &gt;-
+      At 6 weeks after immunization, there was a greater percent increase in heart
+      rate upon tilting compared with preimmune baseline.
+    explanation: &gt;-
+      Active coimmunization of rabbits with alpha-1 and beta-1 adrenergic receptor
+      peptides produced postural tachycardia, showing that induced
+      receptor-modulating antibodies are sufficient for POTS-like hemodynamics. The
+      experiment used immunization-induced rather than patient-derived IgG, so it
+      supports the model by inference and does not show that human POTS antibodies
+      act this way.
+  - reference: PMID:37999672
+    reference_title: &#34;Noninvasive Vagus Nerve Stimulation in Postural Tachycardia Syndrome: A Randomized Clinical Trial.&#34;
+    supports: SUPPORT
+    directness: INDIRECT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Antiadrenergic autoantibodies and inflammatory cytokines were lower in the
+      active arm compared with the sham arm at 2 months (P &lt; 0.05).
+    explanation: &gt;-
+      In a small sham-controlled neuromodulation trial, reduced postural tachycardia
+      was accompanied by lower antiadrenergic autoantibody activity, which is
+      consistent with the antibodies being disease-relevant rather than inert. The
+      trial did not manipulate antibodies directly, so it cannot separate antibody
+      reduction from other autonomic effects of vagal stimulation.
 - hypothesis_group_id: neuropathic_denervation_model
   hypothesis_label: Neuropathic Sympathetic-Denervation Model
   status: ALTERNATIVE
@@ -9089,7 +10102,17 @@ mechanistic_hypotheses:
     negative (iSTAND IVIG, PMID:38311655). The upstream trigger for the neuropathy
     (autoimmune, post-viral, genetic, or hEDS-associated) remains the single most
     important unresolved knowledge gap, and SFN-to-POTS causality is correlational
-    only.
+    only. Assessment of that report on 2026-07-31 added two further
+    qualifications. First, the 24 to 50 percent range above pools different tests,
+    thresholds, and selected referral populations (sudomotor abnormality in Mayo
+    referrals, retrospective IENFD series, biopsy of a selected minority in Zhang
+    2022) and is not a case-control estimate of biopsy-confirmed SFN prevalence: a
+    prospective Swedish case-control study found comparable IENFD in 43 POTS
+    patients and 54 controls (PMID:40608783). Second, no study has demonstrated the
+    full denervation-to-pooling-to-tachycardia chain within one objectively defined
+    neuropathic-POTS cohort; the supporting physiology (PMID:11018167,
+    PMID:11295714, PMID:12653674) and the operational subtype definition
+    (PMID:24386408) come from separate cohorts.
   evidence:
   - reference: PMID:11018167
     reference_title: &#34;The neuropathic postural tachycardia syndrome.&#34;
@@ -9150,6 +10173,19 @@ mechanistic_hypotheses:
       Competing mechanism: a norepinephrine-transporter (SLC6A2) deficiency mouse
       model reproduces the POTS phenotype without structural sympathetic
       denervation, showing the denervation model is not necessary to produce POTS.
+  - reference: PMID:40608783
+    reference_title: &#34;Symptoms and objective signs of peripheral sensory neuropathy in POTS and correlations to gastrointestinal symptoms.&#34;
+    supports: REFUTE
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Symptoms of peripheral and enteric neuropathy are common in POTS but no solid
+      evidence was found regarding functional or morphological signs of small or
+      large fiber neuropathy.
+    explanation: &gt;-
+      Prospective case-control study (43 POTS patients, 54 healthy controls) found
+      comparable intraepidermal nerve fiber density and normal vibration perception
+      thresholds, arguing that objective small-fiber neuropathy is not a general
+      feature of POTS and confining the denervation model to a test-defined subset.
 - hypothesis_group_id: hyperadrenergic_model
   hypothesis_label: Hyperadrenergic Sympathetic-Activation Model
   status: ALTERNATIVE
@@ -9192,6 +10228,21 @@ pathophysiology:
       excessive venous pooling upon standing, reducing cardiac preload.
     hypothesis_groups:
     - neuropathic_denervation_model
+    evidence:
+    - reference: PMID:11295714
+      reference_title: &#34;The relation between lower limb pooling and blood flow during orthostasis in the postural orthostatic tachycardia syndrome of adolescents.&#34;
+      supports: SUPPORT
+      directness: INDIRECT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Lower resistance at baseline reflects a defect in arterial vasoconstriction
+        in POTS, further exacerbated during upright posture.
+      explanation: &gt;-
+        Strain-gauge plethysmography in adolescents shows defective limb
+        vasoconstriction with roughly double the calf volume increase on tilt,
+        directly evidencing the vasoconstrictor-failure-to-pooling step. The study
+        did not measure nerve structure or sympathetic outflow, so attributing the
+        defect to denervation is an inference.
   evidence:
   - reference: PMID:36055438
     reference_title: &#34;Postural Orthostatic Tachycardia Syndrome (POTS): An Update for Clinical Practice.&#34;
@@ -9282,6 +10333,18 @@ pathophysiology:
       return in partial neuropathic POTS.
     explanation: &gt;-
       Treatments targeting venous pooling confirm its role in the pathophysiology.
+  - reference: PMID:12653674
+    reference_title: &#34;Contrasting neurovascular findings in chronic orthostatic intolerance and neurocardiogenic syncope.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      POTS patients had markedly increased heart rate and calf blood flow, unstable
+      blood pressure, and pooling in the lower extremities, regardless of subgroup.
+    explanation: &gt;-
+      Plethysmographic study of 29 POTS patients against neurocardiogenic syncope
+      patients and healthy controls demonstrates lower-extremity pooling with
+      abnormal peripheral vascular physiology specific to POTS, giving this node
+      direct physiologic support rather than review-level assertion.
 - name: Compensatory Reflex Tachycardia
   subtypes:
   - Neuropathic POTS
@@ -9427,6 +10490,22 @@ pathophysiology:
     causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
     hypothesis_groups:
     - autoimmune_receptor_model
+    evidence:
+    - reference: PMID:15781744
+      reference_title: &#34;Renin-aldosterone paradox and perturbed blood volume regulation underlying postural tachycardia syndrome.&#34;
+      supports: SUPPORT
+      directness: INDIRECT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &gt;-
+        Patients with POTS have paradoxically unchanged plasma renin activity and
+        low aldosterone given their marked reduction in plasma volume.
+      explanation: &gt;-
+        Documents the volume-regulatory abnormality this edge proposes to explain:
+        hypovolemia without the expected compensatory renin and aldosterone rise.
+        The link to AT1R autoantibody activity is inferred, because no study has
+        measured antibody activity and aldosterone response in the same POTS
+        patients, and renal or other volume-regulatory mechanisms remain live
+        alternatives.
   - target: Nausea
     description: &gt;-
       Autonomic dysregulation extends beyond the cardiovascular system to
@@ -9481,6 +10560,34 @@ pathophysiology:
       Refutes a generalized claim that adrenergic or muscarinic receptor
       autoantibodies are consistently elevated across POTS cohorts; it does not
       refute AT1R-associated autoimmunity.
+  - reference: PMID:32743496
+    reference_title: &#34;A functional cell-based bioassay for assessing adrenergic autoantibody activity in postural tachycardia syndrome.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      Using this novel bioassay, we show that POTS patients have increased α1AR-AAb
+      and β1AR-AAb activity compared to healthy controls in the largest POTS cohort
+      reported to-date.
+    explanation: &gt;-
+      Functional receptor-transfected cell bioassay in 37 POTS patients and 61
+      controls detects alpha-1 and beta-1 adrenergic autoantibody activity, a
+      different measurement from the ELISA concentration studies that were null.
+      This assay lineage is confined to one collaborating laboratory network and has
+      not been independently replicated under blinding.
+  - reference: PMID:34409582
+    reference_title: &#34;Implications of Antimuscarinic Autoantibodies in Postural Tachycardia Syndrome.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &gt;-
+      Half of the POTS subjects demonstrated presence of elevated M2R autoantibody
+      activity, while no significant M2R autoantibody activity was found in the
+      healthy subjects.
+    explanation: &gt;-
+      Extends the functional autoantibody finding to the M2 muscarinic receptor,
+      where patient IgG acted as a negative allosteric modulator of the orthosteric
+      agonist response. The cohort is very small (10 patients, 5 controls) and comes
+      from the same assay lineage, so it establishes a receptor-specific in-vitro
+      effect rather than a validated patient subgroup.
 - name: Post-Infectious Trigger
   description: &gt;-
     Viral infections, including SARS-CoV-2, can precipitate POTS onset through
@@ -9679,6 +10786,109 @@ discussions:
     explanation: &gt;-
       Supports treating MCAS and etiological classification as unresolved rather
       than as a settled POTS causal subtype.
+- discussion_id: gap_pots_small_fiber_neuropathy_causal_primacy
+  prompt: &gt;-
+    Does small-fiber and postganglionic sympathetic denervation cause the POTS
+    phenotype, or does it co-occur with it in a subset identified by whichever
+    autonomic test happened to be applied?
+  kind: KNOWLEDGE_GAP
+  status: OPEN
+  attaches_to:
+  - mechanistic_hypotheses#neuropathic_denervation_model
+  - pathophysiology#Sympathetic Denervation
+  - has_subtypes#Neuropathic POTS
+  rationale: &gt;-
+    Every study linking small-fiber neuropathy to POTS is cross-sectional. No
+    perturbation has shown that inducing, preventing, or reversing small-fiber loss
+    correspondingly causes, prevents, or resolves the orthostatic tachycardia.
+    Reported prevalence swings with the test and the referral population, and the
+    one prospective case-control comparison found no IENFD difference at all, so
+    the subset that a test identifies may not be the subset in which denervation
+    drives the phenotype. Two features of the current evidence keep the question
+    open in both directions: the physiology of impaired lower-limb vasoconstriction
+    and pooling is robust, but it has never been demonstrated end to end within a
+    single objectively defined neuropathic cohort, and the interventions that would
+    test causality (immunotherapy for the presumed upstream immune injury) have
+    been negative without reversing nerve fiber density.
+  proposed_experiments:
+  - experiment_id: exp_pots_exercise_rct_stratified_by_ienfd
+    name: Exercise training trial stratified by baseline nerve fiber density
+    description: &gt;-
+      Randomize POTS patients to a three-month exercise training program after
+      stratifying on baseline IENFD and QSART, with repeat skin biopsy, sudomotor
+      testing, standing heart rate, and plasma norepinephrine at completion. If
+      structural denervation is causal, the reduced-IENFD stratum should remit less
+      often than the normal-IENFD stratum; comparable remission across strata would
+      indicate that the denervation finding is not what determines the phenotype.
+    would_support:
+    - mechanistic_hypotheses#neuropathic_denervation_model
+    - pathophysiology#Sympathetic Denervation
+    supporting_outcome:
+    - &gt;-
+        Remission rates are substantially lower in the reduced-IENFD stratum, and
+        patients whose heart-rate criterion resolves show corresponding recovery of
+        nerve fiber density or sudomotor function.
+    refuting_outcome:
+    - &gt;-
+        Remission rates are similar across strata and nerve fiber density is unchanged
+        in patients who remit, indicating that the orthostatic tachycardia resolves
+        independently of the structural finding.
+  - experiment_id: exp_pots_prospective_post_viral_serial_biopsy_cohort
+    name: Prospective post-viral cohort with serial skin biopsy and autonomic testing
+    description: &gt;-
+      Follow a cohort from an acute viral illness with serial IENFD, QSART, and
+      orthostatic testing at 3, 6, and 12 months to establish whether small-fiber
+      loss precedes the onset of orthostatic tachycardia. Temporal precedence is the
+      minimum evidence that the cross-sectional studies cannot supply.
+    would_support:
+    - mechanistic_hypotheses#neuropathic_denervation_model
+    supporting_outcome:
+    - &gt;-
+        IENFD decline is detectable before the heart-rate criterion is met, and is
+        greater in participants who go on to develop POTS than in those who do not.
+    refuting_outcome:
+    - &gt;-
+        Orthostatic tachycardia appears without preceding IENFD decline, or IENFD
+        falls equally in participants who never develop POTS.
+  evidence:
+  - reference: PMID:40608783
+    reference_title: &#34;Symptoms and objective signs of peripheral sensory neuropathy in POTS and correlations to gastrointestinal symptoms.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      In the present study, there was no significant difference in IENFD between
+      POTS and controls.
+    explanation: &gt;-
+      A prospective case-control comparison finding no nerve fiber density
+      difference supports keeping the causal role of small-fiber neuropathy open,
+      since the earlier prevalence figures came from selected and largely
+      retrospective testing populations.
+  - reference: PMID:24386408
+    reference_title: &#34;Structural and functional small fiber abnormalities in the neuropathic postural tachycardia syndrome.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      POTS subtypes may be distinguished using small fiber and autonomic structural
+      and functional criteria.
+    explanation: &gt;-
+      The strongest operational subtype study distinguishes neuropathic from
+      non-neuropathic POTS on combined structural and functional criteria, but it is
+      cross-sectional and perturbs nothing, so it establishes a separable group
+      rather than causal primacy for the denervation.
+  - reference: PMID:36367813
+    reference_title: &#34;A double-blind placebo-controlled pilot study of immunoglobulin for small fiber neuropathy associated with TS-HDS and FGFR-3 autoantibodies.&#34;
+    supports: SUPPORT
+    directness: INDIRECT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      This pilot study did not detect a benefit of treatment with IVIG in patients
+      with SFN and autoantibodies to TS-HDS and FGFR-3.
+    explanation: &gt;-
+      Controlled immunotherapy did not improve nerve fiber density or symptoms in
+      antibody-associated small-fiber neuropathy, removing one route to testing an
+      immune cause of the denervation. The trial enrolled small-fiber neuropathy
+      rather than POTS, so it bears on this gap by inference and does not test the
+      pooling mechanism.
 phenotypes:
 - category: Cardiovascular
   name: Orthostatic Tachycardia
@@ -10195,6 +11405,23 @@ treatments:
     explanation: &gt;-
       Mentions vasoconstrictors generically for neuropathic POTS but does not
       specifically name midodrine.
+  - reference: PMID:9244228
+    reference_title: &#34;Effects of volume loading and pressor agents in idiopathic orthostatic tachycardia.&#34;
+    supports: SUPPORT
+    directness: DIRECT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Midodrine decreased both supine and upright HR (all HR values are given as
+      bpm) at 2 hours (from 78+/-2 supine to 108+/-5 upright before treatment and
+      from 69+/-2 supine to 95+/-5 upright after treatment, P&lt;.005 for supine and
+      P&lt;.01 for upright).
+    explanation: &gt;-
+      Intervention study in 13 patients with idiopathic orthostatic tachycardia (an
+      earlier name for POTS) directly measuring the effect of the alpha-1 agonist on
+      supine and upright heart rate. The authors read the response as replacing
+      inadequate lower-extremity vascular tone; it is consistent with a peripheral
+      vasoconstrictor deficit but is not evidence of structural nerve loss, since
+      saline infusion lowered upright heart rate as well.
   target_mechanisms:
   - target: Venous Pooling and Reduced Preload
     treatment_effect: INHIBITS
@@ -10338,6 +11565,41 @@ treatments:
     description: &gt;-
       Acetylcholinesterase inhibition raises cardiovagal tone at the sinus node,
       opposing the sympathetically driven heart-rate rise on standing.
+- name: Transcutaneous Auricular Vagus Nerve Stimulation
+  description: &gt;-
+    Low-level noninvasive stimulation of the auricular branch of the vagus nerve
+    at the tragus, delivered by ear clip for one hour daily. In a small
+    sham-controlled randomized trial it reduced postural tachycardia over two
+    months, with lower antiadrenergic autoantibody activity and inflammatory
+    cytokines in the active arm. It remains investigational: the trial enrolled 26
+    women at a single centre and shares investigators with the group that reported
+    the antiadrenergic autoantibody assays.
+  therapeutic_modality: DEVICE
+  treatment_term:
+    preferred_term: transcutaneous auricular vagus nerve stimulation
+    term:
+      id: NCIT:C21025
+      label: Peripheral Nerve Stimulation
+  evidence:
+  - reference: PMID:37999672
+    reference_title: &#34;Noninvasive Vagus Nerve Stimulation in Postural Tachycardia Syndrome: A Randomized Clinical Trial.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &gt;-
+      Postural tachycardia was significantly less in the active arm compared with
+      the sham arm at 2 months (mean postural increase in heart rate 17.6 ± 9.9
+      beats/min vs 31.7 ± 14.4 beats/min; P = 0.01).
+    explanation: &gt;-
+      Double-blind sham-controlled randomized trial (12 active, 14 sham) reporting a
+      reduction in the defining orthostatic heart-rate rise after two months of
+      daily tragus stimulation.
+  target_mechanisms:
+  - target: Compensatory Reflex Tachycardia
+    treatment_effect: INHIBITS
+    description: &gt;-
+      Afferent stimulation of the auricular vagal branch raises cardiovagal tone,
+      which is the measured effect in the trial: the postural heart-rate increment
+      that defines the syndrome was roughly halved relative to sham.
 clinical_trials:
 - name: NCT03182725
   phase: PHASE_III
@@ -10390,6 +11652,19 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Augment: POTS (Falcon deep research)</strong> · 2026-07-06T00:12:29Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Postural_Orthostatic_Tachycardia_Syndrome/2026-07-06T001229Z-claude-code-5eb8ce.yaml">View source</a></p>
+                        <p class="research-review-text">Integrated selective high-value findings from Falcon deep research into the mature POTS entry. Added a new genetic section with SLC6A2/norepinephrine-transporter loss-of-function as a rare monogenic CAUSATIVE cause of hyperadrenergic POTS [hgnc:11048; PMID:10684912 Shannon 2000 NEJM, two verified snippets]. Added treatments Ivabradine [CHEBI:85966, SMALL_MOLECULE, therapeutic_agent; PMID:33602468 Taub 2021 JACC RCT] and Pyridostigmine [CHEBI:8665; PMID:15911704 Raj 2005 Circulation RCT]. Added a clinical_trials block for NCT03182725 ivabradine trial. NEC preflight PASSED. All 5 new snippets verified as exact substrings of fetched caches; terms validated with OAK. Dropped Falcon-suggested pyridostigmine PMID:16172288 which was actually an angiogenesis paper, and used the correct RCT PMID:15911704. Autoantibody, post-COVID, and MCAS content already richly covered with appropriate skepticism, so not duplicated. validate-schema, validate-references, validate-terms all PASS.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -11117,7 +12392,7 @@ POTS patients exhibit elevated catecholamine and angiotensin II levels with decr
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Postural Orthostatic Tachycardia Syndrome", "mondoId": "MONDO:0011479", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Postural_Orthostatic_Tachycardia_Syndrome", "yamlRevision": "4544fb4e8f85"};
+        const OS_CONFIG = {"diseaseName": "Postural Orthostatic Tachycardia Syndrome", "mondoId": "MONDO:0011479", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Postural_Orthostatic_Tachycardia_Syndrome", "yamlRevision": "b74745492d9b"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

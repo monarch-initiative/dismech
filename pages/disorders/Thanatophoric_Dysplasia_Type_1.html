@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,18 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4206,6 +4283,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4230,6 +4308,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4251,6 +4330,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4300,6 +4380,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fgfr3-constitutive-activation-via-cysteine-mutations" data-dismech-node="FGFR3 constitutive activation via cysteine mutations" data-dismech-type="pathophysiology">
                 <div class="item-name">FGFR3 constitutive activation via cysteine mutations</div>
+
 
                 <div class="item-desc">TD1 mutations (R248C, Y373C, S249C, G370C) create unpaired cysteine residues in the extracellular or juxtamembrane domains of FGFR3, enabling ligand-independent receptor dimerization through aberrant disulfide bonds. This results in severe constitutive activation of receptor tyrosine kinase signaling. The degree of constitutive FGFR3 activation correlates with phenotypic severity across the allelic series (hypochondroplasia &lt; achondroplasia &lt; thanatophoric dysplasia).
 </div>
@@ -4521,6 +4602,7 @@ This pathophysiological event involves increased Protein phosphorylation (GO:000
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4542,6 +4624,7 @@ This pathophysiological event involves increased Protein phosphorylation (GO:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4567,6 +4650,7 @@ This pathophysiological event involves increased Protein phosphorylation (GO:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mapk-erk-activation-in-growth-plate-chondrocytes" data-dismech-node="MAPK/ERK activation in growth plate chondrocytes" data-dismech-type="pathophysiology">
                 <div class="item-name">MAPK/ERK activation in growth plate chondrocytes</div>
+
 
                 <div class="item-desc">Constitutive FGFR3 activation engages the MAPK/ERK signaling cascade in growth plate chondrocytes. Early ERK1/2 activation is observed upon FGF stimulation in TD1 chondrocytes. In mouse models, sustained MAPK/ERK signaling mediates growth arrest and suppression of chondrocyte hypertrophy.
 </div>
@@ -4691,6 +4775,7 @@ This pathophysiological event involves increased MAPK cascade (GO:0000165). GO:0
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4713,6 +4798,7 @@ This pathophysiological event involves increased MAPK cascade (GO:0000165). GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-stat1-mediated-cell-cycle-arrest" data-dismech-node="STAT1-mediated cell cycle arrest" data-dismech-type="pathophysiology">
                 <div class="item-name">STAT1-mediated cell cycle arrest</div>
+
 
                 <div class="item-desc">FGFR3 gain-of-function activates STAT1 in a ligand-independent manner in human TD1 chondrocytes. In mouse models, STAT1/5 activation upregulates ink4 cell cycle inhibitors (p16, p18, p19), leading to expansion of the resting zone at the expense of proliferating chondrocytes. Note: in human TD1 fetal chondrocytes, proliferation per se is not markedly altered; the dominant effect is on differentiation and apoptosis rather than proliferative arrest.
 </div>
@@ -4837,6 +4923,7 @@ This pathophysiological event involves increased JAK-STAT signaling, annotated w
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4858,6 +4945,7 @@ This pathophysiological event involves increased JAK-STAT signaling, annotated w
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4885,6 +4973,7 @@ This pathophysiological event involves increased JAK-STAT signaling, annotated w
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4907,6 +4996,7 @@ This pathophysiological event involves increased JAK-STAT signaling, annotated w
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ihh-pthrp-signaling-suppression" data-dismech-node="IHH/PTHrP signaling suppression" data-dismech-type="pathophysiology">
                 <div class="item-name">IHH/PTHrP signaling suppression</div>
+
 
                 <div class="item-desc">Activated FGFR3 acts as an upstream negative regulator of Indian hedgehog (IHH) signaling and BMP4 expression in growth plate chondrocytes and perichondrium. Suppression of the IHH/PTHrP feedback loop disrupts the coordinated regulation of chondrocyte maturation and contributes to premature ossification.
 </div>
@@ -5031,6 +5121,7 @@ This pathophysiological event involves increased Negative regulation of smoothen
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5053,6 +5144,7 @@ This pathophysiological event involves increased Negative regulation of smoothen
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-chondrocyte-hypertrophy-and-differentiation" data-dismech-node="Impaired chondrocyte hypertrophy and differentiation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired chondrocyte hypertrophy and differentiation</div>
+
 
                 <div class="item-desc">The convergent effects of MAPK/ERK activation, STAT1 signaling, and IHH/PTHrP suppression result in severely impaired chondrocyte differentiation. The hypertrophic zone is markedly reduced with smaller hypertrophic chondrocytes. In human TD1, the primary defect is altered differentiation rather than reduced proliferation, with chondrocytes failing to progress normally through the maturation program.
 </div>
@@ -5277,6 +5369,7 @@ This pathophysiological event involves decreased Endochondral ossification (GO:0
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5298,6 +5391,7 @@ This pathophysiological event involves decreased Endochondral ossification (GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5323,6 +5417,7 @@ This pathophysiological event involves decreased Endochondral ossification (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chondrocyte-apoptosis" data-dismech-node="Chondrocyte apoptosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Chondrocyte apoptosis</div>
+
 
                 <div class="item-desc">In human TD1 fetal growth plates, there is an increased number of apoptotic chondrocytes associated with elevated Bax expression and decreased Bcl-2 levels. This premature apoptosis of differentiating chondrocytes further reduces the hypertrophic zone and contributes to the severity of growth plate disorganization.
 </div>
@@ -5434,6 +5529,7 @@ This pathophysiological event involves increased Apoptotic process (GO:0006915).
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5456,6 +5552,7 @@ This pathophysiological event involves increased Apoptotic process (GO:0006915).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cranial-base-synchondrosis-closure" data-dismech-node="Cranial base synchondrosis closure" data-dismech-type="pathophysiology">
                 <div class="item-name">Cranial base synchondrosis closure</div>
+
 
                 <div class="item-desc">FGFR3 gain-of-function signaling through MAPK/ERK in cranial base synchondroses causes premature fusion and abnormal skull base growth. This contributes to macrocephaly, frontal bossing, and midface retrusion. In severe cases, premature pansynostosis can produce cloverleaf skull deformity, though this is uncommon in TD1.
 </div>
@@ -5632,6 +5729,7 @@ This pathophysiological event involves increased MAPK cascade (GO:0000165). GO:0
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5653,6 +5751,7 @@ This pathophysiological event involves increased MAPK cascade (GO:0000165). GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5678,6 +5777,7 @@ This pathophysiological event involves increased MAPK cascade (GO:0000165). GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pulmonary-hypoplasia-from-thoracic-restriction" data-dismech-node="Pulmonary hypoplasia from thoracic restriction" data-dismech-type="pathophysiology">
                 <div class="item-name">Pulmonary hypoplasia from thoracic restriction</div>
+
 
                 <div class="item-desc">The severely narrow thorax, resulting from shortened ribs due to impaired endochondral ossification, restricts lung development in utero. This produces pulmonary hypoplasia that is the primary cause of perinatal death from respiratory insufficiency. The pulmonary pathology is secondary to the skeletal restriction rather than a primary lung defect.
 </div>
@@ -5842,6 +5942,7 @@ This pathophysiological event involves decreased Endochondral ossification (GO:0
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5863,6 +5964,7 @@ This pathophysiological event involves decreased Endochondral ossification (GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5930,19 +6032,21 @@ This pathophysiological event involves decreased Endochondral ossification (GO:0
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Head and Neck<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Digestive<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Integument<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Head and Neck<span class="pill-count">(6)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Limbs<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Integument<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Musculoskeletal<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Limbs<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Prenatal and Birth<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Musculoskeletal<span class="pill-count">(4)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Respiratory<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Nervous System<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Other<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Prenatal and Birth<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Respiratory<span class="pill-count">(2)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5951,8 +6055,89 @@ This pathophysiological event involves decreased Endochondral ossification (GO:0
             <details class="phenotype-category-group" id="pheno-cat-1">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Digestive
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-protuberant-abdomen" data-dismech-node="Protuberant abdomen" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Protuberant abdomen
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001538" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001538</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Protuberant abdomen (HP:0001538). HP:0001538 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25328339" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25328339" target="_blank">PMID:25328339</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Thanatophoric dysplasia type 1 is a lethal congenital anomaly with skeletal dysplasia. It is characterized by short limb dwarfism, enlarged head with frontal bossing, short neck, protuberant abdomen."</div>
+
+
+                <div class="evidence-explanation">This TD1-titled fetal autopsy report directly lists protuberant abdomen among the defining external features; the abstract does not specify FGFR3 molecular confirmation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
-                    <span class="cat-count">5</span>
+                    <span class="cat-count">6</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-macrocephaly" data-dismech-node="Macrocephaly" data-dismech-type="phenotype">
@@ -5969,15 +6154,18 @@ This pathophysiological event involves decreased Endochondral ossification (GO:0
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000256" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000256</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000256" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000256</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Macrocephaly (HP:0000256). HP:0000256 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5997,6 +6185,7 @@ This clinical feature is Macrocephaly (HP:0000256). HP:0000256 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6037,15 +6226,18 @@ This clinical feature is Macrocephaly (HP:0000256). HP:0000256 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002007" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0002007</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002007" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002007</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Frontal bossing (HP:0002007). HP:0002007 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6065,6 +6257,7 @@ This clinical feature is Frontal bossing (HP:0002007). HP:0002007 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6105,15 +6298,18 @@ This clinical feature is Frontal bossing (HP:0002007). HP:0002007 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005280" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0005280</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005280" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0005280</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Depressed nasal bridge (HP:0005280). HP:0005280 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6133,6 +6329,7 @@ This clinical feature is Depressed nasal bridge (HP:0005280). HP:0005280 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6173,15 +6370,18 @@ This clinical feature is Depressed nasal bridge (HP:0005280). HP:0005280 is a ph
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002676" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0002676</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002676" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002676</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cloverleaf skull (HP:0002676). HP:0002676 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6201,6 +6401,7 @@ This clinical feature is Cloverleaf skull (HP:0002676). HP:0002676 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6241,15 +6442,18 @@ This clinical feature is Cloverleaf skull (HP:0002676). HP:0002676 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000470" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000470</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000470" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000470</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Short neck (HP:0000470). HP:0000470 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6269,6 +6473,7 @@ This clinical feature is Short neck (HP:0000470). HP:0000470 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6295,9 +6500,81 @@ This clinical feature is Short neck (HP:0000470). HP:0000470 is a phenotype from
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-increased-nuchal-translucency" data-dismech-node="Increased nuchal translucency" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Increased nuchal translucency
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010880" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0010880</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Increased nuchal translucency (HP:0010880). HP:0010880 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:18504386" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18504386" target="_blank">PMID:18504386</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"On ultrasound examination, there was frontal bossing, increased nuchal translucency and short limbs at 12 weeks&#39; gestation and a small thorax and short and bowed long bones on 3D at 16 weeks."</div>
+
+
+                <div class="evidence-explanation">This molecularly confirmed prenatal TD report documents increased nuchal translucency at 12 weeks. The abstract does not explicitly state subtype, so the finding is retained cautiously in the TD1 entry alongside the same report&#39;s bowed long-bone presentation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-2">
+            <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Integument
@@ -6318,15 +6595,18 @@ This clinical feature is Short neck (HP:0000470). HP:0000470 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001582" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001582</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001582" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001582</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Redundant skin (HP:0001582). HP:0001582 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6346,6 +6626,7 @@ This clinical feature is Redundant skin (HP:0001582). HP:0001582 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6370,6 +6651,7 @@ This clinical feature is Redundant skin (HP:0001582). HP:0001582 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6398,7 +6680,7 @@ This clinical feature is Redundant skin (HP:0001582). HP:0001582 is a phenotype 
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-3">
+            <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Limbs
@@ -6419,15 +6701,18 @@ This clinical feature is Redundant skin (HP:0001582). HP:0001582 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002983" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0002983</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002983" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0002983</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Micromelia (HP:0002983). HP:0002983 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6447,6 +6732,7 @@ This clinical feature is Micromelia (HP:0002983). HP:0002983 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6471,6 +6757,7 @@ This clinical feature is Micromelia (HP:0002983). HP:0002983 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6513,15 +6800,18 @@ This clinical feature is Micromelia (HP:0002983). HP:0002983 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006487" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0006487</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0006487" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0006487</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Bowed long bones, annotated with Bowing of the long bones (HP:0006487). HP:0006487 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6541,6 +6831,7 @@ This clinical feature is Bowed long bones, annotated with Bowing of the long bon
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6565,6 +6856,7 @@ This clinical feature is Bowed long bones, annotated with Bowing of the long bon
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6605,15 +6897,18 @@ This clinical feature is Bowed long bones, annotated with Bowing of the long bon
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001156" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001156</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001156" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001156</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Brachydactyly (HP:0001156). HP:0001156 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6633,6 +6928,7 @@ This clinical feature is Brachydactyly (HP:0001156). HP:0001156 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6661,11 +6957,11 @@ This clinical feature is Brachydactyly (HP:0001156). HP:0001156 is a phenotype f
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-4">
+            <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
-                    <span class="cat-count">3</span>
+                    <span class="cat-count">4</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-short-ribs" data-dismech-node="Short ribs" data-dismech-type="phenotype">
@@ -6682,15 +6978,18 @@ This clinical feature is Brachydactyly (HP:0001156). HP:0001156 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000773" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0000773</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000773" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0000773</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Short ribs (HP:0000773). HP:0000773 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6710,6 +7009,7 @@ This clinical feature is Short ribs (HP:0000773). HP:0000773 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6752,15 +7052,18 @@ This clinical feature is Short ribs (HP:0000773). HP:0000773 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000774" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0000774</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000774" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0000774</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Narrow chest (HP:0000774). HP:0000774 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6780,6 +7083,7 @@ This clinical feature is Narrow chest (HP:0000774). HP:0000774 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6804,6 +7108,7 @@ This clinical feature is Narrow chest (HP:0000774). HP:0000774 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6844,15 +7149,18 @@ This clinical feature is Narrow chest (HP:0000774). HP:0000774 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000926" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0000926</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000926" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0000926</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Platyspondyly (HP:0000926). HP:0000926 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6872,6 +7180,7 @@ This clinical feature is Platyspondyly (HP:0000926). HP:0000926 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6899,6 +7208,7 @@ This clinical feature is Platyspondyly (HP:0000926). HP:0000926 is a phenotype f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6922,9 +7232,162 @@ This clinical feature is Platyspondyly (HP:0000926). HP:0000926 is a phenotype f
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-short-iliac-bones" data-dismech-node="Short iliac bones" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Short iliac bones
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100866" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0100866</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Short iliac bones (HP:0100866). HP:0100866 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17048442" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17048442" target="_blank">PMID:17048442</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Postmortem radiographs revealed short ribs, flat vertebral bodies (platyspondyly), hypoplastic iliac bones, marked shortening of long bones including short and mild bowing of both femora, oval radiolucent area of proximal femur."</div>
+
+
+                <div class="evidence-explanation">Postmortem radiography in a neonate with de novo FGFR3 p.Arg248Cys documents hypoplastic iliac bones, supporting the mapped HPO term.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-5">
+            <details class="phenotype-category-group" id="pheno-cat-6">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Nervous System
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-temporal-lobe-morphology" data-dismech-node="Abnormal temporal lobe morphology" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Abnormal temporal lobe morphology
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0034221" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0034221</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal temporal lobe morphology (HP:0034221). HP:0034221 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23551494" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23551494" target="_blank">PMID:23551494</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The temporal lobe was enlarged and hyperconvoluted, appearing as broad gyri and deep sulci, which were composed of focal polymicrogyria-like shallow sulci and heterotopic neuroblastic nests in the intermediate zone and marginal zone."</div>
+
+
+                <div class="evidence-explanation">Molecularly confirmed TD1 neuropathology demonstrates a specific temporal lobe malformation rather than only generalized macrocephaly.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-7">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Prenatal and Birth
@@ -6945,15 +7408,18 @@ This clinical feature is Platyspondyly (HP:0000926). HP:0000926 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001561" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0001561</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001561" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0001561</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Polyhydramnios (HP:0001561). HP:0001561 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6973,6 +7439,7 @@ This clinical feature is Polyhydramnios (HP:0001561). HP:0001561 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7001,7 +7468,7 @@ This clinical feature is Polyhydramnios (HP:0001561). HP:0001561 is a phenotype 
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-6">
+            <details class="phenotype-category-group" id="pheno-cat-8">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Respiratory
@@ -7022,15 +7489,18 @@ This clinical feature is Polyhydramnios (HP:0001561). HP:0001561 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002089" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0002089</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002089" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0002089</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Pulmonary hypoplasia (HP:0002089). HP:0002089 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7050,6 +7520,7 @@ This clinical feature is Pulmonary hypoplasia (HP:0002089). HP:0002089 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7090,15 +7561,18 @@ This clinical feature is Pulmonary hypoplasia (HP:0002089). HP:0002089 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0002093</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002093" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0002093</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Respiratory insufficiency (HP:0002093). HP:0002093 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7118,6 +7592,7 @@ This clinical feature is Respiratory insufficiency (HP:0002093). HP:0002093 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7129,287 +7604,6 @@ This clinical feature is Respiratory insufficiency (HP:0002093). HP:0002093 is a
 
 
                 <div class="evidence-explanation">Molecularly confirmed TD1 directly supports severe respiratory insufficiency.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-7">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">4</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-short-iliac-bones" data-dismech-node="Short iliac bones" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Short iliac bones
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100866" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0100866</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Short iliac bones (HP:0100866). HP:0100866 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:17048442" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17048442" target="_blank">PMID:17048442</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Postmortem radiographs revealed short ribs, flat vertebral bodies (platyspondyly), hypoplastic iliac bones, marked shortening of long bones including short and mild bowing of both femora, oval radiolucent area of proximal femur."</div>
-
-
-                <div class="evidence-explanation">Postmortem radiography in a neonate with de novo FGFR3 p.Arg248Cys documents hypoplastic iliac bones, supporting the mapped HPO term.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-protuberant-abdomen" data-dismech-node="Protuberant abdomen" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Protuberant abdomen
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001538" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0001538</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Protuberant abdomen (HP:0001538). HP:0001538 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:25328339" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25328339" target="_blank">PMID:25328339</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Thanatophoric dysplasia type 1 is a lethal congenital anomaly with skeletal dysplasia. It is characterized by short limb dwarfism, enlarged head with frontal bossing, short neck, protuberant abdomen."</div>
-
-
-                <div class="evidence-explanation">This TD1-titled fetal autopsy report directly lists protuberant abdomen among the defining external features; the abstract does not specify FGFR3 molecular confirmation.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-temporal-lobe-morphology" data-dismech-node="Abnormal temporal lobe morphology" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Abnormal temporal lobe morphology
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0034221" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0034221</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal temporal lobe morphology (HP:0034221). HP:0034221 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:23551494" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23551494" target="_blank">PMID:23551494</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The temporal lobe was enlarged and hyperconvoluted, appearing as broad gyri and deep sulci, which were composed of focal polymicrogyria-like shallow sulci and heterotopic neuroblastic nests in the intermediate zone and marginal zone."</div>
-
-
-                <div class="evidence-explanation">Molecularly confirmed TD1 neuropathology demonstrates a specific temporal lobe malformation rather than only generalized macrocephaly.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-increased-nuchal-translucency" data-dismech-node="Increased nuchal translucency" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Increased nuchal translucency
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0010880" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0010880</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Increased nuchal translucency (HP:0010880). HP:0010880 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:18504386" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18504386" target="_blank">PMID:18504386</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"On ultrasound examination, there was frontal bossing, increased nuchal translucency and short limbs at 12 weeks&#39; gestation and a small thorax and short and bowed long bones on 3D at 16 weeks."</div>
-
-
-                <div class="evidence-explanation">This molecularly confirmed prenatal TD report documents increased nuchal translucency at 12 weeks. The abstract does not explicitly state subtype, so the finding is retained cautiously in the TD1 entry alongside the same report&#39;s bowed long-bone presentation.</div>
 
 
 
@@ -7497,6 +7691,9 @@ This disease-associated gene is FGFR3 (hgnc:3690). hgnc:3690 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7511,6 +7708,7 @@ This disease-associated gene is FGFR3 (hgnc:3690). hgnc:3690 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7535,6 +7733,7 @@ This disease-associated gene is FGFR3 (hgnc:3690). hgnc:3690 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7571,6 +7770,12 @@ This disease-associated gene is FGFR3 (hgnc:3690). hgnc:3690 is a gene from the 
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Most common TD1 mutation, found in approximately 35-50% of cases. Creates an unpaired cysteine in the extracellular Ig-like domain enabling ligand-independent receptor dimerization.</div>
 
 
@@ -7595,6 +7800,7 @@ This disease-associated gene is FGFR3 (hgnc:3690). hgnc:3690 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7631,6 +7837,12 @@ This disease-associated gene is FGFR3 (hgnc:3690). hgnc:3690 is a gene from the 
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Second most common TD1 mutation, found in approximately 30% of cases. Creates a cysteine in the juxtamembrane domain.</div>
 
 
@@ -7655,6 +7867,7 @@ This disease-associated gene is FGFR3 (hgnc:3690). hgnc:3690 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7691,6 +7904,12 @@ This disease-associated gene is FGFR3 (hgnc:3690). hgnc:3690 is a gene from the 
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Creates an unpaired cysteine in the extracellular domain enabling aberrant disulfide bonding.</div>
 
 
@@ -7715,6 +7934,7 @@ This disease-associated gene is FGFR3 (hgnc:3690). hgnc:3690 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7751,6 +7971,12 @@ This disease-associated gene is FGFR3 (hgnc:3690). hgnc:3690 is a gene from the 
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Rare TD1 mutation creating a cysteine in the juxtamembrane domain.</div>
 
 
@@ -7775,6 +8001,7 @@ This disease-associated gene is FGFR3 (hgnc:3690). hgnc:3690 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7811,6 +8038,12 @@ This disease-associated gene is FGFR3 (hgnc:3690). hgnc:3690 is a gene from the 
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Stop codon mutations at residue 807 account for approximately 19% of TD1 cases. These mutations extend the open reading frame, adding extra amino acids to the C-terminal tail of the receptor.</div>
 
 
@@ -7835,6 +8068,7 @@ This disease-associated gene is FGFR3 (hgnc:3690). hgnc:3690 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7923,6 +8157,20 @@ This treatment is Supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Most affected infants die shortly after birth from respiratory failure. Palliative care is typically provided. Intensive respiratory support including tracheostomy and ventilation may prolong survival in rare cases, but long-term survival is exceptional. Management may also include shunt placement for hydrocephalus, suboccipital decompression, and anti-seizure medication.
 </div>
 
@@ -7945,6 +8193,7 @@ This treatment is Supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8009,6 +8258,20 @@ This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical inte
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Preclinical approaches targeting FGFR3 signaling are under investigation for FGFR3-related skeletal dysplasias. In TD1, patient-derived iPSC chondrocytes treated with statins showed corrected cartilage formation. Related FGFR3-targeted strategies are also being studied in other FGFR3-driven skeletal dysplasias, but their application to TD1 remains investigational.
 </div>
 
@@ -8031,6 +8294,7 @@ This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8095,7 +8359,7 @@ This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical inte
                     <span class="tag" style="background: #dcfce7; color: #166534;">2.1&ndash;3.0 per 100,000
                     </span>
 
-                    <span class="tag">1–9 per 100,000</span>
+                    <span class="tag">1–9 per 100,000 (births)</span>
 
                 </div>
 
@@ -8117,6 +8381,7 @@ This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8144,6 +8409,7 @@ This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical inte
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8165,6 +8431,7 @@ This treatment is targeted therapy (NCIT:C93352). NCIT:C93352 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8290,6 +8557,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8430,6 +8698,7 @@ This experimental model concerns FGFR3 (hgnc:3690). hgnc:3690 is a gene from the
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8551,6 +8820,7 @@ This experimental model concerns FGFR3 (hgnc:3690). hgnc:3690 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11044,6 +11314,74 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">3</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Expand Thanatophoric Dysplasia Type 1 phenotype evidence</strong> · 2026-07-06T12:17:42Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Thanatophoric_Dysplasia_Type_1/2026-07-06T121742Z-codex-ab2af9.yaml">View source</a></p>
+                        <p class="research-review-text">Reviewed the existing Thanatophoric Dysplasia Type 1 entry against the April 2026 phenotype curation note and the Falcon, Asta, and local Codex deep-research artifacts. Added short iliac bones from molecularly confirmed postmortem TD1 radiography and added increased nuchal translucency as a cautious early prenatal imaging finding from a molecularly confirmed TD report whose abstract does not explicitly state subtype. Linked the iliac finding downstream of impaired endochondral ossification and updated reference findings for the supporting sources.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Review: Thanatophoric Dysplasia Type 1 (Changes required)</strong> · 2026-05-31T03:01:56Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Thanatophoric_Dysplasia_Type_1/2026-05-31T030156Z-github-review-3576.yaml">View source</a></p>
+                        <p class="research-review-text">GitHub review issue: https://github.com/monarch-initiative/dismech/issues/3576
+Issue state: OPEN
+Issue created: 2026-05-31T03:01:56Z
+Issue updated: 2026-05-31T03:01:56Z
+Issue closed: not closed
+Review decision: Changes required
+Labels: review
+
+## Completed curation review
+
+- Disease: **Thanatophoric Dysplasia Type 1**
+- Entry: `kb/disorders/Thanatophoric_Dysplasia_Type_1.yaml`
+- Selection basis: #108 of the least-recently edited Mendelian entries
+- Review decision: **Changes required**
+- Validation stance: assumes schema, ontology-term, and reference validation pass; this is a biological/clinical/content review.
+
+## Findings
+
+1. Blocking: the entry has no `diagnosis` section. Add disease-specific diagnostic criteria, recommended tests/imaging/biochemical markers, and molecular confirmation strategy for Thanatophoric Dysplasia Type 1; this is necessary for curators to evaluate whether the modeled mechanism and phenotype scope match the intended disease.
+2. Research-artifact consumption: matching deep-research artifact(s) exist and should be treated as first-class review inputs. Compare the YAML against the artifact(s), especially for central mechanisms, subtype-specific features, treatments/trials, and diagnostic/surveillance details rather than only schema-valid content.
+3. Disease-boundary check: no subtypes are modeled. Confirm this is intentionally a single pathomechanism entry and not a spectrum that should expose subtypes, genotype classes, or clinically distinct forms.
+4. Pathophysiology review: the main modeled mechanisms include FGFR3 constitutive activation via cysteine mutations, MAPK/ERK activation in growth plate chondrocytes, STAT1-mediated cell cycle arrest, IHH/PTHrP signaling suppression. Check that each is an atomic event with direct evidence and that downstream edges do not encode multi-step chains or unsupported causal leaps from gene/product defect to organ-level phenotype.
+5. Treatment modeling: treatments are present (Supportive and palliative care, FGFR3-targeted therapies (investigational)). Check therapeutic agents, subtype applicability, evidence strength, and surveillance/supportive-care needs; avoid broad treatment claims that are not tied to the relevant phenotype or disease stage.
+6. Evidence/reference check: top references include PMID:7773297, PMID:18698630, PMID:8845844, PMID:9582336. Spot-check that snippets directly support the specific claim, frequency, and evidence_source classification, especially where the same PMID is reused across phenotype, mechanism, and treatment assertions.
+
+## Content-Completeness Checklist
+
+- Phenotype coverage: phenotype list needs manual review for disease-defining features.
+- Subtype completeness: N/A or not modeled; confirm no required subtype split.
+- Pathophysiology depth: mechanisms present but require atomicity/evidence review.
+- Treatments and trials: present; verify standard-vs-investigational scope.
+- Genetics: genetic section present; verify inheritance, variant classes, and genotype-phenotype claims.
+- Biomarkers/diagnostics: gap noted; diagnosis absent.
+- References/research consumption: compare the YAML against listed sources and local research artifacts; do not treat retrieval-heavy papers as issues unless they are disease-specific and directly modelable.
+
+## Suggested Remediation
+
+Resolve the blocking diagnostic/baseline gaps first, then tighten subtype-specific claims, pathophysiology atomicity, treatment/trial scope, and evidence-to-claim alignment. Keep deterministic schema/term/reference validation separate from this biological review.
+
+## Sources Used
+
+- Local research artifact: `research/Thanatophoric_Dysplasia_Type_1-deep-research-cyberian-codex.md`
+- Local research artifact: `research/Thanatophoric_Dysplasia_Type_1-deep-research-falcon.md`
+- Local research artifact: `research/Thanatophoric_Dysplasia_Type_1-deep-research-asta.md`
+- PMID:7773297: https://pubmed.ncbi.nlm.nih.gov/7773297/
+- PMID:18698630: https://pubmed.ncbi.nlm.nih.gov/18698630/
+- PMID:8845844: https://pubmed.ncbi.nlm.nih.gov/8845844/
+- PMID:9582336: https://pubmed.ncbi.nlm.nih.gov/9582336/
+
+No YAML files or `references_cache/*.md` files were edited for this review.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

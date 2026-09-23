@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,18 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4077,6 +4154,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4098,6 +4176,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4147,6 +4226,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-gata2-haploinsufficiency" data-dismech-node="GATA2 Haploinsufficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">GATA2 Haploinsufficiency</div>
+
 
                 <div class="item-desc">Heterozygous null alleles, missense variants in the second zinc finger, and regulatory variants in the intron 5 +9.5 kb enhancer all reduce functional GATA2 dosage below the threshold required for hematopoietic stem and progenitor cell maintenance.</div>
 
@@ -4251,6 +4331,7 @@ This pathophysiological event involves GATA2 (hgnc:4171). hgnc:4171 is a gene fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4273,6 +4354,7 @@ This pathophysiological event involves GATA2 (hgnc:4171). hgnc:4171 is a gene fr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hematopoietic-stem-and-progenitor-cell-depletion" data-dismech-node="Hematopoietic Stem and Progenitor Cell Depletion" data-dismech-type="pathophysiology">
                 <div class="item-name">Hematopoietic Stem and Progenitor Cell Depletion</div>
+
 
                 <div class="item-desc">Reduced GATA2 dosage impairs survival and self-renewal of hematopoietic stem and progenitor cells, producing a progressively hypocellular marrow with multilineage dysplasia.</div>
 
@@ -4334,6 +4416,7 @@ This pathophysiological event involves GATA2 (hgnc:4171). hgnc:4171 is a gene fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4355,6 +4438,7 @@ This pathophysiological event involves GATA2 (hgnc:4171). hgnc:4171 is a gene fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4380,6 +4464,7 @@ This pathophysiological event involves GATA2 (hgnc:4171). hgnc:4171 is a gene fr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mononuclear-cytopenia" data-dismech-node="Mononuclear Cytopenia" data-dismech-type="pathophysiology">
                 <div class="item-name">Mononuclear Cytopenia</div>
+
 
                 <div class="item-desc">Progressive loss of circulating monocytes, B lymphocytes, natural killer cells and dendritic cells is the characteristic peripheral blood signature of the disorder.</div>
 
@@ -4441,6 +4526,7 @@ This pathophysiological event involves GATA2 (hgnc:4171). hgnc:4171 is a gene fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4463,6 +4549,7 @@ This pathophysiological event involves GATA2 (hgnc:4171). hgnc:4171 is a gene fr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-antimycobacterial-and-antiviral-immunity" data-dismech-node="Impaired Antimycobacterial and Antiviral Immunity" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Antimycobacterial and Antiviral Immunity</div>
+
 
                 <div class="item-desc">Loss of monocyte and natural killer cell compartments removes control of intracellular pathogens, producing disseminated nontuberculous mycobacterial infection, severe and refractory human papillomavirus disease, and invasive fungal infection.</div>
 
@@ -4501,6 +4588,7 @@ This pathophysiological event involves GATA2 (hgnc:4171). hgnc:4171 is a gene fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4523,6 +4611,7 @@ This pathophysiological event involves GATA2 (hgnc:4171). hgnc:4171 is a gene fr
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-alveolar-macrophage-depletion" data-dismech-node="Alveolar Macrophage Depletion" data-dismech-type="pathophysiology">
                 <div class="item-name">Alveolar Macrophage Depletion</div>
+
 
                 <div class="item-desc">Alveolar macrophages are continuously replenished from circulating monocytes. With the monocyte compartment depleted, that replenishment fails and surfactant clearance falls, producing pulmonary alveolar proteinosis and impaired gas transfer. The defect is one of macrophage supply rather than of macrophage signalling, which is what distinguishes it from the hereditary PAP caused by GM-CSF receptor defects. The cited sources here establish the monocyte-to-respiratory-disease link; they do not themselves address GM-CSF signalling.</div>
 
@@ -4595,6 +4684,7 @@ This pathophysiological event involves alveolar macrophage (CL:0000583). CL:0000
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4616,6 +4706,7 @@ This pathophysiological event involves alveolar macrophage (CL:0000583). CL:0000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4641,6 +4732,7 @@ This pathophysiological event involves alveolar macrophage (CL:0000583). CL:0000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-clonal-evolution-to-myeloid-malignancy" data-dismech-node="Clonal Evolution to Myeloid Malignancy" data-dismech-type="pathophysiology">
                 <div class="item-name">Clonal Evolution to Myeloid Malignancy</div>
+
 
                 <div class="item-desc">Marrow under replicative stress acquires secondary cytogenetic and somatic lesions, characteristically monosomy 7, trisomy 8 and ASXL1 mutation, driving transformation to myelodysplastic syndrome and acute myeloid leukaemia.</div>
 
@@ -4679,6 +4771,7 @@ This pathophysiological event involves alveolar macrophage (CL:0000583). CL:0000
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4700,6 +4793,7 @@ This pathophysiological event involves alveolar macrophage (CL:0000583). CL:0000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4727,6 +4821,7 @@ This pathophysiological event involves alveolar macrophage (CL:0000583). CL:0000
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4751,6 +4846,7 @@ This pathophysiological event involves alveolar macrophage (CL:0000583). CL:0000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lymphatic-vascular-development-defect" data-dismech-node="Lymphatic Vascular Development Defect" data-dismech-type="pathophysiology">
                 <div class="item-name">Lymphatic Vascular Development Defect</div>
+
 
                 <div class="item-desc">GATA2 is required for lymphovenous and lymphatic valve development; reduced dosage produces primary lymphedema in a subset of patients, the feature that defines the Emberger presentation.</div>
 
@@ -4789,6 +4885,7 @@ This pathophysiological event involves alveolar macrophage (CL:0000583). CL:0000
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4813,6 +4910,7 @@ This pathophysiological event involves alveolar macrophage (CL:0000583). CL:0000
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4834,6 +4932,7 @@ This pathophysiological event involves alveolar macrophage (CL:0000583). CL:0000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4903,7 +5002,7 @@ This pathophysiological event involves alveolar macrophage (CL:0000583). CL:0000
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(7)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Cardiovascular<span class="pill-count">(1)</span></button>
 
@@ -4911,13 +5010,13 @@ This pathophysiological event involves alveolar macrophage (CL:0000583). CL:0000
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Endocrine<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Immune<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Immune<span class="pill-count">(4)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Metabolism<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Neoplasm<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Respiratory<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Other<span class="pill-count">(10)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Neoplasm<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -4927,8 +5026,338 @@ This pathophysiological event involves alveolar macrophage (CL:0000583). CL:0000
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Blood
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">7</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-monocytopenia" data-dismech-node="Monocytopenia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Monocytopenia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Decreased total monocyte count</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012312" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-3">HP:0012312</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Monocytopenia, annotated with Decreased total monocyte count (HP:0012312), qualified as course progressive. HP:0012312 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Course: PROGRESSIVE</span>
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24227816" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24227816" target="_blank">PMID:24227816</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Monocytopenia, B, NK, and CD4 lymphocytopenia correlated with the presence of disease (P &lt; .001)."</div>
+
+
+                <div class="evidence-explanation">Establishes this cytopenia as a disease-associated finding in the NIH cohort.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-b-lymphocytopenia" data-dismech-node="B Lymphocytopenia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        B Lymphocytopenia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Decreased total B cell count</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010976" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-4">HP:0010976</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is B lymphocytopenia, annotated with Decreased total B cell count (HP:0010976), qualified as course progressive. HP:0010976 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Course: PROGRESSIVE</span>
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24227816" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24227816" target="_blank">PMID:24227816</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Monocytopenia, B, NK, and CD4 lymphocytopenia correlated with the presence of disease (P &lt; .001)."</div>
+
+
+                <div class="evidence-explanation">Establishes this cytopenia as a disease-associated finding in the NIH cohort.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-natural-killer-cell-deficiency" data-dismech-node="Natural Killer Cell Deficiency" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Natural Killer Cell Deficiency
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Reduced total natural killer cell count</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0040218" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-5">HP:0040218</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Reduced total natural killer cell count (HP:0040218). HP:0040218 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24227816" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24227816" target="_blank">PMID:24227816</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Monocytopenia, B, NK, and CD4 lymphocytopenia correlated with the presence of disease (P &lt; .001)."</div>
+
+
+                <div class="evidence-explanation">Establishes this cytopenia as a disease-associated finding in the NIH cohort.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-bone-marrow-hypocellularity" data-dismech-node="Bone Marrow Hypocellularity" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Bone Marrow Hypocellularity
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005528" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-6">HP:0005528</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Bone marrow hypocellularity (HP:0005528). HP:0005528 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36455197" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36455197" target="_blank">PMID:36455197</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The bone marrow failure is typically characterized by hypocellularity."</div>
+
+
+                <div class="evidence-explanation">Reports marrow hypocellularity as the characteristic finding.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-myelodysplastic-syndrome" data-dismech-node="Myelodysplastic Syndrome" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -4946,15 +5375,18 @@ This pathophysiological event involves alveolar macrophage (CL:0000583). CL:0000
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002863" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-3">HP:0002863</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002863" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0002863</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Myelodysplasia (HP:0002863). HP:0002863 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -4974,6 +5406,7 @@ This clinical feature is Myelodysplasia (HP:0002863). HP:0002863 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5014,15 +5447,18 @@ This clinical feature is Myelodysplasia (HP:0002863). HP:0002863 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004808" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-4">HP:0004808</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004808" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0004808</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Acute myeloid leukemia (HP:0004808). HP:0004808 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5045,6 +5481,7 @@ This clinical feature is Acute myeloid leukemia (HP:0004808). HP:0004808 is a ph
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5053,6 +5490,78 @@ This clinical feature is Acute myeloid leukemia (HP:0004808). HP:0004808 is a ph
 
 
                 <div class="evidence-explanation">Gives the proportion of carriers presenting first with AML.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-venous-thrombosis" data-dismech-node="Venous Thrombosis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Venous Thrombosis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004936" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0004936</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Venous thrombosis (HP:0004936). HP:0004936 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24227816" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24227816" target="_blank">PMID:24227816</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We identified a broad spectrum of disease: hematologic (MDS 84%, AML 14%, chronic myelomonocytic leukemia 8%), infectious (severe viral 70%, disseminated mycobacterial 53%, and invasive fungal infections 16%), pulmonary (diffusion 79% and ventilatory defects 63%, pulmonary alveolar proteinosis..."</div>
+
+
+                <div class="evidence-explanation">Frequency of this feature in the 57-patient NIH GATA2 deficiency cohort.</div>
 
 
 
@@ -5091,15 +5600,18 @@ This clinical feature is Acute myeloid leukemia (HP:0004808). HP:0004808 is a ph
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002092" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-5">HP:0002092</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002092" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0002092</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Pulmonary arterial hypertension (HP:0002092). HP:0002092 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5119,6 +5631,7 @@ This clinical feature is Pulmonary arterial hypertension (HP:0002092). HP:000209
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5170,15 +5683,18 @@ This clinical feature is Pulmonary arterial hypertension (HP:0002092). HP:000209
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-6">HP:0000407</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0000407</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:0000407 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5198,6 +5714,7 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5247,15 +5764,18 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000821" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0000821</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000821" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0000821</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypothyroidism (HP:0000821). HP:0000821 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5275,6 +5795,7 @@ This clinical feature is Hypothyroidism (HP:0000821). HP:0000821 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5307,12 +5828,12 @@ This clinical feature is Hypothyroidism (HP:0000821). HP:0000821 is a phenotype 
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Immune
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">4</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-panniculitis" data-dismech-node="Panniculitis" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-disseminated-nontuberculous-mycobacterial-infection" data-dismech-node="Disseminated Nontuberculous Mycobacterial Infection" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Panniculitis
+                        Disseminated Nontuberculous Mycobacterial Infection
 
 
 
@@ -5321,18 +5842,23 @@ This clinical feature is Hypothyroidism (HP:0000821). HP:0000821 is a phenotype 
 
                     <span class="phenotype-id">
 
+                        <span class="phenotype-term-label">Recurrent mycobacterial infections</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012490" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0012490</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011274" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0011274</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Panniculitis (HP:0012490). HP:0012490 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Recurrent mycobacterial infections (HP:0011274). HP:0011274 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5352,6 +5878,245 @@ This clinical feature is Panniculitis (HP:0012490). HP:0012490 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We identified a broad spectrum of disease: hematologic (MDS 84%, AML 14%, chronic myelomonocytic leukemia 8%), infectious (severe viral 70%, disseminated mycobacterial 53%, and invasive fungal infections 16%), pulmonary (diffusion 79% and ventilatory defects 63%, pulmonary alveolar proteinosis..."</div>
+
+
+                <div class="evidence-explanation">Frequencies for this feature in the 57-patient NIH GATA2 deficiency cohort.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-severe-human-papillomavirus-disease" data-dismech-node="Severe Human Papillomavirus Disease" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Severe Human Papillomavirus Disease
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Persistent human papillomavirus infection</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0020114" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0020114</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Persistent human papillomavirus infection (HP:0020114), qualified as temporality chronic. HP:0020114 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Temporal: CHRONIC</span>
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24227816" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24227816" target="_blank">PMID:24227816</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We identified a broad spectrum of disease: hematologic (MDS 84%, AML 14%, chronic myelomonocytic leukemia 8%), infectious (severe viral 70%, disseminated mycobacterial 53%, and invasive fungal infections 16%), pulmonary (diffusion 79% and ventilatory defects 63%, pulmonary alveolar proteinosis..."</div>
+
+
+                <div class="evidence-explanation">Frequencies for this feature in the 57-patient NIH GATA2 deficiency cohort.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-invasive-fungal-infection" data-dismech-node="Invasive Fungal Infection" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Invasive Fungal Infection
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Recurrent fungal infections</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002841" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0002841</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Recurrent fungal infections (HP:0002841). HP:0002841 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24227816" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24227816" target="_blank">PMID:24227816</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We identified a broad spectrum of disease: hematologic (MDS 84%, AML 14%, chronic myelomonocytic leukemia 8%), infectious (severe viral 70%, disseminated mycobacterial 53%, and invasive fungal infections 16%), pulmonary (diffusion 79% and ventilatory defects 63%, pulmonary alveolar proteinosis..."</div>
+
+
+                <div class="evidence-explanation">Frequencies for this feature in the 57-patient NIH GATA2 deficiency cohort.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-panniculitis" data-dismech-node="Panniculitis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Panniculitis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012490" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0012490</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Panniculitis (HP:0012490). HP:0012490 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24227816" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24227816" target="_blank">PMID:24227816</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5401,15 +6166,18 @@ This clinical feature is Panniculitis (HP:0012490). HP:0012490 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001004" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0001004</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001004" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001004</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Lymphedema (HP:0001004). HP:0001004 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5429,6 +6197,7 @@ This clinical feature is Lymphedema (HP:0001004). HP:0001004 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5460,630 +6229,9 @@ This clinical feature is Lymphedema (HP:0001004). HP:0001004 is a phenotype from
             <details class="phenotype-category-group" id="pheno-cat-7">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Neoplasm
-                    <span class="cat-count">1</span>
+                    Respiratory
+                    <span class="cat-count">2</span>
                 </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-human-papillomavirus-associated-tumors" data-dismech-node="Human Papillomavirus-Associated Tumors" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Human Papillomavirus-Associated Tumors
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Neoplasm</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002664" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0002664</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Neoplasm (HP:0002664). HP:0002664 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:24227816" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24227816" target="_blank">PMID:24227816</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"We identified a broad spectrum of disease: hematologic (MDS 84%, AML 14%, chronic myelomonocytic leukemia 8%), infectious (severe viral 70%, disseminated mycobacterial 53%, and invasive fungal infections 16%), pulmonary (diffusion 79% and ventilatory defects 63%, pulmonary alveolar proteinosis..."</div>
-
-
-                <div class="evidence-explanation">Frequency of this feature in the 57-patient NIH GATA2 deficiency cohort.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-8">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">10</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-monocytopenia" data-dismech-node="Monocytopenia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Monocytopenia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Decreased total monocyte count</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012312" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0012312</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Monocytopenia, annotated with Decreased total monocyte count (HP:0012312), qualified as course progressive. HP:0012312 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">Course: PROGRESSIVE</span>
-
-
-
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:24227816" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24227816" target="_blank">PMID:24227816</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Monocytopenia, B, NK, and CD4 lymphocytopenia correlated with the presence of disease (P &lt; .001)."</div>
-
-
-                <div class="evidence-explanation">Establishes this cytopenia as a disease-associated finding in the NIH cohort.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-b-lymphocytopenia" data-dismech-node="B Lymphocytopenia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        B Lymphocytopenia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Decreased total B cell count</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0010976" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0010976</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is B lymphocytopenia, annotated with Decreased total B cell count (HP:0010976), qualified as course progressive. HP:0010976 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">Course: PROGRESSIVE</span>
-
-
-
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:24227816" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24227816" target="_blank">PMID:24227816</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Monocytopenia, B, NK, and CD4 lymphocytopenia correlated with the presence of disease (P &lt; .001)."</div>
-
-
-                <div class="evidence-explanation">Establishes this cytopenia as a disease-associated finding in the NIH cohort.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-natural-killer-cell-deficiency" data-dismech-node="Natural Killer Cell Deficiency" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Natural Killer Cell Deficiency
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Reduced total natural killer cell count</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0040218" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0040218</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Reduced total natural killer cell count (HP:0040218). HP:0040218 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:24227816" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24227816" target="_blank">PMID:24227816</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Monocytopenia, B, NK, and CD4 lymphocytopenia correlated with the presence of disease (P &lt; .001)."</div>
-
-
-                <div class="evidence-explanation">Establishes this cytopenia as a disease-associated finding in the NIH cohort.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-bone-marrow-hypocellularity" data-dismech-node="Bone Marrow Hypocellularity" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Bone Marrow Hypocellularity
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0005528" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0005528</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Bone marrow hypocellularity (HP:0005528). HP:0005528 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:36455197" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36455197" target="_blank">PMID:36455197</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The bone marrow failure is typically characterized by hypocellularity."</div>
-
-
-                <div class="evidence-explanation">Reports marrow hypocellularity as the characteristic finding.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-disseminated-nontuberculous-mycobacterial-infection" data-dismech-node="Disseminated Nontuberculous Mycobacterial Infection" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Disseminated Nontuberculous Mycobacterial Infection
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Recurrent mycobacterial infections</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011274" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0011274</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Recurrent mycobacterial infections (HP:0011274). HP:0011274 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:24227816" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24227816" target="_blank">PMID:24227816</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"We identified a broad spectrum of disease: hematologic (MDS 84%, AML 14%, chronic myelomonocytic leukemia 8%), infectious (severe viral 70%, disseminated mycobacterial 53%, and invasive fungal infections 16%), pulmonary (diffusion 79% and ventilatory defects 63%, pulmonary alveolar proteinosis..."</div>
-
-
-                <div class="evidence-explanation">Frequencies for this feature in the 57-patient NIH GATA2 deficiency cohort.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-severe-human-papillomavirus-disease" data-dismech-node="Severe Human Papillomavirus Disease" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Severe Human Papillomavirus Disease
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Persistent human papillomavirus infection</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0020114" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0020114</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Persistent human papillomavirus infection (HP:0020114), qualified as temporality chronic. HP:0020114 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">Temporal: CHRONIC</span>
-
-
-
-
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:24227816" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24227816" target="_blank">PMID:24227816</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"We identified a broad spectrum of disease: hematologic (MDS 84%, AML 14%, chronic myelomonocytic leukemia 8%), infectious (severe viral 70%, disseminated mycobacterial 53%, and invasive fungal infections 16%), pulmonary (diffusion 79% and ventilatory defects 63%, pulmonary alveolar proteinosis..."</div>
-
-
-                <div class="evidence-explanation">Frequencies for this feature in the 57-patient NIH GATA2 deficiency cohort.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-invasive-fungal-infection" data-dismech-node="Invasive Fungal Infection" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Invasive Fungal Infection
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Recurrent fungal infections</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002841" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0002841</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Recurrent fungal infections (HP:0002841). HP:0002841 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:24227816" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24227816" target="_blank">PMID:24227816</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"We identified a broad spectrum of disease: hematologic (MDS 84%, AML 14%, chronic myelomonocytic leukemia 8%), infectious (severe viral 70%, disseminated mycobacterial 53%, and invasive fungal infections 16%), pulmonary (diffusion 79% and ventilatory defects 63%, pulmonary alveolar proteinosis..."</div>
-
-
-                <div class="evidence-explanation">Frequencies for this feature in the 57-patient NIH GATA2 deficiency cohort.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-reduced-pulmonary-diffusing-capacity" data-dismech-node="Reduced Pulmonary Diffusing Capacity" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -6115,6 +6263,9 @@ This clinical feature is Decreased DLCO (HP:0045051). HP:0045051 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6129,6 +6280,7 @@ This clinical feature is Decreased DLCO (HP:0045051). HP:0045051 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6185,6 +6337,9 @@ This clinical feature is Pulmonary alveolar proteinosis, annotated with Intraalv
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6199,6 +6354,7 @@ This clinical feature is Pulmonary alveolar proteinosis, annotated with Intraalv
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6225,9 +6381,18 @@ This clinical feature is Pulmonary alveolar proteinosis, annotated with Intraalv
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-venous-thrombosis" data-dismech-node="Venous Thrombosis" data-dismech-type="phenotype">
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-8">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Neoplasm
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-human-papillomavirus-associated-tumors" data-dismech-node="Human Papillomavirus-Associated Tumors" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Venous Thrombosis
+                        Human Papillomavirus-Associated Tumors
 
 
 
@@ -6236,18 +6401,23 @@ This clinical feature is Pulmonary alveolar proteinosis, annotated with Intraalv
 
                     <span class="phenotype-id">
 
+                        <span class="phenotype-term-label">Neoplasm</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004936" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0004936</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002664" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002664</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Venous thrombosis (HP:0004936). HP:0004936 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Neoplasm (HP:0002664). HP:0002664 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6267,6 +6437,7 @@ This clinical feature is Venous thrombosis (HP:0004936). HP:0004936 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6367,6 +6538,9 @@ This disease-associated gene is GATA2 (hgnc:4171). hgnc:4171 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6381,6 +6555,7 @@ This disease-associated gene is GATA2 (hgnc:4171). hgnc:4171 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6405,6 +6580,7 @@ This disease-associated gene is GATA2 (hgnc:4171). hgnc:4171 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6488,6 +6664,31 @@ This treatment is hematopoietic cell transplantation (NCIT:C15431). NCIT:C15431 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Cell therapy</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Allogeneic HSCT replaces the GATA2-haploinsufficient hematopoietic compartment and is the only intervention that reverses the marrow failure, immunodeficiency and malignant predisposition. Timing is the central clinical question: transplant before evolution to monosomy 7 or advanced MDS gives markedly better outcomes than salvage after transformation.</div>
 
 
@@ -6530,6 +6731,7 @@ This treatment is hematopoietic cell transplantation (NCIT:C15431). NCIT:C15431 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6554,6 +6756,7 @@ This treatment is hematopoietic cell transplantation (NCIT:C15431). NCIT:C15431 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6575,6 +6778,7 @@ This treatment is hematopoietic cell transplantation (NCIT:C15431). NCIT:C15431 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7569,6 +7773,19 @@ datasets: []
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: GATA2 Deficiency</strong> · 2026-08-31T20:06:45Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/GATA2_Deficiency/2026-08-31T200645Z-claude-code-61b87f.yaml">View source</a></p>
+                        <p class="research-review-text">Created kb/disorders/GATA2_Deficiency.yaml for MONDO:0042982, the parent GATA2 deficiency entity. The already-curated Deafness-Lymphedema-Leukemia_Syndrome — Emberger, MONDO:0013540 — describes itself as a presentation within this spectrum, so the parent entry was the gap. Six pathophysiology nodes: GATA2 haploinsufficiency, HSPC depletion, mononuclear cytopenia, impaired antimycobacterial and antiviral immunity, clonal evolution to myeloid malignancy, lymphatic vascular development defect. Eleven phenotypes, one genetic block, allogeneic HSCT as treatment. Deep research: falcon was requested but returned HTTP 403 for an invalid EDISON_API_KEY; the run fell back to claude_code via --fallback-provider, recorded in the report frontmatter as fell_back, requested_provider and provider_attempts. Report references validated 14 of 14 resolved, confabulation_rate 0.0. The report Term Validation section flagged five mislabelled HP CURIEs — for example it called HP:0005506 bone marrow hypocellularity when that ID is Chronic myelogenous leukemia — so no CURIE was taken from the report. All HP and HGNC bindings were resolved independently from cache/hp/terms.csv, cache/hgnc/terms.csv and exact-match OLS queries. Validated with just validate covering schema, terms and references, 22 of 22 snippets verified, plus check-duplicate-keys and check-entity-refs.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

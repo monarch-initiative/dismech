@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,18 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4254,6 +4331,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-podocyte-injury-and-loss" data-dismech-node="Podocyte Injury and Loss" data-dismech-type="pathophysiology">
                 <div class="item-name">Podocyte Injury and Loss</div>
 
+
                 <div class="item-desc">Podocyte injury and depletion are the central convergent event in FSGS. Immune-mediated, genetic, maladaptive, and toxic insults all destabilize the actin cytoskeleton, promote foot process effacement and detachment, and reduce the number of podocytes covering the glomerular basement membrane. Because podocytes regenerate poorly, cumulative loss beyond a threshold drives permanent scar formation.
 </div>
 
@@ -4544,6 +4622,7 @@ This pathophysiological event involves abnormal actin cytoskeleton reorganizatio
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4567,6 +4646,7 @@ This pathophysiological event involves abnormal actin cytoskeleton reorganizatio
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-circulating-permeability-factor-mediated-podocyte-injury" data-dismech-node="Circulating Permeability Factor-Mediated Podocyte Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Circulating Permeability Factor-Mediated Podocyte Injury</div>
+
 
                 <div class="item-desc">Primary FSGS is associated with circulating permeability factors and, in some patients, podocyte-directed autoantibodies. Candidate drivers include suPAR, cardiotrophin-like cytokine 1, angiopoietin-like 4, and anti-nephrin antibodies, but none explains every case. This mechanism is therefore best treated as an upstream hypothesis for primary disease rather than a universal explanation for all FSGS.
 </div>
@@ -4788,6 +4868,7 @@ This pathophysiological event involves abnormal cytokine-mediated signaling path
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4810,6 +4891,7 @@ This pathophysiological event involves abnormal cytokine-mediated signaling path
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4836,6 +4918,7 @@ This pathophysiological event involves abnormal cytokine-mediated signaling path
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-glomerular-filtration-barrier-dysfunction" data-dismech-node="Glomerular Filtration Barrier Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Glomerular Filtration Barrier Dysfunction</div>
+
 
                 <div class="item-desc">Loss of podocyte structural integrity, especially foot process effacement and slit diaphragm disruption, increases glomerular permeability to albumin and other plasma proteins. Slit diaphragm proteins such as nephrin and podocin are essential structural and signaling components of the filtration barrier, so disruption of this compartment is a common final pathway in proteinuric FSGS.
 </div>
@@ -5024,6 +5107,7 @@ This pathophysiological event involves abnormal cell-cell junction assembly (GO:
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5047,6 +5131,7 @@ This pathophysiological event involves abnormal cell-cell junction assembly (GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mesangial-expansion-and-glomerulosclerosis" data-dismech-node="Mesangial Expansion and Glomerulosclerosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Mesangial Expansion and Glomerulosclerosis</div>
+
 
                 <div class="item-desc">Persistent podocyte depletion promotes tuft adhesion, mesangial matrix accumulation, and segmental obliteration of glomerular capillary loops, producing the defining histologic lesion of FSGS. Once established, glomerulosclerosis is largely irreversible and contributes to progressive nephron loss.
 </div>
@@ -5196,6 +5281,7 @@ This pathophysiological event involves increased mesangial cell proliferation, a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tubular-protein-overload-and-interstitial-inflammation" data-dismech-node="Tubular Protein Overload and Interstitial Inflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">Tubular Protein Overload and Interstitial Inflammation</div>
+
 
                 <div class="item-desc">Sustained heavy proteinuria and nephron loss trigger proximal tubular epithelial stress, complement activation, and macrophage recruitment in the interstitium. This inflammatory phase links glomerular injury to the later fibrotic remodeling that drives chronic kidney function loss.
 </div>
@@ -5375,6 +5461,7 @@ This pathophysiological event involves increased leukocyte migration (GO:0050900
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tubulointerstitial-fibrosis" data-dismech-node="Tubulointerstitial Fibrosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Tubulointerstitial Fibrosis</div>
+
 
                 <div class="item-desc">Activated myofibroblasts deposit extracellular matrix throughout the cortical interstitium, producing tubular atrophy and irreversible loss of renal parenchyma. The burden of tubulointerstitial fibrosis tracks long-term kidney function decline more closely than glomerular scarring alone.
 </div>
@@ -5571,6 +5658,7 @@ This pathophysiological event involves increased extracellular matrix organizati
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5620,6 +5708,7 @@ This pathophysiological event involves increased extracellular matrix organizati
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5666,6 +5755,7 @@ This pathophysiological event involves increased extracellular matrix organizati
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5733,11 +5823,9 @@ This pathophysiological event involves increased extracellular matrix organizati
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Genitourinary<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Genitourinary<span class="pill-count">(4)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Metabolism<span class="pill-count">(3)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5782,6 +5870,9 @@ This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype fr
 
 
 
+
+
+
                 </div>
 
             </details>
@@ -5790,7 +5881,7 @@ This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype fr
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Genitourinary
-                    <span class="cat-count">3</span>
+                    <span class="cat-count">4</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-proteinuria" data-dismech-node="Proteinuria" data-dismech-type="phenotype">
@@ -5816,6 +5907,9 @@ This clinical feature is Proteinuria (HP:0000093). HP:0000093 is a phenotype fro
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5847,6 +5941,7 @@ This clinical feature is Proteinuria (HP:0000093). HP:0000093 is a phenotype fro
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5855,6 +5950,79 @@ This clinical feature is Proteinuria (HP:0000093). HP:0000093 is a phenotype fro
 
 
                 <div class="evidence-explanation">Large US real-world study (9,899 FSGS patients) demonstrating that proteinuria is the central clinical driver of disease burden in FSGS.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-nephrotic-syndrome" data-dismech-node="Nephrotic Syndrome" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Nephrotic Syndrome
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000100" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000100</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Nephrotic syndrome (HP:0000100). HP:0000100 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41906863" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41906863" target="_blank">PMID:41906863</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Focal segmental glomerulosclerosis (FSGS) is one of the major causes of nephrotic syndrome, which can progress to end-stage renal disease, leading to kidney transplantation."</div>
+
+
+                <div class="evidence-explanation">Establishes FSGS as a major cause of nephrotic syndrome and documents the natural history of progression to end-stage renal disease.
 </div>
 
 
@@ -5885,15 +6053,18 @@ This clinical feature is Proteinuria (HP:0000093). HP:0000093 is a phenotype fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000083" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000083</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000083" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000083</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Renal insufficiency (HP:0000083). HP:0000083 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5913,6 +6084,7 @@ This clinical feature is Renal insufficiency (HP:0000083). HP:0000083 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5954,15 +6126,18 @@ This clinical feature is Renal insufficiency (HP:0000083). HP:0000083 is a pheno
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000790" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000790</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000790" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000790</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hematuria (HP:0000790). HP:0000790 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5997,15 +6172,18 @@ This clinical feature is Hematuria (HP:0000790). HP:0000790 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012398" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0012398</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012398" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0012398</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Peripheral edema (HP:0012398). HP:0012398 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6031,15 +6209,18 @@ This clinical feature is Peripheral edema (HP:0012398). HP:0012398 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003073" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0003073</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003073" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0003073</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypoalbuminemia (HP:0003073). HP:0003073 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6074,10 +6255,10 @@ This clinical feature is Hypoalbuminemia (HP:0003073). HP:0003073 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003077" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0003077</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003077" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0003077</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hyperlipidemia (HP:0003077). HP:0003077 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6090,81 +6271,6 @@ This clinical feature is Hyperlipidemia (HP:0003077). HP:0003077 is a phenotype 
 
 
 
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-nephrotic-syndrome" data-dismech-node="Nephrotic Syndrome" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Nephrotic Syndrome
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000100" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0000100</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Nephrotic syndrome (HP:0000100). HP:0000100 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:41906863" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41906863" target="_blank">PMID:41906863</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Focal segmental glomerulosclerosis (FSGS) is one of the major causes of nephrotic syndrome, which can progress to end-stage renal disease, leading to kidney transplantation."</div>
-
-
-                <div class="evidence-explanation">Establishes FSGS as a major cause of nephrotic syndrome and documents the natural history of progression to end-stage renal disease.
-</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
 
 
 
@@ -6244,6 +6350,9 @@ This disease-associated gene is NPHS2 (hgnc:13394). hgnc:13394 is a gene from th
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive</span>
@@ -6266,6 +6375,7 @@ This disease-associated gene is NPHS2 (hgnc:13394). hgnc:13394 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6324,6 +6434,9 @@ This disease-associated gene is ACTN4 (hgnc:166). hgnc:166 is a gene from the HU
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant</span>
@@ -6349,6 +6462,7 @@ This disease-associated gene is ACTN4 (hgnc:166). hgnc:166 is a gene from the HU
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6371,6 +6485,7 @@ This disease-associated gene is ACTN4 (hgnc:166). hgnc:166 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6429,6 +6544,9 @@ This disease-associated gene is TRPC6 (hgnc:12338). hgnc:12338 is a gene from th
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant</span>
@@ -6451,6 +6569,7 @@ This disease-associated gene is TRPC6 (hgnc:12338). hgnc:12338 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6479,6 +6598,7 @@ This disease-associated gene is TRPC6 (hgnc:12338). hgnc:12338 is a gene from th
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6501,6 +6621,7 @@ This disease-associated gene is TRPC6 (hgnc:12338). hgnc:12338 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6559,6 +6680,9 @@ This disease-associated gene is INF2 (hgnc:23791). hgnc:23791 is a gene from the
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant</span>
@@ -6581,6 +6705,7 @@ This disease-associated gene is INF2 (hgnc:23791). hgnc:23791 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6609,6 +6734,7 @@ This disease-associated gene is INF2 (hgnc:23791). hgnc:23791 is a gene from the
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6631,6 +6757,7 @@ This disease-associated gene is INF2 (hgnc:23791). hgnc:23791 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6688,6 +6815,9 @@ This disease-associated gene is FAT1 (hgnc:3595). hgnc:3595 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6702,6 +6832,7 @@ This disease-associated gene is FAT1 (hgnc:3595). hgnc:3595 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6759,6 +6890,9 @@ This disease-associated gene is SYNPO (hgnc:30672). hgnc:30672 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6773,6 +6907,7 @@ This disease-associated gene is SYNPO (hgnc:30672). hgnc:30672 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6878,6 +7013,20 @@ This treatment uses prednisone (CHEBI:8382). CHEBI:8382 is a therapeutic agent f
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Prednisone remains standard initial immunosuppressive therapy for primary FSGS with nephrotic syndrome after secondary and monogenic causes have been excluded. Some patients achieve partial or complete remission, but steroid resistance is common.
 </div>
 
@@ -6922,6 +7071,7 @@ This treatment uses prednisone (CHEBI:8382). CHEBI:8382 is a therapeutic agent f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6944,6 +7094,7 @@ This treatment uses prednisone (CHEBI:8382). CHEBI:8382 is a therapeutic agent f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7048,6 +7199,20 @@ This treatment uses tacrolimus, annotated with tacrolimus (anhydrous) (CHEBI:610
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Cyclosporine or tacrolimus are established options for steroid-resistant primary FSGS. Their benefit likely reflects both immunomodulation and direct stabilization of podocyte structure.
 </div>
 
@@ -7103,6 +7268,7 @@ This treatment uses tacrolimus, annotated with tacrolimus (anhydrous) (CHEBI:610
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7168,6 +7334,20 @@ This treatment is sparsentan therapy, annotated with Pharmacotherapy (NCIT:C1598
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Dual endothelin type A and angiotensin II type 1 receptor antagonist that lowers proteinuria in selected patients with FSGS. Its clearest current role is as an antiproteinuric therapy rather than reversal of established glomerular scarring.
 </div>
 
@@ -7212,6 +7392,7 @@ This treatment targets Proteinuria (HP:0000093). HP:0000093 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7272,6 +7453,20 @@ This treatment is renin-angiotensin system blockade, annotated with Pharmacother
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -7390,6 +7585,20 @@ This treatment uses mycophenolate mofetil (CHEBI:8764). CHEBI:8764 is a therapeu
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Steroid-sparing immunosuppressive option sometimes used in selected primary FSGS regimens. Evidence is stronger for proteinuria reduction than for consistent disease remission.
 </div>
 
@@ -7431,6 +7640,7 @@ This treatment uses mycophenolate mofetil (CHEBI:8764). CHEBI:8764 is a therapeu
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7496,6 +7706,31 @@ This treatment is kidney transplantation, annotated with Organ Transplantation (
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Kidney transplantation is replacement therapy for FSGS-associated kidney failure rather than disease-modifying therapy for the native disease. Recurrence risk is highest in primary FSGS and is generally lower in many monogenic or maladaptive forms.
 </div>
 
@@ -7540,6 +7775,7 @@ This treatment targets Renal insufficiency (HP:0000083). HP:0000083 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7616,6 +7852,7 @@ This treatment targets Renal insufficiency (HP:0000083). HP:0000083 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9090,6 +9327,7 @@ datasets:
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9158,6 +9396,7 @@ datasets:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9232,6 +9471,7 @@ datasets:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9300,6 +9540,7 @@ datasets:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9374,6 +9615,7 @@ datasets:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9408,6 +9650,8 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

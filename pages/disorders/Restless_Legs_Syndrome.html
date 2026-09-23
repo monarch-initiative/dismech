@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,18 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4178,6 +4255,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4411,6 +4489,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-regional-brain-iron-deficiency" data-dismech-node="Regional Brain Iron Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Regional Brain Iron Deficiency</div>
 
+
                 <div class="item-desc">The best-established abnormality, and the trigger node. Iron content is reduced in specific brain regions - most consistently the substantia nigra, also the thalamus - while systemic iron stores may be entirely normal. This is a compartment-specific deficiency, not a systemic one, which is why serum ferritin is an unreliable guide and why oral iron is ineffective in iron-sufficient patients. Neuropathologically the lesion is one of acquisition rather than of loss: H-ferritin and iron staining are markedly reduced, transferrin receptor staining on neuromelanin-containing cells is decreased while transferrin itself is increased - the signature of cells that are iron starved but failing to upregulate their uptake machinery, i.e. a regulatory defect at the transferrin receptor. Crucially there is no neurodegeneration: the RLS brain shows no histopathological abnormality unique to it and normal tyrosine hydroxylase staining, which distinguishes this disorder from the dopaminergic degenerations at the level of tissue.</div>
 
 
@@ -4530,6 +4609,7 @@ This pathophysiological event occurs in substantia nigra (UBERON:0002038). UBERO
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4551,6 +4631,7 @@ This pathophysiological event occurs in substantia nigra (UBERON:0002038). UBERO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4578,6 +4659,7 @@ This pathophysiological event occurs in substantia nigra (UBERON:0002038). UBERO
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4600,6 +4682,7 @@ This pathophysiological event occurs in substantia nigra (UBERON:0002038). UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-genetic-susceptibility-at-iron-linked-regulatory-loci" data-dismech-node="Genetic Susceptibility at Iron-Linked Regulatory Loci" data-dismech-type="pathophysiology">
                 <div class="item-name">Genetic Susceptibility at Iron-Linked Regulatory Loci</div>
+
 
                 <div class="item-desc">Restless legs syndrome is highly heritable, and its common risk variants are unusual in two respects that are mechanistically informative. First, they are almost all non-coding and regulatory rather than protein-altering - the strongest signal is a linkage-disequilibrium block within intron 8 of MEIS1 - so the disease mechanism runs through altered expression of developmental transcription factors, not through altered protein function. Second, the effect sizes are among the largest reported for any common disease, and yet identified variants explain under 10% of heritability. MEIS1 risk haplotype carriers show lower MEIS1 mRNA and protein in blood and thalamus, and the MEIS1 orthologue is linked to iron homeostasis in C. elegans - which is the connection that ties the genetic arm back to the iron trigger rather than leaving it a separate story.</div>
 
@@ -4653,6 +4736,7 @@ This pathophysiological event occurs in substantia nigra (UBERON:0002038). UBERO
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4674,6 +4758,7 @@ This pathophysiological event occurs in substantia nigra (UBERON:0002038). UBERO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4701,6 +4786,7 @@ This pathophysiological event occurs in substantia nigra (UBERON:0002038). UBERO
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4725,6 +4811,7 @@ This pathophysiological event occurs in substantia nigra (UBERON:0002038). UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-altered-dopaminergic-signalling-with-relative-dopamine-excess" data-dismech-node="Altered Dopaminergic Signalling with Relative Dopamine Excess" data-dismech-type="pathophysiology">
                 <div class="item-name">Altered Dopaminergic Signalling with Relative Dopamine Excess</div>
+
 
                 <div class="item-desc">The dopaminergic abnormality, curated in the direction the evidence supports. The iron-deficient regions show a state of relative dopamine excess, not deficiency, with presynaptic upregulation and postsynaptic receptor downregulation; tyrosine hydroxylase staining is normal and there is no cell loss. This reading is what makes sense of the disorder&#39;s two most distinctive pharmacological facts. Dopamine agonists relieve symptoms immediately, at doses far below those used in Parkinson disease, because they act on a downregulated postsynaptic system at its circadian trough. And sustained agonist exposure produces augmentation - earlier onset, greater intensity, and spread to the arms - which is what a chronically overdriven system that is already in relative excess would be expected to do, and which a deficiency model does not predict at all.</div>
 
@@ -4837,6 +4924,7 @@ This pathophysiological event occurs in substantia nigra (UBERON:0002038). UBERO
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4858,6 +4946,7 @@ This pathophysiological event occurs in substantia nigra (UBERON:0002038). UBERO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4883,6 +4972,7 @@ This pathophysiological event occurs in substantia nigra (UBERON:0002038). UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sensorimotor-network-hyperexcitability" data-dismech-node="Sensorimotor Network Hyperexcitability" data-dismech-type="pathophysiology">
                 <div class="item-name">Sensorimotor Network Hyperexcitability</div>
+
 
                 <div class="item-desc">The convergence node: a state of increased excitability in spinal and supraspinal sensorimotor circuits, expressed as an aversive sensory urge at rest and as involuntary periodic limb movements during sleep. Beyond the dopaminergic arm, the leading candidate contributors are reduced adenosinergic tone (adenosine is inhibitory, and brain iron deficiency has been proposed to downregulate A1 receptors) and increased glutamatergic transmission - which would explain why alpha-2-delta ligands, which reduce glutamate release and have no dopaminergic action at all, are as effective as dopamine agonists. That equivalence is a strong constraint on any mechanistic account, and it is the reason this node is curated as a convergence point rather than as a dopaminergic effector.</div>
 
@@ -4982,6 +5072,7 @@ This pathophysiological event involves increased glutamatergic synaptic transmis
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5003,6 +5094,7 @@ This pathophysiological event involves increased glutamatergic synaptic transmis
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5028,6 +5120,7 @@ This pathophysiological event involves increased glutamatergic synaptic transmis
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-rest-dependent-urge-to-move-with-circadian-timing" data-dismech-node="Rest-Dependent Urge to Move with Circadian Timing" data-dismech-type="pathophysiology">
                 <div class="item-name">Rest-Dependent Urge to Move with Circadian Timing</div>
+
 
                 <div class="item-desc">The defining clinical phenomenon, and its two modulations are diagnostic rather than incidental. It is rest-dependent: the urge appears during inactivity and is relieved, immediately and completely, by movement - a relief pattern no other sensory symptom shares. And it is circadian: symptoms appear in the evening and night, following the endogenous rhythm rather than time awake, which is why they persist at the same clock time after a shifted schedule and why sleep onset is the point of maximal impairment.</div>
 
@@ -5115,6 +5208,7 @@ This pathophysiological event involves circadian rhythm (GO:0007623). GO:0007623
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5137,6 +5231,7 @@ This pathophysiological event involves circadian rhythm (GO:0007623). GO:0007623
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-periodic-limb-movements-of-sleep" data-dismech-node="Periodic Limb Movements of Sleep" data-dismech-type="pathophysiology">
                 <div class="item-name">Periodic Limb Movements of Sleep</div>
+
 
                 <div class="item-desc">Stereotyped, repetitive limb movements during sleep, present in most patients with restless legs syndrome and quantifiable on polysomnography. Curated as its own node because the genetics show it is partly separable: the BTBD9 variant is associated with periodic limb movements both with and without the restless legs phenotype, and NOT with restless legs in the absence of periodic limb movements - which identifies it as a genetic determinant of the movement trait rather than of the sensory disorder. Treating the two as one entity would discard that dissociation.</div>
 
@@ -5190,6 +5285,7 @@ This pathophysiological event involves circadian rhythm (GO:0007623). GO:0007623
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5211,6 +5307,7 @@ This pathophysiological event involves circadian rhythm (GO:0007623). GO:0007623
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5236,6 +5333,7 @@ This pathophysiological event involves circadian rhythm (GO:0007623). GO:0007623
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sleep-disruption-and-its-consequences" data-dismech-node="Sleep Disruption and Its Consequences" data-dismech-type="pathophysiology">
                 <div class="item-name">Sleep Disruption and Its Consequences</div>
+
 
                 <div class="item-desc">The clinical endpoint through which restless legs syndrome becomes a sleep disorder: delayed sleep onset from the evening urge, fragmentation from periodic movements, and consequent daytime impairment and mood disturbance. Severity varies widely, and only the more severe forms warrant drug treatment - a threshold that matters here more than in most disorders, because the most effective first-line agents carry augmentation risk.</div>
 
@@ -5312,6 +5410,7 @@ This pathophysiological event involves abnormal sleep (GO:0030431). GO:0030431 i
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5374,28 +5473,15 @@ This pathophysiological event involves abnormal sleep (GO:0030431). GO:0030431 i
             </div>
 
 
-            <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Nervous System<span class="pill-count">(1)</span></button>
+            <div class="item-box phenotype-box anchor-target" id="phenotype-urge-to-move-the-legs-at-rest" data-dismech-node="Urge to Move the Legs at Rest" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Urge to Move the Legs at Rest
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Other<span class="pill-count">(2)</span></button>
-
-                <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
-            </div>
+                    <span class="phenotype-freq">OBLIGATE</span>
 
 
-            <details class="phenotype-category-group" id="pheno-cat-1">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Nervous System
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-sleep-disturbance" data-dismech-node="Sleep Disturbance" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Sleep Disturbance
-
-
+                    <span class="phenotype-category">Neurological</span>
 
 
 
@@ -5404,117 +5490,17 @@ This pathophysiological event involves abnormal sleep (GO:0030431). GO:0030431 i
 
 
 
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0002360</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012452" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0012452</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Sleep disturbance (HP:0002360), qualified as temporality chronic. HP:0002360 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">Temporal: CHRONIC</span>
-
-
-
-
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:17634447" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17634447" target="_blank">PMID:17634447</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"It is a major cause of sleep disruption."</div>
-
-
-                <div class="evidence-explanation">Supports sleep disruption as a core consequence; no frequency band is asserted, since the source does not quantify it.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-2">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-urge-to-move-the-legs-at-rest" data-dismech-node="Urge to Move the Legs at Rest" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Urge to Move the Legs at Rest
-
-                        <span class="phenotype-freq">OBLIGATE</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Restless legs</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012452" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0012452</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
 This clinical feature is Restless legs (HP:0012452), qualified as temporality nocturnal. HP:0012452 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
 
-                    <div class="item-meta">
+                <div class="item-meta">
 
 
 
@@ -5530,7 +5516,10 @@ This clinical feature is Restless legs (HP:0012452), qualified as temporality no
 
 
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -5550,6 +5539,7 @@ This clinical feature is Restless legs (HP:0012452), qualified as temporality no
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5574,15 +5564,16 @@ This clinical feature is Restless legs (HP:0012452), qualified as temporality no
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-periodic-limb-movements-of-sleep" data-dismech-node="Periodic Limb Movements of Sleep" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Periodic Limb Movements of Sleep
+            <div class="item-box phenotype-box anchor-target" id="phenotype-periodic-limb-movements-of-sleep" data-dismech-node="Periodic Limb Movements of Sleep" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Periodic Limb Movements of Sleep
 
-                        <span class="phenotype-freq">FREQUENT</span>
+                    <span class="phenotype-freq">FREQUENT</span>
 
 
+                    <span class="phenotype-category">Neurological</span>
 
 
 
@@ -5591,16 +5582,18 @@ This clinical feature is Restless legs (HP:0012452), qualified as temporality no
 
 
 
+    <a href="http://purl.obolibrary.org/obo/HP_5200295" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:5200295</a>
 
-    <a href="http://purl.obolibrary.org/obo/HP_5200295" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:5200295</a>
 
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Periodic limb movements of sleep (HP:5200295). HP:5200295 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -5620,6 +5613,7 @@ This clinical feature is Periodic limb movements of sleep (HP:5200295). HP:52002
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5644,34 +5638,98 @@ This clinical feature is Periodic limb movements of sleep (HP:5200295). HP:52002
 
 
 
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-sleep-disturbance" data-dismech-node="Sleep Disturbance" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Sleep Disturbance
+
+
+                    <span class="phenotype-category">Neurological</span>
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002360" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0002360</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sleep disturbance (HP:0002360), qualified as temporality chronic. HP:0002360 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
                 </div>
 
-            </details>
+                <div class="item-meta">
 
-            <script>
-            (function() {
-                // TOC pill click: expand target group and scroll to it
-                document.querySelectorAll('.pheno-toc-pill').forEach(function(pill) {
-                    pill.addEventListener('click', function() {
-                        var target = document.getElementById(pill.dataset.target);
-                        if (target) {
-                            target.open = true;
-                            target.scrollIntoView({behavior: 'smooth', block: 'start'});
-                        }
-                    });
-                });
-                // Expand/collapse all toggle
-                var btn = document.getElementById('phenoToggleAll');
-                if (btn) {
-                    btn.addEventListener('click', function() {
-                        var groups = document.querySelectorAll('.phenotype-category-group');
-                        var anyOpen = Array.from(groups).some(function(g) { return g.open; });
-                        groups.forEach(function(g) { g.open = !anyOpen; });
-                        btn.textContent = anyOpen ? 'Expand all' : 'Collapse all';
-                    });
-                }
-            })();
-            </script>
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Temporal: CHRONIC</span>
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17634447" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17634447" target="_blank">PMID:17634447</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"It is a major cause of sleep disruption."</div>
+
+
+                <div class="evidence-explanation">Supports sleep disruption as a core consequence; no frequency band is asserted, since the source does not quantify it.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+            </div>
+
 
         </div>
 
@@ -5718,6 +5776,9 @@ This disease-associated gene is MEIS1 (hgnc:7000). hgnc:7000 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5732,6 +5793,7 @@ This disease-associated gene is MEIS1 (hgnc:7000). hgnc:7000 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5756,6 +5818,7 @@ This disease-associated gene is MEIS1 (hgnc:7000). hgnc:7000 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5813,6 +5876,9 @@ This disease-associated gene is BTBD9 (hgnc:21228). hgnc:21228 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5827,6 +5893,7 @@ This disease-associated gene is BTBD9 (hgnc:21228). hgnc:21228 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5851,6 +5918,7 @@ This disease-associated gene is BTBD9 (hgnc:21228). hgnc:21228 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5955,6 +6023,31 @@ This treatment uses ferric carboxymaltose (NCIT:C166915). NCIT:C166915 is a ther
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Iron repletion is the only treatment directed at the entry&#39;s trigger node rather than at its downstream consequences, and it is the mechanistically most interesting: a single intravenous dose can produce prolonged benefit, consistent with correcting a compartment rather than maintaining a drug level. Two caveats are curated deliberately. The effect is slow - in a randomised trial in iron-deficient non-anaemic patients the difference from placebo was not significant at 4 weeks and became significant only by 12 weeks - which means a 4-week endpoint will call it a failure. And oral iron is not a substitute: it is non-efficacious in iron-sufficient patients, which is what a compartment-specific rather than systemic deficiency predicts.</div>
 
 
@@ -5997,6 +6090,7 @@ This treatment uses ferric carboxymaltose (NCIT:C166915). NCIT:C166915 is a ther
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6021,6 +6115,7 @@ This treatment uses ferric carboxymaltose (NCIT:C166915). NCIT:C166915 is a ther
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6042,6 +6137,7 @@ This treatment uses ferric carboxymaltose (NCIT:C166915). NCIT:C166915 is a ther
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6127,6 +6223,31 @@ This treatment uses gabapentin enacarbil (CHEBI:68840). CHEBI:68840 is a therape
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Ligands of the alpha-2-delta subunit of the voltage-gated calcium channel, which reduce presynaptic neurotransmitter release including glutamate. They are as effective as a dopamine agonist in head-to-head meta-analysis while carrying substantially less augmentation risk, and are increasingly preferred first-line for that reason. Their efficacy is also the strongest single argument that the disorder&#39;s effector node is not purely dopaminergic - a drug with no dopaminergic action should not work as well as one that has it, if the mechanism were dopaminergic.</div>
 
 
@@ -6166,6 +6287,7 @@ This treatment uses gabapentin enacarbil (CHEBI:68840). CHEBI:68840 is a therape
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6251,6 +6373,31 @@ This treatment uses pramipexole (CHEBI:8356). CHEBI:8356 is a therapeutic agent 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Immediately and reliably effective at doses well below those used in Parkinson disease, and for many years first-line - but curated here with its principal harm attached, because the harm is mechanistically informative rather than incidental. Sustained dopaminergic treatment causes augmentation: the disease itself worsens, with symptoms starting earlier in the day, becoming more intense, and spreading to previously unaffected limbs. The evidence-based review identifies augmentation as more frequent with pramipexole than pregabalin and possibly with all dopaminergic agents more than alpha-2-delta ligands, and requires special monitoring for every dopaminergic drug. A treatment that reverses into an exacerbation of the disorder is exactly what a relative-dopamine-excess model predicts and a deficiency model does not.</div>
 
 
@@ -6293,6 +6440,7 @@ This treatment uses pramipexole (CHEBI:8356). CHEBI:8356 is a therapeutic agent 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6317,6 +6465,7 @@ This treatment uses pramipexole (CHEBI:8356). CHEBI:8356 is a therapeutic agent 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6338,6 +6487,7 @@ This treatment uses pramipexole (CHEBI:8356). CHEBI:8356 is a therapeutic agent 
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -6424,6 +6574,7 @@ This treatment uses pramipexole (CHEBI:8356). CHEBI:8356 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,18 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4203,6 +4280,7 @@ Not to be confused with HIBADH deficiency, the other primary cause of 3-hydroxyi
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4227,6 +4305,7 @@ Not to be confused with HIBADH deficiency, the other primary cause of 3-hydroxyi
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4248,6 +4327,7 @@ Not to be confused with HIBADH deficiency, the other primary cause of 3-hydroxyi
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4414,6 +4494,7 @@ Not to be confused with HIBADH deficiency, the other primary cause of 3-hydroxyi
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4435,6 +4516,7 @@ Not to be confused with HIBADH deficiency, the other primary cause of 3-hydroxyi
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4566,6 +4648,7 @@ Not to be confused with HIBADH deficiency, the other primary cause of 3-hydroxyi
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4590,6 +4673,7 @@ Not to be confused with HIBADH deficiency, the other primary cause of 3-hydroxyi
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4611,6 +4695,7 @@ Not to be confused with HIBADH deficiency, the other primary cause of 3-hydroxyi
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4648,6 +4733,13 @@ Not to be confused with HIBADH deficiency, the other primary cause of 3-hydroxyi
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-aldh6a1-dependent-methylmalonate-semialdehyde-dehydrogenase-deficiency" data-dismech-node="ALDH6A1-dependent methylmalonate semialdehyde dehydrogenase deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">ALDH6A1-dependent methylmalonate semialdehyde dehydrogenase deficiency</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Biallelic ALDH6A1 variants reduce or abolish the activity of mitochondrial methylmalonate semialdehyde dehydrogenase. Six missense alleles affecting residues conserved across mammals have been reported. Direct enzymatic confirmation was historically impossible because the substrate is too unstable to assay; the first successful fibroblast assay was reported in 2013, and reduced protein has separately been shown by Western blot.</div>
 
@@ -4803,6 +4895,7 @@ This pathophysiological event involves mitochondrial matrix (GO:0005759). GO:000
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4824,6 +4917,7 @@ This pathophysiological event involves mitochondrial matrix (GO:0005759). GO:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4851,6 +4945,7 @@ This pathophysiological event involves mitochondrial matrix (GO:0005759). GO:000
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4875,6 +4970,13 @@ This pathophysiological event involves mitochondrial matrix (GO:0005759). GO:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-convergent-block-of-valine-and-thymine-catabolism" data-dismech-node="Convergent block of valine and thymine catabolism" data-dismech-type="pathophysiology">
                 <div class="item-name">Convergent block of valine and thymine catabolism</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">MMSDH is the convergence point of two independent catabolic routes. Valine degradation produces (S)-3-hydroxyisobutyric acid, which 3-hydroxyisobutyrate dehydrogenase oxidizes to (S)-methylmalonate semialdehyde; thymine degradation produces (R)-3-aminoisobutyric acid, which is deaminated to the (R)-enantiomer. MMSDH oxidatively decarboxylates both enantiomers to propionyl-CoA, and both are affected by the deficiency. Because one enzyme serves two pathways, the disorder is simultaneously an aminoacidopathy and a pyrimidine-catabolism defect - which is why the urine profile mixes valine-derived and thymine-derived metabolites.</div>
 
@@ -5008,6 +5110,7 @@ This pathophysiological event involves decreased thymine catabolic process (GO:0
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5029,6 +5132,7 @@ This pathophysiological event involves decreased thymine catabolic process (GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5056,6 +5160,7 @@ This pathophysiological event involves decreased thymine catabolic process (GO:0
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5078,6 +5183,13 @@ This pathophysiological event involves decreased thymine catabolic process (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-accumulation-of-upstream-valine-and-thymine-pathway-metabolites" data-dismech-node="Accumulation of upstream valine- and thymine-pathway metabolites" data-dismech-type="pathophysiology">
                 <div class="item-name">Accumulation of upstream valine- and thymine-pathway metabolites</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The block produces a composite organic aciduria and aminoaciduria drawing on both feeder pathways: 3-hydroxyisobutyric and 3-hydroxypropionic acids, 3-aminoisobutyric acid and beta-alanine. Methylmalonic acid is elevated in some patients only, and in the one patient in whom it was followed longitudinally it was transient rather than persistent. The single most important curation caveat for this disorder is that the metabolite pattern has differed in essentially every reported patient, so no fixed profile can be treated as diagnostic. Whether any of these metabolites is toxic is unknown, which is why this node is not linked to a toxic-metabolite or energy-deficit mechanism.</div>
 
@@ -5139,6 +5251,7 @@ This pathophysiological event involves decreased thymine catabolic process (GO:0
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5160,6 +5273,7 @@ This pathophysiological event involves decreased thymine catabolic process (GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5187,6 +5301,7 @@ This pathophysiological event involves decreased thymine catabolic process (GO:0
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5209,6 +5324,13 @@ This pathophysiological event involves decreased thymine catabolic process (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-semialdehyde-shunting-toward-beta-alanine-and-malonyl-coa" data-dismech-node="Semialdehyde shunting toward beta-alanine and malonyl-CoA" data-dismech-type="pathophysiology">
                 <div class="item-name">Semialdehyde shunting toward beta-alanine and malonyl-CoA</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Metabolomic profiling of fibroblasts from one patient found an over-representation of fatty acids and acylcarnitines. The authors proposed that blocked methylmalonate semialdehyde is diverted to beta-alanine and then to malonyl-CoA, increasing fatty acid synthesis. This is an inference from a metabolite pattern in a single patient&#39;s cells, not a demonstrated flux, so the node is provisional and is not used to explain any clinical finding.</div>
 
@@ -5247,6 +5369,7 @@ This pathophysiological event involves decreased thymine catabolic process (GO:0
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5269,6 +5392,13 @@ This pathophysiological event involves decreased thymine catabolic process (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fibroblast-mitochondrial-dysfunction" data-dismech-node="Fibroblast mitochondrial dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Fibroblast mitochondrial dysfunction</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Fibroblasts from one patient showed increased superoxide production, reduced oxygen consumption and reduced ATP production. The authors note this as a finding worth checking in future patients rather than an established component of the disease. It is one plausible bridge between the enzymatic block and the neurological findings, but nothing links the two directly, so no causal edge to the clinical arm is asserted here.</div>
 
@@ -5307,6 +5437,7 @@ This pathophysiological event involves decreased thymine catabolic process (GO:0
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5328,6 +5459,7 @@ This pathophysiological event involves decreased thymine catabolic process (GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5353,6 +5485,13 @@ This pathophysiological event involves decreased thymine catabolic process (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reported-neurological-association-of-uncertain-causality" data-dismech-node="Reported neurological association of uncertain causality" data-dismech-type="pathophysiology">
                 <div class="item-name">Reported neurological association of uncertain causality</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
 
                 <div class="item-desc">Developmental delay and, in one patient, abnormal myelination on brain MRI have been reported in molecularly confirmed patients. No mechanism connects the accumulating metabolites to neuronal or myelin injury, and other biallelic patients have been neurologically normal - the first reported patient was developing normally at four years, and the fifth had a normal brain MRI. ClinGen explicitly leaves open whether the extra-biochemical symptoms belong to the disorder. This node is deliberately detached from the established biochemical chain and must not be read as a mechanism.</div>
 
@@ -5412,6 +5551,7 @@ This pathophysiological event occurs in brain white matter (UBERON:0003544). UBE
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5436,6 +5576,7 @@ This pathophysiological event occurs in brain white matter (UBERON:0003544). UBE
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5457,6 +5598,7 @@ This pathophysiological event occurs in brain white matter (UBERON:0003544). UBE
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
 
 
 
@@ -5505,7 +5647,7 @@ This pathophysiological event occurs in brain white matter (UBERON:0003544). UBE
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ALDH6A1-dependent methylmalonate semialdehyde dehydrogenase deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic ALDH6A1 variants reduce or abolish the activity of mitochondrial methylmalonate semialdehyde dehydrogenase. Six missense alleles affecting residues conserved across mammals have been reported. Direct enzymatic confirmation was historically impossible because the substrate is too unstable to assay; the first successful fibroblast assay was reported in 2013, and reduced protein has separately been shown by Western blot.\", \"meta\": {\"evidence_count\": 4, \"molecular_functions\": [\"methylmalonate-semialdehyde dehydrogenase activity\"], \"genes\": [\"ALDH6A1\"], \"gene_terms\": [{\"label\": \"ALDH6A1\", \"id\": \"hgnc:7179\"}]}}, {\"id\": \"Accumulation of upstream valine- and thymine-pathway metabolites\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The block produces a composite organic aciduria and aminoaciduria drawing on both feeder pathways: 3-hydroxyisobutyric and 3-hydroxypropionic acids, 3-aminoisobutyric acid and beta-alanine. Methylmalonic acid is elevated in some patients only, and in the one patient in whom it was followed longitudinally it was transient rather than persistent. The single most important curation caveat for this disorder is that the metabolite pattern has differed in essentially every reported patient, so no fixed profile can be treated as diagnostic. Whether any of these metabolites is toxic is unknown, which is why this node is not linked to a toxic-metabolite or energy-deficit mechanism.\", \"meta\": {\"evidence_count\": 3}}, {\"id\": \"Beta-alanine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:16958\", \"term_label\": \"beta-alanine\", \"readouts\": [{\"target\": \"Accumulation of upstream valine- and thymine-pathway metabolites\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Urinary beta-alanine excretion is part of the original biochemical signature of the disorder.\"}]}}, {\"id\": \"Beta-aminoisobutyric acid\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:27389\", \"term_label\": \"3-aminoisobutyric acid\", \"readouts\": [{\"target\": \"Convergent block of valine and thymine catabolism\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated beta-aminoisobutyrate reports the thymine-derived arm of the block, which an isolated valine-pathway defect such as HIBADH deficiency would not produce.\"}]}}, {\"id\": \"Biallelic ALDH6A1 missense variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 6, \"genes\": [\"ALDH6A1\"], \"gene_terms\": [{\"label\": \"ALDH6A1\", \"id\": \"hgnc:7179\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Convergent block of valine and thymine catabolism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"MMSDH is the convergence point of two independent catabolic routes. Valine degradation produces (S)-3-hydroxyisobutyric acid, which 3-hydroxyisobutyrate dehydrogenase oxidizes to (S)-methylmalonate semialdehyde; thymine degradation produces (R)-3-aminoisobutyric acid, which is deaminated to the (R)-enantiomer. MMSDH oxidatively decarboxylates both enantiomers to propionyl-CoA, and both are affected by the deficiency. Because one enzyme serves two pathways, the disorder is simultaneously an aminoacidopathy and a pyrimidine-catabolism defect - which is why the urine profile mixes valine-derived and thymine-derived metabolites.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"L-valine catabolic process\", \"thymine catabolic process\"]}}, {\"id\": \"Elevated urinary 3-hydroxyisobutyric acid\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The most consistent biochemical feature and the finding that leads to investigation. It may be only slightly raised when the patient is metabolically stable, so a mild elevation does not exclude the diagnosis.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:6000607\"}}, {\"id\": \"Methylmalonic aciduria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Present in a minority of patients and transient in at least one. Its absence does not exclude the diagnosis, and its presence invites confusion with the classical methylmalonic acidemias.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012120\"}}, {\"id\": \"Semialdehyde shunting toward beta-alanine and malonyl-CoA\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Metabolomic profiling of fibroblasts from one patient found an over-representation of fatty acids and acylcarnitines. The authors proposed that blocked methylmalonate semialdehyde is diverted to beta-alanine and then to malonyl-CoA, increasing fatty acid synthesis. This is an inference from a metabolite pattern in a single patient\u0027s cells, not a demonstrated flux, so the node is provisional and is not used to explain any clinical finding.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Urinary 3-hydroxyisobutyric acid\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:18064\", \"term_label\": \"3-hydroxyisobutyric acid\", \"readouts\": [{\"target\": \"Accumulation of upstream valine- and thymine-pathway metabolites\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Increased urinary 3-hydroxyisobutyrate is the principal readout of the valine-derived arm of the block.\"}]}}, {\"id\": \"Urinary 3-hydroxypropionic acid\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:33404\", \"term_label\": \"3-hydroxypropionic acid\", \"readouts\": [{\"target\": \"Accumulation of upstream valine- and thymine-pathway metabolites\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"A secondary organic-acid readout of the same block.\"}]}}, {\"id\": \"Valine-restricted diet\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Restriction of dietary valine reduces substrate flux into the blocked pathway. In the one patient in whom it has been reported in detail it reduced the abnormal analytes and was accompanied by improved growth and reduced reflux. This is a single uncontrolled observation, not demonstrated efficacy, and there is no evidence at all bearing on whether it alters neurological outcome.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"ALDH6A1-dependent methylmalonate semialdehyde dehydrogenase deficiency\", \"target\": \"Convergent block of valine and thymine catabolism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of enzyme activity blocks the single reaction that both catabolic routes must pass through.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Convergent block of valine and thymine catabolism\", \"target\": \"Accumulation of upstream valine- and thymine-pathway metabolites\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Substrate and precursor metabolites upstream of the block accumulate and are excreted.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Convergent block of valine and thymine catabolism\", \"target\": \"Semialdehyde shunting toward beta-alanine and malonyl-CoA\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Blocked semialdehyde is proposed to be diverted into an alternative disposal route rather than simply accumulating.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Accumulation of upstream valine- and thymine-pathway metabolites\", \"target\": \"Elevated urinary 3-hydroxyisobutyric acid\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"3-Hydroxyisobutyric aciduria is the most consistent biochemical expression of the block and the finding that has prompted diagnosis in every reported patient.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Accumulation of upstream valine- and thymine-pathway metabolites\", \"target\": \"Methylmalonic aciduria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Methylmalonic acid is raised in a minority of patients and may be transient, which is why it cannot be used to rule the diagnosis in or out.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Valine-restricted diet\", \"target\": \"Accumulation of upstream valine- and thymine-pathway metabolites\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Accumulation of upstream valine- and thymine-pathway metabolites\", \"target\": \"Urinary 3-hydroxyisobutyric acid\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Increased urinary 3-hydroxyisobutyrate is the principal readout of the valine-derived arm of the block.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Accumulation of upstream valine- and thymine-pathway metabolites\", \"target\": \"Urinary 3-hydroxypropionic acid\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"A secondary organic-acid readout of the same block.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Convergent block of valine and thymine catabolism\", \"target\": \"Beta-aminoisobutyric acid\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated beta-aminoisobutyrate reports the thymine-derived arm of the block, which an isolated valine-pathway defect such as HIBADH deficiency would not produce.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Accumulation of upstream valine- and thymine-pathway metabolites\", \"target\": \"Beta-alanine\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Urinary beta-alanine excretion is part of the original biochemical signature of the disorder.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Biallelic ALDH6A1 missense variants\", \"target\": \"ALDH6A1-dependent methylmalonate semialdehyde dehydrogenase deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ALDH6A1-dependent methylmalonate semialdehyde dehydrogenase deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic ALDH6A1 variants reduce or abolish the activity of mitochondrial methylmalonate semialdehyde dehydrogenase. Six missense alleles affecting residues conserved across mammals have been reported. Direct enzymatic confirmation was historically impossible because the substrate is too unstable to assay; the first successful fibroblast assay was reported in 2013, and reduced protein has separately been shown by Western blot.\", \"meta\": {\"evidence_count\": 4, \"molecular_functions\": [\"methylmalonate-semialdehyde dehydrogenase activity\"], \"genes\": [\"ALDH6A1\"], \"gene_terms\": [{\"label\": \"ALDH6A1\", \"id\": \"hgnc:7179\"}], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Accumulation of upstream valine- and thymine-pathway metabolites\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The block produces a composite organic aciduria and aminoaciduria drawing on both feeder pathways: 3-hydroxyisobutyric and 3-hydroxypropionic acids, 3-aminoisobutyric acid and beta-alanine. Methylmalonic acid is elevated in some patients only, and in the one patient in whom it was followed longitudinally it was transient rather than persistent. The single most important curation caveat for this disorder is that the metabolite pattern has differed in essentially every reported patient, so no fixed profile can be treated as diagnostic. Whether any of these metabolites is toxic is unknown, which is why this node is not linked to a toxic-metabolite or energy-deficit mechanism.\", \"meta\": {\"evidence_count\": 3, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Beta-alanine\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:16958\", \"term_label\": \"beta-alanine\", \"readouts\": [{\"target\": \"Accumulation of upstream valine- and thymine-pathway metabolites\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Urinary beta-alanine excretion is part of the original biochemical signature of the disorder.\"}]}}, {\"id\": \"Beta-aminoisobutyric acid\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:27389\", \"term_label\": \"3-aminoisobutyric acid\", \"readouts\": [{\"target\": \"Convergent block of valine and thymine catabolism\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Elevated beta-aminoisobutyrate reports the thymine-derived arm of the block, which an isolated valine-pathway defect such as HIBADH deficiency would not produce.\"}]}}, {\"id\": \"Biallelic ALDH6A1 missense variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 6, \"genes\": [\"ALDH6A1\"], \"gene_terms\": [{\"label\": \"ALDH6A1\", \"id\": \"hgnc:7179\"}], \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Convergent block of valine and thymine catabolism\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"MMSDH is the convergence point of two independent catabolic routes. Valine degradation produces (S)-3-hydroxyisobutyric acid, which 3-hydroxyisobutyrate dehydrogenase oxidizes to (S)-methylmalonate semialdehyde; thymine degradation produces (R)-3-aminoisobutyric acid, which is deaminated to the (R)-enantiomer. MMSDH oxidatively decarboxylates both enantiomers to propionyl-CoA, and both are affected by the deficiency. Because one enzyme serves two pathways, the disorder is simultaneously an aminoacidopathy and a pyrimidine-catabolism defect - which is why the urine profile mixes valine-derived and thymine-derived metabolites.\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"L-valine catabolic process\", \"thymine catabolic process\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Elevated urinary 3-hydroxyisobutyric acid\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The most consistent biochemical feature and the finding that leads to investigation. It may be only slightly raised when the patient is metabolically stable, so a mild elevation does not exclude the diagnosis.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:6000607\"}}, {\"id\": \"Methylmalonic aciduria\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Present in a minority of patients and transient in at least one. Its absence does not exclude the diagnosis, and its presence invites confusion with the classical methylmalonic acidemias.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012120\"}}, {\"id\": \"Semialdehyde shunting toward beta-alanine and malonyl-CoA\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Metabolomic profiling of fibroblasts from one patient found an over-representation of fatty acids and acylcarnitines. The authors proposed that blocked methylmalonate semialdehyde is diverted to beta-alanine and then to malonyl-CoA, increasing fatty acid synthesis. This is an inference from a metabolite pattern in a single patient\u0027s cells, not a demonstrated flux, so the node is provisional and is not used to explain any clinical finding.\", \"meta\": {\"evidence_count\": 1, \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Urinary 3-hydroxyisobutyric acid\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:18064\", \"term_label\": \"3-hydroxyisobutyric acid\", \"readouts\": [{\"target\": \"Accumulation of upstream valine- and thymine-pathway metabolites\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Increased urinary 3-hydroxyisobutyrate is the principal readout of the valine-derived arm of the block.\"}]}}, {\"id\": \"Urinary 3-hydroxypropionic acid\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"presence\": \"INCREASED\", \"term_id\": \"CHEBI:33404\", \"term_label\": \"3-hydroxypropionic acid\", \"readouts\": [{\"target\": \"Accumulation of upstream valine- and thymine-pathway metabolites\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"A secondary organic-acid readout of the same block.\"}]}}, {\"id\": \"Valine-restricted diet\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Restriction of dietary valine reduces substrate flux into the blocked pathway. In the one patient in whom it has been reported in detail it reduced the abnormal analytes and was accompanied by improved growth and reduced reflux. This is a single uncontrolled observation, not demonstrated efficacy, and there is no evidence at all bearing on whether it alters neurological outcome.\", \"meta\": {\"evidence_count\": 1}}], \"edges\": [{\"source\": \"ALDH6A1-dependent methylmalonate semialdehyde dehydrogenase deficiency\", \"target\": \"Convergent block of valine and thymine catabolism\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of enzyme activity blocks the single reaction that both catabolic routes must pass through.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Convergent block of valine and thymine catabolism\", \"target\": \"Accumulation of upstream valine- and thymine-pathway metabolites\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Substrate and precursor metabolites upstream of the block accumulate and are excreted.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Convergent block of valine and thymine catabolism\", \"target\": \"Semialdehyde shunting toward beta-alanine and malonyl-CoA\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Blocked semialdehyde is proposed to be diverted into an alternative disposal route rather than simply accumulating.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Accumulation of upstream valine- and thymine-pathway metabolites\", \"target\": \"Elevated urinary 3-hydroxyisobutyric acid\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"3-Hydroxyisobutyric aciduria is the most consistent biochemical expression of the block and the finding that has prompted diagnosis in every reported patient.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Accumulation of upstream valine- and thymine-pathway metabolites\", \"target\": \"Methylmalonic aciduria\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Methylmalonic acid is raised in a minority of patients and may be transient, which is why it cannot be used to rule the diagnosis in or out.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Valine-restricted diet\", \"target\": \"Accumulation of upstream valine- and thymine-pathway metabolites\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Accumulation of upstream valine- and thymine-pathway metabolites\", \"target\": \"Urinary 3-hydroxyisobutyric acid\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Increased urinary 3-hydroxyisobutyrate is the principal readout of the valine-derived arm of the block.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Accumulation of upstream valine- and thymine-pathway metabolites\", \"target\": \"Urinary 3-hydroxypropionic acid\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"A secondary organic-acid readout of the same block.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Convergent block of valine and thymine catabolism\", \"target\": \"Beta-aminoisobutyric acid\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Elevated beta-aminoisobutyrate reports the thymine-derived arm of the block, which an isolated valine-pathway defect such as HIBADH deficiency would not produce.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Accumulation of upstream valine- and thymine-pathway metabolites\", \"target\": \"Beta-alanine\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Urinary beta-alanine excretion is part of the original biochemical signature of the disorder.\", \"relationship\": \"READOUT_OF\", \"direction\": \"POSITIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"Biallelic ALDH6A1 missense variants\", \"target\": \"ALDH6A1-dependent methylmalonate semialdehyde dehydrogenase deficiency\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5526,13 +5668,15 @@ This pathophysiological event occurs in brain white matter (UBERON:0003544). UBE
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Digestive<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Musculoskeletal<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Genitourinary<span class="pill-count">(5)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Nervous System<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Metabolism<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Growth<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Musculoskeletal<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Other<span class="pill-count">(7)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Nervous System<span class="pill-count">(3)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Growth<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5573,6 +5717,9 @@ This clinical feature is Gastroesophageal reflux (HP:0002020). HP:0002020 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5587,6 +5734,7 @@ This clinical feature is Gastroesophageal reflux (HP:0002020). HP:0002020 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5618,331 +5766,8 @@ This clinical feature is Gastroesophageal reflux (HP:0002020). HP:0002020 is a p
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Musculoskeletal
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hypotonia" data-dismech-node="Hypotonia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hypotonia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0001252</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:32151545" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32151545" target="_blank">PMID:32151545</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"She was nondysmorphic, had a normal brain MRI, and showed mild hypotonia."</div>
-
-
-                <div class="evidence-explanation">Documents mild hypotonia in one patient.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-3">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Nervous System
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-global-developmental-delay" data-dismech-node="Global developmental delay" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Global developmental delay
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0001263</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:21863277" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21863277" target="_blank">PMID:21863277</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"We present two unrelated patients who presented with developmental delay and increased urinary concentrations of 3-hydroxyisobutyric acid."</div>
-
-
-                <div class="evidence-explanation">Case-level evidence for developmental delay in two patients.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:3939535" data-dismech-supports="REFUTE">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/3939535" target="_blank">PMID:3939535</a>
-                    </span>
-
-
-                    <span class="evidence-support support-REFUTE">REFUTE</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The patient is now aged 4 years and has developed normally."</div>
-
-
-                <div class="evidence-explanation">A biallelic patient with normal development; prevents treating delay as a disease-wide phenotype.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hepatic-encephalopathy" data-dismech-node="Hepatic encephalopathy" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hepatic encephalopathy
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002480" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0002480</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hepatic encephalopathy (HP:0002480). HP:0002480 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:21863277" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21863277" target="_blank">PMID:21863277</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"One patient developed a febrile illness and subsequently died from a hepatoencephalopathy at 2 years of age."</div>
-
-
-                <div class="evidence-explanation">The single reported fatal outcome.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Growth
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-failure-to-thrive" data-dismech-node="Failure to thrive" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Failure to thrive
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001508</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:32151545" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32151545" target="_blank">PMID:32151545</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"was admitted at two weeks of age for failure to thrive"</div>
-
-
-                <div class="evidence-explanation">Documents failure to thrive as the presenting problem in one patient.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-5">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">7</span>
+                    Genitourinary
+                    <span class="cat-count">5</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-elevated-urinary-3-hydroxyisobutyric-acid" data-dismech-node="Elevated urinary 3-hydroxyisobutyric acid" data-dismech-type="phenotype">
@@ -5961,15 +5786,18 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_6000607" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:6000607</a>
+    <a href="http://purl.obolibrary.org/obo/HP_6000607" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:6000607</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Elevated urinary 3-hydroxyisobutyric acid level (HP:6000607). HP:6000607 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5989,6 +5817,7 @@ This clinical feature is Elevated urinary 3-hydroxyisobutyric acid level (HP:600
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6013,6 +5842,7 @@ This clinical feature is Elevated urinary 3-hydroxyisobutyric acid level (HP:600
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6055,15 +5885,18 @@ This clinical feature is Elevated urinary 3-hydroxyisobutyric acid level (HP:600
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0034661" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0034661</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0034661" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0034661</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Elevated urine 3-hydroxypropionic acid level (HP:0034661). HP:0034661 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6083,6 +5916,7 @@ This clinical feature is Elevated urine 3-hydroxypropionic acid level (HP:003466
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6125,15 +5959,18 @@ This clinical feature is Elevated urine 3-hydroxypropionic acid level (HP:003466
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0045034" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0045034</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0045034" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0045034</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Elevated urinary 3-aminoisobutyric acid (HP:0045034). HP:0045034 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6153,6 +5990,7 @@ This clinical feature is Elevated urinary 3-aminoisobutyric acid (HP:0045034). H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6193,15 +6031,18 @@ This clinical feature is Elevated urinary 3-aminoisobutyric acid (HP:0045034). H
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0020079" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0020079</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0020079" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0020079</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Beta-alaninuria (HP:0020079). HP:0020079 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6221,6 +6062,7 @@ This clinical feature is Beta-alaninuria (HP:0020079). HP:0020079 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6261,15 +6103,18 @@ This clinical feature is Beta-alaninuria (HP:0020079). HP:0020079 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012120" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0012120</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012120" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0012120</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Methylmalonic aciduria (HP:0012120). HP:0012120 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6292,6 +6137,7 @@ This clinical feature is Methylmalonic aciduria (HP:0012120). HP:0012120 is a ph
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6300,6 +6146,274 @@ This clinical feature is Methylmalonic aciduria (HP:0012120). HP:0012120 is a ph
 
 
                 <div class="evidence-explanation">Methylmalonic aciduria in a patient with biallelic ALDH6A1 variants confirmed by exome and Sanger sequencing and a corresponding reduction in MMSDH enzyme activity, so the finding is attributable to this disorder. The earlier PMID:10947204 patient with mild methylmalonic aciduria is not cited here: that report states &#34;No abnormalities of the MMSDH cDNA were detected in the other patients&#34;, so the case is not molecularly confirmed.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Metabolism
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-increased-circulating-lactate-concentration" data-dismech-node="Increased circulating lactate concentration" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Increased circulating lactate concentration
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002151" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0002151</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Increased circulating lactate concentration (HP:0002151). HP:0002151 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23835272" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23835272" target="_blank">PMID:23835272</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"transient/variable elevations in lactate, methylmalonic acid, 3-hydroxyisobutyric and 3-aminoisobutyric acids"</div>
+
+
+                <div class="evidence-explanation">Documents transient lactate elevation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Musculoskeletal
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypotonia" data-dismech-node="Hypotonia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hypotonia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001252</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32151545" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32151545" target="_blank">PMID:32151545</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"She was nondysmorphic, had a normal brain MRI, and showed mild hypotonia."</div>
+
+
+                <div class="evidence-explanation">Documents mild hypotonia in one patient.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-5">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Nervous System
+                    <span class="cat-count">3</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-global-developmental-delay" data-dismech-node="Global developmental delay" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Global developmental delay
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001263</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21863277" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21863277" target="_blank">PMID:21863277</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We present two unrelated patients who presented with developmental delay and increased urinary concentrations of 3-hydroxyisobutyric acid."</div>
+
+
+                <div class="evidence-explanation">Case-level evidence for developmental delay in two patients.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:3939535" data-dismech-supports="REFUTE">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/3939535" target="_blank">PMID:3939535</a>
+                    </span>
+
+
+                    <span class="evidence-support support-REFUTE">REFUTE</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The patient is now aged 4 years and has developed normally."</div>
+
+
+                <div class="evidence-explanation">A biallelic patient with normal development; prevents treating delay as a disease-wide phenotype.</div>
 
 
 
@@ -6329,15 +6443,18 @@ This clinical feature is Methylmalonic aciduria (HP:0012120). HP:0012120 is a ph
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012447" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0012447</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012447" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0012447</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal myelination (HP:0012447). HP:0012447 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6357,6 +6474,7 @@ This clinical feature is Abnormal myelination (HP:0012447). HP:0012447 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6384,6 +6502,7 @@ This clinical feature is Abnormal myelination (HP:0012447). HP:0012447 is a phen
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6407,9 +6526,9 @@ This clinical feature is Abnormal myelination (HP:0012447). HP:0012447 is a phen
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-increased-circulating-lactate-concentration" data-dismech-node="Increased circulating lactate concentration" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hepatic-encephalopathy" data-dismech-node="Hepatic encephalopathy" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Increased circulating lactate concentration
+                        Hepatic encephalopathy
 
 
 
@@ -6421,15 +6540,18 @@ This clinical feature is Abnormal myelination (HP:0012447). HP:0012447 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002151" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0002151</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002480" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0002480</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Increased circulating lactate concentration (HP:0002151). HP:0002151 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Hepatic encephalopathy (HP:0002480). HP:0002480 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6441,10 +6563,10 @@ This clinical feature is Increased circulating lactate concentration (HP:0002151
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:23835272" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:21863277" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23835272" target="_blank">PMID:23835272</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21863277" target="_blank">PMID:21863277</a>
                     </span>
 
 
@@ -6452,14 +6574,96 @@ This clinical feature is Increased circulating lactate concentration (HP:0002151
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"transient/variable elevations in lactate, methylmalonic acid, 3-hydroxyisobutyric and 3-aminoisobutyric acids"</div>
+                <div class="evidence-snippet">"One patient developed a febrile illness and subsequently died from a hepatoencephalopathy at 2 years of age."</div>
 
 
-                <div class="evidence-explanation">Documents transient lactate elevation.</div>
+                <div class="evidence-explanation">The single reported fatal outcome.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-6">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Growth
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-failure-to-thrive" data-dismech-node="Failure to thrive" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Failure to thrive
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001508</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32151545" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32151545" target="_blank">PMID:32151545</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"was admitted at two weeks of age for failure to thrive"</div>
+
+
+                <div class="evidence-explanation">Documents failure to thrive as the presenting problem in one patient.</div>
 
 
 
@@ -6549,6 +6753,9 @@ This disease-associated gene is ALDH6A1 (hgnc:7179). hgnc:7179 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (6 references)
@@ -6563,6 +6770,7 @@ This disease-associated gene is ALDH6A1 (hgnc:7179). hgnc:7179 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6590,6 +6798,7 @@ This disease-associated gene is ALDH6A1 (hgnc:7179). hgnc:7179 is a gene from th
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6611,6 +6820,7 @@ This disease-associated gene is ALDH6A1 (hgnc:7179). hgnc:7179 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6696,6 +6906,31 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Restriction of dietary valine reduces substrate flux into the blocked pathway. In the one patient in whom it has been reported in detail it reduced the abnormal analytes and was accompanied by improved growth and reduced reflux. This is a single uncontrolled observation, not demonstrated efficacy, and there is no evidence at all bearing on whether it alters neurological outcome.</div>
 
 
@@ -6726,6 +6961,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6769,6 +7005,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6868,6 +7105,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6946,6 +7184,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7030,6 +7269,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7108,6 +7348,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7207,6 +7448,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7291,6 +7533,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7312,6 +7555,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7399,6 +7643,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7473,6 +7718,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7494,6 +7740,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7579,6 +7826,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7600,6 +7848,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7658,6 +7907,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7710,6 +7960,7 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
