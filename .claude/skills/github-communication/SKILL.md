@@ -27,6 +27,21 @@ summaries scheduled workflows post. **Not** in scope: prose inside KB YAML
 curator who wants the mechanism, and their denser register is correct — do not
 apply this skill's plainness rules to them.
 
+**That exemption is about vocabulary, not about audience.** Denser register is
+fine; a document that only the agent that wrote it would find useful is not.
+`docs/` (outside `docs/superpowers/`, which is explicitly an agent-facing
+investigation/plan/spec log) and `notes:` are for a human curator who wants
+domain content — a mechanism, a decision, a dataset, a finding. They are not
+the place for an agent to narrate its own compliance with its own process
+rules. If a passage is a first-person reflection on the writing agent's own
+workflow ("I pushed twice, which cost a review round, so next time I will...")
+rather than a fact about the disease, the schema, or the corpus, it belongs in
+the PR/issue thread that already carries that conversation — under this
+skill's plain-language rules — not in a `docs/` file or a `notes:` field.
+PR #12535 is the worked example: a "curation retrospective" whose real content
+was process narration addressed to no reader in particular, closed for
+exactly this reason. Related: #8908.
+
 ## Before you post
 
 **Re-read the thread immediately before posting — not when you started the work
