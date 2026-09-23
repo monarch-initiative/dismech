@@ -103157,6 +103157,77 @@ window.searchData = [
     "causal_graph_longest_path": "8"
   },
   {
+    "name": "Dilated Cardiomyopathy 1NN",
+    "disease_id": "MONDO:0014396",
+    "category": "Genetic",
+    "parents": [
+      "Dilated Cardiomyopathy",
+      "Genetic Disorder"
+    ],
+    "creation_date": "2026-09-02T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Dilated cardiomyopathy 1NN (CMD1NN, OMIM 615916) is the RAF1-related member of the numbered familial isolated dilated cardiomyopathy series. It is the mechanistically awkward member of that series and the reason it is curated separately: RAF1 is a RASopathy gene, and the phenotype normally produced by a disease-causing RAF1 allele is the opposite one. Noonan-syndrome RAF1 alleles cluster in two hotspots around Ser259, raise kinase activity, enhance ERK activation, and produce hypertrophic cardiomyopathy in 95% of hotspot carriers. The alleles reported in CMD1NN behave differently. Dhandapany and colleagues resequenced 513 dilated cardiomyopathy cases against 1,150 matched controls across South Indian, North Indian and Japanese cohorts, found rare functional RAF1 variants in all three, and showed biochemically that these mutants left ERK activation largely unaltered while hyperactivating AKT in a BRAF-dependent manner. Cardiac expression of the mutants in zebrafish produced heart failure with AKT hyperactivation that rapamycin rescued, implicating the AKT-mTOR arm rather than the ERK arm that drives the RASopathy hypertrophic phenotype. The disease presents as isolated, predominantly childhood-onset left ventricular dilation with systolic dysfunction, without the facial, growth or developmental features of Noonan syndrome. Evidence rests almost entirely on that 2014 discovery report and its models; ClinGen has curated RAF1 for Noonan syndrome (Definitive) but has no gene-disease validity assertion for RAF1-dilated cardiomyopathy, and that gap is recorded explicitly below rather than papered over.",
+    "pathophysiology": [
+      "RAF1 Variant Altering Kinase Activity",
+      "BRAF-Dependent AKT Hyperactivation",
+      "mTOR Pathway Activation",
+      "Ventricular Dilation and Systolic Dysfunction",
+      "Heart Failure"
+    ],
+    "cell_types": [
+      "Cardiomyocyte",
+      "Cardiac Fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000746",
+      "CL:0002548"
+    ],
+    "biological_processes": [
+      "AKT signaling",
+      "ERK1/ERK2 cascade",
+      "TOR signaling",
+      "Heart Contraction",
+      "Extracellular Matrix Organization"
+    ],
+    "phenotypes": [
+      "Dilated Cardiomyopathy",
+      "Reduced Left Ventricular Ejection Fraction",
+      "Congestive Heart Failure"
+    ],
+    "phenotype_categories": [
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular"
+    ],
+    "phenotype_ids": [
+      "HP:0001644",
+      "HP:0012664",
+      "HP:0001635"
+    ],
+    "frequencies": [
+      "OBLIGATE"
+    ],
+    "genes": [
+      "RAF1"
+    ],
+    "treatments": [
+      "Heart Failure Pharmacotherapy",
+      "Heart Transplantation"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Dilated_Cardiomyopathy_1NN.yaml",
+    "page_url": "../pages/disorders/Dilated_Cardiomyopathy_1NN.html",
+    "num_phenotypes": 3,
+    "num_pathophysiology": 5,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "5"
+  },
+  {
     "name": "Dilated Cardiomyopathy 1O",
     "disease_id": "MONDO:0012062",
     "category": "Mendelian",
@@ -151631,6 +151702,113 @@ window.searchData = [
     "causal_graph_longest_path": "2"
   },
   {
+    "name": "Hydrops-Lactic Acidosis-Sideroblastic Anemia-Multisystemic Failure Syndrome",
+    "disease_id": "MONDO:0014869",
+    "category": "Mendelian",
+    "parents": [
+      "Mitochondrial Disease",
+      "Perrault Syndrome"
+    ],
+    "creation_date": "2026-09-22T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "HLASA is the severe end of the LARS2 allelic spectrum: a perinatal presentation of non-immune hydrops, extreme lactic acidosis and sideroblastic anaemia with multi-organ failure, caused by biallelic variants in the mitochondrial leucyl-tRNA synthetase. Four patients have been published \u2014 the index proband in 2015, who died at five days, and three further males from two families in 2020, two of whom survived the neonatal crisis.\nLARS2 charges leucine onto mitochondrial tRNA-Leu, so a hypomorphic enzyme starves mitochondrial translation of a charged substrate and the thirteen mtDNA-encoded respiratory-chain subunits are made less well. The aminoacylation defect is measured rather than assumed: recombinant enzyme carrying the index proband's two alleles loses 18-fold and 9-fold of its catalytic efficiency, and in the 2020 series the HLASA-associated alleles were the most severely affected of all LARS2 variants tested. That is the quantitative basis for treating this entity as the same disease as Perrault syndrome 4 at a lower residual activity, rather than as a separate mechanism.\nThe diagnostic trap is that the respiratory chain looks nearly normal. The index proband's muscle and liver enzymology was reduced but not to a level anyone would call diagnostic, her fibroblasts showed no LARS2 reduction, no respiratory-chain protein reduction and no mitochondrial protein-synthesis defect at all, and the authors conclude the variants affect only tissues with high energy demand. An entity defined by a mitochondrial translation defect can therefore be missed by the two assays a mitochondrial service would run first. What did show the lesion was immunoblotting of the affected tissues \u2014 LARS2 at about half of control in liver, complex I at about a quarter.\nThe relationship between the anaemia and the hydrops is the part that is inferred rather than shown. Ring sideroblasts were seen on the proband's marrow and dyserythropoiesis in her liver, and mitochondrial iron accumulation is the shared mechanism across the congenital sideroblastic anaemias, but nobody has measured erythroblast iron handling, heme synthesis or iron-sulfur cluster assembly in a LARS2 patient. The chain from fetal anaemia to hydrops is likewise the standard reading of non-immune hydrops rather than a finding in this disease, and both are carried here as indirect edges with the gap recorded.",
+    "pathophysiology": [
+      "Biallelic Hypomorphic LARS2 Variants",
+      "Reduced Leucyl-tRNA Aminoacylation",
+      "Impaired Mitochondrial Translation in High-Demand Tissues",
+      "Reduced Respiratory Chain Complex I in Liver and Muscle",
+      "Bioenergetic Failure in High-Demand Organs",
+      "Erythroblast Mitochondrial Iron Accumulation",
+      "Multi-Organ Failure"
+    ],
+    "cell_types": [
+      "erythroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000765"
+    ],
+    "biological_processes": [
+      "leucyl-tRNA aminoacylation",
+      "mitochondrial translation",
+      "oxidative phosphorylation",
+      "heme biosynthetic process",
+      "iron-sulfur cluster assembly"
+    ],
+    "phenotypes": [
+      "Non-Immune Hydrops Fetalis",
+      "Severe Lactic Acidosis",
+      "Sideroblastic Anaemia",
+      "Lactic Aciduria",
+      "Impaired Cardiac Function",
+      "Pulmonary Arterial Hypertension",
+      "Coagulopathy",
+      "Progressive Renal Disease",
+      "Neonatal Respiratory Distress",
+      "Neonatal Seizures",
+      "Premature Birth with Growth Restriction",
+      "Male Genital Anomalies",
+      "Sensorineural Hearing Loss",
+      "Global Developmental Delay"
+    ],
+    "phenotype_categories": [
+      "Prenatal",
+      "Metabolism",
+      "Hematologic",
+      "Cardiovascular",
+      "Renal",
+      "Respiratory",
+      "Nervous System",
+      "Genitourinary"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Cardiovascular",
+      "Ear",
+      "Genitourinary",
+      "Metabolism",
+      "Nervous System",
+      "Prenatal and Birth",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001789",
+      "HP:0003128",
+      "HP:0001924",
+      "HP:0003648",
+      "HP:0001635",
+      "HP:0002092",
+      "HP:0001928",
+      "HP:0000112",
+      "HP:0002643",
+      "HP:0001250",
+      "HP:0001622",
+      "HP:0000078",
+      "HP:0000407",
+      "HP:0001263"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "LARS2"
+    ],
+    "treatments": [
+      "Neonatal Intensive Supportive Care"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Hydrops-Lactic_Acidosis-Sideroblastic_Anemia-Multisystemic_Failure_Syndrome.yaml",
+    "page_url": "../pages/disorders/Hydrops-Lactic_Acidosis-Sideroblastic_Anemia-Multisystemic_Failure_Syndrome.html",
+    "num_phenotypes": 14,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 1,
+    "causal_graph_edges": "21",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "Hyper-IgM Syndrome Type 1",
     "disease_id": "MONDO:0010626",
     "category": "Genetic",
@@ -180846,6 +181024,192 @@ window.searchData = [
     "causal_graph_longest_path": "9"
   },
   {
+    "name": "LETM1-Related Childhood-Onset Neurodegeneration",
+    "disease_id": "MONDO:0859304",
+    "category": "Genetic",
+    "parents": [],
+    "creation_date": "2026-09-01T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "An ultra-rare autosomal recessive mitochondrial disease caused by bi-allelic loss-of-function or missense variants in LETM1, which encodes the inner mitochondrial membrane osmoregulator that couples K+ and H+ movement across that membrane. Loss of LETM1 K+/H+ exchange activity leaves electrophoretic K+ uptake uncompensated, so the matrix swells, cristae are lost and mitochondria fragment; respiratory chain complexes are destabilised and oxidative phosphorylation fails. The clinical result is a predominantly infantile-onset, variably progressive neurodegenerative disease with multisystem involvement - global developmental delay, optic atrophy, sensorineural hearing loss, cerebellar ataxia, epilepsy, spasticity and myopathy, with cataract, cardiomyopathy and diabetes in a minority. The defining cohort is 18 affected individuals from 11 unrelated families.",
+    "pathophysiology": [
+      "Biallelic LETM1 Loss of Function",
+      "Defective Mitochondrial K+/H+ Exchange",
+      "Perturbed Mitochondrial Calcium Handling",
+      "Mitochondrial Matrix Swelling and Cristae Disorganization",
+      "Mitochondrial Membrane Potential Depolarization",
+      "Respiratory Chain Complex Deficiency",
+      "Cellular Energy Failure in High-Demand Tissues",
+      "Progressive Neurodegeneration and Multisystem Involvement"
+    ],
+    "cell_types": [
+      "patient-derived dermal fibroblast",
+      "retinal ganglion cell",
+      "cochlear inner hair cell",
+      "cerebellar Purkinje cell",
+      "cardiomyocyte",
+      "skeletal muscle fiber",
+      "pancreatic beta cell",
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000057",
+      "CL:0000740",
+      "CL:0000589",
+      "CL:0000121",
+      "CL:0000746",
+      "CL:0008002",
+      "CL:0000169",
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "mitochondrial potassium ion transmembrane transport",
+      "coupled proton transport across the inner mitochondrial membrane",
+      "mitochondrial calcium ion homeostasis",
+      "cristae formation",
+      "mitochondrion organization",
+      "mitochondrial matrix volume homeostasis",
+      "regulation of mitochondrial membrane potential",
+      "oxidative phosphorylation",
+      "mitochondrial respiratory chain complex assembly",
+      "ATP synthesis coupled electron transport",
+      "neuron apoptotic process"
+    ],
+    "phenotypes": [
+      "Global Developmental Delay",
+      "Optic Atrophy",
+      "Sensorineural Hearing Loss",
+      "Cerebellar Ataxia",
+      "Muscular Wasting",
+      "Epilepsy",
+      "Impaired Speech Acquisition",
+      "Spasticity",
+      "Myopathy",
+      "Cataract",
+      "Cardiomyopathy",
+      "Diabetes Mellitus",
+      "Developmental Regression",
+      "Loss of Ambulation",
+      "Cerebellar Atrophy",
+      "Hypotonia",
+      "Nystagmus",
+      "Hyperkinetic Movement Disorders",
+      "Spastic-Ataxic Gait",
+      "Hyperreflexia",
+      "Extensor Plantar Response",
+      "Peripheral Neuropathy",
+      "Failure to Thrive",
+      "Feeding Difficulties",
+      "Respiratory Distress",
+      "Mitochondrial Respiratory Chain Defect",
+      "Cytochrome C Oxidase-Negative Muscle Fibers",
+      "Ragged-Red Muscle Fibers",
+      "Facial Dysmorphism",
+      "Microcephaly",
+      "Micrognathia",
+      "Low-Set Ears",
+      "High Palate",
+      "Teeth Abnormalities",
+      "Pontine Hypoplasia",
+      "Ventriculomegaly",
+      "Pericardial Effusion"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Ophthalmologic",
+      "Otologic",
+      "Musculoskeletal",
+      "Cardiovascular",
+      "Endocrine",
+      "Growth",
+      "Gastrointestinal",
+      "Respiratory",
+      "Metabolic",
+      "Craniofacial"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Cellular",
+      "Digestive",
+      "Ear",
+      "Endocrine",
+      "Eye",
+      "Growth",
+      "Head and Neck",
+      "Metabolism",
+      "Musculoskeletal",
+      "Nervous System",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001263",
+      "HP:0000648",
+      "HP:0000407",
+      "HP:0001251",
+      "HP:0003202",
+      "HP:0001250",
+      "HP:0000750",
+      "HP:0001257",
+      "HP:0003198",
+      "HP:0000518",
+      "HP:0001638",
+      "HP:0000819",
+      "HP:0002376",
+      "HP:0002505",
+      "HP:0001272",
+      "HP:0001252",
+      "HP:0000639",
+      "HP:0002487",
+      "HP:0002497",
+      "HP:0001347",
+      "HP:0003487",
+      "HP:0009830",
+      "HP:0001508",
+      "HP:0011968",
+      "HP:0002098",
+      "HP:0200125",
+      "HP:0003688",
+      "HP:0003200",
+      "HP:0001999",
+      "HP:0000252",
+      "HP:0000347",
+      "HP:0000369",
+      "HP:0000218",
+      "HP:0000164",
+      "HP:0012110",
+      "HP:0002119",
+      "HP:0001698"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL",
+      "OBLIGATE"
+    ],
+    "genes": [
+      "LETM1"
+    ],
+    "treatments": [
+      "Supportive and Multidisciplinary Care",
+      "Antiseizure Medication",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [
+      "Serum lactate",
+      "Urine 3-methylglutaconic acid",
+      "Plasma alanine"
+    ],
+    "source_file": "LETM1-Related_Childhood-Onset_Neurodegeneration.yaml",
+    "page_url": "../pages/disorders/LETM1-Related_Childhood-Onset_Neurodegeneration.html",
+    "num_phenotypes": 37,
+    "num_pathophysiology": 8,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "38",
+    "causal_graph_longest_path": "6"
+  },
+  {
     "name": "LIFR-Related Stuve-Wiedemann Syndrome",
     "disease_id": "MONDO:0800043",
     "category": "Mendelian",
@@ -194719,6 +195083,93 @@ window.searchData = [
     "num_treatments": 2,
     "causal_graph_edges": "6",
     "causal_graph_longest_path": "4"
+  },
+  {
+    "name": "MYPN-Related Cardiomyopathy",
+    "disease_id": "MONDO:0014100",
+    "category": "Genetic",
+    "parents": [
+      "Cardiovascular Disease",
+      "Genetic Disorder"
+    ],
+    "creation_date": "2026-09-02T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "CMD1KK",
+      "CMH22",
+      "CMR4"
+    ],
+    "description": "Heterozygous variants in MYPN, encoding the Z-disc and I-band protein myopalladin, cause an inherited cardiomyopathy that is not confined to a single morphological pattern: the same gene produces dilated, hypertrophic and restrictive disease, and MONDO:0014100 is the single class carrying all three labels (CMD1KK, CMH22 and CMR4). This entry is curated at the gene level for that reason. Myopalladin is not a contractile protein. It is a scaffold and a messenger: it anchors the Z-disc by binding titin, alpha-actinin-2, nebulette and desmin, and it shuttles to the nucleus with the transcriptional cofactor CARP/ANKRD1, so a MYPN lesion damages both the mechanical integrity of the sarcomere and the stress-responsive gene program that reads its load. The branch point that decides which cardiomyopathy pattern a family develops is allelic and mechanistic rather than nosological: truncating and dominant-negative alleles that disturb myofibrillogenesis (Q529X) produce restrictive physiology, while an N-terminal allele that fails to reach the nucleus and binds CARP poorly (Y20C) produces hypertrophic remodelling, and haploinsufficiency alleles (I83fsX105) produce dilation. Because the pattern is downstream of a shared Z-disc lesion, splitting the concept across three morphology-named entries would separate branches of one pathograph. The gene-disease relationship is real but not strongly evidenced: ClinGen's Dilated Cardiomyopathy expert panel classifies MYPN-DCM as Limited, so a MYPN variant of uncertain significance does not by itself establish this diagnosis. Biallelic MYPN loss-of-function causes a distinct skeletal-muscle disease (nemaline/cap myopathy) and is out of scope here.",
+    "pathophysiology": [
+      "MYPN Variant Altering Myopalladin",
+      "Z-Disc and I-Band Scaffolding Failure",
+      "Disturbed Myofibrillogenesis and Sarcomere Disorganization",
+      "Impaired CARP Nuclear Shuttling",
+      "Impaired Contractile and Passive Mechanics",
+      "Neurohormonal Activation",
+      "Ventricular Remodeling",
+      "Structural Cardiac Impairment and Heart Failure"
+    ],
+    "cell_types": [
+      "Cardiomyocyte",
+      "Cardiac fibroblast"
+    ],
+    "cell_type_ids": [
+      "CL:0000746",
+      "CL:0002548"
+    ],
+    "biological_processes": [
+      "Myofibril Assembly",
+      "Sarcomere Organization",
+      "Protein Import Into Nucleus",
+      "Cardiac Muscle Contraction",
+      "Intracellular Calcium Ion Homeostasis"
+    ],
+    "phenotypes": [
+      "Dilated cardiomyopathy",
+      "Hypertrophic cardiomyopathy",
+      "Restrictive cardiomyopathy",
+      "Congestive heart failure",
+      "Dyspnea",
+      "Arrhythmia",
+      "Cardiac conduction abnormality"
+    ],
+    "phenotype_categories": [
+      "Cardiovascular"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Respiratory"
+    ],
+    "phenotype_ids": [
+      "HP:0001644",
+      "HP:0001639",
+      "HP:0001723",
+      "HP:0001635",
+      "HP:0002094",
+      "HP:0011675",
+      "HP:0031546"
+    ],
+    "frequencies": [],
+    "genes": [
+      "MYPN"
+    ],
+    "treatments": [
+      "Guideline-Directed Medical Therapy for Heart Failure with Reduced Ejection Fraction",
+      "Implantable Cardioverter-Defibrillator",
+      "Heart Transplantation",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "MYPN-Related_Cardiomyopathy.yaml",
+    "page_url": "../pages/disorders/MYPN-Related_Cardiomyopathy.html",
+    "num_phenotypes": 7,
+    "num_pathophysiology": 8,
+    "num_genes": 1,
+    "num_treatments": 4,
+    "causal_graph_edges": "22",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Mabry Syndrome",
@@ -244148,6 +244599,91 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Periventricular Nodular Heterotopia 9",
+    "disease_id": "MONDO:0030061",
+    "category": "Mendelian",
+    "parents": [
+      "Periventricular Nodular Heterotopia"
+    ],
+    "creation_date": "2026-09-22T13:35:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "PVNH9 is a malformation of cortical development caused by heterozygous loss-of-function variants in MAP1B, which encodes microtubule-associated protein 1B, a cytoskeletal regulator required for neuronal migration, axon guidance and cortical circuit formation. Neurons that should have migrated out to the cortical plate remain as nodules along the walls of the lateral ventricles.\n**The gene was found by a statistical argument, not by a family.** An exome study of 202 individuals with sporadic PVNH found no novel gene in a trio-based de novo analysis, then found a genome-wide significant signal in a gene-level collapsing analysis of cases against controls, driven by four ultra-rare loss-of-function heterozygous variants in MAP1B. Only one of the four was de novo. That matters for how the entry reads: the gene-disease claim rests on a burden test, and every downstream statement inherits whatever that design supports.\n**Its most useful finding is about penetrance, not about MAP1B.** In at least one instance the variant was inherited from a parent with previously undiagnosed PVNH. The authors drew the general conclusion that detrimental mutations arising in immediately preceding generations with incomplete penetrance may be responsible for some apparently sporadic disease. So a \"sporadic\" PVNH case is not evidence against an inherited MAP1B allele, and an unaffected-looking parent has not necessarily been imaged.\n**The imaging phenotype has a consistent shape.** PVNH in MAP1B disease is anteriorly or frontally predominant rather than diffuse, and it can be accompanied by perisylvian polymicrogyria - two malformations of cortical development in one brain, which is what makes the lesion a general defect of cortical neuronal positioning rather than a specific failure of periventricular detachment.\n**Allele class, not just gene, decides which disease you get.** MAP1B loss-of-function variants mainly give the PVNH neurological phenotype, while missense variants may present with deafness alone - a separate autosomal dominant nonsyndromic sensorineural hearing loss, DFNA83, curated in this knowledge base as its own entry. So a MAP1B variant found on a panel is assigned to one disease or the other by what kind of variant it is, which is unusual enough to be the first thing to check.\n**The phenotype is wider than the malformation, and less predictable.** Reported features across the small literature include intellectual disability, ADHD, autism, focal epilepsy, short stature, microcephaly and corpus callosum dysgenesis - but one reported carrier of a nonsense allele has an IQ of 99 and normal motor and cognitive development, presenting instead with severe elimination disorders. PVNH remains the most consistent finding; almost nothing else is.",
+    "pathophysiology": [
+      "MAP1B Haploinsufficiency",
+      "Impaired Microtubule Stabilization in Developing Neurons",
+      "Failure of Radial Neuronal Migration",
+      "Disrupted Axon Guidance and Cortical Circuit Formation"
+    ],
+    "cell_types": [
+      "neuron"
+    ],
+    "cell_type_ids": [
+      "CL:0000540"
+    ],
+    "biological_processes": [
+      "microtubule cytoskeleton organization",
+      "cerebral cortex radially oriented cell migration",
+      "neuron migration",
+      "axon guidance",
+      "neuron projection development"
+    ],
+    "phenotypes": [
+      "Periventricular nodular heterotopia",
+      "Polymicrogyria",
+      "Focal-onset seizure",
+      "Intellectual disability",
+      "Attention deficit hyperactivity disorder",
+      "Short stature",
+      "Microcephaly",
+      "Global developmental delay",
+      "Abnormal facial shape",
+      "Abnormal corpus callosum morphology"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Growth",
+      "Craniofacial"
+    ],
+    "phenotype_hpo_categories": [
+      "Growth",
+      "Head and Neck",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0032388",
+      "HP:0002126",
+      "HP:0007359",
+      "HP:0001249",
+      "HP:0007018",
+      "HP:0004322",
+      "HP:0000252",
+      "HP:0001263",
+      "HP:0001999",
+      "HP:0001273"
+    ],
+    "frequencies": [],
+    "genes": [
+      "MAP1B"
+    ],
+    "treatments": [
+      "Antiseizure medication",
+      "Stereotactic MR-guided laser ablation of epileptogenic nodules",
+      "Developmental, educational and behavioural support"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Periventricular_Nodular_Heterotopia_9.yaml",
+    "page_url": "../pages/disorders/Periventricular_Nodular_Heterotopia_9.html",
+    "num_phenotypes": 10,
+    "num_pathophysiology": 4,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "4"
+  },
+  {
     "name": "Peroxisomal Acyl-CoA Oxidase Deficiency",
     "disease_id": "MONDO:0009919",
     "category": "Metabolic Disorder",
@@ -291148,6 +291684,85 @@ window.searchData = [
     "causal_graph_longest_path": "4"
   },
   {
+    "name": "Spondyloepimetaphyseal Dysplasia Missouri Type",
+    "disease_id": "MONDO:0011198",
+    "category": "Mendelian",
+    "parents": [],
+    "creation_date": "2026-09-22T13:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Spondyloepimetaphyseal dysplasia, Missouri type is an autosomal dominant skeletal dysplasia of the growth plate caused by heterozygous missense variants in MMP13, which encodes collagenase-3. Affected children have mild to moderate short stature, bowed femora, coxa vara, and wide, irregular metaphyses of the long tubular bones, with variable vertebral involvement. The metaphyseal changes are characteristically transient: they are most conspicuous in early childhood and regress with age, which is what the older name \"metaphyseal anadysplasia\" records.\n**The lesion is a folding defect in the prodomain, not a catalytic-site defect.** The disease-causing substitutions cluster in exon 2, in the MMP13 propeptide - F56S in the founding Missouri kindred, M71T and S73P in later families. Structural modelling of F56S predicted a hydrophobic cavity, and expression in human embryonic kidney cells confirmed the prediction: the mutant protein autoactivates and autodegrades inside the cell, so only enzymatically inactive small fragments ever reach the extracellular space. The net effect of a missense allele is therefore a deficiency of secreted active enzyme, reached by a route - premature intracellular activation - that a null allele does not take.\n**What the enzyme does is remove the cartilage template.** MMP13 is expressed by terminal hypertrophic chondrocytes and by osteoblasts, and type II collagen and aggrecan - the two major components of the cartilage extracellular matrix - are its in vivo substrates. When that degradation fails, chondrocytes still differentiate normally but their exit from the growth plate is delayed, so the hypertrophic zone persists and the metaphysis is remodelled abnormally. This makes the entry a case where the disease node is an *absent* process rather than a toxic one.\n**The transience has a mechanistic correlate in mouse.** In Mmp13-null mice the growth-plate phenotype worsens until about five weeks and then resolves completely by twelve weeks, while the increased trabecular bone persists for months. The time course parallels the human radiographic course closely enough to be worth recording, and the persistence of the trabecular change is a reminder that \"resolves\" describes the metaphyseal appearance rather than the whole skeletal consequence.\n**The nosological point.** MONDO:0011198 carries both \"spondyloepimetaphyseal dysplasia, Missouri type\" and \"metaphyseal anadysplasia 1\" as names for one concept. The 2026 literature endorses that lumping explicitly, and the ISDS 2023 dyadic naming scheme separates MMP13-related metaphyseal dysplasia into exactly two entities distinguished by inheritance rather than by these two historical names. The recessive counterpart - metaphyseal dysplasia, Spahr type - is a different disease with a different variant location and is not curated here.",
+    "pathophysiology": [
+      "MMP13 Propeptide Misfolding",
+      "Premature Intracellular Autoactivation and Autodegradation of MMP13",
+      "Deficiency of Secreted Active Collagenase-3",
+      "Failure of Growth-Plate Cartilage Matrix Degradation",
+      "Delayed Exit of Chondrocytes From the Growth Plate",
+      "Abnormal Metaphyseal Modelling of the Long Tubular Bones"
+    ],
+    "cell_types": [
+      "terminal hypertrophic chondrocyte",
+      "growth plate cartilage chondrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000743",
+      "CL:1000217"
+    ],
+    "biological_processes": [
+      "protein folding",
+      "collagen catabolic process",
+      "extracellular matrix disassembly",
+      "endochondral ossification"
+    ],
+    "phenotypes": [
+      "Metaphyseal irregularity",
+      "Short stature",
+      "Coxa vara",
+      "Bowing of the long bones",
+      "Pear-shaped vertebrae",
+      "Platyspondyly",
+      "Small epiphyses",
+      "Genu varum"
+    ],
+    "phenotype_categories": [
+      "Skeletal"
+    ],
+    "phenotype_hpo_categories": [
+      "Growth",
+      "Limbs",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0003025",
+      "HP:0004322",
+      "HP:0002812",
+      "HP:0006487",
+      "HP:0003468",
+      "HP:0000926",
+      "HP:0010585",
+      "HP:0002970"
+    ],
+    "frequencies": [],
+    "genes": [
+      "MMP13"
+    ],
+    "treatments": [
+      "Orthopaedic management of limb deformity",
+      "Radiographic surveillance",
+      "Genetic counselling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Spondyloepimetaphyseal_Dysplasia_Missouri_Type.yaml",
+    "page_url": "../pages/disorders/Spondyloepimetaphyseal_Dysplasia_Missouri_Type.html",
+    "num_phenotypes": 8,
+    "num_pathophysiology": 6,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "7"
+  },
+  {
     "name": "Spondyloepimetaphyseal Dysplasia Short Limb Abnormal Calcification Syndrome",
     "disease_id": "MONDO:0010077",
     "category": "Mendelian",
@@ -322493,17 +323108,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3077,
-  "total_subtypes": 3838,
-  "total_disorders_and_subtypes": 6915,
-  "total_unique_evidence_sources": 44385,
-  "total_unique_publications": 41759,
+  "total_disorder_pages": 3083,
+  "total_subtypes": 3841,
+  "total_disorders_and_subtypes": 6924,
+  "total_unique_evidence_sources": 44434,
+  "total_unique_publications": 41808,
   "total_unique_disease_categories": 62,
   "total_unique_phenotype_categories": 283,
-  "total_pathographs": 3072,
-  "total_unique_pathological_events": 19154,
+  "total_pathographs": 3078,
+  "total_unique_pathological_events": 19184,
   "total_modules": 178,
-  "total_research_reports": 3181,
+  "total_research_reports": 3188,
   "total_classifications": 20,
   "total_comorbidities": 46,
   "total_groupings": 103
