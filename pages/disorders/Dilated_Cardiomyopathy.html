@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,18 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4117,6 +4194,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4138,6 +4216,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4203,6 +4282,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4262,6 +4342,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4327,6 +4408,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4389,6 +4471,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4433,6 +4516,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sarcomeric-and-cytoskeletal-dysfunction" data-dismech-node="Sarcomeric and Cytoskeletal Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Sarcomeric and Cytoskeletal Dysfunction</div>
+
 
                 <div class="item-desc">Mutations in genes encoding sarcomeric proteins (e.g., TTN, MYH7, TNNT2) and cytoskeletal proteins (e.g., DES, LMNA) disrupt force generation and transmission within cardiomyocytes, leading to impaired contractility and progressive ventricular dilation. Truncating variants in TTN are the most common genetic cause, found in approximately 15% of familial DCM cases.
 </div>
@@ -5770,6 +5854,7 @@ This pathophysiological event involves cardiac muscle contraction (GO:0060048). 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5791,6 +5876,7 @@ This pathophysiological event involves cardiac muscle contraction (GO:0060048). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5818,6 +5904,7 @@ This pathophysiological event involves cardiac muscle contraction (GO:0060048). 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5842,6 +5929,7 @@ This pathophysiological event involves cardiac muscle contraction (GO:0060048). 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neurohormonal-activation" data-dismech-node="Neurohormonal Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Neurohormonal Activation</div>
+
 
                 <div class="item-desc">Reduced cardiac output activates the renin-angiotensin-aldosterone system and sympathetic nervous system, causing vasoconstriction, sodium and water retention, and further myocardial stress. Chronic neurohormonal activation promotes adverse cardiac remodeling.
 </div>
@@ -5947,6 +6035,7 @@ This pathophysiological event involves renin-angiotensin regulation of aldostero
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5968,6 +6057,7 @@ This pathophysiological event involves renin-angiotensin regulation of aldostero
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5993,6 +6083,7 @@ This pathophysiological event involves renin-angiotensin regulation of aldostero
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-il-11-signalling-in-cardiac-fibroblasts" data-dismech-node="IL-11 Signalling in Cardiac Fibroblasts" data-dismech-type="pathophysiology">
                 <div class="item-name">IL-11 Signalling in Cardiac Fibroblasts</div>
+
 
                 <div class="item-desc">Profibrotic stress upregulates IL-11 and IL11RA in cardiac fibroblasts, driving ERK-dependent (non-canonical) autocrine signalling that promotes their fibroblast-to-myofibroblast transformation and ECM gene expression. This IL-11 receptor-signalling arm is an organ-specific instance of the conserved IL-11 signalling module and feeds myocardial fibrosis; neutralizing anti-IL-11 or anti-IL11RA antibodies reduce cardiac fibrosis and ERK activation without affecting hypertrophy.</div>
 
@@ -6171,6 +6262,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6192,6 +6284,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6219,6 +6312,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6243,6 +6337,7 @@ This pathophysiological event occurs in heart (UBERON:0000948). UBERON:0000948 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-myocardial-fibrosis" data-dismech-node="Myocardial Fibrosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Myocardial Fibrosis</div>
+
 
                 <div class="item-desc">Progressive replacement and interstitial fibrosis within the ventricular myocardium impairs diastolic filling, increases myocardial stiffness, and creates substrates for re-entrant arrhythmias. Late gadolinium enhancement on cardiac MRI is a strong predictor of adverse outcomes.
 </div>
@@ -6350,6 +6445,7 @@ This pathophysiological event involves extracellular matrix organization (GO:003
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6372,6 +6468,7 @@ This pathophysiological event involves extracellular matrix organization (GO:003
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-rna-splicing-dysregulation" data-dismech-node="RNA Splicing Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">RNA Splicing Dysregulation</div>
+
 
                 <div class="item-desc">Pathogenic variants in RBM20 cause an aggressive, early-onset form of dilated cardiomyopathy. RBM20 is a cardiac splicing regulator, and the proposed mechanism is disrupted alternative splicing of key cardiac genes including TTN and calcium-handling genes, with some variants reported to form toxic biomolecular condensates. The splicing and condensate detail derives from model systems and is not established by the evidence cited here.
 </div>
@@ -6488,6 +6585,7 @@ This pathophysiological event involves RBM20 (hgnc:27424). hgnc:27424 is a gene 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6510,6 +6608,7 @@ This pathophysiological event involves RBM20 (hgnc:27424). hgnc:27424 is a gene 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-immune-and-inflammatory-activation" data-dismech-node="Immune and Inflammatory Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Immune and Inflammatory Activation</div>
+
 
                 <div class="item-desc">Chronic cardiac inflammation with distinct immune cell infiltration patterns contributes to adverse remodeling in DCM. Immune-mediated injury from viral myocarditis or autoimmune reactions is a proposed trigger, but that route is not established by the deconvolution evidence cited here.
 </div>
@@ -6583,6 +6682,7 @@ This pathophysiological event involves cardiomyocyte, annotated with cardiac mus
 
 
 
+
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
 
                 </div>
@@ -6605,6 +6705,7 @@ This pathophysiological event involves cardiomyocyte, annotated with cardiac mus
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-polygenic-risk-and-common-variant-burden" data-dismech-node="Polygenic Risk and Common Variant Burden" data-dismech-type="pathophysiology">
                 <div class="item-name">Polygenic Risk and Common Variant Burden</div>
+
 
                 <div class="item-desc">Large-scale genome-wide association studies have identified dozens of loci associated with DCM, highlighting the role of common genetic variation in disease susceptibility. Enrichment analyses confirm the central role of the cardiomyocyte and contractile apparatus.
 </div>
@@ -6644,6 +6745,7 @@ This pathophysiological event involves cardiomyocyte, annotated with cardiac mus
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6665,6 +6767,7 @@ This pathophysiological event involves cardiomyocyte, annotated with cardiac mus
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6690,6 +6793,7 @@ This pathophysiological event involves cardiomyocyte, annotated with cardiac mus
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mitochondrial-dysfunction" data-dismech-node="Mitochondrial Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Mitochondrial Dysfunction</div>
+
 
                 <div class="item-desc">Impaired mitochondrial energy production, increased oxidative stress, and defective mitochondrial quality control contribute to cardiomyocyte injury and contractile failure in DCM. Disruption of mitochondrial protein homeostasis can drive disease progression.
 </div>
@@ -6840,6 +6944,7 @@ This pathophysiological event involves mitochondrion organization (GO:0007005). 
 
 
 
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6885,7 +6990,7 @@ This pathophysiological event involves mitochondrion organization (GO:0007005). 
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ACE Inhibitors / ARBs\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"First-line neurohormonal blockade to reduce afterload and prevent adverse remodeling.\", \"meta\": {\"therapeutic_agents\": [\"ACE inhibitor\"]}}, {\"id\": \"ACTC1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ACTC1\"], \"gene_terms\": [{\"label\": \"ACTC1\", \"id\": \"hgnc:143\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"ANKRD1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ANKRD1\"], \"gene_terms\": [{\"label\": \"ANKRD1\", \"id\": \"hgnc:15819\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"BAG3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"BAG3\"], \"gene_terms\": [{\"label\": \"BAG3\", \"id\": \"hgnc:939\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Beta-Blockers\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Reduce heart rate and neurohormonal activation, improving survival in heart failure with reduced ejection fraction.\"}, {\"id\": \"CDH2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CDH2\"], \"gene_terms\": [{\"label\": \"CDH2\", \"id\": \"hgnc:1759\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Cardiac Resynchronization Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Biventricular pacing for patients with wide QRS and reduced LVEF to improve synchrony and outcomes.\"}, {\"id\": \"DES\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"DES\"], \"gene_terms\": [{\"label\": \"DES\", \"id\": \"hgnc:2770\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"DSG2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"DSG2\"], \"gene_terms\": [{\"label\": \"DSG2\", \"id\": \"hgnc:3049\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"FLII\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"FLII\"], \"gene_terms\": [{\"label\": \"FLII\", \"id\": \"hgnc:3750\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"FLNC\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"FLNC\"], \"gene_terms\": [{\"label\": \"FLNC\", \"id\": \"hgnc:3756\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"IL-11 Signalling in Cardiac Fibroblasts\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Profibrotic stress upregulates IL-11 and IL11RA in cardiac fibroblasts, driving ERK-dependent (non-canonical) autocrine signalling that promotes their fibroblast-to-myofibroblast transformation and ECM gene expression. This IL-11 receptor-signalling arm is an organ-specific instance of the conserved IL-11 signalling module and feeds myocardial fibrosis; neutralizing anti-IL-11 or anti-IL11RA antibodies reduce cardiac fibrosis and ERK activation without affecting hypertrophy.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"cardiac fibroblast\"], \"biological_processes\": [\"Interleukin-11-mediated signaling pathway\", \"ERK1 and ERK2 cascade\"], \"role\": \"amplifier\", \"locations\": [\"heart\"]}}, {\"id\": \"LAMA4\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"LAMA4\"], \"gene_terms\": [{\"label\": \"LAMA4\", \"id\": \"hgnc:6484\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"LDB3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"LDB3\"], \"gene_terms\": [{\"label\": \"LDB3\", \"id\": \"hgnc:15710\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"LMNA Mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"LMNA\"], \"gene_terms\": [{\"label\": \"LMNA\", \"id\": \"hgnc:6636\"}], \"association\": \"Causative\"}}, {\"id\": \"LMOD2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"LMOD2\"], \"gene_terms\": [{\"label\": \"LMOD2\", \"id\": \"hgnc:6648\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"MYBPC3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"MYBPC3\"], \"gene_terms\": [{\"label\": \"MYBPC3\", \"id\": \"hgnc:7551\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"MYH6\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MYH6\"], \"gene_terms\": [{\"label\": \"MYH6\", \"id\": \"hgnc:7576\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"MYH7 Mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"MYH7\"], \"gene_terms\": [{\"label\": \"MYH7\", \"id\": \"hgnc:7577\"}], \"association\": \"Causative\"}}, {\"id\": \"MYL2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MYL2\"], \"gene_terms\": [{\"label\": \"MYL2\", \"id\": \"hgnc:7583\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"MYLK3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MYLK3\"], \"gene_terms\": [{\"label\": \"MYLK3\", \"id\": \"hgnc:29826\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"MYPN\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MYPN\"], \"gene_terms\": [{\"label\": \"MYPN\", \"id\": \"hgnc:23246\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"MYZAP\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MYZAP\"], \"gene_terms\": [{\"label\": \"MYZAP\", \"id\": \"hgnc:43444\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Mitochondrial Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired mitochondrial energy production, increased oxidative stress, and defective mitochondrial quality control contribute to cardiomyocyte injury and contractile failure in DCM. Disruption of mitochondrial protein homeostasis can drive disease progression.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiomyocyte\"], \"biological_processes\": [\"mitochondrion organization\"], \"genes\": [\"PPA2\"], \"gene_terms\": [{\"label\": \"PPA2\", \"id\": \"hgnc:28883\"}]}}, {\"id\": \"Myocardial Fibrosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive replacement and interstitial fibrosis within the ventricular myocardium impairs diastolic filling, increases myocardial stiffness, and creates substrates for re-entrant arrhythmias. Late gadolinium enhancement on cardiac MRI is a strong predictor of adverse outcomes.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiac fibroblast\"], \"biological_processes\": [\"extracellular matrix organization\"]}}, {\"id\": \"NEBL\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NEBL\"], \"gene_terms\": [{\"label\": \"NEBL\", \"id\": \"hgnc:16932\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"NEXN\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NEXN\"], \"gene_terms\": [{\"label\": \"NEXN\", \"id\": \"hgnc:29557\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"NRAP\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NRAP\"], \"gene_terms\": [{\"label\": \"NRAP\", \"id\": \"hgnc:7988\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Neurohormonal Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced cardiac output activates the renin-angiotensin-aldosterone system and sympathetic nervous system, causing vasoconstriction, sodium and water retention, and further myocardial stress. Chronic neurohormonal activation promotes adverse cardiac remodeling.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"renin-angiotensin regulation of aldosterone production\"], \"experimental_models\": [{\"name\": \"Patient-specific TNNT2 R173W iPSC-derived cardiomyocytes (Clinical Trials in a Dish)\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"namo_type\": \"namo:InducedPluripotentStemCellDerivedModel\", \"relationship\": \"PERTURBS\", \"fidelity\": \"LOW\", \"description\": \"Exposing the cardiomyocytes to a beta-adrenergic agonist applies the catecholamine arm of this node directly to the cells and unmasks a genotype-dependent vulnerability that is not apparent at baseline.\"}]}}, {\"id\": \"OBSCN\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"OBSCN\"], \"gene_terms\": [{\"label\": \"OBSCN\", \"id\": \"hgnc:15719\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"PPA2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PPA2\"], \"gene_terms\": [{\"label\": \"PPA2\", \"id\": \"hgnc:28883\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Patient-specific TNNT2 R173W iPSC-derived cardiomyocytes (Clinical Trials in a Dish)\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Cardiomyocytes differentiated from induced pluripotent stem cells reprogrammed from skin fibroblasts of a three-generation family carrying the autosomal dominant sarcomeric TNNT2 R173W mutation, with mutation-negative relatives from the same family serving as isogenic-adjacent controls. A non-animal New Approach Methodology that puts the patient\u0027s own genotype into a dish and supports both disease modelling and pharmacological rescue testing.\", \"meta\": {\"cell_types\": [\"iPSC-derived cardiomyocyte\"], \"model_type\": \"IPSC_DERIVED_MODEL\", \"namo_type\": \"namo:InducedPluripotentStemCellDerivedModel\", \"conditions\": [\"familial dilated cardiomyopathy with the TNNT2 R173W sarcomeric mutation\", \"beta-adrenergic agonist stress with norepinephrine\", \"beta-blocker and SERCA2a rescue\"], \"publication\": \"PMID:22517884\"}}, {\"id\": \"RBM20 Mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"RBM20\"], \"gene_terms\": [{\"label\": \"RBM20\", \"id\": \"hgnc:27424\"}], \"association\": \"Causative\"}}, {\"id\": \"RNA Splicing Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic variants in RBM20 cause an aggressive, early-onset form of dilated cardiomyopathy. RBM20 is a cardiac splicing regulator, and the proposed mechanism is disrupted alternative splicing of key cardiac genes including TTN and calcium-handling genes, with some variants reported to form toxic biomolecular condensates. The splicing and condensate detail derives from model systems and is not established by the evidence cited here.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiomyocyte\"], \"genes\": [\"RBM20\"], \"gene_terms\": [{\"label\": \"RBM20\", \"id\": \"hgnc:27424\"}]}}, {\"id\": \"SGLT2 Inhibitors\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Newer therapy shown to reduce heart failure hospitalization and cardiovascular death in HFrEF regardless of diabetes status.\"}, {\"id\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations in genes encoding sarcomeric proteins (e.g., TTN, MYH7, TNNT2) and cytoskeletal proteins (e.g., DES, LMNA) disrupt force generation and transmission within cardiomyocytes, leading to impaired contractility and progressive ventricular dilation. Truncating variants in TTN are the most common genetic cause, found in approximately 15% of familial DCM cases.\\n\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"cardiomyocyte\"], \"biological_processes\": [\"cardiac muscle contraction\"], \"genes\": [\"TTN\", \"LMNA\", \"MYH7\", \"MYH6\", \"MYBPC3\", \"ACTC1\", \"TPM1\", \"TNNT2\", \"TNNC1\", \"TNNI3\", \"MYL2\", \"MYLK3\", \"DES\", \"FLNC\", \"VCL\", \"LDB3\", \"TCAP\", \"MYPN\", \"ANKRD1\", \"NEXN\", \"NEBL\", \"NRAP\", \"OBSCN\", \"LMOD2\", \"TMOD1\", \"LAMA4\", \"CDH2\", \"DSG2\", \"MYZAP\", \"BAG3\", \"FLII\"], \"gene_terms\": [{\"label\": \"TTN\", \"id\": \"hgnc:12403\"}, {\"label\": \"LMNA\", \"id\": \"hgnc:6636\"}, {\"label\": \"MYH7\", \"id\": \"hgnc:7577\"}, {\"label\": \"MYH6\", \"id\": \"hgnc:7576\"}, {\"label\": \"MYBPC3\", \"id\": \"hgnc:7551\"}, {\"label\": \"ACTC1\", \"id\": \"hgnc:143\"}, {\"label\": \"TPM1\", \"id\": \"hgnc:12010\"}, {\"label\": \"TNNT2\", \"id\": \"hgnc:11949\"}, {\"label\": \"TNNC1\", \"id\": \"hgnc:11943\"}, {\"label\": \"TNNI3\", \"id\": \"hgnc:11947\"}, {\"label\": \"MYL2\", \"id\": \"hgnc:7583\"}, {\"label\": \"MYLK3\", \"id\": \"hgnc:29826\"}, {\"label\": \"DES\", \"id\": \"hgnc:2770\"}, {\"label\": \"FLNC\", \"id\": \"hgnc:3756\"}, {\"label\": \"VCL\", \"id\": \"hgnc:12665\"}, {\"label\": \"LDB3\", \"id\": \"hgnc:15710\"}, {\"label\": \"TCAP\", \"id\": \"hgnc:11610\"}, {\"label\": \"MYPN\", \"id\": \"hgnc:23246\"}, {\"label\": \"ANKRD1\", \"id\": \"hgnc:15819\"}, {\"label\": \"NEXN\", \"id\": \"hgnc:29557\"}, {\"label\": \"NEBL\", \"id\": \"hgnc:16932\"}, {\"label\": \"NRAP\", \"id\": \"hgnc:7988\"}, {\"label\": \"OBSCN\", \"id\": \"hgnc:15719\"}, {\"label\": \"LMOD2\", \"id\": \"hgnc:6648\"}, {\"label\": \"TMOD1\", \"id\": \"hgnc:11871\"}, {\"label\": \"LAMA4\", \"id\": \"hgnc:6484\"}, {\"label\": \"CDH2\", \"id\": \"hgnc:1759\"}, {\"label\": \"DSG2\", \"id\": \"hgnc:3049\"}, {\"label\": \"MYZAP\", \"id\": \"hgnc:43444\"}, {\"label\": \"BAG3\", \"id\": \"hgnc:939\"}, {\"label\": \"FLII\", \"id\": \"hgnc:3750\"}], \"experimental_models\": [{\"name\": \"Patient-specific TNNT2 R173W iPSC-derived cardiomyocytes (Clinical Trials in a Dish)\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"namo_type\": \"namo:InducedPluripotentStemCellDerivedModel\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Cardiomyocytes carrying the patient\u0027s TNNT2 R173W allele reproduce the sarcomeric disorganisation and contractile failure of this node in human cells, and the phenotype is reversed by beta-blockade or SERCA2a overexpression.\"}]}}, {\"id\": \"TCAP\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TCAP\"], \"gene_terms\": [{\"label\": \"TCAP\", \"id\": \"hgnc:11610\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"TMOD1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TMOD1\"], \"gene_terms\": [{\"label\": \"TMOD1\", \"id\": \"hgnc:11871\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"TNNC1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TNNC1\"], \"gene_terms\": [{\"label\": \"TNNC1\", \"id\": \"hgnc:11943\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"TNNI3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"TNNI3\"], \"gene_terms\": [{\"label\": \"TNNI3\", \"id\": \"hgnc:11947\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"TNNT2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TNNT2\"], \"gene_terms\": [{\"label\": \"TNNT2\", \"id\": \"hgnc:11949\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"TPM1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TPM1\"], \"gene_terms\": [{\"label\": \"TPM1\", \"id\": \"hgnc:12010\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"TTN Truncating Variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"TTN\"], \"gene_terms\": [{\"label\": \"TTN\", \"id\": \"hgnc:12403\"}], \"association\": \"Causative\"}}, {\"id\": \"VCL\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"VCL\"], \"gene_terms\": [{\"label\": \"VCL\", \"id\": \"hgnc:12665\"}], \"association\": \"Pathogenic Variants\"}}], \"edges\": [{\"source\": \"Neurohormonal Activation\", \"target\": \"IL-11 Signalling in Cardiac Fibroblasts\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurohormonal (angiotensin II) activation drives cardiac fibroblast IL-11 induction, placing IL-11 receptor signalling downstream of the neurohormonal stress that promotes adverse remodeling.\"}, {\"source\": \"IL-11 Signalling in Cardiac Fibroblasts\", \"target\": \"Myocardial Fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"ACE Inhibitors / ARBs\", \"target\": \"Neurohormonal Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Beta-Blockers\", \"target\": \"Neurohormonal Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"SGLT2 Inhibitors\", \"target\": \"Mitochondrial Dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Cardiac Resynchronization Therapy\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Patient-specific TNNT2 R173W iPSC-derived cardiomyocytes (Clinical Trials in a Dish)\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Cardiomyocytes carrying the patient\u0027s TNNT2 R173W allele reproduce the sarcomeric disorganisation and contractile failure of this node in human cells, and the phenotype is reversed by beta-blockade or SERCA2a overexpression.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The authors themselves qualify the model as recapitulating the disease phenotype only to some extent. The cardiomyocytes are developmentally immature, with mitochondria and sarcoplasmic reticulum still immature at the assay stage, and the sarcomeric defect was most pronounced in single cells and at cluster edges rather than in well-coupled tissue. The cohort is a single family and a single TNNT2 allele, so the finding does not generalise across this node\u0027s other sarcomeric and cytoskeletal genes, and no chamber-level dilatation can be observed in a dish.\"}, {\"source\": \"Patient-specific TNNT2 R173W iPSC-derived cardiomyocytes (Clinical Trials in a Dish)\", \"target\": \"Neurohormonal Activation\", \"predicate\": \"perturbs\", \"is_orphan\": false, \"description\": \"Exposing the cardiomyocytes to a beta-adrenergic agonist applies the catecholamine arm of this node directly to the cells and unmasks a genotype-dependent vulnerability that is not apparent at baseline.\", \"relationship\": \"PERTURBS\", \"fidelity\": \"LOW\", \"limitations\": \"This is an acute pharmacological stimulus applied to isolated cardiomyocytes. It reproduces the receptor-level consequence of sympathetic drive but not neurohormonal activation as a disease process: there is no sympathetic nervous system, no renin-angiotensin-aldosterone axis, no natriuretic peptide counter-regulation and no feedback loop between cardiac output and neurohormonal tone.\"}, {\"source\": \"TTN Truncating Variants\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"LMNA Mutations\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MYH7 Mutations\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"RBM20 Mutations\", \"target\": \"RNA Splicing Dysregulation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ACTC1\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ANKRD1\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"BAG3\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CDH2\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"DES\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"DSG2\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"FLII\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"FLNC\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"LAMA4\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"LDB3\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"LMOD2\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MYBPC3\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MYH6\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MYL2\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MYLK3\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MYPN\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MYZAP\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NEBL\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NEXN\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NRAP\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"OBSCN\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PPA2\", \"target\": \"Mitochondrial Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TCAP\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TMOD1\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TNNC1\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TNNI3\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TNNT2\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TPM1\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"VCL\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ACE Inhibitors / ARBs\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"First-line neurohormonal blockade to reduce afterload and prevent adverse remodeling.\", \"meta\": {\"therapeutic_agents\": [\"ACE inhibitor\"]}}, {\"id\": \"ACTC1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ACTC1\"], \"gene_terms\": [{\"label\": \"ACTC1\", \"id\": \"hgnc:143\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"ANKRD1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"ANKRD1\"], \"gene_terms\": [{\"label\": \"ANKRD1\", \"id\": \"hgnc:15819\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"BAG3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"BAG3\"], \"gene_terms\": [{\"label\": \"BAG3\", \"id\": \"hgnc:939\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Beta-Blockers\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Reduce heart rate and neurohormonal activation, improving survival in heart failure with reduced ejection fraction.\"}, {\"id\": \"CDH2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CDH2\"], \"gene_terms\": [{\"label\": \"CDH2\", \"id\": \"hgnc:1759\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Cardiac Resynchronization Therapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Biventricular pacing for patients with wide QRS and reduced LVEF to improve synchrony and outcomes.\"}, {\"id\": \"DES\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"DES\"], \"gene_terms\": [{\"label\": \"DES\", \"id\": \"hgnc:2770\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"DSG2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"DSG2\"], \"gene_terms\": [{\"label\": \"DSG2\", \"id\": \"hgnc:3049\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"FLII\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"FLII\"], \"gene_terms\": [{\"label\": \"FLII\", \"id\": \"hgnc:3750\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"FLNC\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"FLNC\"], \"gene_terms\": [{\"label\": \"FLNC\", \"id\": \"hgnc:3756\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"IL-11 Signalling in Cardiac Fibroblasts\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Profibrotic stress upregulates IL-11 and IL11RA in cardiac fibroblasts, driving ERK-dependent (non-canonical) autocrine signalling that promotes their fibroblast-to-myofibroblast transformation and ECM gene expression. This IL-11 receptor-signalling arm is an organ-specific instance of the conserved IL-11 signalling module and feeds myocardial fibrosis; neutralizing anti-IL-11 or anti-IL11RA antibodies reduce cardiac fibrosis and ERK activation without affecting hypertrophy.\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"cardiac fibroblast\"], \"biological_processes\": [\"Interleukin-11-mediated signaling pathway\", \"ERK1 and ERK2 cascade\"], \"role\": \"amplifier\", \"locations\": [\"heart\"]}}, {\"id\": \"LAMA4\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"LAMA4\"], \"gene_terms\": [{\"label\": \"LAMA4\", \"id\": \"hgnc:6484\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"LDB3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"LDB3\"], \"gene_terms\": [{\"label\": \"LDB3\", \"id\": \"hgnc:15710\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"LMNA Mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"LMNA\"], \"gene_terms\": [{\"label\": \"LMNA\", \"id\": \"hgnc:6636\"}], \"association\": \"Causative\"}}, {\"id\": \"LMOD2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"LMOD2\"], \"gene_terms\": [{\"label\": \"LMOD2\", \"id\": \"hgnc:6648\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"MYBPC3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"MYBPC3\"], \"gene_terms\": [{\"label\": \"MYBPC3\", \"id\": \"hgnc:7551\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"MYH6\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MYH6\"], \"gene_terms\": [{\"label\": \"MYH6\", \"id\": \"hgnc:7576\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"MYH7 Mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"MYH7\"], \"gene_terms\": [{\"label\": \"MYH7\", \"id\": \"hgnc:7577\"}], \"association\": \"Causative\"}}, {\"id\": \"MYL2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MYL2\"], \"gene_terms\": [{\"label\": \"MYL2\", \"id\": \"hgnc:7583\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"MYLK3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MYLK3\"], \"gene_terms\": [{\"label\": \"MYLK3\", \"id\": \"hgnc:29826\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"MYPN\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MYPN\"], \"gene_terms\": [{\"label\": \"MYPN\", \"id\": \"hgnc:23246\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"MYZAP\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"MYZAP\"], \"gene_terms\": [{\"label\": \"MYZAP\", \"id\": \"hgnc:43444\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Mitochondrial Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Impaired mitochondrial energy production, increased oxidative stress, and defective mitochondrial quality control contribute to cardiomyocyte injury and contractile failure in DCM. Disruption of mitochondrial protein homeostasis can drive disease progression.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiomyocyte\"], \"biological_processes\": [\"mitochondrion organization\"], \"genes\": [\"PPA2\"], \"gene_terms\": [{\"label\": \"PPA2\", \"id\": \"hgnc:28883\"}]}}, {\"id\": \"Myocardial Fibrosis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progressive replacement and interstitial fibrosis within the ventricular myocardium impairs diastolic filling, increases myocardial stiffness, and creates substrates for re-entrant arrhythmias. Late gadolinium enhancement on cardiac MRI is a strong predictor of adverse outcomes.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiac fibroblast\"], \"biological_processes\": [\"extracellular matrix organization\"]}}, {\"id\": \"NEBL\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NEBL\"], \"gene_terms\": [{\"label\": \"NEBL\", \"id\": \"hgnc:16932\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"NEXN\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NEXN\"], \"gene_terms\": [{\"label\": \"NEXN\", \"id\": \"hgnc:29557\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"NRAP\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"NRAP\"], \"gene_terms\": [{\"label\": \"NRAP\", \"id\": \"hgnc:7988\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Neurohormonal Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced cardiac output activates the renin-angiotensin-aldosterone system and sympathetic nervous system, causing vasoconstriction, sodium and water retention, and further myocardial stress. Chronic neurohormonal activation promotes adverse cardiac remodeling.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"renin-angiotensin regulation of aldosterone production\"], \"experimental_models\": [{\"name\": \"Patient-specific TNNT2 R173W iPSC-derived cardiomyocytes (Clinical Trials in a Dish)\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"relationship\": \"PERTURBS\", \"fidelity\": \"LOW\", \"description\": \"Exposing the cardiomyocytes to a beta-adrenergic agonist applies the catecholamine arm of this node directly to the cells and unmasks a genotype-dependent vulnerability that is not apparent at baseline.\"}]}}, {\"id\": \"OBSCN\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"OBSCN\"], \"gene_terms\": [{\"label\": \"OBSCN\", \"id\": \"hgnc:15719\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"PPA2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PPA2\"], \"gene_terms\": [{\"label\": \"PPA2\", \"id\": \"hgnc:28883\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"Patient-specific TNNT2 R173W iPSC-derived cardiomyocytes (Clinical Trials in a Dish)\", \"node_type\": \"experimental_model\", \"color\": \"#ccfbf1\", \"is_orphan\": false, \"description\": \"Cardiomyocytes differentiated from induced pluripotent stem cells reprogrammed from skin fibroblasts of a three-generation family carrying the autosomal dominant sarcomeric TNNT2 R173W mutation, with mutation-negative relatives from the same family serving as isogenic-adjacent controls. A non-animal New Approach Methodology that puts the patient\u0027s own genotype into a dish and supports both disease modelling and pharmacological rescue testing.\", \"meta\": {\"cell_types\": [\"iPSC-derived cardiomyocyte\"], \"model_type\": \"IPSC_DERIVED_MODEL\", \"conditions\": [\"familial dilated cardiomyopathy with the TNNT2 R173W sarcomeric mutation\", \"beta-adrenergic agonist stress with norepinephrine\", \"beta-blocker and SERCA2a rescue\"], \"publication\": \"PMID:22517884\"}}, {\"id\": \"RBM20 Mutations\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"RBM20\"], \"gene_terms\": [{\"label\": \"RBM20\", \"id\": \"hgnc:27424\"}], \"association\": \"Causative\"}}, {\"id\": \"RNA Splicing Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic variants in RBM20 cause an aggressive, early-onset form of dilated cardiomyopathy. RBM20 is a cardiac splicing regulator, and the proposed mechanism is disrupted alternative splicing of key cardiac genes including TTN and calcium-handling genes, with some variants reported to form toxic biomolecular condensates. The splicing and condensate detail derives from model systems and is not established by the evidence cited here.\\n\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"cardiomyocyte\"], \"genes\": [\"RBM20\"], \"gene_terms\": [{\"label\": \"RBM20\", \"id\": \"hgnc:27424\"}]}}, {\"id\": \"SGLT2 Inhibitors\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Newer therapy shown to reduce heart failure hospitalization and cardiovascular death in HFrEF regardless of diabetes status.\"}, {\"id\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Mutations in genes encoding sarcomeric proteins (e.g., TTN, MYH7, TNNT2) and cytoskeletal proteins (e.g., DES, LMNA) disrupt force generation and transmission within cardiomyocytes, leading to impaired contractility and progressive ventricular dilation. Truncating variants in TTN are the most common genetic cause, found in approximately 15% of familial DCM cases.\\n\", \"meta\": {\"evidence_count\": 4, \"cell_types\": [\"cardiomyocyte\"], \"biological_processes\": [\"cardiac muscle contraction\"], \"genes\": [\"TTN\", \"LMNA\", \"MYH7\", \"MYH6\", \"MYBPC3\", \"ACTC1\", \"TPM1\", \"TNNT2\", \"TNNC1\", \"TNNI3\", \"MYL2\", \"MYLK3\", \"DES\", \"FLNC\", \"VCL\", \"LDB3\", \"TCAP\", \"MYPN\", \"ANKRD1\", \"NEXN\", \"NEBL\", \"NRAP\", \"OBSCN\", \"LMOD2\", \"TMOD1\", \"LAMA4\", \"CDH2\", \"DSG2\", \"MYZAP\", \"BAG3\", \"FLII\"], \"gene_terms\": [{\"label\": \"TTN\", \"id\": \"hgnc:12403\"}, {\"label\": \"LMNA\", \"id\": \"hgnc:6636\"}, {\"label\": \"MYH7\", \"id\": \"hgnc:7577\"}, {\"label\": \"MYH6\", \"id\": \"hgnc:7576\"}, {\"label\": \"MYBPC3\", \"id\": \"hgnc:7551\"}, {\"label\": \"ACTC1\", \"id\": \"hgnc:143\"}, {\"label\": \"TPM1\", \"id\": \"hgnc:12010\"}, {\"label\": \"TNNT2\", \"id\": \"hgnc:11949\"}, {\"label\": \"TNNC1\", \"id\": \"hgnc:11943\"}, {\"label\": \"TNNI3\", \"id\": \"hgnc:11947\"}, {\"label\": \"MYL2\", \"id\": \"hgnc:7583\"}, {\"label\": \"MYLK3\", \"id\": \"hgnc:29826\"}, {\"label\": \"DES\", \"id\": \"hgnc:2770\"}, {\"label\": \"FLNC\", \"id\": \"hgnc:3756\"}, {\"label\": \"VCL\", \"id\": \"hgnc:12665\"}, {\"label\": \"LDB3\", \"id\": \"hgnc:15710\"}, {\"label\": \"TCAP\", \"id\": \"hgnc:11610\"}, {\"label\": \"MYPN\", \"id\": \"hgnc:23246\"}, {\"label\": \"ANKRD1\", \"id\": \"hgnc:15819\"}, {\"label\": \"NEXN\", \"id\": \"hgnc:29557\"}, {\"label\": \"NEBL\", \"id\": \"hgnc:16932\"}, {\"label\": \"NRAP\", \"id\": \"hgnc:7988\"}, {\"label\": \"OBSCN\", \"id\": \"hgnc:15719\"}, {\"label\": \"LMOD2\", \"id\": \"hgnc:6648\"}, {\"label\": \"TMOD1\", \"id\": \"hgnc:11871\"}, {\"label\": \"LAMA4\", \"id\": \"hgnc:6484\"}, {\"label\": \"CDH2\", \"id\": \"hgnc:1759\"}, {\"label\": \"DSG2\", \"id\": \"hgnc:3049\"}, {\"label\": \"MYZAP\", \"id\": \"hgnc:43444\"}, {\"label\": \"BAG3\", \"id\": \"hgnc:939\"}, {\"label\": \"FLII\", \"id\": \"hgnc:3750\"}], \"experimental_models\": [{\"name\": \"Patient-specific TNNT2 R173W iPSC-derived cardiomyocytes (Clinical Trials in a Dish)\", \"model_type\": \"IPSC_DERIVED_MODEL\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"description\": \"Cardiomyocytes carrying the patient\u0027s TNNT2 R173W allele reproduce the sarcomeric disorganisation and contractile failure of this node in human cells, and the phenotype is reversed by beta-blockade or SERCA2a overexpression.\"}]}}, {\"id\": \"TCAP\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TCAP\"], \"gene_terms\": [{\"label\": \"TCAP\", \"id\": \"hgnc:11610\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"TMOD1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TMOD1\"], \"gene_terms\": [{\"label\": \"TMOD1\", \"id\": \"hgnc:11871\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"TNNC1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TNNC1\"], \"gene_terms\": [{\"label\": \"TNNC1\", \"id\": \"hgnc:11943\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"TNNI3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"TNNI3\"], \"gene_terms\": [{\"label\": \"TNNI3\", \"id\": \"hgnc:11947\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"TNNT2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TNNT2\"], \"gene_terms\": [{\"label\": \"TNNT2\", \"id\": \"hgnc:11949\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"TPM1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"TPM1\"], \"gene_terms\": [{\"label\": \"TPM1\", \"id\": \"hgnc:12010\"}], \"association\": \"Pathogenic Variants\"}}, {\"id\": \"TTN Truncating Variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"TTN\"], \"gene_terms\": [{\"label\": \"TTN\", \"id\": \"hgnc:12403\"}], \"association\": \"Causative\"}}, {\"id\": \"VCL\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"VCL\"], \"gene_terms\": [{\"label\": \"VCL\", \"id\": \"hgnc:12665\"}], \"association\": \"Pathogenic Variants\"}}], \"edges\": [{\"source\": \"Neurohormonal Activation\", \"target\": \"IL-11 Signalling in Cardiac Fibroblasts\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Neurohormonal (angiotensin II) activation drives cardiac fibroblast IL-11 induction, placing IL-11 receptor signalling downstream of the neurohormonal stress that promotes adverse remodeling.\"}, {\"source\": \"IL-11 Signalling in Cardiac Fibroblasts\", \"target\": \"Myocardial Fibrosis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"ACE Inhibitors / ARBs\", \"target\": \"Neurohormonal Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Beta-Blockers\", \"target\": \"Neurohormonal Activation\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"SGLT2 Inhibitors\", \"target\": \"Mitochondrial Dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Cardiac Resynchronization Therapy\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Patient-specific TNNT2 R173W iPSC-derived cardiomyocytes (Clinical Trials in a Dish)\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"partially_models\", \"is_orphan\": false, \"description\": \"Cardiomyocytes carrying the patient\u0027s TNNT2 R173W allele reproduce the sarcomeric disorganisation and contractile failure of this node in human cells, and the phenotype is reversed by beta-blockade or SERCA2a overexpression.\", \"relationship\": \"PARTIALLY_RECAPITULATES\", \"fidelity\": \"MODERATE\", \"limitations\": \"The authors themselves qualify the model as recapitulating the disease phenotype only to some extent. The cardiomyocytes are developmentally immature, with mitochondria and sarcoplasmic reticulum still immature at the assay stage, and the sarcomeric defect was most pronounced in single cells and at cluster edges rather than in well-coupled tissue. The cohort is a single family and a single TNNT2 allele, so the finding does not generalise across this node\u0027s other sarcomeric and cytoskeletal genes, and no chamber-level dilatation can be observed in a dish.\"}, {\"source\": \"Patient-specific TNNT2 R173W iPSC-derived cardiomyocytes (Clinical Trials in a Dish)\", \"target\": \"Neurohormonal Activation\", \"predicate\": \"perturbs\", \"is_orphan\": false, \"description\": \"Exposing the cardiomyocytes to a beta-adrenergic agonist applies the catecholamine arm of this node directly to the cells and unmasks a genotype-dependent vulnerability that is not apparent at baseline.\", \"relationship\": \"PERTURBS\", \"fidelity\": \"LOW\", \"limitations\": \"This is an acute pharmacological stimulus applied to isolated cardiomyocytes. It reproduces the receptor-level consequence of sympathetic drive but not neurohormonal activation as a disease process: there is no sympathetic nervous system, no renin-angiotensin-aldosterone axis, no natriuretic peptide counter-regulation and no feedback loop between cardiac output and neurohormonal tone.\"}, {\"source\": \"TTN Truncating Variants\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"LMNA Mutations\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MYH7 Mutations\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"RBM20 Mutations\", \"target\": \"RNA Splicing Dysregulation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ACTC1\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"ANKRD1\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"BAG3\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CDH2\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"DES\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"DSG2\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"FLII\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"FLNC\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"LAMA4\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"LDB3\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"LMOD2\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MYBPC3\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MYH6\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MYL2\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MYLK3\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MYPN\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"MYZAP\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NEBL\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NEXN\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NRAP\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"OBSCN\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PPA2\", \"target\": \"Mitochondrial Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TCAP\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TMOD1\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TNNC1\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TNNI3\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TNNT2\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TPM1\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"VCL\", \"target\": \"Sarcomeric and Cytoskeletal Dysfunction\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6953,6 +7058,9 @@ This clinical feature is Dilated cardiomyopathy (HP:0001644). HP:0001644 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6967,6 +7075,7 @@ This clinical feature is Dilated cardiomyopathy (HP:0001644). HP:0001644 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7023,6 +7132,9 @@ This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7037,6 +7149,7 @@ This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7061,6 +7174,7 @@ This clinical feature is Congestive heart failure (HP:0001635). HP:0001635 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7117,6 +7231,9 @@ This clinical feature is Left ventricular systolic dysfunction (HP:0025169). HP:
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7131,6 +7248,7 @@ This clinical feature is Left ventricular systolic dysfunction (HP:0025169). HP:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7155,6 +7273,7 @@ This clinical feature is Left ventricular systolic dysfunction (HP:0025169). HP:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7215,6 +7334,9 @@ This clinical feature is Palpitations (HP:0001962). HP:0001962 is a phenotype fr
 
 
 
+
+
+
                 </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-arrhythmia" data-dismech-node="Arrhythmia" data-dismech-type="phenotype">
@@ -7247,6 +7369,9 @@ This clinical feature is Arrhythmia (HP:0011675). HP:0011675 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7261,6 +7386,7 @@ This clinical feature is Arrhythmia (HP:0011675). HP:0011675 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7285,6 +7411,7 @@ This clinical feature is Arrhythmia (HP:0011675). HP:0011675 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7354,6 +7481,9 @@ This clinical feature is Peripheral edema (HP:0012398). HP:0012398 is a phenotyp
 
 
 
+
+
+
                 </div>
 
             </details>
@@ -7399,6 +7529,9 @@ This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from th
 
 
 
+
+
+
                 </div>
 
             </details>
@@ -7435,6 +7568,9 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7516,6 +7652,9 @@ This disease-associated gene is TTN (hgnc:12403). hgnc:12403 is a gene from the 
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant</span>
@@ -7541,6 +7680,7 @@ This disease-associated gene is TTN (hgnc:12403). hgnc:12403 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7562,6 +7702,7 @@ This disease-associated gene is TTN (hgnc:12403). hgnc:12403 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7617,6 +7758,9 @@ This disease-associated gene is LMNA (hgnc:6636). hgnc:6636 is a gene from the H
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant</span>
@@ -7642,6 +7786,7 @@ This disease-associated gene is LMNA (hgnc:6636). hgnc:6636 is a gene from the H
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7663,6 +7808,7 @@ This disease-associated gene is LMNA (hgnc:6636). hgnc:6636 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7718,6 +7864,9 @@ This disease-associated gene is MYH7 (hgnc:7577). hgnc:7577 is a gene from the H
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant</span>
@@ -7743,6 +7892,7 @@ This disease-associated gene is MYH7 (hgnc:7577). hgnc:7577 is a gene from the H
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7764,6 +7914,7 @@ This disease-associated gene is MYH7 (hgnc:7577). hgnc:7577 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7819,6 +7970,9 @@ This disease-associated gene is RBM20 (hgnc:27424). hgnc:27424 is a gene from th
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant</span>
@@ -7844,6 +7998,7 @@ This disease-associated gene is RBM20 (hgnc:27424). hgnc:27424 is a gene from th
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7865,6 +8020,7 @@ This disease-associated gene is RBM20 (hgnc:27424). hgnc:27424 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7922,6 +8078,9 @@ This disease-associated gene is ABCC9 (hgnc:60). hgnc:60 is a gene from the HUGO
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7936,6 +8095,7 @@ This disease-associated gene is ABCC9 (hgnc:60). hgnc:60 is a gene from the HUGO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7993,6 +8153,9 @@ This disease-associated gene is ACTC1 (hgnc:143). hgnc:143 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8007,6 +8170,7 @@ This disease-associated gene is ACTC1 (hgnc:143). hgnc:143 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8064,6 +8228,9 @@ This disease-associated gene is ANKRD1 (hgnc:15819). hgnc:15819 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8078,6 +8245,7 @@ This disease-associated gene is ANKRD1 (hgnc:15819). hgnc:15819 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8135,6 +8303,9 @@ This disease-associated gene is BAG3 (hgnc:939). hgnc:939 is a gene from the HUG
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8149,6 +8320,7 @@ This disease-associated gene is BAG3 (hgnc:939). hgnc:939 is a gene from the HUG
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8206,6 +8378,9 @@ This disease-associated gene is BAG5 (hgnc:941). hgnc:941 is a gene from the HUG
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8220,6 +8395,7 @@ This disease-associated gene is BAG5 (hgnc:941). hgnc:941 is a gene from the HUG
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8277,6 +8453,9 @@ This disease-associated gene is CDH2 (hgnc:1759). hgnc:1759 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8291,6 +8470,7 @@ This disease-associated gene is CDH2 (hgnc:1759). hgnc:1759 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8348,6 +8528,9 @@ This disease-associated gene is CTF1 (hgnc:2499). hgnc:2499 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8362,6 +8545,7 @@ This disease-associated gene is CTF1 (hgnc:2499). hgnc:2499 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8419,6 +8603,9 @@ This disease-associated gene is DES (hgnc:2770). hgnc:2770 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8433,6 +8620,7 @@ This disease-associated gene is DES (hgnc:2770). hgnc:2770 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8490,6 +8678,9 @@ This disease-associated gene is DSG2 (hgnc:3049). hgnc:3049 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8504,6 +8695,7 @@ This disease-associated gene is DSG2 (hgnc:3049). hgnc:3049 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8561,6 +8753,9 @@ This disease-associated gene is FBXO32 (hgnc:16731). hgnc:16731 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8575,6 +8770,7 @@ This disease-associated gene is FBXO32 (hgnc:16731). hgnc:16731 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8632,6 +8828,9 @@ This disease-associated gene is FLII (hgnc:3750). hgnc:3750 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8646,6 +8845,7 @@ This disease-associated gene is FLII (hgnc:3750). hgnc:3750 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8703,6 +8903,9 @@ This disease-associated gene is FLNC (hgnc:3756). hgnc:3756 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8717,6 +8920,7 @@ This disease-associated gene is FLNC (hgnc:3756). hgnc:3756 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8774,6 +8978,9 @@ This disease-associated gene is GATAD1 (hgnc:29941). hgnc:29941 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8788,6 +8995,7 @@ This disease-associated gene is GATAD1 (hgnc:29941). hgnc:29941 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8845,6 +9053,9 @@ This disease-associated gene is GET3 (hgnc:752). hgnc:752 is a gene from the HUG
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8859,6 +9070,7 @@ This disease-associated gene is GET3 (hgnc:752). hgnc:752 is a gene from the HUG
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8916,6 +9128,9 @@ This disease-associated gene is JPH2 (hgnc:14202). hgnc:14202 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8930,6 +9145,7 @@ This disease-associated gene is JPH2 (hgnc:14202). hgnc:14202 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8954,6 +9170,7 @@ This disease-associated gene is JPH2 (hgnc:14202). hgnc:14202 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9011,6 +9228,9 @@ This disease-associated gene is LAMA4 (hgnc:6484). hgnc:6484 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9025,6 +9245,7 @@ This disease-associated gene is LAMA4 (hgnc:6484). hgnc:6484 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9082,6 +9303,9 @@ This disease-associated gene is LDB3 (hgnc:15710). hgnc:15710 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9096,6 +9320,7 @@ This disease-associated gene is LDB3 (hgnc:15710). hgnc:15710 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9120,6 +9345,7 @@ This disease-associated gene is LDB3 (hgnc:15710). hgnc:15710 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9177,6 +9403,9 @@ This disease-associated gene is LMOD2 (hgnc:6648). hgnc:6648 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9191,6 +9420,7 @@ This disease-associated gene is LMOD2 (hgnc:6648). hgnc:6648 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9248,6 +9478,9 @@ This disease-associated gene is MIB1 (hgnc:21086). hgnc:21086 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9262,6 +9495,7 @@ This disease-associated gene is MIB1 (hgnc:21086). hgnc:21086 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9319,6 +9553,9 @@ This disease-associated gene is MYBPC3 (hgnc:7551). hgnc:7551 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9333,6 +9570,7 @@ This disease-associated gene is MYBPC3 (hgnc:7551). hgnc:7551 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9357,6 +9595,7 @@ This disease-associated gene is MYBPC3 (hgnc:7551). hgnc:7551 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9414,6 +9653,9 @@ This disease-associated gene is MYH6 (hgnc:7576). hgnc:7576 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9428,6 +9670,7 @@ This disease-associated gene is MYH6 (hgnc:7576). hgnc:7576 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9485,6 +9728,9 @@ This disease-associated gene is MYL2 (hgnc:7583). hgnc:7583 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9499,6 +9745,7 @@ This disease-associated gene is MYL2 (hgnc:7583). hgnc:7583 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9556,6 +9803,9 @@ This disease-associated gene is MYLK3 (hgnc:29826). hgnc:29826 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9570,6 +9820,7 @@ This disease-associated gene is MYLK3 (hgnc:29826). hgnc:29826 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9627,6 +9878,9 @@ This disease-associated gene is MYPN (hgnc:23246). hgnc:23246 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9641,6 +9895,7 @@ This disease-associated gene is MYPN (hgnc:23246). hgnc:23246 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9698,6 +9953,9 @@ This disease-associated gene is MYZAP (hgnc:43444). hgnc:43444 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9712,6 +9970,7 @@ This disease-associated gene is MYZAP (hgnc:43444). hgnc:43444 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9769,6 +10028,9 @@ This disease-associated gene is NEBL (hgnc:16932). hgnc:16932 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9783,6 +10045,7 @@ This disease-associated gene is NEBL (hgnc:16932). hgnc:16932 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9840,6 +10103,9 @@ This disease-associated gene is NEXN (hgnc:29557). hgnc:29557 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9854,6 +10120,7 @@ This disease-associated gene is NEXN (hgnc:29557). hgnc:29557 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9911,6 +10178,9 @@ This disease-associated gene is NRAP (hgnc:7988). hgnc:7988 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9925,6 +10195,7 @@ This disease-associated gene is NRAP (hgnc:7988). hgnc:7988 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9982,6 +10253,9 @@ This disease-associated gene is OBSCN (hgnc:15719). hgnc:15719 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9996,6 +10270,7 @@ This disease-associated gene is OBSCN (hgnc:15719). hgnc:15719 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10053,6 +10328,9 @@ This disease-associated gene is PLEKHM2 (hgnc:29131). hgnc:29131 is a gene from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10067,6 +10345,7 @@ This disease-associated gene is PLEKHM2 (hgnc:29131). hgnc:29131 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10124,6 +10403,9 @@ This disease-associated gene is PPA2 (hgnc:28883). hgnc:28883 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10138,6 +10420,7 @@ This disease-associated gene is PPA2 (hgnc:28883). hgnc:28883 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10195,6 +10478,9 @@ This disease-associated gene is PRDM16 (hgnc:14000). hgnc:14000 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10209,6 +10495,7 @@ This disease-associated gene is PRDM16 (hgnc:14000). hgnc:14000 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10266,6 +10553,9 @@ This disease-associated gene is RPL3L (hgnc:10351). hgnc:10351 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10280,6 +10570,7 @@ This disease-associated gene is RPL3L (hgnc:10351). hgnc:10351 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10337,6 +10628,9 @@ This disease-associated gene is RYR2 (hgnc:10484). hgnc:10484 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10351,6 +10645,7 @@ This disease-associated gene is RYR2 (hgnc:10484). hgnc:10484 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10408,6 +10703,9 @@ This disease-associated gene is SCN5A (hgnc:10593). hgnc:10593 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10422,6 +10720,7 @@ This disease-associated gene is SCN5A (hgnc:10593). hgnc:10593 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10479,6 +10778,9 @@ This disease-associated gene is TBX20 (hgnc:11598). hgnc:11598 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10493,6 +10795,7 @@ This disease-associated gene is TBX20 (hgnc:11598). hgnc:11598 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10550,6 +10853,9 @@ This disease-associated gene is TCAP (hgnc:11610). hgnc:11610 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10564,6 +10870,7 @@ This disease-associated gene is TCAP (hgnc:11610). hgnc:11610 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10621,6 +10928,9 @@ This disease-associated gene is TMOD1 (hgnc:11871). hgnc:11871 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10635,6 +10945,7 @@ This disease-associated gene is TMOD1 (hgnc:11871). hgnc:11871 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10692,6 +11003,9 @@ This disease-associated gene is TNNC1 (hgnc:11943). hgnc:11943 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10706,6 +11020,7 @@ This disease-associated gene is TNNC1 (hgnc:11943). hgnc:11943 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10763,6 +11078,9 @@ This disease-associated gene is TNNI3 (hgnc:11947). hgnc:11947 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -10777,6 +11095,7 @@ This disease-associated gene is TNNI3 (hgnc:11947). hgnc:11947 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10801,6 +11120,7 @@ This disease-associated gene is TNNI3 (hgnc:11947). hgnc:11947 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10858,6 +11178,9 @@ This disease-associated gene is TNNI3K (hgnc:19661). hgnc:19661 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10872,6 +11195,7 @@ This disease-associated gene is TNNI3K (hgnc:19661). hgnc:19661 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10929,6 +11253,9 @@ This disease-associated gene is TNNT2 (hgnc:11949). hgnc:11949 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10943,6 +11270,7 @@ This disease-associated gene is TNNT2 (hgnc:11949). hgnc:11949 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11000,6 +11328,9 @@ This disease-associated gene is TPM1 (hgnc:12010). hgnc:12010 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -11014,6 +11345,7 @@ This disease-associated gene is TPM1 (hgnc:12010). hgnc:12010 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11071,6 +11403,9 @@ This disease-associated gene is VCL (hgnc:12665). hgnc:12665 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -11085,6 +11420,7 @@ This disease-associated gene is VCL (hgnc:12665). hgnc:12665 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -11190,6 +11526,20 @@ This treatment uses ACE inhibitor (NCIT:C247). NCIT:C247 is a therapeutic agent 
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">First-line neurohormonal blockade to reduce afterload and prevent adverse remodeling.</div>
 
 
@@ -11254,6 +11604,20 @@ This treatment is beta-blocker therapy, annotated with Pharmacotherapy (NCIT:C15
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -11328,6 +11692,20 @@ This treatment is SGLT2 inhibitor therapy, annotated with Pharmacotherapy (NCIT:
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Newer therapy shown to reduce heart failure hospitalization and cardiovascular death in HFrEF regardless of diabetes status.</div>
 
 
@@ -11392,6 +11770,31 @@ This treatment is cardiac resynchronization therapy, annotated with Surgical Pro
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
 
 
 
@@ -11466,6 +11869,31 @@ This treatment is heart transplantation, annotated with Organ Transplantation (N
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Definitive therapy for end-stage DCM refractory to medical and device therapy.</div>
 
 
@@ -11512,6 +11940,31 @@ This treatment is implantable cardioverter-defibrillator placement, annotated wi
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
 
 
 
@@ -11567,6 +12020,20 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Recommended for patients with familial or genetic DCM to guide cascade screening and family management.</div>
 
 
@@ -11591,6 +12058,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -11612,6 +12080,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12041,15 +12510,6 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="tag tag-exp-model-type">IPSC_DERIVED_MODEL</span>
 
 
-                    <span class="tag tag-namo-type">
-
-
-
-    <a href="https://w3id.org/monarch-initiative/namo/InducedPluripotentStemCellDerivedModel" target="_blank" class="curie-chip curie-chip-namo" title="Open namo:InducedPluripotentStemCellDerivedModel">namo:InducedPluripotentStemCellDerivedModel</a>
-
-
-                    </span>
-
                 </div>
 
                 <div class="item-desc">Cardiomyocytes differentiated from induced pluripotent stem cells reprogrammed from skin fibroblasts of a three-generation family carrying the autosomal dominant sarcomeric TNNT2 R173W mutation, with mutation-negative relatives from the same family serving as isogenic-adjacent controls. A non-animal New Approach Methodology that puts the patient&#39;s own genotype into a dish and supports both disease modelling and pharmacological rescue testing.</div>
@@ -12217,6 +12677,7 @@ This experimental model uses heart (UBERON:0000948). UBERON:0000948 is an anatom
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -12273,6 +12734,7 @@ This experimental model uses heart (UBERON:0000948). UBERON:0000948 is an anatom
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -12335,6 +12797,7 @@ This experimental model uses heart (UBERON:0000948). UBERON:0000948 is an anatom
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -12374,6 +12837,9 @@ This experimental model uses heart (UBERON:0000948). UBERON:0000948 is an anatom
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">DIRECT</span>
 
 
 
@@ -12417,7 +12883,7 @@ This experimental model uses heart (UBERON:0000948). UBERON:0000948 is an anatom
 
 
     <div class="experiment-subitem">
-        <div class="experiment-subitem-name">Cardiomyocyte response to beta-adrenergic agonist stress</div>
+        <div class="experiment-subitem-name">Contractile function under beta-adrenergic agonist stress</div>
 
 
 
@@ -12432,7 +12898,7 @@ This experimental model uses heart (UBERON:0000948). UBERON:0000948 is an anatom
         <div class="mapping-notes">Direction: DECREASED</div>
 
 
-        <div class="mapping-notes">Interpretation: Under adrenergic stimulation patient cardiomyocytes slowed and lost contractile function while sarcomeric disorganisation spread, showing that catecholamine exposure aggravates the primary sarcomeric lesion.</div>
+        <div class="mapping-notes">Interpretation: Under adrenergic stimulation patient cardiomyocytes slowed and lost contractile function, showing that catecholamine exposure degrades pump function in cells already carrying the sarcomeric lesion.</div>
 
 
 
@@ -12453,6 +12919,7 @@ This experimental model uses heart (UBERON:0000948). UBERON:0000948 is an anatom
 
 
 
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -12461,6 +12928,66 @@ This experimental model uses heart (UBERON:0000948). UBERON:0000948 is an anatom
 
 
                 <div class="evidence-explanation">Reports the beating-rate and contraction measurements made under the adrenergic perturbation behind this readout.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+    </div>
+
+
+
+    <div class="experiment-subitem">
+        <div class="experiment-subitem-name">Sarcomeric disorganisation under beta-adrenergic agonist stress</div>
+
+
+
+
+
+
+
+
+
+
+
+        <div class="mapping-notes">Direction: INCREASED</div>
+
+
+        <div class="mapping-notes">Interpretation: The same adrenergic exposure spread sarcomeric disorganisation to more cells, so catecholamine stress aggravates the structural lesion and not only the functional one.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22517884" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22517884" target="_blank">PMID:22517884</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"When stimulated with a β-adrenergic agonist, DCM iPSC-derived cardiomyocytes showed characteristics of cellular stress such as reduced beating rates, compromised contraction, and a greater number of cells with abnormal sarcomeric α-actinin distribution"</div>
+
+
+                <div class="evidence-explanation">The same sentence reports the rise in cells with abnormal sarcomeric α-actinin distribution that this readout records.</div>
 
 
 
@@ -12492,6 +13019,9 @@ This experimental model uses heart (UBERON:0000948). UBERON:0000948 is an anatom
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
 
 
 
@@ -12523,7 +13053,7 @@ This experimental model uses heart (UBERON:0000948). UBERON:0000948 is an anatom
 
 
 
-                <div style="margin-top: 8px; font-style: italic; font-size: 0.85rem; color: var(--text-muted);">Curated from the NAMeRS 2026 symposium New Approach Methodology tracker (monarch-initiative/dismech#4873), Panel 1 Clinical Trials in a Dish case study. The underlying evidence item was already cited on the Sarcomeric and Cytoskeletal Dysfunction node; this section adds the structured model record, its pathograph links and the rescue and adrenergic-stress readouts.</div>
+                <div style="margin-top: 8px; font-style: italic; font-size: 0.85rem; color: var(--text-muted);">Curated from the NAMeRS 2026 symposium New Approach Methodology tracker (monarch-initiative/dismech#4873), Panel 1 Clinical Trials in a Dish case study. No `namo_type` is recorded. NAMO defines no iPSC-derived model class (checked against its 56 classes) and its CellularSystem parent is abstract, so the choice was among the concrete culture-format siblings, and none of the three describes this system: CellLineModel is scoped to immortalized lines; ThreeDCellCulture fits the embryoid-body differentiation stage but not cells assayed after dissociation; TwoDCellCulture fits the single cardiomyocytes on atomic force microscopy and microelectrode arrays but not the 3D stage that produced them. The system spans two formats and NAMO has no value for the derivation that actually distinguishes it, so the slot is left absent rather than made to pick a half. `experimental_model_type: IPSC_DERIVED_MODEL` carries the distinction instead, and the upstream gap is monarch-initiative/namo#24. An earlier revision of this record used a coined InducedPluripotentStemCellDerivedModel CURIE (written here without its prefix so that prefix censuses over `kb/` do not match this file), which does not exist in NAMO; nothing validates `namo_type`, so it passed every gate. The adrenergic-stress readouts are split by direction because the source sentence reports both a fall in beating rate and contraction and a rise in cells with abnormal sarcomeric alpha-actinin, and `direction` is single-valued. The underlying evidence item was already cited on the Sarcomeric and Cytoskeletal Dysfunction node; this section adds the structured model record, its pathograph links and the rescue and adrenergic-stress readouts.</div>
 
 
 
@@ -13627,6 +14157,13 @@ genetic:
       id: hgnc:23246
       label: MYPN
   association: Pathogenic Variants
+  notes: &gt;-
+    MYPN reaches the dilated pattern, but not only that pattern: MONDO:0014100
+    spans dilated, hypertrophic and restrictive MYPN cardiomyopathy in one class,
+    and is curated at the gene level as `MYPN-Related_Cardiomyopathy`
+    (dismech#10635), where the allele-dependent branch point between the three
+    patterns is modelled. MYPN is retained here as a gene arm of the dilated
+    pattern, and likewise in `Restrictive_Cardiomyopathy` for the restrictive one.
   evidence:
   - reference: CGGV:assertion_ffd924ad-55ce-4b05-8a91-584ef49b4e80-2025-03-05T050000.000Z
     reference_title: &#34;MYPN / dilated cardiomyopathy (Limited)&#34;
@@ -14030,7 +14567,6 @@ experimental_models:
     that puts the patient&#39;s own genotype into a dish and supports both disease
     modelling and pharmacological rescue testing.
   experimental_model_type: IPSC_DERIVED_MODEL
-  namo_type: namo:InducedPluripotentStemCellDerivedModel
   organism:
     preferred_term: human
     term:
@@ -14126,6 +14662,7 @@ experimental_models:
       reference_title: &#34;Patient-specific induced pluripotent stem cells as a model for familial dilated cardiomyopathy.&#34;
       supports: SUPPORT
       evidence_source: IN_VITRO
+      directness: DIRECT
       snippet: iPSC-derived cardiomyocytes from DCM patients recapitulate to some extent the morphological and functional phenotypes of DCM
       explanation: &gt;-
         Supports treating this model as informative for the node, with the authors&#39; own
@@ -14144,13 +14681,13 @@ experimental_models:
       renin-angiotensin-aldosterone axis, no natriuretic peptide counter-regulation and no
       feedback loop between cardiac output and neurohormonal tone.
     readouts:
-    - name: Cardiomyocyte response to beta-adrenergic agonist stress
+    - name: Contractile function under beta-adrenergic agonist stress
       target: Neurohormonal Activation
       direction: DECREASED
       interpretation: &gt;-
         Under adrenergic stimulation patient cardiomyocytes slowed and lost contractile
-        function while sarcomeric disorganisation spread, showing that catecholamine
-        exposure aggravates the primary sarcomeric lesion.
+        function, showing that catecholamine exposure degrades pump function in cells
+        already carrying the sarcomeric lesion.
       evidence:
       - reference: PMID:22517884
         reference_title: &#34;Patient-specific induced pluripotent stem cells as a model for familial dilated cardiomyopathy.&#34;
@@ -14160,10 +14697,27 @@ experimental_models:
         explanation: &gt;-
           Reports the beating-rate and contraction measurements made under the adrenergic
           perturbation behind this readout.
+    - name: Sarcomeric disorganisation under beta-adrenergic agonist stress
+      target: Neurohormonal Activation
+      direction: INCREASED
+      interpretation: &gt;-
+        The same adrenergic exposure spread sarcomeric disorganisation to more cells, so
+        catecholamine stress aggravates the structural lesion and not only the functional
+        one.
+      evidence:
+      - reference: PMID:22517884
+        reference_title: &#34;Patient-specific induced pluripotent stem cells as a model for familial dilated cardiomyopathy.&#34;
+        supports: SUPPORT
+        evidence_source: IN_VITRO
+        snippet: When stimulated with a β-adrenergic agonist, DCM iPSC-derived cardiomyocytes showed characteristics of cellular stress such as reduced beating rates, compromised contraction, and a greater number of cells with abnormal sarcomeric α-actinin distribution
+        explanation: &gt;-
+          The same sentence reports the rise in cells with abnormal sarcomeric
+          α-actinin distribution that this readout records.
     evidence:
     - reference: PMID:22517884
       reference_title: &#34;Patient-specific induced pluripotent stem cells as a model for familial dilated cardiomyopathy.&#34;
       supports: SUPPORT
+      directness: INDIRECT
       evidence_source: IN_VITRO
       snippet: When stimulated with a β-adrenergic agonist, DCM iPSC-derived cardiomyocytes showed characteristics of cellular stress such as reduced beating rates, compromised contraction, and a greater number of cells with abnormal sarcomeric α-actinin distribution
       explanation: &gt;-
@@ -14171,10 +14725,27 @@ experimental_models:
         the systemic neurohormonal axes remain outside what a dish can represent.
   notes: &gt;-
     Curated from the NAMeRS 2026 symposium New Approach Methodology tracker
-    (monarch-initiative/dismech#4873), Panel 1 Clinical Trials in a Dish case study. The
-    underlying evidence item was already cited on the Sarcomeric and Cytoskeletal
-    Dysfunction node; this section adds the structured model record, its pathograph links
-    and the rescue and adrenergic-stress readouts.
+    (monarch-initiative/dismech#4873), Panel 1 Clinical Trials in a Dish case study.
+    No `namo_type` is recorded. NAMO defines no iPSC-derived model class (checked
+    against its 56 classes) and its CellularSystem parent is abstract, so the choice
+    was among the concrete culture-format siblings, and none of the three describes
+    this system: CellLineModel is scoped to immortalized lines; ThreeDCellCulture fits
+    the embryoid-body differentiation stage but not cells assayed after dissociation;
+    TwoDCellCulture fits the single cardiomyocytes on atomic force microscopy and
+    microelectrode arrays but not the 3D stage that produced them. The system spans two
+    formats and NAMO has no value for the derivation that actually distinguishes it, so
+    the slot is left absent rather than made to pick a half. `experimental_model_type:
+    IPSC_DERIVED_MODEL` carries the distinction instead, and the upstream gap is
+    monarch-initiative/namo#24. An earlier revision of this record used a coined
+    InducedPluripotentStemCellDerivedModel CURIE (written here without its prefix so
+    that prefix censuses over `kb/` do not match this file), which does not exist in
+    NAMO; nothing validates `namo_type`, so it passed every gate. The adrenergic-stress
+    readouts are split by direction because the source sentence reports both a fall in
+    beating rate and contraction and a rise in cells with abnormal sarcomeric
+    alpha-actinin, and `direction` is single-valued. The underlying evidence item was
+    already cited on the Sarcomeric and Cytoskeletal Dysfunction node; this section adds
+    the structured model record, its pathograph links and the rescue and
+    adrenergic-stress readouts.
 datasets:
 - accession: geo:GSE245825
   title: &#39;Cardiac Fibrosis in Dilated Cardiomyopathy: Transcriptomics Insights, Histological Correlations, and Organoid Model Verifications [RNA-seq I]&#39;
@@ -14269,6 +14840,8 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -14829,7 +15402,7 @@ Focus on the molecular and cellular mechanisms underlying disease progression.</
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Dilated Cardiomyopathy", "mondoId": "MONDO:0005021", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Dilated_Cardiomyopathy", "yamlRevision": "8ca56dbf4045"};
+        const OS_CONFIG = {"diseaseName": "Dilated Cardiomyopathy", "mondoId": "MONDO:0005021", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Dilated_Cardiomyopathy", "yamlRevision": "ad7abe707cac"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

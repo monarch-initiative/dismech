@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,18 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4274,6 +4351,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4295,6 +4373,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4594,6 +4673,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4615,6 +4695,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4775,6 +4856,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4796,6 +4878,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4836,6 +4919,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-cat-pathogenic-variation" data-dismech-node="Biallelic CAT Pathogenic Variation" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic CAT Pathogenic Variation</div>
+
 
                 <div class="item-desc">Biallelic pathogenic CAT variants reduce the amount or function of catalase, initiating the acatalasia biochemical phenotype.</div>
 
@@ -5004,6 +5088,7 @@ This pathophysiological event involves decreased catalase activity (GO:0004096).
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5026,6 +5111,7 @@ This pathophysiological event involves decreased catalase activity (GO:0004096).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-marked-erythrocyte-catalase-deficiency" data-dismech-node="Marked Erythrocyte Catalase Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Marked Erythrocyte Catalase Deficiency</div>
+
 
                 <div class="item-desc">Affected homozygotes have absent or very low catalase activity in blood. Heterozygous carriers have intermediate activity and are termed hypocatalasemic.</div>
 
@@ -5234,6 +5320,7 @@ This pathophysiological event occurs in blood (UBERON:0000178). UBERON:0000178 i
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5255,6 +5342,7 @@ This pathophysiological event occurs in blood (UBERON:0000178). UBERON:0000178 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5280,6 +5368,7 @@ This pathophysiological event occurs in blood (UBERON:0000178). UBERON:0000178 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-hydrogen-peroxide-detoxification" data-dismech-node="Impaired Hydrogen Peroxide Detoxification" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Hydrogen Peroxide Detoxification</div>
+
 
                 <div class="item-desc">Reduced catalase activity impairs conversion of hydrogen peroxide to water and oxygen. Other antioxidant systems can permit clinical compensation in many individuals, but local oral or exogenous hydrogen peroxide challenges can exceed that protection.</div>
 
@@ -5472,6 +5561,7 @@ This pathophysiological event involves decreased hydrogen peroxide catabolic pro
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5493,6 +5583,7 @@ This pathophysiological event involves decreased hydrogen peroxide catabolic pro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5518,6 +5609,7 @@ This pathophysiological event involves decreased hydrogen peroxide catabolic pro
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-oral-plaque-hydrogen-peroxide-at-gingival-wounds" data-dismech-node="Oral Plaque Hydrogen Peroxide at Gingival Wounds" data-dismech-type="pathophysiology">
                 <div class="item-name">Oral Plaque Hydrogen Peroxide at Gingival Wounds</div>
+
 
                 <div class="item-desc">Small gingival wounds provide a local niche for hydrogen peroxide-producing oral organisms. In catalase-deficient tissues and blood, this peroxide is not efficiently neutralized.</div>
 
@@ -5631,6 +5723,7 @@ This pathophysiological event occurs in periodontium (UBERON:0001758). UBERON:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5652,6 +5745,7 @@ This pathophysiological event occurs in periodontium (UBERON:0001758). UBERON:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5677,6 +5771,7 @@ This pathophysiological event occurs in periodontium (UBERON:0001758). UBERON:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-local-oxyhemoglobin-oxidation-and-oxygen-deprivation" data-dismech-node="Local Oxyhemoglobin Oxidation and Oxygen Deprivation" data-dismech-type="pathophysiology">
                 <div class="item-name">Local Oxyhemoglobin Oxidation and Oxygen Deprivation</div>
+
 
                 <div class="item-desc">Historical patient-blood agar experiments suggest that hydrogen peroxide oxidizes hemoglobin around an oral lesion. The proposed resulting loss of local oxygen delivery may promote tissue necrosis and further microbial growth; this sequence is not directly proven in vivo.</div>
 
@@ -5807,6 +5902,7 @@ This pathophysiological event occurs in gingiva (UBERON:0001828). UBERON:0001828
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5829,6 +5925,7 @@ This pathophysiological event occurs in gingiva (UBERON:0001828). UBERON:0001828
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-necrotic-oral-and-periodontal-injury" data-dismech-node="Necrotic Oral and Periodontal Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Necrotic Oral and Periodontal Injury</div>
+
 
                 <div class="item-desc">The conditional Takahara presentation includes necrotic oral ulcers, gangrene, destructive periodontitis, alveolar bone loss, loose teeth, and premature tooth loss.</div>
 
@@ -5999,6 +6096,7 @@ This pathophysiological event occurs in periodontium (UBERON:0001758). UBERON:00
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6020,6 +6118,7 @@ This pathophysiological event occurs in periodontium (UBERON:0001758). UBERON:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6045,6 +6144,7 @@ This pathophysiological event occurs in periodontium (UBERON:0001758). UBERON:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-exogenous-hydrogen-peroxide-triggered-blood-oxidation" data-dismech-node="Exogenous Hydrogen Peroxide-Triggered Blood Oxidation" data-dismech-type="pathophysiology">
                 <div class="item-name">Exogenous Hydrogen Peroxide-Triggered Blood Oxidation</div>
+
 
                 <div class="item-desc">Hydrogen peroxide used for disinfection or oral procedures can overwhelm the catalase-deficient blood antioxidant system and oxidize hemoglobin. This is an exposure-conditioned complication rather than a baseline manifestation.</div>
 
@@ -6175,6 +6275,7 @@ This pathophysiological event occurs in blood (UBERON:0000178). UBERON:0000178 i
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6197,6 +6298,13 @@ This pathophysiological event occurs in blood (UBERON:0000178). UBERON:0000178 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pancreatic-beta-cell-oxidant-vulnerability" data-dismech-node="Pancreatic Beta-Cell Oxidant Vulnerability" data-dismech-type="pathophysiology">
                 <div class="item-name">Pancreatic Beta-Cell Oxidant Vulnerability</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Catalase deficiency may reduce protection of pancreatic beta cells from oxidant injury. Human evidence concerns catalase deficiency broadly rather than molecularly confirmed biallelic acatalasia and is associative and speculative; experimental support comes from an alloxan-induced mouse model rather than spontaneous human diabetes.</div>
 
@@ -6306,6 +6414,7 @@ This pathophysiological event involves pancreatic beta cell, annotated with type
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6327,6 +6436,7 @@ This pathophysiological event involves pancreatic beta cell, annotated with type
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6375,7 +6485,7 @@ This pathophysiological event involves pancreatic beta cell, annotated with type
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Biallelic CAT Pathogenic Variation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic CAT variants reduce the amount or function of catalase, initiating the acatalasia biochemical phenotype.\", \"meta\": {\"evidence_count\": 1, \"molecular_functions\": [\"catalase activity\"], \"genes\": [\"CAT\"], \"gene_terms\": [{\"label\": \"CAT\", \"id\": \"hgnc:1516\"}], \"role\": \"trigger\"}}, {\"id\": \"CAT pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"CAT\"], \"gene_terms\": [{\"label\": \"CAT\", \"id\": \"hgnc:1516\"}], \"association\": \"Causative biallelic pathogenic variants\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Exogenous Hydrogen Peroxide-Triggered Blood Oxidation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hydrogen peroxide used for disinfection or oral procedures can overwhelm the catalase-deficient blood antioxidant system and oxidize hemoglobin. This is an exposure-conditioned complication rather than a baseline manifestation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"erythrocyte\"], \"role\": \"consequence\", \"locations\": [\"blood\"]}}, {\"id\": \"Gangrene\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive necrotic oral disease can produce gangrene in the Takahara presentation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100758\"}}, {\"id\": \"Impaired Hydrogen Peroxide Detoxification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced catalase activity impairs conversion of hydrogen peroxide to water and oxygen. Other antioxidant systems can permit clinical compensation in many individuals, but local oral or exogenous hydrogen peroxide challenges can exceed that protection.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"detoxification of hydrogen peroxide\", \"hydrogen peroxide catabolic process\"], \"role\": \"mediator\"}}, {\"id\": \"Local Oxyhemoglobin Oxidation and Oxygen Deprivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Historical patient-blood agar experiments suggest that hydrogen peroxide oxidizes hemoglobin around an oral lesion. The proposed resulting loss of local oxygen delivery may promote tissue necrosis and further microbial growth; this sequence is not directly proven in vivo.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"erythrocyte\"], \"role\": \"mediator\", \"locations\": [\"gingiva\"]}}, {\"id\": \"Marked Erythrocyte Catalase Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Affected homozygotes have absent or very low catalase activity in blood. Heterozygous carriers have intermediate activity and are termed hypocatalasemic.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"erythrocyte\"], \"molecular_functions\": [\"catalase activity\"], \"role\": \"mediator\", \"locations\": [\"blood\"]}}, {\"id\": \"Methemoglobinemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Methemoglobinemia can occur after exogenous hydrogen peroxide exposure, including hydrogen peroxide disinfection during anesthesia; it is not modeled as a baseline manifestation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012119\"}}, {\"id\": \"Necrotic Oral and Periodontal Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The conditional Takahara presentation includes necrotic oral ulcers, gangrene, destructive periodontitis, alveolar bone loss, loose teeth, and premature tooth loss.\", \"meta\": {\"evidence_count\": 2, \"role\": \"consequence\", \"locations\": [\"gingiva\", \"periodontium\"]}}, {\"id\": \"Oral Plaque Hydrogen Peroxide at Gingival Wounds\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Small gingival wounds provide a local niche for hydrogen peroxide-producing oral organisms. In catalase-deficient tissues and blood, this peroxide is not efficiently neutralized.\", \"meta\": {\"evidence_count\": 2, \"role\": \"mediator\", \"locations\": [\"gingiva\", \"periodontium\"]}}, {\"id\": \"Oral ulcer\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Oral ulceration occurs in the symptomatic Takahara presentation but is not required for diagnosis because most affected people are asymptomatic.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000155\"}}, {\"id\": \"Pancreatic Beta-Cell Oxidant Vulnerability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Catalase deficiency may reduce protection of pancreatic beta cells from oxidant injury. Human evidence concerns catalase deficiency broadly rather than molecularly confirmed biallelic acatalasia and is associative and speculative; experimental support comes from an alloxan-induced mouse model rather than spontaneous human diabetes.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"pancreatic beta cell\"], \"role\": \"consequence\"}}, {\"id\": \"Periodontal treatment and preventive oral care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Individualized periodontal therapy and preventive oral care are the main case-supported management for symptomatic oral disease. A single long-term report found improved periodontal measurements and stable status after 15 years; this is not evidence for a disease-modifying cure.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Premature loss of teeth\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Premature tooth loss has been reported with gangrenous periodontitis in a recent affected family and should not be interpreted as a population frequency estimate.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0006480\"}}, {\"id\": \"Reduced circulating catalase activity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Markedly reduced erythrocyte catalase activity is the defining biochemical finding; heterozygous carriers have intermediate activity.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0012517\"}}, {\"id\": \"Reduced erythrocyte catalase activity\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"DECREASED\", \"readouts\": [{\"target\": \"Marked Erythrocyte Catalase Deficiency\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Lower erythrocyte catalase activity directly reports the defining enzyme-deficiency node.\"}]}}, {\"id\": \"Severe periodontitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe or gangrenous periodontitis is documented in symptomatic cases.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000166\"}}, {\"id\": \"Type II diabetes mellitus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Increased type 2 diabetes risk has been reported in selected catalase-deficient populations without isolating molecularly confirmed biallelic acatalasia. This association is not a defining phenotype, may not generalize across populations, and does not establish direct causation.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0005978\"}}], \"edges\": [{\"source\": \"Biallelic CAT Pathogenic Variation\", \"target\": \"Marked Erythrocyte Catalase Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Biallelic CAT dysfunction produces the marked erythrocyte enzyme deficiency that defines acatalasia.\", \"hypothesis_groups\": [\"canonical_cat_deficiency_oral_injury_model\", \"emerging_diabetes_susceptibility_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Marked Erythrocyte Catalase Deficiency\", \"target\": \"Impaired Hydrogen Peroxide Detoxification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Catalase deficiency reduces enzymatic decomposition of hydrogen peroxide.\", \"hypothesis_groups\": [\"canonical_cat_deficiency_oral_injury_model\", \"emerging_diabetes_susceptibility_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Marked Erythrocyte Catalase Deficiency\", \"target\": \"Reduced circulating catalase activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Markedly reduced erythrocyte enzyme activity is the defining measurable phenotype.\", \"hypothesis_groups\": [\"canonical_cat_deficiency_oral_injury_model\", \"emerging_diabetes_susceptibility_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Hydrogen Peroxide Detoxification\", \"target\": \"Oral Plaque Hydrogen Peroxide at Gingival Wounds\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure to degrade microorganism-derived hydrogen peroxide permits persistence at gingival lesions.\", \"hypothesis_groups\": [\"canonical_cat_deficiency_oral_injury_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Hydrogen Peroxide Detoxification\", \"target\": \"Exogenous Hydrogen Peroxide-Triggered Blood Oxidation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Exogenous hydrogen peroxide can acutely oxidize blood when catalase-mediated clearance is deficient.\", \"hypothesis_groups\": [\"canonical_cat_deficiency_oral_injury_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Hydrogen Peroxide Detoxification\", \"target\": \"Pancreatic Beta-Cell Oxidant Vulnerability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Catalase deficiency may increase beta-cell vulnerability to oxidant stress, but the human causal intermediates remain uncertain.\", \"hypothesis_groups\": [\"emerging_diabetes_susceptibility_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Oral Plaque Hydrogen Peroxide at Gingival Wounds\", \"target\": \"Local Oxyhemoglobin Oxidation and Oxygen Deprivation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Patient-blood agar experiments suggest that locally generated peroxide oxidizes oxyhemoglobin and reduces oxygen availability around the lesion.\", \"hypothesis_groups\": [\"canonical_cat_deficiency_oral_injury_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Local Oxyhemoglobin Oxidation and Oxygen Deprivation\", \"target\": \"Necrotic Oral and Periodontal Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The proposed local blood-oxidation and oxygen-deprivation sequence may help convert a gingival wound into a necrotic oral lesion.\", \"hypothesis_groups\": [\"canonical_cat_deficiency_oral_injury_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Necrotic Oral and Periodontal Injury\", \"target\": \"Oral ulcer\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Necrotic oral injury manifests as oral ulceration.\", \"hypothesis_groups\": [\"canonical_cat_deficiency_oral_injury_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Necrotic Oral and Periodontal Injury\", \"target\": \"Gangrene\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive necrotic oral injury can manifest as gangrene.\", \"hypothesis_groups\": [\"canonical_cat_deficiency_oral_injury_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Necrotic Oral and Periodontal Injury\", \"target\": \"Severe periodontitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Destructive injury of the periodontium manifests as severe or gangrenous periodontitis.\", \"hypothesis_groups\": [\"canonical_cat_deficiency_oral_injury_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Necrotic Oral and Periodontal Injury\", \"target\": \"Premature loss of teeth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Advanced periodontal destruction can cause early tooth loss.\", \"hypothesis_groups\": [\"canonical_cat_deficiency_oral_injury_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Exogenous Hydrogen Peroxide-Triggered Blood Oxidation\", \"target\": \"Methemoglobinemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Oxidation of hemoglobin after exogenous peroxide exposure produces methemoglobinemia.\", \"hypothesis_groups\": [\"canonical_cat_deficiency_oral_injury_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Pancreatic Beta-Cell Oxidant Vulnerability\", \"target\": \"Type II diabetes mellitus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Catalase deficiency is associated with increased type 2 diabetes risk, but causal direction and generalizability remain unresolved.\", \"hypothesis_groups\": [\"emerging_diabetes_susceptibility_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Periodontal treatment and preventive oral care\", \"target\": \"Severe periodontitis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Periodontal treatment and preventive oral care\", \"target\": \"Oral ulcer\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Marked Erythrocyte Catalase Deficiency\", \"target\": \"Reduced erythrocyte catalase activity\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Lower erythrocyte catalase activity directly reports the defining enzyme-deficiency node.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"CAT pathogenic variants\", \"target\": \"Biallelic CAT Pathogenic Variation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Biallelic CAT Pathogenic Variation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Biallelic pathogenic CAT variants reduce the amount or function of catalase, initiating the acatalasia biochemical phenotype.\", \"meta\": {\"evidence_count\": 1, \"molecular_functions\": [\"catalase activity\"], \"genes\": [\"CAT\"], \"gene_terms\": [{\"label\": \"CAT\", \"id\": \"hgnc:1516\"}], \"role\": \"trigger\"}}, {\"id\": \"CAT pathogenic variants\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"CAT\"], \"gene_terms\": [{\"label\": \"CAT\", \"id\": \"hgnc:1516\"}], \"association\": \"Causative biallelic pathogenic variants\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"Exogenous Hydrogen Peroxide-Triggered Blood Oxidation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hydrogen peroxide used for disinfection or oral procedures can overwhelm the catalase-deficient blood antioxidant system and oxidize hemoglobin. This is an exposure-conditioned complication rather than a baseline manifestation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"erythrocyte\"], \"role\": \"consequence\", \"locations\": [\"blood\"]}}, {\"id\": \"Gangrene\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive necrotic oral disease can produce gangrene in the Takahara presentation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100758\"}}, {\"id\": \"Impaired Hydrogen Peroxide Detoxification\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Reduced catalase activity impairs conversion of hydrogen peroxide to water and oxygen. Other antioxidant systems can permit clinical compensation in many individuals, but local oral or exogenous hydrogen peroxide challenges can exceed that protection.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"detoxification of hydrogen peroxide\", \"hydrogen peroxide catabolic process\"], \"role\": \"mediator\"}}, {\"id\": \"Local Oxyhemoglobin Oxidation and Oxygen Deprivation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Historical patient-blood agar experiments suggest that hydrogen peroxide oxidizes hemoglobin around an oral lesion. The proposed resulting loss of local oxygen delivery may promote tissue necrosis and further microbial growth; this sequence is not directly proven in vivo.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"erythrocyte\"], \"role\": \"mediator\", \"locations\": [\"gingiva\"]}}, {\"id\": \"Marked Erythrocyte Catalase Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Affected homozygotes have absent or very low catalase activity in blood. Heterozygous carriers have intermediate activity and are termed hypocatalasemic.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"erythrocyte\"], \"molecular_functions\": [\"catalase activity\"], \"role\": \"mediator\", \"locations\": [\"blood\"]}}, {\"id\": \"Methemoglobinemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Methemoglobinemia can occur after exogenous hydrogen peroxide exposure, including hydrogen peroxide disinfection during anesthesia; it is not modeled as a baseline manifestation.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0012119\"}}, {\"id\": \"Necrotic Oral and Periodontal Injury\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The conditional Takahara presentation includes necrotic oral ulcers, gangrene, destructive periodontitis, alveolar bone loss, loose teeth, and premature tooth loss.\", \"meta\": {\"evidence_count\": 2, \"role\": \"consequence\", \"locations\": [\"gingiva\", \"periodontium\"]}}, {\"id\": \"Oral Plaque Hydrogen Peroxide at Gingival Wounds\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Small gingival wounds provide a local niche for hydrogen peroxide-producing oral organisms. In catalase-deficient tissues and blood, this peroxide is not efficiently neutralized.\", \"meta\": {\"evidence_count\": 2, \"role\": \"mediator\", \"locations\": [\"gingiva\", \"periodontium\"]}}, {\"id\": \"Oral ulcer\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Oral ulceration occurs in the symptomatic Takahara presentation but is not required for diagnosis because most affected people are asymptomatic.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000155\"}}, {\"id\": \"Pancreatic Beta-Cell Oxidant Vulnerability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Catalase deficiency may reduce protection of pancreatic beta cells from oxidant injury. Human evidence concerns catalase deficiency broadly rather than molecularly confirmed biallelic acatalasia and is associative and speculative; experimental support comes from an alloxan-induced mouse model rather than spontaneous human diabetes.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"pancreatic beta cell\"], \"role\": \"consequence\", \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Periodontal treatment and preventive oral care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Individualized periodontal therapy and preventive oral care are the main case-supported management for symptomatic oral disease. A single long-term report found improved periodontal measurements and stable status after 15 years; this is not evidence for a disease-modifying cure.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Premature loss of teeth\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Premature tooth loss has been reported with gangrenous periodontitis in a recent affected family and should not be interpreted as a population frequency estimate.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0006480\"}}, {\"id\": \"Reduced circulating catalase activity\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Markedly reduced erythrocyte catalase activity is the defining biochemical finding; heterozygous carriers have intermediate activity.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0012517\"}}, {\"id\": \"Reduced erythrocyte catalase activity\", \"node_type\": \"biochemical\", \"color\": \"#e0e7ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"presence\": \"DECREASED\", \"readouts\": [{\"target\": \"Marked Erythrocyte Catalase Deficiency\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\", \"interpretation\": \"Lower erythrocyte catalase activity directly reports the defining enzyme-deficiency node.\"}]}}, {\"id\": \"Severe periodontitis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Severe or gangrenous periodontitis is documented in symptomatic cases.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000166\"}}, {\"id\": \"Type II diabetes mellitus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Increased type 2 diabetes risk has been reported in selected catalase-deficient populations without isolating molecularly confirmed biallelic acatalasia. This association is not a defining phenotype, may not generalize across populations, and does not establish direct causation.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0005978\"}}], \"edges\": [{\"source\": \"Biallelic CAT Pathogenic Variation\", \"target\": \"Marked Erythrocyte Catalase Deficiency\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Biallelic CAT dysfunction produces the marked erythrocyte enzyme deficiency that defines acatalasia.\", \"hypothesis_groups\": [\"canonical_cat_deficiency_oral_injury_model\", \"emerging_diabetes_susceptibility_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Marked Erythrocyte Catalase Deficiency\", \"target\": \"Impaired Hydrogen Peroxide Detoxification\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Catalase deficiency reduces enzymatic decomposition of hydrogen peroxide.\", \"hypothesis_groups\": [\"canonical_cat_deficiency_oral_injury_model\", \"emerging_diabetes_susceptibility_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Marked Erythrocyte Catalase Deficiency\", \"target\": \"Reduced circulating catalase activity\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Markedly reduced erythrocyte enzyme activity is the defining measurable phenotype.\", \"hypothesis_groups\": [\"canonical_cat_deficiency_oral_injury_model\", \"emerging_diabetes_susceptibility_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Hydrogen Peroxide Detoxification\", \"target\": \"Oral Plaque Hydrogen Peroxide at Gingival Wounds\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failure to degrade microorganism-derived hydrogen peroxide permits persistence at gingival lesions.\", \"hypothesis_groups\": [\"canonical_cat_deficiency_oral_injury_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Hydrogen Peroxide Detoxification\", \"target\": \"Exogenous Hydrogen Peroxide-Triggered Blood Oxidation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Exogenous hydrogen peroxide can acutely oxidize blood when catalase-mediated clearance is deficient.\", \"hypothesis_groups\": [\"canonical_cat_deficiency_oral_injury_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Hydrogen Peroxide Detoxification\", \"target\": \"Pancreatic Beta-Cell Oxidant Vulnerability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Catalase deficiency may increase beta-cell vulnerability to oxidant stress, but the human causal intermediates remain uncertain.\", \"hypothesis_groups\": [\"emerging_diabetes_susceptibility_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Oral Plaque Hydrogen Peroxide at Gingival Wounds\", \"target\": \"Local Oxyhemoglobin Oxidation and Oxygen Deprivation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Patient-blood agar experiments suggest that locally generated peroxide oxidizes oxyhemoglobin and reduces oxygen availability around the lesion.\", \"hypothesis_groups\": [\"canonical_cat_deficiency_oral_injury_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Local Oxyhemoglobin Oxidation and Oxygen Deprivation\", \"target\": \"Necrotic Oral and Periodontal Injury\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The proposed local blood-oxidation and oxygen-deprivation sequence may help convert a gingival wound into a necrotic oral lesion.\", \"hypothesis_groups\": [\"canonical_cat_deficiency_oral_injury_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Necrotic Oral and Periodontal Injury\", \"target\": \"Oral ulcer\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Necrotic oral injury manifests as oral ulceration.\", \"hypothesis_groups\": [\"canonical_cat_deficiency_oral_injury_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Necrotic Oral and Periodontal Injury\", \"target\": \"Gangrene\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Progressive necrotic oral injury can manifest as gangrene.\", \"hypothesis_groups\": [\"canonical_cat_deficiency_oral_injury_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Necrotic Oral and Periodontal Injury\", \"target\": \"Severe periodontitis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Destructive injury of the periodontium manifests as severe or gangrenous periodontitis.\", \"hypothesis_groups\": [\"canonical_cat_deficiency_oral_injury_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Necrotic Oral and Periodontal Injury\", \"target\": \"Premature loss of teeth\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Advanced periodontal destruction can cause early tooth loss.\", \"hypothesis_groups\": [\"canonical_cat_deficiency_oral_injury_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Exogenous Hydrogen Peroxide-Triggered Blood Oxidation\", \"target\": \"Methemoglobinemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Oxidation of hemoglobin after exogenous peroxide exposure produces methemoglobinemia.\", \"hypothesis_groups\": [\"canonical_cat_deficiency_oral_injury_model\"], \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Pancreatic Beta-Cell Oxidant Vulnerability\", \"target\": \"Type II diabetes mellitus\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Catalase deficiency is associated with increased type 2 diabetes risk, but causal direction and generalizability remain unresolved.\", \"hypothesis_groups\": [\"emerging_diabetes_susceptibility_model\"], \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Periodontal treatment and preventive oral care\", \"target\": \"Severe periodontitis\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Periodontal treatment and preventive oral care\", \"target\": \"Oral ulcer\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Marked Erythrocyte Catalase Deficiency\", \"target\": \"Reduced erythrocyte catalase activity\", \"predicate\": \"readout\", \"is_orphan\": false, \"description\": \"Lower erythrocyte catalase activity directly reports the defining enzyme-deficiency node.\", \"relationship\": \"READOUT_OF\", \"direction\": \"NEGATIVE\", \"endpoint_context\": \"DIAGNOSTIC\"}, {\"source\": \"CAT pathogenic variants\", \"target\": \"Biallelic CAT Pathogenic Variation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6394,19 +6504,102 @@ This pathophysiological event involves pancreatic beta cell, annotated with type
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Endocrine<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Head and Neck<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Endocrine<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Constitutional<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Head and Neck<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Metabolism<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Constitutional<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
 
 
             <details class="phenotype-category-group" id="pheno-cat-1">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Blood
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-methemoglobinemia" data-dismech-node="Methemoglobinemia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Methemoglobinemia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012119" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0012119</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Methemoglobinemia (HP:0012119). HP:0012119 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24025477" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24025477" target="_blank">PMID:24025477</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"During anesthesia for a Japanese acatalasemic patient the disinfection with hydrogen peroxide solution caused severe methemoglobinemia."</div>
+
+
+                <div class="evidence-explanation">The review documents the exposure-conditioned complication.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Endocrine
@@ -6427,15 +6620,18 @@ This pathophysiological event involves pancreatic beta cell, annotated with type
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005978" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0005978</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005978" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0005978</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Type II diabetes mellitus (HP:0005978). HP:0005978 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6455,6 +6651,7 @@ This clinical feature is Type II diabetes mellitus (HP:0005978). HP:0005978 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6479,6 +6676,7 @@ This clinical feature is Type II diabetes mellitus (HP:0005978). HP:0005978 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6507,11 +6705,11 @@ This clinical feature is Type II diabetes mellitus (HP:0005978). HP:0005978 is a
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-2">
+            <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-oral-ulcer" data-dismech-node="Oral ulcer" data-dismech-type="phenotype">
@@ -6528,15 +6726,18 @@ This clinical feature is Type II diabetes mellitus (HP:0005978). HP:0005978 is a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000155" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000155</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000155" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000155</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Oral ulcer (HP:0000155). HP:0000155 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6556,6 +6757,7 @@ This clinical feature is Oral ulcer (HP:0000155). HP:0000155 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6567,184 +6769,6 @@ This clinical feature is Oral ulcer (HP:0000155). HP:0000155 is a phenotype from
 
 
                 <div class="evidence-explanation">The report explicitly limits oral ulceration to a symptomatic subset.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-3">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Constitutional
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-gangrene" data-dismech-node="Gangrene" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Gangrene
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100758" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0100758</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Gangrene (HP:0100758). HP:0100758 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:24522161" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24522161" target="_blank">PMID:24522161</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"a syndrome of oral ulcerations and gangrene may be present (Takahara&#39;s disease)."</div>
-
-
-                <div class="evidence-explanation">The report identifies gangrene as part of the symptomatic oral syndrome.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">4</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-reduced-circulating-catalase-activity" data-dismech-node="Reduced circulating catalase activity" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Reduced circulating catalase activity
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012517" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0012517</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Reduced circulating catalase activity (HP:0012517). HP:0012517 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:24522161" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24522161" target="_blank">PMID:24522161</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Erythrocyte catalase activity of the patient (5.2MU/l, 4.6%)"</div>
-
-
-                <div class="evidence-explanation">Quantitative testing documents marked reduction in an affected patient.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:13668563" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/13668563" target="_blank">PMID:13668563</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Affected homozygotes have no blood catalase activity, whereas heterozygotes show activities intermediate between this inactivity and the activity of normal controls, without overlap."</div>
-
-
-                <div class="evidence-explanation">Family testing establishes the affected and carrier biochemical ranges.</div>
 
 
 
@@ -6774,15 +6798,18 @@ This clinical feature is Reduced circulating catalase activity (HP:0012517). HP:
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000166" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000166</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000166" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000166</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Severe periodontitis (HP:0000166). HP:0000166 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6802,6 +6829,7 @@ This clinical feature is Severe periodontitis (HP:0000166). HP:0000166 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6826,6 +6854,7 @@ This clinical feature is Severe periodontitis (HP:0000166). HP:0000166 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6866,15 +6895,18 @@ This clinical feature is Severe periodontitis (HP:0000166). HP:0000166 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006480" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0006480</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0006480" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0006480</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Premature loss of teeth (HP:0006480). HP:0006480 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6894,6 +6926,7 @@ This clinical feature is Premature loss of teeth (HP:0006480). HP:0006480 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6920,9 +6953,18 @@ This clinical feature is Premature loss of teeth (HP:0006480). HP:0006480 is a p
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-methemoglobinemia" data-dismech-node="Methemoglobinemia" data-dismech-type="phenotype">
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Metabolism
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-reduced-circulating-catalase-activity" data-dismech-node="Reduced circulating catalase activity" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Methemoglobinemia
+                        Reduced circulating catalase activity
 
 
 
@@ -6934,15 +6976,124 @@ This clinical feature is Premature loss of teeth (HP:0006480). HP:0006480 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012119" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0012119</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012517" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0012517</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Reduced circulating catalase activity (HP:0012517). HP:0012517 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24522161" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24522161" target="_blank">PMID:24522161</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Erythrocyte catalase activity of the patient (5.2MU/l, 4.6%)"</div>
+
+
+                <div class="evidence-explanation">Quantitative testing documents marked reduction in an affected patient.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:13668563" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/13668563" target="_blank">PMID:13668563</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Affected homozygotes have no blood catalase activity, whereas heterozygotes show activities intermediate between this inactivity and the activity of normal controls, without overlap."</div>
+
+
+                <div class="evidence-explanation">Family testing establishes the affected and carrier biochemical ranges.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-5">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Constitutional
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-gangrene" data-dismech-node="Gangrene" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Gangrene
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100758" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0100758</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Methemoglobinemia (HP:0012119). HP:0012119 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Gangrene (HP:0100758). HP:0100758 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6954,10 +7105,10 @@ This clinical feature is Methemoglobinemia (HP:0012119). HP:0012119 is a phenoty
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:24025477" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:24522161" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24025477" target="_blank">PMID:24025477</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24522161" target="_blank">PMID:24522161</a>
                     </span>
 
 
@@ -6965,14 +7116,15 @@ This clinical feature is Methemoglobinemia (HP:0012119). HP:0012119 is a phenoty
 
 
 
-                    <span class="evidence-source source-OTHER">Other</span>
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"During anesthesia for a Japanese acatalasemic patient the disinfection with hydrogen peroxide solution caused severe methemoglobinemia."</div>
+                <div class="evidence-snippet">"a syndrome of oral ulcerations and gangrene may be present (Takahara&#39;s disease)."</div>
 
 
-                <div class="evidence-explanation">The review documents the exposure-conditioned complication.</div>
+                <div class="evidence-explanation">The report identifies gangrene as part of the symptomatic oral syndrome.</div>
 
 
 
@@ -7062,6 +7214,9 @@ This disease-associated gene is CAT (hgnc:1516). hgnc:1516 is a gene from the HU
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive inheritance</span>
@@ -7087,6 +7242,7 @@ This disease-associated gene is CAT (hgnc:1516). hgnc:1516 is a gene from the HU
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7108,6 +7264,7 @@ This disease-associated gene is CAT (hgnc:1516). hgnc:1516 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7192,6 +7349,20 @@ This treatment is Dental Procedure (NCIT:C38052). NCIT:C38052 is a clinical inte
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Individualized periodontal therapy and preventive oral care are the main case-supported management for symptomatic oral disease. A single long-term report found improved periodontal measurements and stable status after 15 years; this is not evidence for a disease-modifying cure.</div>
 
 
@@ -7255,6 +7426,7 @@ This treatment targets Oral ulcer (HP:0000155). HP:0000155 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7276,6 +7448,7 @@ This treatment targets Oral ulcer (HP:0000155). HP:0000155 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7342,6 +7515,20 @@ This treatment is dentist evaluation, annotated with Dental Examination (NCIT:C1
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Longitudinal dental evaluation can identify and follow destructive periodontitis in patients with oral disease. No universal visit interval is inferred from the single published long-term case.</div>
 
 
@@ -7363,6 +7550,7 @@ This treatment is dentist evaluation, annotated with Dental Examination (NCIT:C1
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7429,6 +7617,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Patients and procedural teams should avoid hydrogen peroxide-containing disinfection or oral-care exposures when alternatives are available because severe methemoglobinemia has occurred in catalase-deficient patients. The same review warns that rasburicase generates hydrogen peroxide and can produce methemoglobinemia and hemolysis in catalase deficiency.</div>
 
 
@@ -7453,6 +7655,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7474,6 +7677,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7540,6 +7744,20 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Counseling can explain autosomal recessive recurrence and the distinction between biallelic acatalasia and heterozygous hypocatalasemia. Family enzyme testing and targeted molecular testing can identify affected relatives and carriers after a familial CAT variant is established.</div>
 
 
@@ -7564,6 +7782,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7585,6 +7804,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7676,6 +7896,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7718,6 +7939,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7739,6 +7961,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7843,6 +8066,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7864,6 +8088,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7956,6 +8181,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7977,6 +8203,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8047,6 +8274,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8068,6 +8296,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8123,6 +8352,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8144,6 +8374,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8199,6 +8430,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8220,6 +8452,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8296,6 +8529,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8348,12 +8582,11 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
             <div class="item-box differential-box anchor-target" id="differential-diagnosis-ehlers-danlos-syndrome-periodontitis-type">
                 <div class="item-name">
 
-                    <span class="missing-disease-name" title="No DisMech page yet for this disease">Ehlers-Danlos syndrome, periodontitis type</span>
-                    <span class="curation-gap-badge">Not Yet Curated</span>
+                    <a class="item-name-link" href="Periodontal_Ehlers-Danlos_Syndrome.html">Ehlers-Danlos syndrome, periodontitis type</a>
 
 
                     <span class="phenotype-id">
-                        <a href="http://purl.obolibrary.org/obo/MONDO_0007527" target="_blank" class="missing-ontology-link">
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0007527" target="_blank">
                             MONDO:0007527
                         </a>
                     </span>
@@ -8398,6 +8631,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8419,6 +8653,7 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 

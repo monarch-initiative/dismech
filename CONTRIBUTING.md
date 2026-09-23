@@ -354,18 +354,30 @@ still give a flavor of what we do.
 **Two different things get called "assigning an agent".** GitHub's own **"Assign
 agent to issue"** (Preview) dispatches a coding agent — there, assignment *is* the
 trigger. DisMech's own workflow agents are **mention**-driven (`@claude`,
-`@dragon-ai-agent`) and never fire on assignment; to them an assignee means
+`@ai4c-agent`) and never fire on assignment; to them an assignee means
 "claimed", which removes the issue from the curation scanner's queue. See
 [What assigning an issue actually does](https://monarch-initiative.github.io/dismech/explanation/automation-and-agents/#what-assigning-an-issue-actually-does).
 
-### dragon-ai-agent
+### ai4c-agent
 
-In dismech, dragon-ai-agent acts as an autonomous curator/reviewer bot integrated into the repo's issue and PR workflow.
+In dismech, ai4c-agent acts as an autonomous curator/reviewer bot integrated into the repo's issue and PR workflow.
 
-- Summon by writing **@dragon-ai-agent please &lt;your request&gt;** in an issue or PR
+- Summon by writing **@ai4c-agent please &lt;your request&gt;** in an issue or PR
   comment/body. Write it as ordinary prose — the mention is ignored if it appears
   inside an inline code span or fenced code block (so that documenting the keyword
   doesn't accidentally trigger the agent).
+- The older **@dragon-ai-agent please …** still works, so existing threads and
+  habits keep working, but prefer the name above.
+- The request runs to the end of your comment, so it can span several lines and
+  can include a fenced code block — pasting a patch or a failing command works.
+  Only a mention that is *itself* inside a code span or a fenced block (either
+  backticks or tildes) is ignored. Indentation alone does not count as code, so
+  a mention inside an indented list item still works.
+- If you name the agent and nothing happens, check the workflow run: it leaves a
+  warning when an authorized mention did not parse into a request.
+- Neither name is an account you can notify. The agent runs as the ai4c-agent
+  GitHub App, and GitHub Apps cannot be @-mentioned, so both are plain text
+  keywords that the workflow matches. Autocomplete will not offer them.
 - You must be a registered ai-controller in the json file
 
 ### Claude issue responder
@@ -491,8 +503,10 @@ just count-verified-snippets kb/disorders/YourFile.yaml
 # Before opening the PR: the batched schema + terms + references sweep CI runs
 just validate-disorders kb/disorders/YourFile.yaml
 
-# Reference validation for one file (slow; permits full-text matches)
-just validate-references kb/disorders/YourFile.yaml
+# Reference validation for a single KB entry (also slow; permits full-text matches).
+# "kb" distinguishes it from `just validate-research-reference <report.md>`, which
+# checks a deep-research report's citations instead (#8841)
+just validate-kb-references kb/disorders/YourFile.yaml
 ```
 
 

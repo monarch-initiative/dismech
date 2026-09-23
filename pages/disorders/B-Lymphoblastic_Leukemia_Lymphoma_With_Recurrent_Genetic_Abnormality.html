@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,18 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4091,6 +4168,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4274,14 +4352,15 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"BCR-ABL positive group had a higher leukocyte count than BCR-ABL negative group."</div>
+                <div class="evidence-snippet">"BCR-ABL is commonest recurrent abnormality followed by IgH rearrangements."</div>
 
 
-                <div class="evidence-explanation">This adult B-ALL cohort identifies BCR-ABL as a recurrent abnormality and links it to clinical hematologic features.</div>
+                <div class="evidence-explanation">This adult B-ALL FISH cohort establishes BCR-ABL as the commonest recurrent genetic abnormality in adult B-ALL, supporting it as a subtype-defining lesion in this category.</div>
 
 
 
@@ -4335,6 +4414,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4402,6 +4482,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4466,6 +4547,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4527,6 +4609,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4599,7 +4682,8 @@
 
 
 
-                    <span class="evidence-source source-OTHER">Other</span>
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
@@ -4668,6 +4752,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4729,6 +4814,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4801,6 +4887,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4867,6 +4954,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4939,6 +5027,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5003,6 +5092,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5024,6 +5114,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5091,6 +5182,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5152,6 +5244,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5224,6 +5317,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5245,6 +5339,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5312,6 +5407,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5384,6 +5480,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5445,6 +5542,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5517,6 +5615,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5561,6 +5660,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-subtype-defining-genetic-lesion" data-dismech-node="Subtype-Defining Genetic Lesion" data-dismech-type="pathophysiology">
                 <div class="item-name">Subtype-Defining Genetic Lesion</div>
+
 
                 <div class="item-desc">A recurrent chromosomal abnormality, gene fusion, aneuploidy, copy-number alteration, or sequence variant arises in a precursor B-cell or B-lymphoblast clone. The lesion provides the upstream classifying event for B-ALL/LBL with recurrent genetic abnormality and is used for risk-directed management.</div>
 
@@ -5629,6 +5729,31 @@ This pathophysiological event involves precursor B cell (CL:0000817). CL:0000817
 
 
                 </div>
+
+
+
+
+
+    <div class="item-meta">
+        <span class="tag tag-classification">Genetic context</span>
+
+
+
+
+
+
+
+
+
+        <span class="tag tag-classification">variant_origin: SOMATIC</span>
+
+
+
+
+
+
+    </div>
+
 
 
 
@@ -5771,6 +5896,7 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5793,6 +5919,7 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-altered-b-cell-development-and-signaling" data-dismech-node="Altered B-cell Development and Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Altered B-cell Development and Signaling</div>
+
 
                 <div class="item-desc">Recurrent lesions disrupt B-cell developmental regulators or activate oncogenic signaling pathways, causing abnormal differentiation, survival, and proliferation of leukemic B-lineage blasts.</div>
 
@@ -5986,7 +6113,8 @@ This pathophysiological event involves increased cell surface receptor signaling
 
 
 
-                    <span class="evidence-source source-OTHER">Other</span>
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
@@ -6010,7 +6138,8 @@ This pathophysiological event involves increased cell surface receptor signaling
 
 
 
-                    <span class="evidence-source source-OTHER">Other</span>
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
@@ -6032,6 +6161,7 @@ This pathophysiological event involves increased cell surface receptor signaling
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-leukemic-blast-burden-in-bone-marrow-and-sanctuary-sites" data-dismech-node="Leukemic Blast Burden in Bone Marrow and Sanctuary Sites" data-dismech-type="pathophysiology">
                 <div class="item-name">Leukemic Blast Burden in Bone Marrow and Sanctuary Sites</div>
+
 
                 <div class="item-desc">Genetically defined B-ALL/LBL clones expand in marrow and can involve the central nervous system, especially in relapse settings where marrow and CNS sites are major outcome-defining compartments.</div>
 
@@ -6181,6 +6311,7 @@ This pathophysiological event occurs in central nervous system (UBERON:0001017).
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6202,6 +6333,7 @@ This pathophysiological event occurs in central nervous system (UBERON:0001017).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6250,7 +6382,7 @@ This pathophysiological event occurs in central nervous system (UBERON:0001017).
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ABL-directed Tyrosine Kinase Inhibitors\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Imatinib, dasatinib, ponatinib, or related ABL-directed TKIs are used with chemotherapy or immune therapy for BCR::ABL1-positive disease and are a rational targeted approach for some ABL-class Ph-like lesions.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"imatinib\", \"dasatinib\"]}}, {\"id\": \"Allogeneic Hematopoietic Stem Cell Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Allogeneic hematopoietic stem cell transplantation is considered for selected very-high-risk, persistent-MRD, or relapsed ALL contexts; its use depends on age, genetic subtype, response, and treatment era.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Altered B-cell Development and Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Recurrent lesions disrupt B-cell developmental regulators or activate oncogenic signaling pathways, causing abnormal differentiation, survival, and proliferation of leukemic B-lineage blasts.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"precursor B cell\"], \"biological_processes\": [\"B cell differentiation\", \"cell surface receptor protein tyrosine kinase signaling pathway\", \"cell surface receptor signaling pathway via JAK-STAT\"]}}, {\"id\": \"Blinatumomab\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"CD19-directed CD3-engaging bispecific antibody used in B-cell precursor ALL, especially in first relapse or high-risk settings with marrow involvement.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"blinatumomab\"]}}, {\"id\": \"Bone Marrow Relapse/Involvement\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bone marrow is a major disease and relapse site in B-ALL, and marrow involvement is central to risk assessment after relapse.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0005561\"}}, {\"id\": \"Central Nervous System Relapse/Involvement\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"CNS involvement is a clinically important sanctuary-site manifestation in ALL and influences therapy through CNS-directed treatment and relapse management.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002011\"}}, {\"id\": \"Increased Leukocyte Count\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Leukocyte count varies by recurrent genetic abnormality, with BCR::ABL1 rearrangement associated with higher leukocyte counts in an adult B-ALL cohort.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001974\"}}, {\"id\": \"Inotuzumab Ozogamicin\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"CD22-directed antibody-drug conjugate used for relapsed B-ALL, including high-burden disease, with ongoing randomized pediatric trials.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"inotuzumab ozogamicin\"]}}, {\"id\": \"Leukemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The leukemia presentation reflects malignant proliferation of precursor B-lineage lymphoblasts in blood and bone marrow.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001909\"}}, {\"id\": \"Leukemic Blast Burden in Bone Marrow and Sanctuary Sites\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Genetically defined B-ALL/LBL clones expand in marrow and can involve the central nervous system, especially in relapse settings where marrow and CNS sites are major outcome-defining compartments.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"B-lymphoblast\"], \"locations\": [\"bone marrow\", \"central nervous system\"]}}, {\"id\": \"Subtype-Defining Genetic Lesion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A recurrent chromosomal abnormality, gene fusion, aneuploidy, copy-number alteration, or sequence variant arises in a precursor B-cell or B-lymphoblast clone. The lesion provides the upstream classifying event for B-ALL/LBL with recurrent genetic abnormality and is used for risk-directed management.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"B-lymphoblast\", \"precursor B cell\"], \"biological_processes\": [\"cell population proliferation\", \"B cell differentiation\"], \"locations\": [\"bone marrow\"]}}], \"edges\": [{\"source\": \"Subtype-Defining Genetic Lesion\", \"target\": \"Altered B-cell Development and Signaling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Subtype-defining lesions perturb transcriptional control, kinase signaling, aneuploid dosage, or cytokine signaling in B-lineage blasts.\"}, {\"source\": \"Altered B-cell Development and Signaling\", \"target\": \"Leukemic Blast Burden in Bone Marrow and Sanctuary Sites\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal survival and proliferation produce a leukemic blast compartment in marrow, blood, or tissue, with CNS sanctuary involvement or relapse in some patients.\"}, {\"source\": \"Leukemic Blast Burden in Bone Marrow and Sanctuary Sites\", \"target\": \"Leukemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Expansion of genetically defined B-lymphoblasts produces the leukemia disease phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Leukemic Blast Burden in Bone Marrow and Sanctuary Sites\", \"target\": \"Bone Marrow Relapse/Involvement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Leukemic blast burden localizes to marrow, which is a dominant relapse and involvement compartment in B-ALL.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Leukemic Blast Burden in Bone Marrow and Sanctuary Sites\", \"target\": \"Central Nervous System Relapse/Involvement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Leukemic B-cell precursor clones can involve the central nervous system as a sanctuary-site compartment.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Leukemic Blast Burden in Bone Marrow and Sanctuary Sites\", \"target\": \"Increased Leukocyte Count\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Leukemic blast expansion in blood and marrow can present with increased leukocyte count, with BCR::ABL1-positive B-ALL showing higher counts in an adult cohort.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ABL-directed Tyrosine Kinase Inhibitors\", \"target\": \"Altered B-cell Development and Signaling\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Blinatumomab\", \"target\": \"Leukemic Blast Burden in Bone Marrow and Sanctuary Sites\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Inotuzumab Ozogamicin\", \"target\": \"Leukemic Blast Burden in Bone Marrow and Sanctuary Sites\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Allogeneic Hematopoietic Stem Cell Transplantation\", \"target\": \"Leukemic Blast Burden in Bone Marrow and Sanctuary Sites\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"ABL-directed Tyrosine Kinase Inhibitors\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Imatinib, dasatinib, ponatinib, or related ABL-directed TKIs are used with chemotherapy or immune therapy for BCR::ABL1-positive disease and are a rational targeted approach for some ABL-class Ph-like lesions.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"imatinib\", \"dasatinib\"]}}, {\"id\": \"Allogeneic Hematopoietic Stem Cell Transplantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Allogeneic hematopoietic stem cell transplantation is considered for selected very-high-risk, persistent-MRD, or relapsed ALL contexts; its use depends on age, genetic subtype, response, and treatment era.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Altered B-cell Development and Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Recurrent lesions disrupt B-cell developmental regulators or activate oncogenic signaling pathways, causing abnormal differentiation, survival, and proliferation of leukemic B-lineage blasts.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"precursor B cell\"], \"biological_processes\": [\"B cell differentiation\", \"cell surface receptor protein tyrosine kinase signaling pathway\", \"cell surface receptor signaling pathway via JAK-STAT\"]}}, {\"id\": \"Blinatumomab\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"CD19-directed CD3-engaging bispecific antibody used in B-cell precursor ALL, especially in first relapse or high-risk settings with marrow involvement.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"blinatumomab\"]}}, {\"id\": \"Bone Marrow Relapse/Involvement\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bone marrow is a major disease and relapse site in B-ALL, and marrow involvement is central to risk assessment after relapse.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0005561\"}}, {\"id\": \"Central Nervous System Relapse/Involvement\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"CNS involvement is a clinically important sanctuary-site manifestation in ALL and influences therapy through CNS-directed treatment and relapse management.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002011\"}}, {\"id\": \"Increased Leukocyte Count\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Leukocyte count varies by recurrent genetic abnormality, with BCR::ABL1 rearrangement associated with higher leukocyte counts in an adult B-ALL cohort.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001974\"}}, {\"id\": \"Inotuzumab Ozogamicin\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"CD22-directed antibody-drug conjugate used for relapsed B-ALL, including high-burden disease, with ongoing randomized pediatric trials.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"inotuzumab ozogamicin\"]}}, {\"id\": \"Leukemia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"The leukemia presentation reflects malignant proliferation of precursor B-lineage lymphoblasts in blood and bone marrow.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001909\"}}, {\"id\": \"Leukemic Blast Burden in Bone Marrow and Sanctuary Sites\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Genetically defined B-ALL/LBL clones expand in marrow and can involve the central nervous system, especially in relapse settings where marrow and CNS sites are major outcome-defining compartments.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"B-lymphoblast\"], \"locations\": [\"bone marrow\", \"central nervous system\"]}}, {\"id\": \"Subtype-Defining Genetic Lesion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A recurrent chromosomal abnormality, gene fusion, aneuploidy, copy-number alteration, or sequence variant arises in a precursor B-cell or B-lymphoblast clone. The lesion provides the upstream classifying event for B-ALL/LBL with recurrent genetic abnormality and is used for risk-directed management.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"B-lymphoblast\", \"precursor B cell\"], \"biological_processes\": [\"cell population proliferation\", \"B cell differentiation\"], \"genetic_context\": {\"variant_origin\": \"SOMATIC\"}, \"locations\": [\"bone marrow\"]}}], \"edges\": [{\"source\": \"Subtype-Defining Genetic Lesion\", \"target\": \"Altered B-cell Development and Signaling\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Subtype-defining lesions perturb transcriptional control, kinase signaling, aneuploid dosage, or cytokine signaling in B-lineage blasts.\"}, {\"source\": \"Altered B-cell Development and Signaling\", \"target\": \"Leukemic Blast Burden in Bone Marrow and Sanctuary Sites\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Abnormal survival and proliferation produce a leukemic blast compartment in marrow, blood, or tissue, with CNS sanctuary involvement or relapse in some patients.\"}, {\"source\": \"Leukemic Blast Burden in Bone Marrow and Sanctuary Sites\", \"target\": \"Leukemia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Expansion of genetically defined B-lymphoblasts produces the leukemia disease phenotype.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Leukemic Blast Burden in Bone Marrow and Sanctuary Sites\", \"target\": \"Bone Marrow Relapse/Involvement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Leukemic blast burden localizes to marrow, which is a dominant relapse and involvement compartment in B-ALL.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Leukemic Blast Burden in Bone Marrow and Sanctuary Sites\", \"target\": \"Central Nervous System Relapse/Involvement\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Leukemic B-cell precursor clones can involve the central nervous system as a sanctuary-site compartment.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Leukemic Blast Burden in Bone Marrow and Sanctuary Sites\", \"target\": \"Increased Leukocyte Count\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Leukemic blast expansion in blood and marrow can present with increased leukocyte count, with BCR::ABL1-positive B-ALL showing higher counts in an adult cohort.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"ABL-directed Tyrosine Kinase Inhibitors\", \"target\": \"Altered B-cell Development and Signaling\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Blinatumomab\", \"target\": \"Leukemic Blast Burden in Bone Marrow and Sanctuary Sites\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Inotuzumab Ozogamicin\", \"target\": \"Leukemic Blast Burden in Bone Marrow and Sanctuary Sites\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Allogeneic Hematopoietic Stem Cell Transplantation\", \"target\": \"Leukemic Blast Burden in Bone Marrow and Sanctuary Sites\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6269,9 +6401,9 @@ This pathophysiological event occurs in central nervous system (UBERON:0001017).
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Other<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Nervous System<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6281,7 +6413,7 @@ This pathophysiological event occurs in central nervous system (UBERON:0001017).
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Blood
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-leukemia" data-dismech-node="Leukemia" data-dismech-type="phenotype">
@@ -6312,6 +6444,9 @@ This clinical feature is Leukemia (HP:0001909). HP:0001909 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6329,6 +6464,7 @@ This clinical feature is Leukemia (HP:0001909). HP:0001909 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6337,6 +6473,80 @@ This clinical feature is Leukemia (HP:0001909). HP:0001909 is a phenotype from t
 
 
                 <div class="evidence-explanation">This classification abstract establishes B-acute lymphoblastic leukemia as the relevant disease presentation within the recurrent-genetic-abnormality category.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-bone-marrow-relapse-involvement" data-dismech-node="Bone Marrow Relapse/Involvement" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Bone Marrow Relapse/Involvement
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormal bone marrow cell morphology</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005561" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0005561</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal bone marrow cell morphology (HP:0005561). HP:0005561 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39261601" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39261601" target="_blank">PMID:39261601</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Approximately 50% of B-ALL relapses occurred late (≥36 months) and 72.5% involved the marrow."</div>
+
+
+                <div class="evidence-explanation">This directly supports marrow involvement as a major relapse phenotype in pediatric B-ALL.</div>
 
 
 
@@ -6368,15 +6578,18 @@ This clinical feature is Leukemia (HP:0001909). HP:0001909 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001974" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001974</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001974" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001974</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Increased total leukocyte count (HP:0001974). HP:0001974 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6396,6 +6609,7 @@ This clinical feature is Increased total leukocyte count (HP:0001974). HP:000197
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6427,79 +6641,9 @@ This clinical feature is Increased total leukocyte count (HP:0001974). HP:000197
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">2</span>
+                    Nervous System
+                    <span class="cat-count">1</span>
                 </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-bone-marrow-relapse-involvement" data-dismech-node="Bone Marrow Relapse/Involvement" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Bone Marrow Relapse/Involvement
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Abnormal bone marrow cell morphology</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0005561" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0005561</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal bone marrow cell morphology (HP:0005561). HP:0005561 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:39261601" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39261601" target="_blank">PMID:39261601</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Approximately 50% of B-ALL relapses occurred late (≥36 months) and 72.5% involved the marrow."</div>
-
-
-                <div class="evidence-explanation">This directly supports marrow involvement as a major relapse phenotype in pediatric B-ALL.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-central-nervous-system-relapse-involvement" data-dismech-node="Central Nervous System Relapse/Involvement" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -6531,6 +6675,9 @@ This clinical feature is Morphological central nervous system abnormality (HP:00
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6545,6 +6692,7 @@ This clinical feature is Morphological central nervous system abnormality (HP:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6629,6 +6777,9 @@ This clinical feature is Morphological central nervous system abnormality (HP:00
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6643,6 +6794,7 @@ This clinical feature is Morphological central nervous system abnormality (HP:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6704,6 +6856,9 @@ This disease-associated gene is ABL1 (hgnc:76). hgnc:76 is a gene from the HUGO 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6718,6 +6873,7 @@ This disease-associated gene is ABL1 (hgnc:76). hgnc:76 is a gene from the HUGO 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6779,6 +6935,9 @@ This disease-associated gene is KMT2A (hgnc:7132). hgnc:7132 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6793,6 +6952,7 @@ This disease-associated gene is KMT2A (hgnc:7132). hgnc:7132 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6854,6 +7014,9 @@ This disease-associated gene is RUNX1 (hgnc:10471). hgnc:10471 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6868,6 +7031,7 @@ This disease-associated gene is RUNX1 (hgnc:10471). hgnc:10471 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6929,6 +7093,9 @@ This disease-associated gene is PBX1 (hgnc:8632). hgnc:8632 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6943,6 +7110,7 @@ This disease-associated gene is PBX1 (hgnc:8632). hgnc:8632 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6988,6 +7156,9 @@ This disease-associated gene is PBX1 (hgnc:8632). hgnc:8632 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7002,6 +7173,7 @@ This disease-associated gene is PBX1 (hgnc:8632). hgnc:8632 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7047,6 +7219,9 @@ This disease-associated gene is PBX1 (hgnc:8632). hgnc:8632 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7061,6 +7236,7 @@ This disease-associated gene is PBX1 (hgnc:8632). hgnc:8632 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7122,6 +7298,9 @@ This disease-associated gene is HLF (hgnc:4977). hgnc:4977 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7136,6 +7315,7 @@ This disease-associated gene is HLF (hgnc:4977). hgnc:4977 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7197,6 +7377,9 @@ This disease-associated gene is MEF2D (hgnc:6997). hgnc:6997 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7214,14 +7397,15 @@ This disease-associated gene is MEF2D (hgnc:6997). hgnc:6997 is a gene from the 
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"distinct gene expression profile, the most common of which is MEF2D-BCL9."</div>
+                <div class="evidence-snippet">"we identify rearrangements between MEF2D (myocyte enhancer factor 2D) and five genes (BCL9, CSF1R, DAZAP1, HNRNPUL1 and SS18) in 22 B progenitor ALL (B-ALL) cases with a distinct gene expression profile, the most common of which is MEF2D-BCL9."</div>
 
 
-                <div class="evidence-explanation">This identifies recurrent MEF2D fusions (most commonly MEF2D-BCL9) as the defining lesion.</div>
+                <div class="evidence-explanation">This identifies recurrent MEF2D fusions with several partner genes (most commonly MEF2D-BCL9) as the defining lesion of a B-ALL group with its own expression profile.</div>
 
 
 
@@ -7272,6 +7456,9 @@ This disease-associated gene is NUTM1 (hgnc:29919). hgnc:29919 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7286,6 +7473,7 @@ This disease-associated gene is NUTM1 (hgnc:29919). hgnc:29919 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7347,6 +7535,9 @@ This disease-associated gene is PAX5 (hgnc:8619). hgnc:8619 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7361,6 +7552,7 @@ This disease-associated gene is PAX5 (hgnc:8619). hgnc:8619 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7422,6 +7614,9 @@ This disease-associated gene is IKZF1 (hgnc:13176). hgnc:13176 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7436,6 +7631,7 @@ This disease-associated gene is IKZF1 (hgnc:13176). hgnc:13176 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7497,6 +7693,9 @@ This disease-associated gene is MYC (hgnc:7553). hgnc:7553 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7511,6 +7710,7 @@ This disease-associated gene is MYC (hgnc:7553). hgnc:7553 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7594,6 +7794,20 @@ This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical interven
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Multi-agent ALL chemotherapy remains the backbone of treatment, with intensity and adjuncts guided by genetic subtype, response, measurable residual disease, age, and relapse risk.</div>
 
 
@@ -7615,6 +7829,7 @@ This treatment is chemotherapy (NCIT:C15632). NCIT:C15632 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7717,6 +7932,20 @@ This treatment uses dasatinib, annotated with dasatinib (anhydrous) (CHEBI:49375
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Imatinib, dasatinib, ponatinib, or related ABL-directed TKIs are used with chemotherapy or immune therapy for BCR::ABL1-positive disease and are a rational targeted approach for some ABL-class Ph-like lesions.</div>
 
 
@@ -7759,7 +7988,8 @@ This treatment uses dasatinib, annotated with dasatinib (anhydrous) (CHEBI:49375
 
 
 
-                    <span class="evidence-source source-OTHER">Other</span>
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
@@ -7842,6 +8072,20 @@ This treatment uses blinatumomab (NCIT:C62528). NCIT:C62528 is a therapeutic age
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">CD19-directed CD3-engaging bispecific antibody used in B-cell precursor ALL, especially in first relapse or high-risk settings with marrow involvement.</div>
 
 
@@ -7884,7 +8128,8 @@ This treatment uses blinatumomab (NCIT:C62528). NCIT:C62528 is a therapeutic age
 
 
 
-                    <span class="evidence-source source-OTHER">Other</span>
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
@@ -7967,6 +8212,20 @@ This treatment uses inotuzumab ozogamicin (NCIT:C71542). NCIT:C71542 is a therap
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">CD22-directed antibody-drug conjugate used for relapsed B-ALL, including high-burden disease, with ongoing randomized pediatric trials.</div>
 
 
@@ -8009,7 +8268,8 @@ This treatment uses inotuzumab ozogamicin (NCIT:C71542). NCIT:C71542 is a therap
 
 
 
-                    <span class="evidence-source source-OTHER">Other</span>
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
@@ -8070,6 +8330,31 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Cell therapy</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Allogeneic hematopoietic stem cell transplantation is considered for selected very-high-risk, persistent-MRD, or relapsed ALL contexts; its use depends on age, genetic subtype, response, and treatment era.</div>
 
 
@@ -8112,7 +8397,8 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
 
 
 
-                    <span class="evidence-source source-OTHER">Other</span>
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
@@ -8217,6 +8503,7 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8304,7 +8591,8 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
 
 
 
-                    <span class="evidence-source source-OTHER">Other</span>
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
@@ -8391,6 +8679,7 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8456,6 +8745,7 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8503,6 +8793,7 @@ This treatment is hematopoietic stem cell transplantation, annotated with Hemato
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8643,11 +8934,11 @@ has_subtypes:
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
-      BCR-ABL positive group had a higher leukocyte count than BCR-ABL negative
-      group.
+      BCR-ABL is commonest recurrent abnormality followed by IgH rearrangements.
     explanation: &gt;-
-      This adult B-ALL cohort identifies BCR-ABL as a recurrent abnormality and
-      links it to clinical hematologic features.
+      This adult B-ALL FISH cohort establishes BCR-ABL as the commonest recurrent
+      genetic abnormality in adult B-ALL, supporting it as a subtype-defining
+      lesion in this category.
 - name: Ph-like
   display_name: BCR::ABL1-like / Philadelphia chromosome-like B-ALL/LBL
   classification: kinase-activated expression subtype
@@ -8669,7 +8960,7 @@ has_subtypes:
   - reference: PMID:34626353
     reference_title: Genetics and Diagnostic Approach to Lymphoblastic Leukemia/Lymphoma.
     supports: SUPPORT
-    evidence_source: OTHER
+    evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       This is particularly true in the case of Philadelphia-like (Ph-like) ALL,
       a major subset which has the same gene expression signature as
@@ -9105,6 +9396,8 @@ has_subtypes:
       its NCIT/MONDO coding rather than on this outcome observation.
 pathophysiology:
 - name: Subtype-Defining Genetic Lesion
+  genetic_context:
+    variant_origin: SOMATIC
   description: &gt;-
     A recurrent chromosomal abnormality, gene fusion, aneuploidy, copy-number
     alteration, or sequence variant arises in a precursor B-cell or
@@ -9183,7 +9476,7 @@ pathophysiology:
   - reference: PMID:34626353
     reference_title: Genetics and Diagnostic Approach to Lymphoblastic Leukemia/Lymphoma.
     supports: SUPPORT
-    evidence_source: OTHER
+    evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Besides recurrent chromosomal abnormalities detected by karyotyping or
       fluorescence in situ hybridization, these leukemias/lymphomas are
@@ -9196,7 +9489,7 @@ pathophysiology:
   - reference: PMID:23523389
     reference_title: Acute lymphoblastic leukaemia.
     supports: SUPPORT
-    evidence_source: OTHER
+    evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Genome-wide profiling of germline and leukaemic cell DNA has identified
       novel submicroscopic structural genetic changes and sequence mutations
@@ -9596,10 +9889,14 @@ genetic:
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
-      distinct gene expression profile, the most common of which is MEF2D-BCL9.
+      we identify rearrangements between MEF2D (myocyte enhancer factor 2D) and
+      five genes (BCL9, CSF1R, DAZAP1, HNRNPUL1 and SS18) in 22 B progenitor ALL
+      (B-ALL) cases with a distinct gene expression profile, the most common of
+      which is MEF2D-BCL9.
     explanation: &gt;-
-      This identifies recurrent MEF2D fusions (most commonly MEF2D-BCL9) as the
-      defining lesion.
+      This identifies recurrent MEF2D fusions with several partner genes (most
+      commonly MEF2D-BCL9) as the defining lesion of a B-ALL group with its own
+      expression profile.
 - name: NUTM1 Rearrangement
   association: Defining lesion of NUTM1-rearranged B-ALL/LBL
   subtype: NUTM1-rearranged
@@ -9736,7 +10033,7 @@ diagnosis:
   - reference: PMID:34626353
     reference_title: Genetics and Diagnostic Approach to Lymphoblastic Leukemia/Lymphoma.
     supports: SUPPORT
-    evidence_source: OTHER
+    evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Ph-like ALL is associated with a worse prognosis and hence its detection
       is critical.
@@ -9848,7 +10145,7 @@ treatments:
   - reference: PMID:23523389
     reference_title: Acute lymphoblastic leukaemia.
     supports: SUPPORT
-    evidence_source: OTHER
+    evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Patients with BCR-ABL1-positive ALL have been considered to have a poor
       prognosis but benefit from early administration of a tyrosine kinase
@@ -9879,7 +10176,7 @@ treatments:
   - reference: PMID:38832425
     reference_title: &#34;Naked antibodies and antibody-drug conjugates: targeted therapy for childhood acute lymphoblastic leukemia.&#34;
     supports: SUPPORT
-    evidence_source: OTHER
+    evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       For B-cell precursor ALL, blinatumomab, an anti-CD19 bispecific antibody,
       has established its role in the consolidation treatment for both high- and
@@ -9913,7 +10210,7 @@ treatments:
   - reference: PMID:38832425
     reference_title: &#34;Naked antibodies and antibody-drug conjugates: targeted therapy for childhood acute lymphoblastic leukemia.&#34;
     supports: SUPPORT
-    evidence_source: OTHER
+    evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Inotuzumab ozogamicin, an anti-CD22 drug conjugated antibody, has
       demonstrated high efficacy in inducing complete remission in relapsed ALL,
@@ -9944,7 +10241,7 @@ treatments:
   - reference: PMID:23523389
     reference_title: Acute lymphoblastic leukaemia.
     supports: SUPPORT
-    evidence_source: OTHER
+    evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Allogeneic haematopoietic stem-cell transplantation is considered for
       patients at very high risk.
@@ -10501,6 +10798,8 @@ review_notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -10952,7 +11251,7 @@ review_notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "B-Lymphoblastic Leukemia/Lymphoma With Recurrent Genetic Abnormality", "mondoId": "MONDO:0035605", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "B-Lymphoblastic_Leukemia_Lymphoma_With_Recurrent_Genetic_Abnormality", "yamlRevision": "2d14a67bbfe9"};
+        const OS_CONFIG = {"diseaseName": "B-Lymphoblastic Leukemia/Lymphoma With Recurrent Genetic Abnormality", "mondoId": "MONDO:0035605", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "B-Lymphoblastic_Leukemia_Lymphoma_With_Recurrent_Genetic_Abnormality", "yamlRevision": "52351a495aaf"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

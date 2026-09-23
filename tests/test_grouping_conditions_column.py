@@ -67,6 +67,43 @@ def test_row_without_audit_entries_is_not_evaluated():
     assert cell["contradiction"] is False
 
 
+def test_anchor_advisory_is_badged_only_when_the_verdict_would_move():
+    """dismech#9403: an OR-sibling anchor miss must not read as a contradiction."""
+    miss = "ciliopathy_dysfunction#Motile Cilia Beat Dysfunction"
+
+    unaffected = _coverage_conditions_cell(
+        ["Bardet-Biedl syndrome"],
+        {
+            "Bardet-Biedl syndrome": [
+                _block("SATISFIED", anchor_misses=[miss], anchor_exact_result=None)
+            ]
+        },
+        is_listed=True,
+    )
+    assert unaffected["anchor_advisory"] is False
+    assert unaffected["contradiction"] is False
+    assert unaffected["label"] == "satisfied"
+    assert miss in unaffected["title"]  # still discoverable in the tooltip
+
+    would_flip = _coverage_conditions_cell(
+        ["Spinocerebellar ataxia type 17"],
+        {
+            "Spinocerebellar ataxia type 17": [
+                _block(
+                    "SATISFIED",
+                    anchor_misses=[miss],
+                    anchor_exact_result="NOT_SATISFIED",
+                )
+            ]
+        },
+        is_listed=True,
+    )
+    assert would_flip["anchor_advisory"] is True
+    # The advisory never promotes itself into the verdict.
+    assert would_flip["result"] == "SATISFIED"
+    assert would_flip["contradiction"] is False
+
+
 def test_worst_result_wins_across_criteria_blocks():
     """A member passing one block and failing another still contradicts."""
     cell = _coverage_conditions_cell(

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -467,6 +468,18 @@
         .tag-component {
             background: #f0fdf4;
             color: #166534;
+        }
+
+        /* Same values as disorder.html.j2 so a treatment chip looks identical
+           whether it is read on a disorder page or on a module page. */
+        .tag-treatment {
+            background: #ede9fe;
+            color: #5b21b6;
+        }
+
+        .tag-gene {
+            background: #dbeafe;
+            color: #1e40af;
         }
 
         .tag-role {
@@ -1044,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1059,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1113,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1126,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1284,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1294,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1335,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -1537,6 +1586,9 @@
 
     
 
+    
+
+    
     
 
     
@@ -1844,6 +1896,8 @@ This mechanism module involves increased Neutrophil Chemotaxis (GO:0030593). GO:
 
         
 
+        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">↗</div>
@@ -1907,11 +1961,13 @@ This mechanism module involves increased Neutrophil Chemotaxis (GO:0030593). GO:
             
             <div class="item-box anchor-target" id="module-pathophysiology-hyperuricaemia" data-dismech-node="Hyperuricaemia" data-dismech-type="pathophysiology">
                 <div class="item-name">Hyperuricaemia</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Serum urate rises above its physiological solubility limit owing to urate overproduction (increased purine turnover and xanthine oxidoreductase activity) and/or underexcretion. Renal and intestinal urate handling by membrane transporters is the dominant determinant: reduced secretion or increased reabsorption via URAT1, ABCG2, GLUT9, and related carriers elevates the urate pool. Sustained hyperuricaemia is the necessary upstream state for monosodium urate crystal formation.</div>
                 
@@ -2001,11 +2057,13 @@ This pathophysiological event involves increased Purine Nucleotide Catabolic Pro
             
             <div class="item-box anchor-target" id="module-pathophysiology-msu-crystal-deposition" data-dismech-node="MSU Crystal Deposition" data-dismech-type="pathophysiology">
                 <div class="item-name">MSU Crystal Deposition</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">amplifier</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Once serum urate exceeds its saturation point, monosodium urate supersaturates and nucleates into needle-shaped MSU crystals that deposit in and around joints and periarticular tissues. Crystal deposition is the pivotal step that converts the metabolic state of hyperuricaemia into a tissue lesion capable of provoking inflammation, and accumulated deposits seed both acute flares and chronic tophi.</div>
                 
@@ -2035,11 +2093,13 @@ This pathophysiological event involves increased Purine Nucleotide Catabolic Pro
             
             <div class="item-box anchor-target" id="module-pathophysiology-nlrp3-inflammasome-activation" data-dismech-node="NLRP3 Inflammasome Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">NLRP3 Inflammasome Activation</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">central effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Deposited MSU crystals are phagocytosed by resident and recruited macrophages and act as a danger signal that engages the caspase-1-activating NLRP3 inflammasome. Inflammasome assembly activates caspase-1, which cleaves pro-IL-1 beta into bioactive IL-1 beta (and IL-18). This is the central effector step that transduces an inert crystal deposit into a potent pro-inflammatory cytokine signal, and is conserved across disorders producing MSU crystals.</div>
                 
@@ -2145,11 +2205,13 @@ This pathophysiological event involves increased Interleukin-1 Beta Production (
             
             <div class="item-box anchor-target" id="module-pathophysiology-il-1-driven-neutrophilic-inflammation" data-dismech-node="IL-1-Driven Neutrophilic Inflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">IL-1-Driven Neutrophilic Inflammation</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Bioactive IL-1 beta released after inflammasome activation acts on IL-1 receptors on endothelial and resident cells to drive an acute inflammatory response, with massive recruitment and activation of neutrophils into the affected joint. Neutrophil influx and the resulting cytokine and chemokine amplification produce the intense pain, swelling, and erythema of the acute gout flare. IL-1 receptor signalling is required for the crystal-induced neutrophilic response.</div>
                 
@@ -2269,11 +2331,13 @@ This pathophysiological event involves increased Neutrophil Chemotaxis (GO:00305
             
             <div class="item-box anchor-target" id="module-pathophysiology-recurrent-and-chronic-tophaceous-gout" data-dismech-node="Recurrent and Chronic Tophaceous Gout" data-dismech-type="pathophysiology">
                 <div class="item-name">Recurrent and Chronic Tophaceous Gout</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Repeated crystal-driven inflammatory flares present as acute, self-limiting monoarthritis. With persistent crystal deposition and unresolved hyperuricaemia, disease progresses to chronic inflammation, formation of tophi (organized aggregates of MSU crystals surrounded by inflammatory cells), and erosive damage to cartilage and bone with long-term functional impairment. This is the clinical phenotype of gout, the consequence of the conserved crystal-inflammation chain.</div>
                 
@@ -2290,6 +2354,9 @@ This pathophysiological event involves increased Neutrophil Chemotaxis (GO:00305
             </div>
             
         </div>
+        
+
+        
         
 
         <footer class="page-footer">

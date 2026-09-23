@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,18 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4142,6 +4219,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4284,6 +4362,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4318,6 +4397,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-myophosphorylase-pygm-deficiency" data-dismech-node="Myophosphorylase (PYGM) Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Myophosphorylase (PYGM) Deficiency</div>
+
 
                 <div class="item-desc">Biallelic pathogenic variants in PYGM cause inherited deficiency of myophosphorylase, the muscle isoform of glycogen phosphorylase that catalyzes the first, rate-limiting step of glycogen catabolism, releasing glucose-1-phosphate from muscle glycogen.</div>
 
@@ -4486,6 +4566,7 @@ This pathophysiological event involves decreased glycogen phosphorylase activity
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4507,6 +4588,7 @@ This pathophysiological event involves decreased glycogen phosphorylase activity
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4532,6 +4614,7 @@ This pathophysiological event involves decreased glycogen phosphorylase activity
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-blocked-skeletal-muscle-glycogenolysis" data-dismech-node="Blocked Skeletal Muscle Glycogenolysis" data-dismech-type="pathophysiology">
                 <div class="item-name">Blocked Skeletal Muscle Glycogenolysis</div>
+
 
                 <div class="item-desc">Myophosphorylase deficiency prevents skeletal muscle from mobilizing stored glycogen, suppressing glycogen catabolism and causing glycogen accumulation.</div>
 
@@ -4657,6 +4740,7 @@ This pathophysiological event involves decreased glycogen catabolic process (GO:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4678,6 +4762,7 @@ This pathophysiological event involves decreased glycogen catabolic process (GO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4703,6 +4788,7 @@ This pathophysiological event involves decreased glycogen catabolic process (GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-exertional-muscle-energy-failure" data-dismech-node="Exertional Muscle Energy Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Exertional Muscle Energy Failure</div>
+
 
                 <div class="item-desc">During exertion, inability to use muscle glycogen impairs energy metabolism, producing early fatigue, cramps, exercise intolerance, and muscle-fiber injury.</div>
 
@@ -4827,6 +4913,7 @@ This pathophysiological event involves Skeletal muscle fiber (CL:0008002). CL:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4957,6 +5044,9 @@ This clinical feature is Myoglobinuria (HP:0002913). HP:0002913 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4971,6 +5061,7 @@ This clinical feature is Myoglobinuria (HP:0002913). HP:0002913 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5017,7 +5108,7 @@ This clinical feature is Myoglobinuria (HP:0002913). HP:0002913 is a phenotype f
 
                     <span class="phenotype-id">
 
-                        <span class="phenotype-term-label">Elevated circulating creatine kinase concentration</span>
+                        <span class="phenotype-term-label">Elevated circulating creatine kinase activity</span>
 
 
 
@@ -5027,10 +5118,13 @@ This clinical feature is Myoglobinuria (HP:0002913). HP:0002913 is a phenotype f
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Elevated circulating creatine kinase concentration (HP:0003236). HP:0003236 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Elevated circulating creatine kinase activity (HP:0003236). HP:0003236 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5050,6 +5144,7 @@ This clinical feature is Elevated circulating creatine kinase concentration (HP:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5115,6 +5210,9 @@ This clinical feature is Muscle cramps, annotated with Muscle spasm (HP:0003394)
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5129,6 +5227,7 @@ This clinical feature is Muscle cramps, annotated with Muscle spasm (HP:0003394)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5183,6 +5282,9 @@ This clinical feature is Rhabdomyolysis (HP:0003201). HP:0003201 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5197,6 +5299,7 @@ This clinical feature is Rhabdomyolysis (HP:0003201). HP:0003201 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5251,6 +5354,9 @@ This clinical feature is Muscle weakness (HP:0001324). HP:0001324 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5265,6 +5371,7 @@ This clinical feature is Muscle weakness (HP:0001324). HP:0001324 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5321,6 +5428,9 @@ This clinical feature is Exercise-induced muscle stiffness, annotated with Muscl
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5335,6 +5445,7 @@ This clinical feature is Exercise-induced muscle stiffness, annotated with Muscl
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5398,6 +5509,9 @@ This clinical feature is Exercise intolerance (HP:0003546). HP:0003546 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5412,6 +5526,7 @@ This clinical feature is Exercise intolerance (HP:0003546). HP:0003546 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5466,6 +5581,9 @@ This clinical feature is Myalgia (HP:0003326). HP:0003326 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5480,6 +5598,7 @@ This clinical feature is Myalgia (HP:0003326). HP:0003326 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5534,6 +5653,9 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5548,6 +5670,7 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5594,6 +5717,9 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5608,6 +5734,7 @@ This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5702,6 +5829,9 @@ This disease-associated gene is PYGM (hgnc:9726). hgnc:9726 is a gene from the H
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive</span>
@@ -5727,6 +5857,7 @@ This disease-associated gene is PYGM (hgnc:9726). hgnc:9726 is a gene from the H
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5748,6 +5879,7 @@ This disease-associated gene is PYGM (hgnc:9726). hgnc:9726 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5853,6 +5985,31 @@ This treatment uses sucrose (CHEBI:17992). CHEBI:17992 is a therapeutic agent fr
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Ingesting sucrose shortly before exercise increases glucose availability and markedly improves exercise tolerance, bypassing the muscle glycogenolytic block during the early minutes of exertion when muscle injury develops.</div>
 
 
@@ -5883,6 +6040,7 @@ This treatment uses sucrose (CHEBI:17992). CHEBI:17992 is a therapeutic agent fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5968,6 +6126,7 @@ This treatment targets Rhabdomyolysis (HP:0003201). HP:0003201 is a phenotype fr
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5989,6 +6148,7 @@ This treatment targets Rhabdomyolysis (HP:0003201). HP:0003201 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6053,6 +6213,31 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Careful exercise prescription and aerobic conditioning are the mainstay of management, improving oxidative capacity and functional tolerance in the absence of enzyme replacement therapy.</div>
 
 
@@ -6083,6 +6268,7 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6148,6 +6334,7 @@ This treatment targets Exercise intolerance (HP:0003546). HP:0003546 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6258,6 +6445,7 @@ This treatment targets Exercise intolerance (HP:0003546). HP:0003546 is a phenot
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6279,6 +6467,7 @@ This treatment targets Exercise intolerance (HP:0003546). HP:0003546 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6371,6 +6560,7 @@ This treatment targets Exercise intolerance (HP:0003546). HP:0003546 is a phenot
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6435,6 +6625,7 @@ This treatment targets Exercise intolerance (HP:0003546). HP:0003546 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6511,6 +6702,7 @@ This treatment targets Exercise intolerance (HP:0003546). HP:0003546 is a phenot
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6535,14 +6727,15 @@ This treatment targets Exercise intolerance (HP:0003546). HP:0003546 is a phenot
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"These results suggest that the currently accepted prevalence of McArdle disease is an underestimate"</div>
+                <div class="evidence-snippet">"McArdle disease is one of the most common glycogen storage disorders. Although the exact prevalence is not known, it has been estimated to be 1 in 100,000 patients in the United States. ... Next-generation sequencing data allow estimation of disease prevalence with minimal ascertainment bias. We..."</div>
 
 
-                <div class="evidence-explanation">Gene-frequency analysis suggests the accepted prevalence underestimates true disease frequency.</div>
+                <div class="evidence-explanation">The paper cites a historical US McArdle disease prevalence estimate of 1 in 100,000 and uses exome data to question underascertainment. The historical estimate is explicitly distinguished from the authors’ newer genetic estimates.</div>
 
 
 
@@ -6660,9 +6853,17 @@ prevalence:
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
-      These results suggest that the currently accepted prevalence of McArdle
-      disease is an underestimate
-    explanation: Gene-frequency analysis suggests the accepted prevalence underestimates true disease frequency.
+      McArdle disease is one of the most common glycogen storage disorders. Although the exact
+      prevalence is not known, it has been estimated to be 1 in 100,000 patients in the United
+      States. ... Next-generation sequencing data allow estimation of disease prevalence with
+      minimal ascertainment bias. We analyzed gene frequencies in two cohorts of patients based on
+      exome sequencing results. ... These results suggest that the currently accepted prevalence of
+      McArdle disease is an underestimate and that some of the currently considered pathogenic
+      variants are likely benign.
+    explanation: &gt;-
+      The paper cites a historical US McArdle disease prevalence estimate of 1 in 100,000 and uses
+      exome data to question underascertainment. The historical estimate is explicitly distinguished
+      from the authors’ newer genetic estimates.
 inheritance:
 - name: Autosomal recessive
   inheritance_term:
@@ -6999,10 +7200,10 @@ phenotypes:
 - name: Elevated creatine kinase
   description: Serum creatine kinase is consistently elevated, reflecting ongoing muscle injury.
   phenotype_term:
-    preferred_term: Elevated circulating creatine kinase concentration
+    preferred_term: Elevated circulating creatine kinase activity
     term:
       id: HP:0003236
-      label: Elevated circulating creatine kinase concentration
+      label: Elevated circulating creatine kinase activity
   evidence:
   - reference: PMID:21658951
     reference_title: Clinical and laboratory features of patients with myophosphorylase deficiency (McArdle disease).
@@ -7332,7 +7533,7 @@ discussions:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Glycogen Storage Disease Type V", "mondoId": "MONDO:0009293", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Glycogen_Storage_Disease_Type_V", "yamlRevision": "57b1aab09858"};
+        const OS_CONFIG = {"diseaseName": "Glycogen Storage Disease Type V", "mondoId": "MONDO:0009293", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Glycogen_Storage_Disease_Type_V", "yamlRevision": "39d7d3a932de"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

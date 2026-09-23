@@ -4,9 +4,69 @@ import os
 import subprocess
 from pathlib import Path
 
+import pytest
+from linkml_reference_validator.etl.extract.html import HTMLExtractor
 from linkml_reference_validator.etl.extract.xml import XMLExtractor
 from linkml_reference_validator.etl.reference_fetcher import ReferenceFetcher
 from linkml_reference_validator.models import ReferenceValidationConfig
+
+
+def test_url_html_fetch_removes_page_configuration_but_keeps_evidence(monkeypatch):
+    from bs4 import BeautifulSoup
+    from linkml_reference_validator.etl.acquire import ContentAcquirer
+    from linkml_reference_validator.etl.sources.url import URLSource
+
+    from dismech.patch_reference_validator import apply_patch
+
+    apply_patch()
+    page = b"""<!doctype html><html><head><title>Clinical guideline</title>
+    <script>window.configuration = 'script-only-value';</script>
+    <style>.private { content: 'style-only-value'; }</style></head>
+    <body><!-- comment-only-value -->
+    <div data-page='{"token":"attribute-only-value"}'>
+    <p>For <abbr title="abbreviation-only-value">AVSD</abbr>, PVR &lt;5.</p>
+    <table><tr><th rowspan="2" scope="rowgroup">Outcome</th>
+    <td colspan="2">2 of 3</td></tr><tr><td>A</td><td>B</td></tr></table>
+    <a href="https://example.org/?token=link-only-value">Study source</a>
+    <template>template-only-value</template>
+    </div></body></html>"""
+    monkeypatch.setattr(
+        ContentAcquirer, "fetch_bytes", lambda *_: (page, "text/html; charset=utf-8")
+    )
+    result = URLSource().fetch(
+        "https://example.org/guideline", ReferenceValidationConfig()
+    )
+    assert result.title == "Clinical guideline"
+    assert result.reference_id == "url:https://example.org/guideline"
+    assert result.content_type == "url"
+    assert "only-value" not in result.content
+    soup = BeautifulSoup(result.content, "html.parser")
+    assert soup.p.get_text() == "For AVSD, PVR <5."
+    assert soup.th.get_text() == "Outcome"
+    assert soup.th.attrs == {"rowspan": "2", "scope": "rowgroup"}
+    assert soup.td.get_text() == "2 of 3"
+    assert soup.td.attrs == {"colspan": "2"}
+    assert soup.a.get_text() == "Study source"
+
+
+@pytest.mark.parametrize(
+    "content, content_type",
+    [
+        ("Plain text including <5 and >10", "url"),
+        ('<?xml version="1.0"?><body id="preserved">XML content</body>', "url"),
+        ('<article><body id="preserved"><p>JATS content</p></body></article>', "url"),
+        ("Extracted PDF text with <html> quoted literally", "full_text_pdf"),
+    ],
+)
+def test_url_page_code_removal_preserves_non_html_sources(content, content_type):
+    from types import SimpleNamespace
+
+    from dismech.patch_reference_validator import _wrap_url_fetch
+
+    reference = SimpleNamespace(content=content, content_type=content_type)
+    wrapped = _wrap_url_fetch(lambda *_: reference)
+    assert wrapped(None) is reference
+    assert reference.content == content
 
 
 def test_pmid_network_methods_are_actually_wrapped():
@@ -75,7 +135,9 @@ def test_save_to_disk_patch_forwards_unknown_keyword_arguments():
     # Wrap a stand-in original, so the assertion is about the wrapper's
     # forwarding rather than about whatever upstream's parameters happen to be
     # this release -- which is the whole point.
-    _wrap_save_to_disk(_original)(None, _Reference(), True, private=True, future_arg="x")
+    _wrap_save_to_disk(_original)(
+        None, _Reference(), True, private=True, future_arg="x"
+    )
 
     assert seen["args"] == (True,)
     assert seen["kwargs"] == {"private": True, "future_arg": "x"}
@@ -119,6 +181,124 @@ def test_save_to_disk_patch_survives_a_real_uncached_fetch(tmp_path, monkeypatch
     fetcher._save_by_access(_Content())
 
     assert (tmp_path / "PMID_14991055.md").is_file()
+
+
+@pytest.mark.parametrize(
+    "title",
+    [
+        (
+            "Use of hospital morbidity data in an epidemiological analysis of diseases caused\n"
+            "by Legionella pneumophila"
+        ),
+        'A title: with a "quoted"\nsecond line',
+        "Line one\r\nLine two",
+        "Unicode β and a \\backslash\nare preserved",
+    ],
+)
+def test_multiline_metadata_round_trips_through_real_cache_writer(tmp_path, title):
+    """Crossref line breaks must neither break YAML nor silently become spaces."""
+    from linkml_reference_validator.models import ReferenceContent
+
+    import dismech.patch_reference_validator  # noqa: F401
+
+    fetcher = ReferenceFetcher(ReferenceValidationConfig(cache_dir=tmp_path))
+    original = ReferenceContent(
+        reference_id="DOI:10.1000/multiline-metadata",
+        title=title,
+        authors=["An author\nconsortium"],
+        journal="A journal\nname",
+        keywords=["A multiline\nkeyword"],
+        content="Unmodified source body.",
+        content_type="abstract",
+    )
+    fetcher._save_to_disk(original)
+    restored = fetcher._load_from_disk(original.reference_id)
+
+    assert restored is not None
+    assert restored.title == original.title
+    assert restored.authors == original.authors
+    assert restored.journal == original.journal
+    assert restored.keywords == original.keywords
+    assert restored.content == original.content
+
+
+def test_multiline_metadata_patch_preserves_single_line_quoting(tmp_path):
+    import dismech.patch_reference_validator  # noqa: F401
+
+    fetcher = ReferenceFetcher(ReferenceValidationConfig(cache_dir=tmp_path))
+    assert fetcher._quote_yaml_value("Ordinary title") == "Ordinary title"
+    assert fetcher._quote_yaml_value("Title: with colon") == '"Title: with colon"'
+    assert fetcher._quote_yaml_value('A "quoted" title') == '"A \\"quoted\\" title"'
+
+
+def test_jstage_pdf_title_patch_reads_sibling_article_metadata(monkeypatch):
+    """Direct J-STAGE PDF URLs should not be cached with the URL as title."""
+    from linkml_reference_validator.etl.sources.url import URLSource
+    from linkml_reference_validator.models import ReferenceContent
+
+    import dismech.patch_reference_validator as patch
+
+    seen_urls = []
+
+    class _Acquirer:
+        def fetch_bytes(self, url, _config):
+            seen_urls.append(url)
+            return (
+                b'<meta name="citation_title" content="Recovered J-STAGE Title" />',
+                "text/html",
+            )
+
+    def _fetch_pdf(self, identifier, _config):
+        return ReferenceContent(
+            reference_id=f"url:{identifier}",
+            title=identifier,
+            content="Extracted PDF body",
+            content_type="full_text_pdf",
+            full_text_url=identifier,
+        )
+
+    monkeypatch.setattr(patch, "ContentAcquirer", _Acquirer)
+
+    content = patch._wrap_jstage_pdf_title(_fetch_pdf)(
+        URLSource(),
+        "https://www.jstage.jst.go.jp/article/jhs/52/3/52_3_259/_pdf",
+        ReferenceValidationConfig(),
+    )
+
+    assert content.title == "Recovered J-STAGE Title"
+    assert seen_urls == [
+        "https://www.jstage.jst.go.jp/article/jhs/52/3/52_3_259/_article"
+    ]
+
+
+def test_jstage_pdf_title_patch_leaves_unrelated_pdf_titles_alone(monkeypatch):
+    """The J-STAGE title lookup must stay scoped to J-STAGE direct PDFs."""
+    from linkml_reference_validator.etl.sources.url import URLSource
+    from linkml_reference_validator.models import ReferenceContent
+
+    import dismech.patch_reference_validator as patch
+
+    def _fetch_pdf(self, identifier, _config):
+        return ReferenceContent(
+            reference_id=f"url:{identifier}",
+            title=identifier,
+            content="Extracted PDF body",
+            content_type="full_text_pdf",
+            full_text_url=identifier,
+        )
+
+    def _forbidden_acquirer():
+        raise AssertionError("non-J-STAGE PDFs should not fetch an article page")
+
+    monkeypatch.setattr(patch, "ContentAcquirer", _forbidden_acquirer)
+
+    content = patch._wrap_jstage_pdf_title(_fetch_pdf)(
+        URLSource(),
+        "https://example.org/paper.pdf",
+        ReferenceValidationConfig(),
+    )
+
+    assert content.title == "https://example.org/paper.pdf"
 
 
 def test_clinicaltrials_cache_path_uses_repo_lowercase_naming(tmp_path):
@@ -180,6 +360,52 @@ def test_pmc_restricted_record_without_body_remains_unavailable():
     import dismech.patch_reference_validator  # noqa: F401  # applies XML patch
 
     xml = b"<article><restricted-by>pmc</restricted-by></article>"
+
+    assert XMLExtractor().extract(xml) is None
+
+
+def test_prose_use_of_restricted_does_not_hide_available_body():
+    """The ordinary English word in article prose is not a restriction notice.
+
+    PMC5593426 (PMID:28530713) carries no ``restricted-by`` metadata at all -- it
+    says "IgM-restricted plasma cells" in the results and "Searches were
+    restricted to the period from ..." in the methods. Upstream's whole-document
+    word match discarded the entire body over those two sentences (issue #10867).
+    """
+    import dismech.patch_reference_validator  # noqa: F401  # applies XML patch
+
+    xml = b"""\
+    <article>
+      <body><sec>
+        <p>Mice lacking BACH2 have B cells that differentiate into IgM-restricted plasma cells.</p>
+        <p>Searches were restricted to the period from 2007 to 2015.</p>
+      </sec></body>
+    </article>
+    """
+
+    extracted = XMLExtractor().extract(xml)
+
+    assert extracted is not None
+    assert "IgM-restricted plasma cells" in extracted
+    assert "Searches were restricted" in extracted
+
+
+def test_pmc_unavailable_record_shape_remains_unavailable():
+    """A genuinely unavailable PMC record is front matter with no ``<body>``.
+
+    This is the shape ``efetch`` actually returns when PMC will not serve the
+    full text: the trigger phrase sits in the front matter and there is no body
+    element. Dropping the word match must not turn one of these into full text.
+    """
+    import dismech.patch_reference_validator  # noqa: F401  # applies XML patch
+
+    xml = b"""\
+    <article>
+      <front><article-meta>
+        <permissions><license><license-p>The full text cannot be obtained from PMC.</license-p></license></permissions>
+      </article-meta></front>
+    </article>
+    """
 
     assert XMLExtractor().extract(xml) is None
 
@@ -249,3 +475,153 @@ def test_reference_validator_wrapper_treats_warning_only_exit_as_advisory(
 
     assert result.returncode == 0
     assert "[WARNING] transient reference fetch failed" in result.stdout
+
+
+def test_jats_tables_are_appended_as_quotable_rows():
+    """A clinical report's Table 1 must reach the cache, not just its paragraphs.
+
+    Upstream keeps ``<body>`` paragraphs only. In PMID:28530713 that dropped the
+    one place the founding report records immunoglobulin replacement and the
+    per-subject isotype pattern (issue #10867). NIHMS-converted JATS puts tables
+    in a trailing ``<floats-group>``, outside ``<body>``, so they are located
+    across the whole document.
+    """
+    import dismech.patch_reference_validator  # noqa: F401  # applies XML patch
+
+    xml = b"""\
+    <article>
+      <body><sec><p>Affected subjects had lymphocyte-maturation defects.</p></sec></body>
+      <floats-group>
+        <table-wrap>
+          <label>Table 1</label><caption><p>Summary clinical characteristics.</p></caption>
+          <table>
+            <tr><th>Patients</th><th>A.II.1</th><th>B.III.2</th></tr>
+            <tr><td>IgA</td><td>Low</td><td>Low</td></tr>
+            <tr><td></td><td></td><td></td></tr>
+            <tr><td>On IvIg treatment</td><td>Yes</td><td>No</td></tr>
+          </table>
+        </table-wrap>
+      </floats-group>
+    </article>
+    """
+
+    extracted = XMLExtractor().extract(xml)
+
+    assert "Affected subjects had lymphocyte-maturation defects." in extracted
+    assert "## Table 1 Summary clinical characteristics." in extracted
+    assert "| On IvIg treatment | Yes | No |" in extracted
+    # An all-empty row carries nothing quotable and is dropped.
+    assert "|  |  |  |" not in extracted
+
+
+def test_oversized_jats_table_is_not_appended():
+    """A data dump is not a quotable clinical table and must not bloat the cache."""
+    import dismech.patch_reference_validator  # noqa: F401  # applies XML patch
+
+    rows = "".join(f"<tr><td>probe{n}</td><td>{n}</td></tr>" for n in range(500))
+    xml = (
+        "<article><body><sec><p>Body paragraph.</p></sec></body>"
+        f"<floats-group><table-wrap><label>Table S1</label><table>{rows}</table>"
+        "</table-wrap></floats-group></article>"
+    ).encode()
+
+    extracted = XMLExtractor().extract(xml)
+
+    assert extracted == "Body paragraph."
+
+
+def test_article_without_tables_is_unchanged():
+    """The table pass must be a no-op for an article that carries none."""
+    import dismech.patch_reference_validator  # noqa: F401  # applies XML patch
+
+    xml = b"<article><body><sec><p>Body paragraph.</p></sec></body></article>"
+
+    assert XMLExtractor().extract(xml) == "Body paragraph."
+
+
+def test_html_inline_markup_preserves_source_word_boundaries():
+    """Italic gene names must not fuse with the prose surrounding them."""
+    import dismech.patch_reference_validator  # noqa: F401
+
+    html = (
+        b"<article><p>  Altered CA excitatory neurons <i>NMDA</i> receptors and "
+        b"<i>HOMER1</i>, a key postsynaptic scaffolding protein, support "
+        b"<a href='/study'>neuroplasticity</a> in MDD.  </p></article>"
+    )
+    assert HTMLExtractor().extract(html) == (
+        "Altered CA excitatory neurons NMDA receptors and HOMER1, a key "
+        "postsynaptic scaffolding protein, support neuroplasticity in MDD."
+    )
+
+
+def test_html_inline_markup_does_not_invent_spaces_inside_words():
+    """A blanket separator=' ' would corrupt genuine typography."""
+    import dismech.patch_reference_validator  # noqa: F401
+
+    html = (
+        b"<p>neuro<em>genesis</em> depends on Ca<sup>2+</sup> and "
+        b"H<sub>2</sub>O. The effect<sup>1</sup> was measured.</p>"
+    )
+    assert HTMLExtractor().extract(html) == (
+        "neurogenesis depends on Ca2+ and H2O. The effect1 was measured."
+    )
+
+
+def test_html_preserves_whitespace_before_and_after_superscripts():
+    import dismech.patch_reference_validator  # noqa: F401
+
+    assert (
+        HTMLExtractor().extract(b"<p>The effect <sup>1,2</sup> was replicated.</p>")
+        == "The effect 1,2 was replicated."
+    )
+
+
+def test_html_paragraph_selection_and_script_removal_are_unchanged():
+    import dismech.patch_reference_validator  # noqa: F401
+
+    html = (
+        b"<html><p>Outside article.</p><main><p>Outside article in main.</p>"
+        b"<article><p>One <i>gene</i>.</p><p> \n </p>"
+        b"<p><style>hidden style</style>Two<script>hidden script</script>.</p>"
+        b"</article></main></html>"
+    )
+    assert HTMLExtractor().extract(html) == "One gene.\n\nTwo."
+    assert HTMLExtractor().extract(
+        b"<main><p>A <em>main</em> paragraph.</p></main>"
+    ) == ("A main paragraph.")
+
+
+def test_html_without_paragraph_text_uses_upstream_fallback():
+    import dismech.patch_reference_validator  # noqa: F401
+
+    # The existing fallback separates all text nodes with newlines; this patch
+    # deliberately changes only paragraph extraction.
+    assert HTMLExtractor().extract(b"<main>One <em>gene</em>.</main>") == "One\ngene\n."
+    assert (
+        HTMLExtractor().extract(b"<html><p> </p><script>hidden</script></html>") is None
+    )
+
+
+def test_html_recovered_quote_passes_the_unchanged_matcher(tmp_path):
+    """Repair source extraction, retaining rejection of an altered quote."""
+    from linkml_reference_validator.models import ReferenceContent
+    from linkml_reference_validator.validation.supporting_text_validator import (
+        SupportingTextValidator,
+    )
+
+    import dismech.patch_reference_validator  # noqa: F401
+
+    quote = "Altered neurons NMDA receptors and HOMER1 support neuroplasticity."
+    content = HTMLExtractor().extract(
+        b"<p>Altered neurons <i>NMDA</i> receptors and <i>HOMER1</i> support neuroplasticity.</p>"
+    )
+    record = ReferenceContent(
+        reference_id="DOI:10.1000/html-boundaries",
+        content=content,
+        content_type="full_text_html",
+    )
+    validator = SupportingTextValidator(ReferenceValidationConfig(cache_dir=tmp_path))
+    assert validator.find_text_in_reference(quote, record).found
+    assert not validator.find_text_in_reference(
+        quote.replace("support", "disrupt"), record
+    ).found

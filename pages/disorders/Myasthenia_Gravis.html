@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3756,6 +3821,18 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3944,7 +4021,7 @@
             <a class="stat-link" href="#mappings">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">🔗</div>
-                <div class="stat-value">2</div>
+                <div class="stat-value">3</div>
                 <div class="stat-label">Mappings</div>
             </div>
             </a>
@@ -4115,6 +4192,46 @@
 
                 </div>
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="mapping-item">
+                    <div class="mapping-title">
+
+                        <a href="http://purl.obolibrary.org/obo/MONDO_0018324" target="_blank">MONDO:0018324</a>
+
+
+                        <span class="mapping-label">adult-onset myasthenia gravis</span>
+
+
+
+                        <a class="dismech-inline-link" href="Adult-Onset_Myasthenia_Gravis.html">DisMech</a>
+
+                    </div>
+                    <div class="tag-list">
+
+                        <span class="tag tag-classification">skos:narrowMatch</span>
+
+
+                        <span class="tag tag-parent">MONDO</span>
+
+
+                    </div>
+
+                    <div class="mapping-notes">MONDO:0018324 (adult-onset myasthenia gravis) is a narrower is_a child of MONDO:0009688 in MONDO, restricting the general autoimmune myasthenia gravis entity to its adult-onset presentation. That onset-stratified concept is curated separately in Adult-Onset_Myasthenia_Gravis.yaml, which carries MONDO:0018324 as its disease_term and the reciprocal skos:broadMatch back to MONDO:0009688; this mapping records the same relationship from the parent entry&#39;s side.</div>
+
+                </div>
+
             </div>
 
 
@@ -4252,6 +4369,7 @@
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4330,6 +4448,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4434,6 +4553,7 @@
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4498,6 +4618,7 @@
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Eighty-five percent were female, with disease onset typically in the fourth decade. Ocular and/or bulbar symptoms were present at onset in 79% of those studied."</div>
@@ -4517,6 +4638,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4577,6 +4699,7 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4682,6 +4805,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-autoantibody-mediated-nmj-dysfunction" data-dismech-node="Autoantibody-Mediated NMJ Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Autoantibody-Mediated NMJ Dysfunction</div>
+
 
                 <div class="item-desc">Autoantibodies (primarily anti-AChR) target the postsynaptic membrane at neuromuscular junctions. Antibodies cause receptor internalization, complement-mediated destruction, and functional blockade, reducing acetylcholine signaling efficiency.
 </div>
@@ -4789,6 +4913,7 @@ This pathophysiological event involves Neuromuscular Transmission, annotated wit
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Myasthenia gravis is a prototypic neuroimmune disorder with autoantibodies targeting the acetylcholine receptor complex at the neuromuscular junction."</div>
@@ -4808,6 +4933,7 @@ This pathophysiological event involves Neuromuscular Transmission, annotated wit
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4831,6 +4957,7 @@ This pathophysiological event involves Neuromuscular Transmission, annotated wit
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-complement-activation" data-dismech-node="Complement Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Complement Activation</div>
+
 
                 <div class="item-desc">Anti-AChR antibodies activate the classical complement pathway, leading to membrane attack complex formation and destruction of the postsynaptic membrane architecture.
 </div>
@@ -4929,6 +5056,7 @@ This pathophysiological event involves Membrane Attack Complex (GO:0005579). GO:
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"activation and amplification of complement results in the formation of membrane attack complexes (MACs), lipophilic proteins that damage cell membranes."</div>
@@ -4948,6 +5076,7 @@ This pathophysiological event involves Membrane Attack Complex (GO:0005579). GO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4975,6 +5104,7 @@ This pathophysiological event involves Membrane Attack Complex (GO:0005579). GO:
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Acetylcholine receptor antibodies are present in the majority of patients and are of IgG1 and IgG3 subtypes which can activate the complement system. The complement involvement plays a major role in the neuromuscular junction damage"</div>
@@ -4995,6 +5125,7 @@ This pathophysiological event involves Membrane Attack Complex (GO:0005579). GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-thymic-abnormalities" data-dismech-node="Thymic Abnormalities" data-dismech-type="pathophysiology">
                 <div class="item-name">Thymic Abnormalities</div>
+
 
                 <div class="item-desc">Marked thymic pathology - follicular hyperplasia or thymoma - is present in most AChR-antibody-positive patients. The thymus may serve as the site of autoimmunization, containing the AChR autoantigen, AChR-specific T cells, and autoantibody-secreting plasma cells needed to initiate and sustain the autoimmune response.
 </div>
@@ -5068,6 +5199,7 @@ This pathophysiological event involves Thymic Epithelial Cell, annotated with ep
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"The thymus plays a major role in the pathogenesis of MG with anti-AChR antibodies: it shows marked pathologic alterations (hyperplastic or tumoral) in most AChR-positive patients and contains the elements required to initiate and sustain an autoimmune reaction (AChR autoantigen, AChR-specific T..."</div>
@@ -5087,6 +5219,7 @@ This pathophysiological event involves Thymic Epithelial Cell, annotated with ep
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5152,31 +5285,33 @@ This pathophysiological event involves Thymic Epithelial Cell, annotated with ep
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(4)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Digestive<span class="pill-count">(1)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Ear<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Endocrine<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Endocrine<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Eye<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Eye<span class="pill-count">(3)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Genitourinary<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Head and Neck<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Head and Neck<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Limbs<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Immune<span class="pill-count">(9)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Musculoskeletal<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Limbs<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-10">Nervous System<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-10">Musculoskeletal<span class="pill-count">(7)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-11">Respiratory<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-11">Nervous System<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-12">Constitutional<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-12">Respiratory<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-13">Other<span class="pill-count">(22)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-13">Voice<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-14">Constitutional<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5186,8 +5321,236 @@ This pathophysiological event involves Thymic Epithelial Cell, annotated with ep
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Cardiovascular
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">4</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-thymus-morphology" data-dismech-node="Abnormal Thymus Morphology" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Abnormal Thymus Morphology
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000777" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-6">HP:0000777</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormal thymus morphology (HP:0000777). HP:0000777 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">Thymic hyperplasia or thymoma</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:589" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:589" target="_blank">ORPHA:589</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0000777 | Abnormality of the thymus | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet&#39;s curated HPO frequency annotation classifies abnormality of the thymus as Frequent (79-30%) in myasthenia gravis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-thymus-hyperplasia" data-dismech-node="Thymus Hyperplasia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Thymus Hyperplasia
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010516" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0010516</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Thymus hyperplasia (HP:0010516). HP:0010516 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">Present in 65-75% of AChR-positive patients</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:589" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:589" target="_blank">ORPHA:589</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0010516 | Thymus hyperplasia | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet&#39;s curated HPO frequency annotation classifies thymus hyperplasia as Frequent (79-30%) in myasthenia gravis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-thymoma" data-dismech-node="Thymoma" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Thymoma
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100522" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0100522</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Thymoma (HP:0100522). HP:0100522 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">Thymic tumor present in 10-15% of MG patients</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:589" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:589" target="_blank">ORPHA:589</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0100522 | Thymoma | Occasional (29-5%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet&#39;s curated HPO frequency annotation classifies thymoma as Occasional (29-5%) in myasthenia gravis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-raynaud-phenomenon" data-dismech-node="Raynaud Phenomenon" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -5205,15 +5568,18 @@ This pathophysiological event involves Thymic Epithelial Cell, annotated with ep
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030880" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-6">HP:0030880</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030880" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0030880</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Raynaud phenomenon (HP:0030880). HP:0030880 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5233,6 +5599,7 @@ This clinical feature is Raynaud phenomenon (HP:0030880). HP:0030880 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5284,15 +5651,18 @@ This clinical feature is Raynaud phenomenon (HP:0030880). HP:0030880 is a phenot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0002015</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0002015</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Difficulty swallowing, common in MuSK-positive MG</div>
@@ -5314,6 +5684,7 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5365,15 +5736,18 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0000365</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0000365</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5393,6 +5767,7 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5425,7 +5800,7 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Endocrine
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-hyperthyroidism" data-dismech-node="Hyperthyroidism" data-dismech-type="phenotype">
@@ -5444,15 +5819,18 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000836" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0000836</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000836" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0000836</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hyperthyroidism (HP:0000836). HP:0000836 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Autoimmune thyroid disease co-occurs with MG</div>
@@ -5474,6 +5852,7 @@ This clinical feature is Hyperthyroidism (HP:0000836). HP:0000836 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5500,13 +5879,165 @@ This clinical feature is Hyperthyroidism (HP:0000836). HP:0000836 is a phenotype
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hashimoto-thyroiditis" data-dismech-node="Hashimoto Thyroiditis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hashimoto Thyroiditis
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000872" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0000872</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hashimoto thyroiditis (HP:0000872). HP:0000872 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">Autoimmune thyroiditis co-occurs with MG</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:589" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:589" target="_blank">ORPHA:589</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0000872 | Hashimoto thyroiditis | Occasional (29-5%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet&#39;s curated HPO frequency annotation classifies Hashimoto thyroiditis as Occasional (29-5%) in myasthenia gravis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-primary-adrenal-insufficiency" data-dismech-node="Primary Adrenal Insufficiency" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Primary Adrenal Insufficiency
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008207" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0008207</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Primary adrenal insufficiency (HP:0008207). HP:0008207 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">Autoimmune comorbidity</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:589" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:589" target="_blank">ORPHA:589</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0008207 | Primary adrenal insufficiency | Occasional (29-5%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet&#39;s curated HPO frequency annotation classifies primary adrenal insufficiency as Occasional (29-5%) in myasthenia gravis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
 
             <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Eye
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-ptosis" data-dismech-node="Ptosis" data-dismech-type="phenotype">
@@ -5525,15 +6056,18 @@ This clinical feature is Hyperthyroidism (HP:0000836). HP:0000836 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0000508</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000508" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000508</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Often first symptom, asymmetric drooping eyelids</div>
@@ -5555,6 +6089,7 @@ This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5597,15 +6132,18 @@ This clinical feature is Ptosis (HP:0000508). HP:0000508 is a phenotype from the
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000651" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0000651</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000651" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000651</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Diplopia (HP:0000651). HP:0000651 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Double vision from extraocular muscle weakness</div>
@@ -5630,6 +6168,7 @@ This clinical feature is Diplopia (HP:0000651). HP:0000651 is a phenotype from t
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5638,6 +6177,82 @@ This clinical feature is Diplopia (HP:0000651). HP:0000651 is a phenotype from t
 
 
                 <div class="evidence-explanation">Orphanet&#39;s curated HPO frequency annotation classifies diplopia as Frequent (79-30%) in myasthenia gravis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-ophthalmoparesis" data-dismech-node="Ophthalmoparesis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Ophthalmoparesis
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000597" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000597</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ophthalmoparesis (HP:0000597). HP:0000597 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">Weakness of extraocular muscles</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:589" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:589" target="_blank">ORPHA:589</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0000597 | Ophthalmoparesis | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet&#39;s curated HPO frequency annotation classifies ophthalmoparesis as Frequent (79-30%) in myasthenia gravis.</div>
 
 
 
@@ -5678,15 +6293,18 @@ This clinical feature is Diplopia (HP:0000651). HP:0000651 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003076" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0003076</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003076" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0003076</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Glycosuria (HP:0003076). HP:0003076 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Associated with autoimmune comorbidity</div>
@@ -5708,6 +6326,7 @@ This clinical feature is Glycosuria (HP:0003076). HP:0003076 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5740,7 +6359,7 @@ This clinical feature is Glycosuria (HP:0003076). HP:0003076 is a phenotype from
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-weakness-of-facial-musculature" data-dismech-node="Weakness of Facial Musculature" data-dismech-type="phenotype">
@@ -5759,15 +6378,18 @@ This clinical feature is Glycosuria (HP:0003076). HP:0003076 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030319" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0030319</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030319" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0030319</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Weakness of facial musculature (HP:0030319). HP:0030319 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Facial weakness contributing to expressionless facies</div>
@@ -5792,6 +6414,7 @@ This clinical feature is Weakness of facial musculature (HP:0030319). HP:0030319
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5800,1282 +6423,6 @@ This clinical feature is Weakness of facial musculature (HP:0030319). HP:0030319
 
 
                 <div class="evidence-explanation">Orphanet&#39;s curated HPO frequency annotation classifies weakness of facial musculature as Frequent (79-30%) in myasthenia gravis.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-8">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Limbs
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-limb-muscle-weakness" data-dismech-node="Limb Muscle Weakness" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Limb Muscle Weakness
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003690" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0003690</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Limb muscle weakness (HP:0003690). HP:0003690 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">Proximal limb weakness, difficulty with overhead activities</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:589" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:589" target="_blank">ORPHA:589</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0003690 | Limb muscle weakness | Frequent (79-30%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet&#39;s curated HPO frequency annotation classifies limb muscle weakness as Frequent (79-30%) in myasthenia gravis.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-9">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Musculoskeletal
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-muscle-weakness" data-dismech-node="Muscle Weakness" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Muscle Weakness
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001324" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001324</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Muscle Weakness (HP:0001324). HP:0001324 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">Fatigable weakness, worse with exertion</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:589" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:589" target="_blank">ORPHA:589</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0001324 | Muscle weakness | Very frequent (99-80%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet&#39;s curated HPO frequency annotation classifies muscle weakness as Very frequent (99-80%) in myasthenia gravis.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-skeletal-muscle-atrophy" data-dismech-node="Skeletal Muscle Atrophy" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Skeletal Muscle Atrophy
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003202" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0003202</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Skeletal muscle atrophy (HP:0003202). HP:0003202 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">Muscle wasting in chronic disease, particularly MuSK-MG</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:589" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:589" target="_blank">ORPHA:589</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0003202 | Skeletal muscle atrophy | Frequent (79-30%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet&#39;s curated HPO frequency annotation classifies skeletal muscle atrophy as Frequent (79-30%) in myasthenia gravis.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-10">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Nervous System
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-dysarthria" data-dismech-node="Dysarthria" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Dysarthria
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001260</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">Slurred or nasal speech</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:589" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:589" target="_blank">ORPHA:589</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0001260 | Dysarthria | Frequent (79-30%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet&#39;s curated HPO frequency annotation classifies dysarthria as Frequent (79-30%) in myasthenia gravis.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-paresthesia" data-dismech-node="Paresthesia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Paresthesia
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003401" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0003401</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Paresthesia (HP:0003401). HP:0003401 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:589" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:589" target="_blank">ORPHA:589</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0003401 | Paresthesia | Occasional (29-5%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet&#39;s curated HPO frequency annotation classifies paresthesia as Occasional (29-5%) in myasthenia gravis.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-11">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Respiratory
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-dyspnea" data-dismech-node="Dyspnea" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Dyspnea
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002094</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">Breathing difficulty from respiratory muscle weakness</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:589" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:589" target="_blank">ORPHA:589</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0002094 | Dyspnea | Frequent (79-30%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet&#39;s curated HPO frequency annotation classifies dyspnea as Frequent (79-30%) in myasthenia gravis.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-respiratory-failure" data-dismech-node="Respiratory Failure" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Respiratory Failure
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002878" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002878</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Respiratory failure (HP:0002878). HP:0002878 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">Myasthenic crisis, life-threatening</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:589" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:589" target="_blank">ORPHA:589</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0002878 | Respiratory failure | Occasional (29-5%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet&#39;s curated HPO frequency annotation classifies respiratory failure as Occasional (29-5%) in myasthenia gravis.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-12">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Constitutional
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-fatigue" data-dismech-node="Fatigue" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Fatigue
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0012378</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">Generalized fatigue distinct from muscle-specific weakness</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:589" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:589" target="_blank">ORPHA:589</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0012378 | Fatigue | Frequent (79-30%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet&#39;s curated HPO frequency annotation classifies fatigue as Frequent (79-30%) in myasthenia gravis.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-13">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">22</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-ophthalmoparesis" data-dismech-node="Ophthalmoparesis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Ophthalmoparesis
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000597" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000597</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Ophthalmoparesis (HP:0000597). HP:0000597 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">Weakness of extraocular muscles</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:589" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:589" target="_blank">ORPHA:589</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0000597 | Ophthalmoparesis | Frequent (79-30%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet&#39;s curated HPO frequency annotation classifies ophthalmoparesis as Frequent (79-30%) in myasthenia gravis.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-dysphonia" data-dismech-node="Dysphonia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Dysphonia
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001618" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001618</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Dysphonia (HP:0001618). HP:0001618 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">Voice changes from laryngeal muscle weakness</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:589" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:589" target="_blank">ORPHA:589</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0001618 | Dysphonia | Frequent (79-30%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet&#39;s curated HPO frequency annotation classifies dysphonia as Frequent (79-30%) in myasthenia gravis.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-bulbar-palsy" data-dismech-node="Bulbar Palsy" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Bulbar Palsy
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001283" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001283</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Bulbar palsy (HP:0001283). HP:0001283 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">Weakness of muscles innervated by cranial nerves</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:589" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:589" target="_blank">ORPHA:589</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0001283 | Bulbar palsy | Frequent (79-30%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet&#39;s curated HPO frequency annotation classifies bulbar palsy as Frequent (79-30%) in myasthenia gravis.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-fatigable-weakness-of-skeletal-muscles" data-dismech-node="Fatigable Weakness of Skeletal Muscles" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Fatigable Weakness of Skeletal Muscles
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0030197" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0030197</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Fatigable weakness of skeletal muscles (HP:0030197). HP:0030197 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">Weakness worsens with repetitive use</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:589" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:589" target="_blank">ORPHA:589</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0030197 | Fatigable weakness of skeletal muscles | Frequent (79-30%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet&#39;s curated HPO frequency annotation classifies fatigable weakness of skeletal muscles as Frequent (79-30%) in myasthenia gravis.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-difficulty-climbing-stairs" data-dismech-node="Difficulty Climbing Stairs" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Difficulty Climbing Stairs
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003551" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0003551</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Difficulty climbing stairs (HP:0003551). HP:0003551 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">Proximal weakness manifesting as difficulty with stairs</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:589" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:589" target="_blank">ORPHA:589</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0003551 | Difficulty climbing stairs | Frequent (79-30%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet&#39;s curated HPO frequency annotation classifies difficulty climbing stairs as Frequent (79-30%) in myasthenia gravis.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-thymus-morphology" data-dismech-node="Abnormal Thymus Morphology" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Abnormal Thymus Morphology
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000777" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000777</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal thymus morphology (HP:0000777). HP:0000777 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">Thymic hyperplasia or thymoma</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:589" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:589" target="_blank">ORPHA:589</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0000777 | Abnormality of the thymus | Frequent (79-30%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet&#39;s curated HPO frequency annotation classifies abnormality of the thymus as Frequent (79-30%) in myasthenia gravis.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-thymus-hyperplasia" data-dismech-node="Thymus Hyperplasia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Thymus Hyperplasia
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0010516" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0010516</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Thymus hyperplasia (HP:0010516). HP:0010516 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">Present in 65-75% of AChR-positive patients</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:589" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:589" target="_blank">ORPHA:589</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0010516 | Thymus hyperplasia | Frequent (79-30%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet&#39;s curated HPO frequency annotation classifies thymus hyperplasia as Frequent (79-30%) in myasthenia gravis.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-thymoma" data-dismech-node="Thymoma" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Thymoma
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100522" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0100522</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Thymoma (HP:0100522). HP:0100522 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">Thymic tumor present in 10-15% of MG patients</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:589" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:589" target="_blank">ORPHA:589</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0100522 | Thymoma | Occasional (29-5%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet&#39;s curated HPO frequency annotation classifies thymoma as Occasional (29-5%) in myasthenia gravis.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-myositis" data-dismech-node="Myositis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Myositis
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100614" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0100614</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Myositis (HP:0100614). HP:0100614 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">Inflammatory myopathy can co-occur with MG</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:589" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:589" target="_blank">ORPHA:589</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0100614 | Myositis | Frequent (79-30%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet&#39;s curated HPO frequency annotation classifies myositis as Frequent (79-30%) in myasthenia gravis.</div>
 
 
 
@@ -7107,15 +6454,18 @@ This clinical feature is Myositis (HP:0100614). HP:0100614 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012473" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0012473</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012473" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0012473</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Tongue atrophy (HP:0012473). HP:0012473 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Tongue wasting, particularly in MuSK-MG</div>
@@ -7137,6 +6487,7 @@ This clinical feature is Tongue atrophy (HP:0012473). HP:0012473 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7163,9 +6514,18 @@ This clinical feature is Tongue atrophy (HP:0012473). HP:0012473 is a phenotype 
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-single-fiber-emg-abnormality" data-dismech-node="Single Fiber EMG Abnormality" data-dismech-type="phenotype">
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-8">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Immune
+                    <span class="cat-count">9</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-myositis" data-dismech-node="Myositis" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Single Fiber EMG Abnormality
+                        Myositis
 
                         <span class="phenotype-freq">FREQUENT</span>
 
@@ -7179,18 +6539,21 @@ This clinical feature is Tongue atrophy (HP:0012473). HP:0012473 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030006" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0030006</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100614" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0100614</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Single fiber EMG abnormality (HP:0030006). HP:0030006 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Myositis (HP:0100614). HP:0100614 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
 
 
-                    <div class="item-desc">Key electrodiagnostic finding, increased jitter</div>
+
+
+
+                    <div class="item-desc">Inflammatory myopathy can co-occur with MG</div>
 
 
 
@@ -7212,14 +6575,15 @@ This clinical feature is Single fiber EMG abnormality (HP:0030006). HP:0030006 i
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
-                <div class="evidence-snippet">"HP:0030006 | Single fiber EMG abnormality | Frequent (79-30%)"</div>
+                <div class="evidence-snippet">"HP:0100614 | Myositis | Frequent (79-30%)"</div>
 
 
-                <div class="evidence-explanation">Orphanet&#39;s curated HPO frequency annotation classifies single fiber EMG abnormality as Frequent (79-30%) in myasthenia gravis.</div>
+                <div class="evidence-explanation">Orphanet&#39;s curated HPO frequency annotation classifies myositis as Frequent (79-30%) in myasthenia gravis.</div>
 
 
 
@@ -7253,15 +6617,18 @@ This clinical feature is Single fiber EMG abnormality (HP:0030006). HP:0030006 i
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030208" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0030208</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030208" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0030208</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Anti-neuromuscular Junction acetylcholine receptor antibody positivity (HP:0030208). HP:0030208 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Present in ~85% of generalized MG</div>
@@ -7283,6 +6650,7 @@ This clinical feature is Anti-neuromuscular Junction acetylcholine receptor anti
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7327,15 +6695,18 @@ This clinical feature is Anti-neuromuscular Junction acetylcholine receptor anti
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030210" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0030210</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030210" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0030210</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Anti-muscle-specific tyrosine kinase antibody (HP:0030210). HP:0030210 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Orphanet classifies as Frequent (79-30%); the ~5-10% figure reflects prevalence among all MG patients, whereas the Orphanet frequency reflects detection rate among those tested for MuSK antibodies</div>
@@ -7357,6 +6728,7 @@ This clinical feature is Anti-muscle-specific tyrosine kinase antibody (HP:00302
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7399,15 +6771,18 @@ This clinical feature is Anti-muscle-specific tyrosine kinase antibody (HP:00302
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_5000046" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:5000046</a>
+    <a href="http://purl.obolibrary.org/obo/HP_5000046" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:5000046</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Anti-Lrp4 antibody positivity (HP:5000046). HP:5000046 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Present in some double-seronegative cases</div>
@@ -7429,6 +6804,7 @@ This clinical feature is Anti-Lrp4 antibody positivity (HP:5000046). HP:5000046 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7471,15 +6847,18 @@ This clinical feature is Anti-Lrp4 antibody positivity (HP:5000046). HP:5000046 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_5000038" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:5000038</a>
+    <a href="http://purl.obolibrary.org/obo/HP_5000038" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:5000038</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Anti-titin antibody positivity (HP:5000038). HP:5000038 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Associated with thymoma and late-onset MG</div>
@@ -7501,6 +6880,7 @@ This clinical feature is Anti-titin antibody positivity (HP:5000038). HP:5000038
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7543,15 +6923,18 @@ This clinical feature is Anti-titin antibody positivity (HP:5000038). HP:5000038
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_5000047" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:5000047</a>
+    <a href="http://purl.obolibrary.org/obo/HP_5000047" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:5000047</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Anti-ryanodine receptor antibody (HP:5000047). HP:5000047 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Key marker for thymoma-associated MG</div>
@@ -7573,6 +6956,7 @@ This clinical feature is Anti-ryanodine receptor antibody (HP:5000047). HP:50000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7615,15 +6999,18 @@ This clinical feature is Anti-ryanodine receptor antibody (HP:5000047). HP:50000
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_5000048" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:5000048</a>
+    <a href="http://purl.obolibrary.org/obo/HP_5000048" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:5000048</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Anti-Kv1.4 antibody (HP:5000048). HP:5000048 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Associated with myasthenic crisis and cardiac involvement</div>
@@ -7645,6 +7032,7 @@ This clinical feature is Anti-Kv1.4 antibody (HP:5000048). HP:5000048 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7687,15 +7075,18 @@ This clinical feature is Anti-Kv1.4 antibody (HP:5000048). HP:5000048 is a pheno
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_6000881" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:6000881</a>
+    <a href="http://purl.obolibrary.org/obo/HP_6000881" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:6000881</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Anti-DCC netrin 1 receptor antibody positivity (HP:6000881). HP:6000881 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7715,6 +7106,7 @@ This clinical feature is Anti-DCC netrin 1 receptor antibody positivity (HP:6000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7726,150 +7118,6 @@ This clinical feature is Anti-DCC netrin 1 receptor antibody positivity (HP:6000
 
 
                 <div class="evidence-explanation">Orphanet&#39;s curated HPO frequency annotation classifies anti-DCC netrin 1 receptor antibody positivity as Frequent (79-30%) in myasthenia gravis.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hashimoto-thyroiditis" data-dismech-node="Hashimoto Thyroiditis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hashimoto Thyroiditis
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000872" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0000872</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hashimoto thyroiditis (HP:0000872). HP:0000872 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">Autoimmune thyroiditis co-occurs with MG</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:589" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:589" target="_blank">ORPHA:589</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0000872 | Hashimoto thyroiditis | Occasional (29-5%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet&#39;s curated HPO frequency annotation classifies Hashimoto thyroiditis as Occasional (29-5%) in myasthenia gravis.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-rheumatoid-arthritis" data-dismech-node="Rheumatoid Arthritis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Rheumatoid Arthritis
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001370" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0001370</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Rheumatoid arthritis (HP:0001370). HP:0001370 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">Autoimmune comorbidity</div>
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:589" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:589" target="_blank">ORPHA:589</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0001370 | Rheumatoid arthritis | Occasional (29-5%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet&#39;s curated HPO frequency annotation classifies rheumatoid arthritis as Occasional (29-5%) in myasthenia gravis.</div>
 
 
 
@@ -7901,15 +7149,18 @@ This clinical feature is Rheumatoid arthritis (HP:0001370). HP:0001370 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002725" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0002725</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002725" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0002725</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Systemic lupus erythematosus (HP:0002725). HP:0002725 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Autoimmune comorbidity</div>
@@ -7931,6 +7182,7 @@ This clinical feature is Systemic lupus erythematosus (HP:0002725). HP:0002725 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7957,9 +7209,559 @@ This clinical feature is Systemic lupus erythematosus (HP:0002725). HP:0002725 i
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-primary-adrenal-insufficiency" data-dismech-node="Primary Adrenal Insufficiency" data-dismech-type="phenotype">
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-9">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Limbs
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-limb-muscle-weakness" data-dismech-node="Limb Muscle Weakness" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Primary Adrenal Insufficiency
+                        Limb Muscle Weakness
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003690" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0003690</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Limb muscle weakness (HP:0003690). HP:0003690 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">Proximal limb weakness, difficulty with overhead activities</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:589" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:589" target="_blank">ORPHA:589</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0003690 | Limb muscle weakness | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet&#39;s curated HPO frequency annotation classifies limb muscle weakness as Frequent (79-30%) in myasthenia gravis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-10">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Musculoskeletal
+                    <span class="cat-count">7</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-muscle-weakness" data-dismech-node="Muscle Weakness" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Muscle Weakness
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001324" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001324</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Muscle Weakness (HP:0001324). HP:0001324 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">Fatigable weakness, worse with exertion</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:589" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:589" target="_blank">ORPHA:589</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0001324 | Muscle weakness | Very frequent (99-80%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet&#39;s curated HPO frequency annotation classifies muscle weakness as Very frequent (99-80%) in myasthenia gravis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-bulbar-palsy" data-dismech-node="Bulbar Palsy" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Bulbar Palsy
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001283" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001283</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Bulbar palsy (HP:0001283). HP:0001283 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">Weakness of muscles innervated by cranial nerves</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:589" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:589" target="_blank">ORPHA:589</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0001283 | Bulbar palsy | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet&#39;s curated HPO frequency annotation classifies bulbar palsy as Frequent (79-30%) in myasthenia gravis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-fatigable-weakness-of-skeletal-muscles" data-dismech-node="Fatigable Weakness of Skeletal Muscles" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Fatigable Weakness of Skeletal Muscles
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030197" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0030197</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Fatigable weakness of skeletal muscles (HP:0030197). HP:0030197 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">Weakness worsens with repetitive use</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:589" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:589" target="_blank">ORPHA:589</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0030197 | Fatigable weakness of skeletal muscles | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet&#39;s curated HPO frequency annotation classifies fatigable weakness of skeletal muscles as Frequent (79-30%) in myasthenia gravis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-difficulty-climbing-stairs" data-dismech-node="Difficulty Climbing Stairs" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Difficulty Climbing Stairs
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003551" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0003551</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Difficulty climbing stairs (HP:0003551). HP:0003551 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">Proximal weakness manifesting as difficulty with stairs</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:589" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:589" target="_blank">ORPHA:589</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0003551 | Difficulty climbing stairs | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet&#39;s curated HPO frequency annotation classifies difficulty climbing stairs as Frequent (79-30%) in myasthenia gravis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-skeletal-muscle-atrophy" data-dismech-node="Skeletal Muscle Atrophy" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Skeletal Muscle Atrophy
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003202" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0003202</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Skeletal muscle atrophy (HP:0003202). HP:0003202 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">Muscle wasting in chronic disease, particularly MuSK-MG</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:589" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:589" target="_blank">ORPHA:589</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0003202 | Skeletal muscle atrophy | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet&#39;s curated HPO frequency annotation classifies skeletal muscle atrophy as Frequent (79-30%) in myasthenia gravis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-single-fiber-emg-abnormality" data-dismech-node="Single Fiber EMG Abnormality" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Single Fiber EMG Abnormality
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0030006" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0030006</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Single fiber EMG abnormality (HP:0030006). HP:0030006 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">Key electrodiagnostic finding, increased jitter</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:589" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:589" target="_blank">ORPHA:589</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0030006 | Single fiber EMG abnormality | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet&#39;s curated HPO frequency annotation classifies single fiber EMG abnormality as Frequent (79-30%) in myasthenia gravis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-rheumatoid-arthritis" data-dismech-node="Rheumatoid Arthritis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Rheumatoid Arthritis
 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
@@ -7973,15 +7775,18 @@ This clinical feature is Systemic lupus erythematosus (HP:0002725). HP:0002725 i
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008207" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0008207</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001370" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0001370</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Primary adrenal insufficiency (HP:0008207). HP:0008207 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Rheumatoid arthritis (HP:0001370). HP:0001370 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Autoimmune comorbidity</div>
@@ -8006,14 +7811,505 @@ This clinical feature is Primary adrenal insufficiency (HP:0008207). HP:0008207 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
-                <div class="evidence-snippet">"HP:0008207 | Primary adrenal insufficiency | Occasional (29-5%)"</div>
+                <div class="evidence-snippet">"HP:0001370 | Rheumatoid arthritis | Occasional (29-5%)"</div>
 
 
-                <div class="evidence-explanation">Orphanet&#39;s curated HPO frequency annotation classifies primary adrenal insufficiency as Occasional (29-5%) in myasthenia gravis.</div>
+                <div class="evidence-explanation">Orphanet&#39;s curated HPO frequency annotation classifies rheumatoid arthritis as Occasional (29-5%) in myasthenia gravis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-11">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Nervous System
+                    <span class="cat-count">2</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-dysarthria" data-dismech-node="Dysarthria" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Dysarthria
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0001260</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dysarthria (HP:0001260). HP:0001260 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">Slurred or nasal speech</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:589" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:589" target="_blank">ORPHA:589</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0001260 | Dysarthria | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet&#39;s curated HPO frequency annotation classifies dysarthria as Frequent (79-30%) in myasthenia gravis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-paresthesia" data-dismech-node="Paresthesia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Paresthesia
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003401" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0003401</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Paresthesia (HP:0003401). HP:0003401 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:589" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:589" target="_blank">ORPHA:589</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0003401 | Paresthesia | Occasional (29-5%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet&#39;s curated HPO frequency annotation classifies paresthesia as Occasional (29-5%) in myasthenia gravis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-12">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Respiratory
+                    <span class="cat-count">2</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-dyspnea" data-dismech-node="Dyspnea" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Dyspnea
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0002094</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">Breathing difficulty from respiratory muscle weakness</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:589" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:589" target="_blank">ORPHA:589</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0002094 | Dyspnea | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet&#39;s curated HPO frequency annotation classifies dyspnea as Frequent (79-30%) in myasthenia gravis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-respiratory-failure" data-dismech-node="Respiratory Failure" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Respiratory Failure
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002878" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0002878</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Respiratory failure (HP:0002878). HP:0002878 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">Myasthenic crisis, life-threatening</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:589" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:589" target="_blank">ORPHA:589</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0002878 | Respiratory failure | Occasional (29-5%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet&#39;s curated HPO frequency annotation classifies respiratory failure as Occasional (29-5%) in myasthenia gravis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-13">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Voice
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-dysphonia" data-dismech-node="Dysphonia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Dysphonia
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001618" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0001618</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dysphonia (HP:0001618). HP:0001618 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">Voice changes from laryngeal muscle weakness</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:589" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:589" target="_blank">ORPHA:589</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0001618 | Dysphonia | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet&#39;s curated HPO frequency annotation classifies dysphonia as Frequent (79-30%) in myasthenia gravis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-14">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Constitutional
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-fatigue" data-dismech-node="Fatigue" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Fatigue
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012378" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0012378</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Fatigue (HP:0012378). HP:0012378 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">Generalized fatigue distinct from muscle-specific weakness</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:589" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:589" target="_blank">ORPHA:589</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0012378 | Fatigue | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet&#39;s curated HPO frequency annotation classifies fatigue as Frequent (79-30%) in myasthenia gravis.</div>
 
 
 
@@ -8081,6 +8377,9 @@ This clinical feature is Primary adrenal insufficiency (HP:0008207). HP:0008207 
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-hla-dr3" data-dismech-node="HLA-DR3" data-dismech-type="genetic">
@@ -8090,6 +8389,9 @@ This clinical feature is Primary adrenal insufficiency (HP:0008207). HP:0008207 
                     <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Risk Factor)</span>
 
                 </div>
+
+
+
 
 
 
@@ -8109,6 +8411,9 @@ This clinical feature is Primary adrenal insufficiency (HP:0008207). HP:0008207 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8123,6 +8428,7 @@ This clinical feature is Primary adrenal insufficiency (HP:0008207). HP:0008207 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8149,6 +8455,7 @@ This clinical feature is Primary adrenal insufficiency (HP:0008207). HP:0008207 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8204,6 +8511,9 @@ This disease-associated gene is CHRNA1 (hgnc:1955). hgnc:1955 is a gene from the
 
 
                 </div>
+
+
+
 
 
 
@@ -8272,6 +8582,7 @@ This disease-associated gene is CHRNA1 (hgnc:1955). hgnc:1955 is a gene from the
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8296,6 +8607,7 @@ This disease-associated gene is CHRNA1 (hgnc:1955). hgnc:1955 is a gene from the
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8317,6 +8629,7 @@ This disease-associated gene is CHRNA1 (hgnc:1955). hgnc:1955 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8418,6 +8731,20 @@ This treatment uses acetylcholinesterase inhibitor (NCIT:C47792). NCIT:C47792 is
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">First-line symptomatic treatment (pyridostigmine).</div>
 
 
@@ -8460,6 +8787,7 @@ This treatment uses acetylcholinesterase inhibitor (NCIT:C47792). NCIT:C47792 is
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Patients reported a median effectiveness of 60, IQR 28-78 and net benefit of 65, IQR 45-84."</div>
@@ -8479,6 +8807,7 @@ This treatment uses acetylcholinesterase inhibitor (NCIT:C47792). NCIT:C47792 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8536,6 +8865,20 @@ This treatment is corticosteroid agent therapy, annotated with Systemic Corticos
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -8623,6 +8966,20 @@ This treatment is thymectomy (NCIT:C29894). NCIT:C29894 is a clinical interventi
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Surgical removal of thymus, improves outcomes in appropriate patients.</div>
 
 
@@ -8665,6 +9022,7 @@ This treatment is thymectomy (NCIT:C29894). NCIT:C29894 is a clinical interventi
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Patients who underwent thymectomy had a lower time-weighted average Quantitative Myasthenia Gravis score over a 3-year period than those who received prednisone alone (6.15 vs. 8.99, P&lt;0.001)"</div>
@@ -8684,6 +9042,7 @@ This treatment is thymectomy (NCIT:C29894). NCIT:C29894 is a clinical interventi
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -8741,6 +9100,20 @@ This treatment is immune suppressant agent therapy, annotated with Immunosuppres
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -8815,6 +9188,20 @@ This treatment is immune suppressant agent therapy, annotated with Immunosuppres
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Alternative immunosuppressant.</div>
 
 
@@ -8879,6 +9266,20 @@ This treatment is immune suppressant agent therapy, annotated with Immunosuppres
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -8975,6 +9376,20 @@ This treatment uses complement inhibitor (NCIT:C199456). NCIT:C199456 is a thera
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Complement inhibitor (anti-C5), approved for refractory AChR+ MG.</div>
 
 
@@ -9017,6 +9432,7 @@ This treatment uses complement inhibitor (NCIT:C199456). NCIT:C199456 is a thera
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Results from a phase 2 study suggested that eculizumab, a terminal complement inhibitor, produced clinically meaningful improvements in patients with anti-acetylcholine receptor antibody-positive refractory generalised myasthenia gravis."</div>
@@ -9036,6 +9452,7 @@ This treatment uses complement inhibitor (NCIT:C199456). NCIT:C199456 is a thera
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9061,6 +9478,20 @@ This treatment uses complement inhibitor (NCIT:C199456). NCIT:C199456 is a thera
                 <div class="item-name">
                     Plasma Exchange
                 </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -9108,6 +9539,7 @@ This treatment uses complement inhibitor (NCIT:C199456). NCIT:C199456 is a thera
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Plasma exchange (PLEX) produced improvement in 93%, whereas only 61% improved after intravenous immunoglobulin."</div>
@@ -9130,6 +9562,20 @@ This treatment uses complement inhibitor (NCIT:C199456). NCIT:C199456 is a thera
                 <div class="item-name">
                     Intravenous Immunoglobulin
                 </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -9204,6 +9650,20 @@ This treatment is FcRn antagonist therapy, annotated with Pharmacotherapy (NCIT:
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">FcRn antagonist approved for generalized AChR-positive MG; reduces pathogenic IgG levels by blocking neonatal Fc receptor recycling.</div>
 
 
@@ -9246,6 +9706,7 @@ This treatment is FcRn antagonist therapy, annotated with Pharmacotherapy (NCIT:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9267,6 +9728,7 @@ This treatment is FcRn antagonist therapy, annotated with Pharmacotherapy (NCIT:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9333,6 +9795,20 @@ This treatment is FcRn antagonist therapy, annotated with Pharmacotherapy (NCIT:
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Subcutaneous FcRn antagonist for generalized myasthenia gravis in adults who are anti-AChR or anti-MuSK antibody positive; reduces pathogenic IgG via neonatal Fc receptor blockade.</div>
 
 
@@ -9375,6 +9851,7 @@ This treatment is FcRn antagonist therapy, annotated with Pharmacotherapy (NCIT:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9399,6 +9876,7 @@ This treatment is FcRn antagonist therapy, annotated with Pharmacotherapy (NCIT:
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9420,6 +9898,7 @@ This treatment is FcRn antagonist therapy, annotated with Pharmacotherapy (NCIT:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9486,7 +9965,7 @@ This environmental factor is Infectious agent exposure, annotated with exposure 
 
 
 
-                <div class="item-desc">May trigger or exacerbate disease, and is the single most common identified precipitant of myasthenic crisis. No specific pathogen has been established.</div>
+                <div class="item-desc">May trigger or exacerbate disease, and is the single most common identified precipitant of myasthenic crisis. No specific pathogen has been established. Bound to ECTO:3000000 (exposure to organism) rather than the previous XCO:0000236, a cross-ontology move that also broadens pathogen to any organism. ECTO has no generic pathogen- or infectious-agent-exposure term, so the broadening is the deliberate &#34;no term beats a bad one&#34; tradeoff and not an error to be reverted; the pathogen sense is carried by preferred_term.</div>
 
 
 
@@ -9505,6 +9984,7 @@ This environmental factor is Infectious agent exposure, annotated with exposure 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9529,6 +10009,7 @@ This environmental factor is Infectious agent exposure, annotated with exposure 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9606,6 +10087,7 @@ This environmental factor is medication exposure, annotated with exposure to dru
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9627,6 +10109,7 @@ This environmental factor is medication exposure, annotated with exposure to dru
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9718,6 +10201,7 @@ This environmental factor is psychological stress, annotated with stress (XCO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9853,6 +10337,7 @@ This environmental factor is psychological stress, annotated with stress (XCO:00
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9899,7 +10384,7 @@ This environmental factor is psychological stress, annotated with stress (XCO:00
                     <span class="tag" style="background: #dcfce7; color: #166534;">1.0&ndash;9.0 per 100,000
                     </span>
 
-                    <span class="tag">1–9 per 100,000</span>
+                    <span class="tag">1–9 per 100,000 per year</span>
 
                 </div>
 
@@ -9921,6 +10406,7 @@ This environmental factor is psychological stress, annotated with stress (XCO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -9980,6 +10466,7 @@ This environmental factor is psychological stress, annotated with stress (XCO:00
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10011,7 +10498,7 @@ This environmental factor is psychological stress, annotated with stress (XCO:00
                     <span class="tag" style="background: #dcfce7; color: #166534;">0.1&ndash;0.9 per 100,000
                     </span>
 
-                    <span class="tag">1–9 per 1,000,000</span>
+                    <span class="tag">1–9 per 1,000,000 per year</span>
 
                 </div>
 
@@ -10033,6 +10520,7 @@ This environmental factor is psychological stress, annotated with stress (XCO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10089,6 +10577,7 @@ This environmental factor is psychological stress, annotated with stress (XCO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -10404,6 +10893,19 @@ mappings:
     - reference: ORPHA:589
       consistent: CONSISTENT
       notes: &#34;MONDO:0009688 | Exact&#34;
+  - term:
+      id: MONDO:0018324
+      label: adult-onset myasthenia gravis
+    mapping_predicate: skos:narrowMatch
+    mapping_source: MONDO
+    mapping_justification: &gt;-
+      MONDO:0018324 (adult-onset myasthenia gravis) is a narrower is_a child
+      of MONDO:0009688 in MONDO, restricting the general autoimmune
+      myasthenia gravis entity to its adult-onset presentation. That
+      onset-stratified concept is curated separately in
+      Adult-Onset_Myasthenia_Gravis.yaml, which carries MONDO:0018324 as its
+      disease_term and the reciprocal skos:broadMatch back to MONDO:0009688;
+      this mapping records the same relationship from the parent entry&#39;s side.
 definitions:
 - name: Orphanet disease definition
   definition_type: CASE_DEFINITION
@@ -10583,6 +11085,7 @@ progression:
     explanation: Orphanet records all ages as the age-of-onset category for myasthenia gravis.
 pathophysiology:
 - name: Autoantibody-Mediated NMJ Dysfunction
+  conforms_to: &#34;neuromuscular_transmission_failure#Reduced Postsynaptic Endplate Response to Acetylcholine&#34;
   description: &gt;
     Autoantibodies (primarily anti-AChR) target the postsynaptic membrane at
     neuromuscular junctions. Antibodies cause receptor internalization,
@@ -11340,8 +11843,15 @@ environmental:
     term:
       id: ECTO:3000000
       label: exposure to organism
-  notes: May trigger or exacerbate disease, and is the single most common identified
+  notes: &gt;-
+    May trigger or exacerbate disease, and is the single most common identified
     precipitant of myasthenic crisis. No specific pathogen has been established.
+    Bound to ECTO:3000000 (exposure to organism) rather than the previous
+    XCO:0000236, a cross-ontology move that also broadens pathogen to any
+    organism. ECTO has no generic pathogen- or infectious-agent-exposure term,
+    so the broadening is the deliberate &#34;no term beats a bad one&#34; tradeoff and
+    not an error to be reverted; the pathogen sense is carried by
+    preferred_term.
   evidence:
   - reference: PMID:9153452
     reference_title: &#34;Myasthenic crisis: clinical features, mortality, complications, and risk factors for prolonged intubation.&#34;
@@ -11960,6 +12470,8 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -12239,7 +12751,7 @@ Myasthenia gravis is a prototypic antibody-mediated autoimmune synaptopathy of t
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Myasthenia Gravis", "mondoId": "MONDO:0009688", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Myasthenia_Gravis", "yamlRevision": "c43d519490f9"};
+        const OS_CONFIG = {"diseaseName": "Myasthenia Gravis", "mondoId": "MONDO:0009688", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Myasthenia_Gravis", "yamlRevision": "f3bc088a7b56"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

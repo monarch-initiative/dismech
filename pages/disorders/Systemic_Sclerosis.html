@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -859,6 +860,21 @@
             background: transparent;
             color: #475569;
             border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
         }
 
         .evidence-source {
@@ -2410,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2966,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2981,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3090,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3103,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3307,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3317,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3353,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3374,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3687,6 +3752,18 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4154,6 +4231,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-vascular-injury-and-endothelial-dysfunction" data-dismech-node="Vascular Injury and Endothelial Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Vascular Injury and Endothelial Dysfunction</div>
 
+
                 <div class="item-desc">Early endothelial cell injury leads to vascular damage, intimal proliferation, and obliterative vasculopathy. Raynaud&#39;s phenomenon reflects vasospasm and structural vascular changes.</div>
 
 
@@ -4259,6 +4337,7 @@ This pathophysiological event involves Blood Vessel Development (GO:0001568). GO
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"In systemic sclerosis (SSc, or scleroderma), defective angiogenesis, clinically manifesting with abnormal capillary architecture and severe capillary reduction, represents a hallmark of early-stage disease, usually preceding the onset of tissue fibrosis, and is caused by several cellular and..."</div>
@@ -4278,6 +4357,7 @@ This pathophysiological event involves Blood Vessel Development (GO:0001568). GO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4301,6 +4381,7 @@ This pathophysiological event involves Blood Vessel Development (GO:0001568). GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-immune-activation-and-autoantibody-production" data-dismech-node="Immune Activation and Autoantibody Production" data-dismech-type="pathophysiology">
                 <div class="item-name">Immune Activation and Autoantibody Production</div>
+
 
                 <div class="item-desc">Characteristic autoantibodies include anti-centromere (limited disease), anti-Scl-70/topoisomerase I (diffuse disease), and anti-RNA polymerase III. T cells and macrophages infiltrate affected tissues and produce pro-fibrotic cytokines.</div>
 
@@ -4437,6 +4518,7 @@ This pathophysiological event involves Immunoglobulin Production (GO:0002377). G
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"Here we report the largest Asian genome-wide association study (GWAS) for systemic sclerosis performed to date, based on data from Japanese subjects and comprising of 1428 cases and 112,599 controls. The lead SNP is in the FCGR/FCRL region, which shows a penetrating association in the Asian..."</div>
@@ -4456,6 +4538,7 @@ This pathophysiological event involves Immunoglobulin Production (GO:0002377). G
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4479,6 +4562,7 @@ This pathophysiological event involves Immunoglobulin Production (GO:0002377). G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fibroblast-activation-and-fibrosis" data-dismech-node="Fibroblast Activation and Fibrosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Fibroblast Activation and Fibrosis</div>
+
 
                 <div class="item-desc">TGF-beta signaling drives fibroblast activation and differentiation into myofibroblasts. Excessive collagen and extracellular matrix deposition leads to progressive fibrosis of skin and internal organs.</div>
 
@@ -4658,6 +4742,7 @@ This pathophysiological event involves TGF-beta Signaling, annotated with transf
 
 
 
+
                 </div>
 
                 <div class="evidence-snippet">"SSc skin demonstrated an increased abundance of COMP+, COL11A1+, MYOC+, CCL19+, SFRP4/SFRP2+, and PRSS23/SFRP2+ fibroblasts signatures and decreased proportions of CXCL12+ and PI16+ fibroblast signatures in the Prospective Registry of Early Systemic Sclerosis and Genetics versus Environment in..."</div>
@@ -4677,6 +4762,7 @@ This pathophysiological event involves TGF-beta Signaling, annotated with transf
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -4700,6 +4786,7 @@ This pathophysiological event involves TGF-beta Signaling, annotated with transf
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-systemic-sclerosis-associated-interstitial-lung-disease" data-dismech-node="Systemic Sclerosis-Associated Interstitial Lung Disease" data-dismech-type="pathophysiology">
                 <div class="item-name">Systemic Sclerosis-Associated Interstitial Lung Disease</div>
+
 
                 <div class="item-desc">Fibrotic remodeling can involve the lung interstitium in systemic sclerosis, producing restrictive ventilatory impairment that is tracked by pulmonary function testing.</div>
 
@@ -4793,6 +4880,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4857,23 +4945,25 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(3)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Digestive<span class="pill-count">(1)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Head and Neck<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Integument<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Immune<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Metabolism<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Integument<span class="pill-count">(6)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Musculoskeletal<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Limbs<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Respiratory<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Metabolism<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Constitutional<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Musculoskeletal<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Other<span class="pill-count">(8)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Respiratory<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-10">Constitutional<span class="pill-count">(3)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -4883,7 +4973,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Cardiovascular
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-raynaud-phenomenon" data-dismech-node="Raynaud Phenomenon" data-dismech-type="phenotype">
@@ -4911,6 +5001,9 @@ This clinical feature is Raynaud Phenomenon (HP:0030880). HP:0030880 is a phenot
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Often the earliest manifestation</div>
@@ -4954,6 +5047,9 @@ This clinical feature is Telangiectasia (HP:0001009). HP:0001009 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4971,6 +5067,7 @@ This clinical feature is Telangiectasia (HP:0001009). HP:0001009 is a phenotype 
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4979,6 +5076,80 @@ This clinical feature is Telangiectasia (HP:0001009). HP:0001009 is a phenotype 
 
 
                 <div class="evidence-explanation">Orphanet records telangiectasia as a frequent (30-79%) phenotype of systemic sclerosis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-nail-bed-telangiectasia" data-dismech-node="Nail bed telangiectasia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Nail bed telangiectasia
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001232" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0001232</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Nail bed telangiectasia (HP:0001232). HP:0001232 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:90291" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:90291" target="_blank">ORPHA:90291</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0001232 | Nail bed telangiectasia | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet records nail bed telangiectasia as a frequent (30-79%) phenotype of systemic sclerosis.</div>
 
 
 
@@ -5019,15 +5190,18 @@ This clinical feature is Telangiectasia (HP:0001009). HP:0001009 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0002015</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002015" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0002015</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Due to esophageal dysmotility</div>
@@ -5066,15 +5240,18 @@ This clinical feature is Dysphagia (HP:0002015). HP:0002015 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000160" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000160</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000160" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000160</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Narrow mouth (HP:0000160). HP:0000160 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5094,6 +5271,7 @@ This clinical feature is Narrow mouth (HP:0000160). HP:0000160 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5125,549 +5303,8 @@ This clinical feature is Narrow mouth (HP:0000160). HP:0000160 is a phenotype fr
             <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Integument
+                    Immune
                     <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-skin-thickening" data-dismech-node="Skin Thickening" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Skin Thickening
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Thickened skin</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001072" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001072</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Thick Skin, annotated with Thickened skin (HP:0001072). HP:0001072 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-5">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Metabolism
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-joint-swelling" data-dismech-node="Joint swelling" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Joint swelling
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001386" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001386</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Joint swelling (HP:0001386). HP:0001386 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:90291" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:90291" target="_blank">ORPHA:90291</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0001386 | Joint swelling | Frequent (79-30%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet records joint swelling as a frequent (30-79%) phenotype of systemic sclerosis.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-elevated-circulating-creatine-kinase-concentration" data-dismech-node="Elevated circulating creatine kinase concentration" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Elevated circulating creatine kinase concentration
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003236" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0003236</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Elevated circulating creatine kinase concentration (HP:0003236). HP:0003236 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:90291" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:90291" target="_blank">ORPHA:90291</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0003236 | Elevated circulating creatine kinase concentration | Frequent (79-30%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet records elevated circulating creatine kinase concentration as a frequent (30-79%) phenotype of systemic sclerosis.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-6">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Musculoskeletal
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-muscle-weakness" data-dismech-node="Muscle weakness" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Muscle weakness
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001324" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001324</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Muscle weakness (HP:0001324). HP:0001324 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:90291" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:90291" target="_blank">ORPHA:90291</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0001324 | Muscle weakness | Frequent (79-30%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet records muscle weakness as a frequent (30-79%) phenotype of systemic sclerosis.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-7">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Respiratory
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-pulmonary-fibrosis" data-dismech-node="Pulmonary Fibrosis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Pulmonary Fibrosis
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002206" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002206</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Pulmonary Fibrosis (HP:0002206). HP:0002206 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-                    <div class="item-desc">Major cause of morbidity and mortality</div>
-
-
-
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-8">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Constitutional
-                    <span class="cat-count">3</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-arthralgia" data-dismech-node="Arthralgia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Arthralgia
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002829" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0002829</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Arthralgia (HP:0002829). HP:0002829 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:90291" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:90291" target="_blank">ORPHA:90291</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0002829 | Arthralgia | Very frequent (99-80%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet records arthralgia as a very frequent (80-99%) phenotype of systemic sclerosis.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-myalgia" data-dismech-node="Myalgia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Myalgia
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0003326</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Myalgia (HP:0003326). HP:0003326 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:90291" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:90291" target="_blank">ORPHA:90291</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0003326 | Myalgia | Very frequent (99-80%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet records myalgia as a very frequent (80-99%) phenotype of systemic sclerosis.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-pain" data-dismech-node="Pain" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Pain
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012531" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0012531</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Pain (HP:0012531). HP:0012531 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:90291" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:90291" target="_blank">ORPHA:90291</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0012531 | Pain | Frequent (79-30%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet records pain as a frequent (30-79%) phenotype of systemic sclerosis.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-9">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">8</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-antinuclear-antibody-positivity" data-dismech-node="Antinuclear antibody positivity" data-dismech-type="phenotype">
@@ -5686,15 +5323,18 @@ This clinical feature is Pain (HP:0012531). HP:0012531 is a phenotype from the H
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003493" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0003493</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003493" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0003493</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Antinuclear antibody positivity (HP:0003493). HP:0003493 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5714,6 +5354,7 @@ This clinical feature is Antinuclear antibody positivity (HP:0003493). HP:000349
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5740,6 +5381,56 @@ This clinical feature is Antinuclear antibody positivity (HP:0003493). HP:000349
 
                 </div>
 
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-5">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Integument
+                    <span class="cat-count">6</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-skin-thickening" data-dismech-node="Skin Thickening" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Skin Thickening
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Thickened skin</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001072" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001072</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Thick Skin, annotated with Thickened skin (HP:0001072). HP:0001072 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
                 <div class="item-box phenotype-box anchor-target" id="phenotype-cutaneous-sclerotic-plaque" data-dismech-node="Cutaneous sclerotic plaque" data-dismech-type="phenotype">
                     <div class="item-name">
                         Cutaneous sclerotic plaque
@@ -5756,15 +5447,18 @@ This clinical feature is Antinuclear antibody positivity (HP:0003493). HP:000349
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0031359" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0031359</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0031359" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0031359</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cutaneous sclerotic plaque (HP:0031359). HP:0031359 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5784,6 +5478,7 @@ This clinical feature is Cutaneous sclerotic plaque (HP:0031359). HP:0031359 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5795,76 +5490,6 @@ This clinical feature is Cutaneous sclerotic plaque (HP:0031359). HP:0031359 is 
 
 
                 <div class="evidence-explanation">Orphanet records cutaneous sclerotic plaque as a very frequent (80-99%) phenotype of systemic sclerosis.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-nail-bed-telangiectasia" data-dismech-node="Nail bed telangiectasia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Nail bed telangiectasia
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001232" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001232</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Nail bed telangiectasia (HP:0001232). HP:0001232 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:90291" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:90291" target="_blank">ORPHA:90291</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0001232 | Nail bed telangiectasia | Frequent (79-30%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet records nail bed telangiectasia as a frequent (30-79%) phenotype of systemic sclerosis.</div>
 
 
 
@@ -5896,15 +5521,18 @@ This clinical feature is Nail bed telangiectasia (HP:0001232). HP:0001232 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005590" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0005590</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005590" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0005590</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Spotty hypopigmentation (HP:0005590). HP:0005590 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5924,6 +5552,7 @@ This clinical feature is Spotty hypopigmentation (HP:0005590). HP:0005590 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -5966,15 +5595,18 @@ This clinical feature is Spotty hypopigmentation (HP:0005590). HP:0005590 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006121" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0006121</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0006121" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0006121</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Acral ulceration (HP:0006121). HP:0006121 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5994,6 +5626,7 @@ This clinical feature is Acral ulceration (HP:0006121). HP:0006121 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6036,15 +5669,18 @@ This clinical feature is Acral ulceration (HP:0006121). HP:0006121 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007400" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0007400</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007400" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0007400</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Irregular hyperpigmentation (HP:0007400). HP:0007400 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6064,6 +5700,7 @@ This clinical feature is Irregular hyperpigmentation (HP:0007400). HP:0007400 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6106,15 +5743,18 @@ This clinical feature is Irregular hyperpigmentation (HP:0007400). HP:0007400 is
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011838" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0011838</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011838" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0011838</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Sclerodactyly (HP:0011838). HP:0011838 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6134,6 +5774,7 @@ This clinical feature is Sclerodactyly (HP:0011838). HP:0011838 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6160,6 +5801,15 @@ This clinical feature is Sclerodactyly (HP:0011838). HP:0011838 is a phenotype f
 
                 </div>
 
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-6">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Limbs
+                    <span class="cat-count">1</span>
+                </summary>
+
                 <div class="item-box phenotype-box anchor-target" id="phenotype-finger-swelling" data-dismech-node="Finger swelling" data-dismech-type="phenotype">
                     <div class="item-name">
                         Finger swelling
@@ -6176,15 +5826,18 @@ This clinical feature is Sclerodactyly (HP:0011838). HP:0011838 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0025131" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0025131</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0025131" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0025131</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Finger swelling (HP:0025131). HP:0025131 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6207,6 +5860,7 @@ This clinical feature is Finger swelling (HP:0025131). HP:0025131 is a phenotype
 
 
 
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6215,6 +5869,529 @@ This clinical feature is Finger swelling (HP:0025131). HP:0025131 is a phenotype
 
 
                 <div class="evidence-explanation">Orphanet records finger swelling as a frequent (30-79%) phenotype of systemic sclerosis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-7">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Metabolism
+                    <span class="cat-count">2</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-joint-swelling" data-dismech-node="Joint swelling" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Joint swelling
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001386" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001386</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Joint swelling (HP:0001386). HP:0001386 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:90291" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:90291" target="_blank">ORPHA:90291</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0001386 | Joint swelling | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet records joint swelling as a frequent (30-79%) phenotype of systemic sclerosis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-elevated-circulating-creatine-kinase-concentration" data-dismech-node="Elevated circulating creatine kinase concentration" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Elevated circulating creatine kinase concentration
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Elevated circulating creatine kinase activity</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003236" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0003236</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Elevated circulating creatine kinase activity (HP:0003236). HP:0003236 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:90291" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:90291" target="_blank">ORPHA:90291</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0003236 | Elevated circulating creatine kinase concentration | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet records elevated circulating creatine kinase concentration as a frequent (30-79%) phenotype of systemic sclerosis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-8">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Musculoskeletal
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-muscle-weakness" data-dismech-node="Muscle weakness" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Muscle weakness
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001324" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001324</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Muscle weakness (HP:0001324). HP:0001324 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:90291" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:90291" target="_blank">ORPHA:90291</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0001324 | Muscle weakness | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet records muscle weakness as a frequent (30-79%) phenotype of systemic sclerosis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-9">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Respiratory
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pulmonary-fibrosis" data-dismech-node="Pulmonary Fibrosis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Pulmonary Fibrosis
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002206" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0002206</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pulmonary Fibrosis (HP:0002206). HP:0002206 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+                    <div class="item-desc">Major cause of morbidity and mortality</div>
+
+
+
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-10">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Constitutional
+                    <span class="cat-count">3</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-arthralgia" data-dismech-node="Arthralgia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Arthralgia
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002829" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0002829</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Arthralgia (HP:0002829). HP:0002829 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:90291" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:90291" target="_blank">ORPHA:90291</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0002829 | Arthralgia | Very frequent (99-80%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet records arthralgia as a very frequent (80-99%) phenotype of systemic sclerosis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-myalgia" data-dismech-node="Myalgia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Myalgia
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0003326</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Myalgia (HP:0003326). HP:0003326 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:90291" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:90291" target="_blank">ORPHA:90291</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0003326 | Myalgia | Very frequent (99-80%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet records myalgia as a very frequent (80-99%) phenotype of systemic sclerosis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-pain" data-dismech-node="Pain" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Pain
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012531" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0012531</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pain (HP:0012531). HP:0012531 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:90291" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:90291" target="_blank">ORPHA:90291</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0012531 | Pain | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet records pain as a frequent (30-79%) phenotype of systemic sclerosis.</div>
 
 
 
@@ -6304,6 +6481,9 @@ This disease-associated gene is HLA-DRB1 (hgnc:4948). hgnc:4948 is a gene from t
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-irf5" data-dismech-node="IRF5" data-dismech-type="genetic">
@@ -6341,6 +6521,9 @@ This disease-associated gene is IRF5 (hgnc:6120). hgnc:6120 is a gene from the H
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-stat4" data-dismech-node="STAT4" data-dismech-type="genetic">
@@ -6372,6 +6555,9 @@ This disease-associated gene is STAT4 (hgnc:11365). hgnc:11365 is a gene from th
 
 
                 </div>
+
+
+
 
 
 
@@ -6460,6 +6646,31 @@ This treatment uses nifedipine (CHEBI:7565). CHEBI:7565 is a therapeutic agent f
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">For Raynaud&#39;s phenomenon management.</div>
 
 
@@ -6481,6 +6692,7 @@ This treatment uses nifedipine (CHEBI:7565). CHEBI:7565 is a therapeutic agent f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -6513,6 +6725,20 @@ This treatment uses nifedipine (CHEBI:7565). CHEBI:7565 is a therapeutic agent f
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Immunosuppressant for skin and lung involvement.</div>
 
 
@@ -6532,6 +6758,20 @@ This treatment uses nifedipine (CHEBI:7565). CHEBI:7565 is a therapeutic agent f
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Antifibrotic agent for progressive interstitial lung disease.</div>
 
 
@@ -6546,6 +6786,20 @@ This treatment uses nifedipine (CHEBI:7565). CHEBI:7565 is a therapeutic agent f
                 <div class="item-name">
                     ACE Inhibitors
                 </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -6709,6 +6963,7 @@ This treatment uses nifedipine (CHEBI:7565). CHEBI:7565 is a therapeutic agent f
 
 
 
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6748,6 +7003,7 @@ This treatment uses nifedipine (CHEBI:7565). CHEBI:7565 is a therapeutic agent f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
 
 
 
@@ -7440,10 +7696,10 @@ phenotypes:
   frequency: FREQUENT
   description: &#34;Elevated circulating creatine kinase concentration is reported as a frequent (30-79%) manifestation of systemic sclerosis in the Orphanet clinical phenotype dataset.&#34;
   phenotype_term:
-    preferred_term: &#34;Elevated circulating creatine kinase concentration&#34;
+    preferred_term: &#34;Elevated circulating creatine kinase activity&#34;
     term:
       id: HP:0003236
-      label: &#34;Elevated circulating creatine kinase concentration&#34;
+      label: &#34;Elevated circulating creatine kinase activity&#34;
   evidence:
   - reference: ORPHA:90291
     reference_title: Systemic sclerosis
@@ -8015,6 +8271,8 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -8471,7 +8729,7 @@ datasets:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Systemic Sclerosis", "mondoId": "MONDO:0005100", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Systemic_Sclerosis", "yamlRevision": "8f34ed16bfa7"};
+        const OS_CONFIG = {"diseaseName": "Systemic Sclerosis", "mondoId": "MONDO:0005100", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Systemic_Sclerosis", "yamlRevision": "06f4fafc3fbc"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

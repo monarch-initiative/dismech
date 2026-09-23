@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -467,6 +468,18 @@
         .tag-component {
             background: #f0fdf4;
             color: #166534;
+        }
+
+        /* Same values as disorder.html.j2 so a treatment chip looks identical
+           whether it is read on a disorder page or on a module page. */
+        .tag-treatment {
+            background: #ede9fe;
+            color: #5b21b6;
+        }
+
+        .tag-gene {
+            background: #dbeafe;
+            color: #1e40af;
         }
 
         .tag-role {
@@ -1044,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1059,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1113,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1126,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1284,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1294,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1335,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -1537,6 +1586,9 @@
 
     
 
+    
+
+    
     
 
     
@@ -1744,6 +1796,8 @@ This mechanism module involves Response to Antibiotic (GO:0046677). GO:0046677 i
             </div>
             <div class="item-desc">This is an antibacterial drug-mechanism module, not a specific disease. Disorder entries reference individual nodes via conforms_to (e.g., &#34;bacterial_cell_wall_synthesis_inhibition#Peptidoglycan Cross-Linking by Penicillin-Binding Proteins&#34;), and their cell-wall-active treatments point at the inhibited node via target_mechanisms (analogous to how checkpoint inhibitor treatments link to &#34;immune_checkpoint_blockade#Adaptive Immune Resistance&#34;). Key conformance / treatment target: &#34;Peptidoglycan Cross-Linking by Penicillin-Binding Proteins&#34; (the beta-lactam target). The module is pathogen-process-centric: nodes are druggable steps in the conserved pathway, not individual drugs; a given antibiotic class maps to the step it inhibits. The two resistance nodes capture the gating knowledge that distinguishes &#34;any cell-wall agent works&#34; from real drug selection — intrinsic target absence in cell-wall-deficient organisms, and acquired protection of the pathway.</div>
         </div>
+        
+
         
 
         
@@ -2127,11 +2181,13 @@ This mechanism module involves Response to Antibiotic (GO:0046677). GO:0046677 i
             
             <div class="item-box anchor-target" id="module-pathophysiology-peptidoglycan-precursor-and-lipid-ii-synthesis" data-dismech-node="Peptidoglycan Precursor and Lipid II Synthesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Peptidoglycan Precursor and Lipid II Synthesis</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Cytoplasmic enzymes (MurA-MurF, Alr/Ddl) assemble the UDP-MurNAc-pentapeptide precursor terminating in a D-Ala-D-Ala dipeptide, which is transferred to the membrane lipid carrier to form lipid I and then lipid II — the universal substrate exported across the membrane for polymerization. Several antibiotic classes act here rather than at the final cross-linking step: fosfomycin inhibits the first committed enzyme MurA, D-cycloserine blocks D-Ala racemase and ligase, bacitracin blocks recycling of the lipid carrier, and glycopeptides (vancomycin, teicoplanin) bind and sequester the exposed D-Ala-D-Ala terminus of lipid II. Because glycopeptides recognize the substrate rather than an enzyme, their target can be remodeled to D-Ala-D-Lac in resistant enterococci and staphylococci.</div>
                 
@@ -2221,11 +2277,13 @@ This pathophysiological event involves Peptidoglycan Biosynthetic Process (GO:00
             
             <div class="item-box anchor-target" id="module-pathophysiology-peptidoglycan-cross-linking-by-penicillin-binding-proteins" data-dismech-node="Peptidoglycan Cross-Linking by Penicillin-Binding Proteins" data-dismech-type="pathophysiology">
                 <div class="item-name">Peptidoglycan Cross-Linking by Penicillin-Binding Proteins</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">therapeutic vulnerability</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Glycosyltransferases polymerize the glycan backbone while DD-transpeptidases, also called penicillin-binding proteins (PBPs), cross-link the peptide stems to give peptidoglycan its load-bearing, mesh-like strength. This transpeptidation reaction is the target of beta-lactam antibiotics (penicillins, cephalosporins, carbapenems, monobactams), which are structural analogues of the D-Ala-D-Ala terminus and covalently acylate the PBP transpeptidase active-site serine, irreversibly inactivating it. This is the central, most widely exploited node of the module and the canonical conformance / treatment target for cell-wall-active therapy. Loss of cross-linking weakens the wall during active growth, which is why beta-lactams are most effective against dividing bacteria.</div>
                 
@@ -2427,11 +2485,13 @@ This pathophysiological event involves Peptidoglycan-Based Cell Wall Biogenesis 
             
             <div class="item-box anchor-target" id="module-pathophysiology-cell-envelope-integrity-failure-and-bactericidal-autolysis" data-dismech-node="Cell Envelope Integrity Failure and Bactericidal Autolysis" data-dismech-type="pathophysiology">
                 <div class="item-name">Cell Envelope Integrity Failure and Bactericidal Autolysis</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Peptidoglycan is the load-bearing layer that resists internal turgor pressure. When its synthesis is inhibited, the bacterium&#39;s own peptidoglycan hydrolases (autolysins) continue to cleave bonds in the sacculus without balanced resynthesis, leading to uncontrolled hydrolysis, rupture of the cell envelope, and lysis. Because this depends on active wall turnover, cell-wall inhibitors are bactericidal against growing cells and relatively inactive against dormant/stationary-phase organisms. The selectivity of this outcome — bacteria have peptidoglycan and human cells do not — underlies the high therapeutic index of beta-lactams and glycopeptides.</div>
                 
@@ -2479,11 +2539,13 @@ This pathophysiological event involves Cytolysis (GO:0019835). GO:0019835 is a b
             
             <div class="item-box anchor-target" id="module-pathophysiology-acquired-resistance-and-drug-inactivation" data-dismech-node="Acquired Resistance and Drug Inactivation" data-dismech-type="pathophysiology">
                 <div class="item-name">Acquired Resistance and Drug Inactivation</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">adaptive escape</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Bacteria acquire resistance to cell-wall-active agents by three principal routes that map onto the steps above: enzymatic inactivation of the drug (beta-lactamases hydrolyze the beta-lactam ring before it reaches the PBP), modification or protection of the target enzyme (acquisition of a low-affinity PBP such as staphylococcal PBP2a, conferring methicillin resistance), and remodeling of the drug-binding substrate (replacement of the lipid II D-Ala-D-Ala terminus with D-Ala-D-Lac in vancomycin-resistant enterococci, abolishing glycopeptide binding). This node explains why a nominally &#34;cell-wall-active&#34; antibiotic can fail against a specific organism and why agent selection — narrow-spectrum penicillin vs beta-lactamase-stable cephalosporin/carbapenem vs anti-MRSA agent — is mechanism-driven.</div>
                 
@@ -2559,11 +2621,13 @@ This pathophysiological event involves Response to Antibiotic (GO:0046677). GO:0
             
             <div class="item-box anchor-target" id="module-pathophysiology-intrinsic-resistance-in-cell-wall-deficient-organisms" data-dismech-node="Intrinsic Resistance in Cell-Wall-Deficient Organisms" data-dismech-type="pathophysiology">
                 <div class="item-name">Intrinsic Resistance in Cell-Wall-Deficient Organisms</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">intrinsic resistance</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">This module&#39;s entire mechanism presupposes a peptidoglycan target. Organisms of the class Mollicutes (Mycoplasma, Ureaplasma) lack a cell wall entirely, so beta-lactams, glycopeptides, and fosfomycin have no target and are intrinsically inactive regardless of dose. This is the clearest example of mechanism gating drug choice: such infections must be treated with agents acting on other targets (macrolides, tetracyclines, fluoroquinolones). Disorder entries for cell-wall-deficient pathogens should NOT declare conforms_to against the cross-linking node; this node documents the negative case and the reason cell-wall-active therapy is excluded.</div>
                 
@@ -2624,6 +2688,9 @@ This pathophysiological event involves Response to Antibiotic (GO:0046677). GO:0
             </div>
             
         </div>
+        
+
+        
         
 
         <footer class="page-footer">
