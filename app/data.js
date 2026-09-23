@@ -34745,14 +34745,15 @@ window.searchData = [
     "creation_date": "2026-09-06T15:45:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Autosomal dominant osteopetrosis type I (ADO1), now more accurately called LRP5 high bone mass (LRP5 HBM) or Worth-type endosteal hyperostosis, is a sclerosing bone disorder caused by heterozygous gain-of-function missense variants in LRP5. It is mechanistically the inverse of the other osteopetroses. Classical osteopetrosis is a failure of osteoclastic bone resorption; ADO1 is an excess of osteoblastic bone formation. The causal variants cluster in the first beta-propeller of the LRP5 extracellular domain, the surface through which the secreted antagonists sclerostin and DKK1 normally restrain the receptor. Escaping that inhibition leaves canonical Wnt/beta-catenin signalling in osteoblasts constitutively elevated, and bone is laid down faster than it is removed.\nThe clinical consequence of that mechanism is the feature that distinguishes ADO1 from every other osteopetrosis: the bone is dense and also structurally sound, so there is no increased fracture rate, no marrow failure and no extramedullary haematopoiesis. Many carriers are asymptomatic and are found incidentally on a bone density scan. Where disease does declare itself it is largely a consequence of skull vault thickening narrowing the cranial foramina, giving hearing loss, headache and anosmia.\nBecause of this mechanism the disorder was formally reclassified out of the osteopetrosis group and into the high-bone-mass diseases, and the literature is correspondingly scattered across the names \"autosomal dominant osteosclerosis\", \"Worth disease\", \"endosteal hyperostosis\" and \"osteopetrosis type I\". The entry is filed under the MONDO term for ADO1 but the description, synonyms and notes record the preferred modern designation.\n",
+    "description": "Autosomal dominant osteopetrosis type I (ADO1), commonly called LRP5 high bone mass or Worth-type endosteal hyperostosis, is an inherited sclerosing bone disorder associated with heterozygous activating LRP5 variants. Many established alleles affect the first extracellular beta-propeller and reduce inhibition by sclerostin or DKK1, enhancing Wnt-dependent bone accrual. The spectrum includes in-frame insertions, and a cytoplasmic variant has been reported without functional confirmation. Inhibitor resistance and effects on bone surfaces vary by allele; the evidence does not establish universal ligand-independent receptor activation. Increased formation and, in some genotypes, reduced resorptive responses contribute to the phenotype.\nSkull and long-bone cortical thickening, high bone mineral density, mandibular enlargement and palatal tori are characteristic. Many individuals have few symptoms. Cranial nerve compression, posterior fossa crowding and intracranial hypertension can cause substantial morbidity, sometimes beginning in childhood. Unlike classical resorption-defect osteopetrosis, increased fracture susceptibility and marrow failure are not characteristic, although fractures have been reported. The modern high-bone-mass designation distinguishes the biology while preserving the historical MONDO ADO1 identity.",
     "pathophysiology": [
-      "LRP5 First Beta-Propeller Missense Substitution",
-      "Constitutive Canonical Wnt Signaling in Osteoblasts",
+      "LRP5 Gain-of-Function Variation",
+      "Enhanced Canonical Wnt Signaling in Bone-Forming Cells",
       "Increased Osteoblastic Bone Formation",
       "Reduced Osteoclast Number and Resorptive Response",
-      "Generalized Osteosclerosis",
-      "Cranial Foramina Narrowing"
+      "Excess Skeletal Bone Accrual",
+      "Cranial Foramina Narrowing",
+      "Reduced Intracranial Space"
     ],
     "cell_types": [
       "osteoblast",
@@ -34780,12 +34781,18 @@ window.searchData = [
       "Papilledema",
       "Increased intracranial pressure",
       "Chiari malformation",
-      "Elevated circulating alkaline phosphatase concentration"
+      "Elevated circulating alkaline phosphatase concentration",
+      "Facial palsy",
+      "Mandibular enlargement",
+      "Trigeminal neuralgia",
+      "Visual impairment",
+      "Spinal canal stenosis"
     ],
     "phenotype_categories": [
       "Skeletal",
       "Craniofacial",
-      "Neurological"
+      "Neurological",
+      "Ophthalmological"
     ],
     "phenotype_hpo_categories": [
       "Constitutional",
@@ -34800,6 +34807,7 @@ window.searchData = [
       "HP:0005789",
       "HP:0011001",
       "HP:0004493",
+      "HP:0100789",
       "HP:0000365",
       "HP:0002315",
       "HP:0000458",
@@ -34808,12 +34816,17 @@ window.searchData = [
       "HP:0001085",
       "HP:0002516",
       "HP:0002308",
-      "HP:0003155"
+      "HP:0003155",
+      "HP:0010628",
+      "HP:0040309",
+      "HP:0100661",
+      "HP:0000505",
+      "HP:0003416"
     ],
     "frequencies": [
-      "OBLIGATE",
-      "FREQUENT",
+      "VERY_FREQUENT",
       "OCCASIONAL",
+      "FREQUENT",
       "EXCLUDED",
       "VERY_RARE"
     ],
@@ -34821,17 +34834,21 @@ window.searchData = [
       "LRP5"
     ],
     "treatments": [
-      "Clinical surveillance"
+      "Clinical surveillance",
+      "Hearing rehabilitation",
+      "Specialist surgical decompression",
+      "Mandibular reduction surgery",
+      "Cochlear implantation"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Autosomal_Dominant_Osteopetrosis_Type_I.yaml",
     "page_url": "../pages/disorders/Autosomal_Dominant_Osteopetrosis_Type_I.html",
-    "num_phenotypes": 13,
-    "num_pathophysiology": 6,
+    "num_phenotypes": 18,
+    "num_pathophysiology": 7,
     "num_genes": 1,
-    "num_treatments": 1,
-    "causal_graph_edges": "13",
+    "num_treatments": 5,
+    "causal_graph_edges": "27",
     "causal_graph_longest_path": "6"
   },
   {
@@ -34956,28 +34973,32 @@ window.searchData = [
     "creation_date": "2026-08-31T15:10:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "Worth-type autosomal dominant osteosclerosis, now more often called LRP5 high bone mass, is a benign sclerosing bone dysplasia caused by heterozygous missense variants in the first beta-propeller of LRP5. Those variants make the Wnt co-receptor resistant to its physiological inhibitors sclerostin and DKK1, so canonical Wnt signalling in bone runs without its normal brake. Osteoblastic bone formation rises while resorption stays normal, producing lifelong endosteal hyperostosis with a widened, deepened mandible, torus palatinus, and dense but not brittle bone. It is the receptor-side mirror of sclerosteosis and Van Buchem disease, which lose the SOST ligand instead, and the allelic opposite of osteoporosis-pseudoglioma syndrome, which loses LRP5 function altogether.",
+    "description": "Worth-type autosomal dominant osteosclerosis is a historical craniotubular hyperostosis designation that substantially overlaps LRP5 high bone mass. Heterozygous activating LRP5 variants commonly affect the first beta-propeller and reduce sensitivity to extracellular antagonists, enhancing bone accrual. Variant classes and mechanisms are not uniform: in-frame insertions occur, and some reported variants lack functional confirmation. Increased formation and allele-dependent changes in resorption can contribute. Skull and long-bone cortical thickening, mandibular enlargement and palatal tori are characteristic. Many individuals have mild or incidental findings, but cranial nerve compression and posterior fossa crowding can cause substantial morbidity. Increased fracture susceptibility is not characteristic, although fractures can occur. Clinically proposed Worth diagnoses without genetic confirmation are distinguished from molecularly characterized LRP5 cases throughout this entry.",
     "pathophysiology": [
-      "LRP5 First-Propeller Missense Variants",
-      "LRP5 Resistance to Sclerostin and DKK1",
-      "Unrestrained Canonical Wnt Signalling in Bone",
-      "Increased Osteoblastic Bone Formation with Normal Resorption",
-      "Endosteal Hyperostosis and Cortical Thickening",
-      "Cranial Foramina and Posterior Fossa Encroachment"
+      "LRP5 Activating Variation",
+      "Variant-Dependent LRP5 Antagonist Resistance",
+      "Enhanced Canonical Wnt Signaling in Bone",
+      "Increased Osteoblastic Bone Formation",
+      "Cortical Bone Accrual",
+      "Cranial Nerve Passage Narrowing",
+      "Reduced Osteoclast Number and Resorptive Response",
+      "Reduced Intracranial Space"
     ],
     "cell_types": [
       "osteoblast",
-      "osteocyte"
+      "osteocyte",
+      "osteoclast"
     ],
     "cell_type_ids": [
       "CL:0000062",
-      "CL:0000137"
+      "CL:0000137",
+      "CL:0000092"
     ],
     "biological_processes": [
       "negative regulation of canonical Wnt signaling pathway",
       "canonical Wnt signaling pathway",
       "ossification",
-      "bone mineralization"
+      "bone resorption"
     ],
     "phenotypes": [
       "Increased bone mineral density",
@@ -34986,20 +35007,30 @@ window.searchData = [
       "Progressive coarse facial change",
       "Thickened calvaria",
       "Diaphyseal sclerosis",
-      "Neurological involvement",
+      "Cranial nerve compression",
       "Headache",
       "Chiari type I malformation",
       "Hearing impairment",
       "Anosmia",
-      "Facial palsy"
+      "Facial palsy",
+      "Bone pain",
+      "Visual impairment",
+      "Trigeminal neuralgia",
+      "Papilledema",
+      "Increased intracranial pressure",
+      "Frontal open bite"
     ],
     "phenotype_categories": [
       "Skeletal",
       "Craniofacial",
-      "Neurologic"
+      "Neurological",
+      "Ophthalmological",
+      "Dental"
     ],
     "phenotype_hpo_categories": [
+      "Constitutional",
       "Ear",
+      "Eye",
       "Head and Neck",
       "Limbs",
       "Musculoskeletal",
@@ -35014,14 +35045,20 @@ window.searchData = [
       "HP:0001293",
       "HP:0002315",
       "HP:0007099",
-      "HP:0000410",
+      "HP:0000365",
       "HP:0000458",
-      "HP:0007285"
+      "HP:0010628",
+      "HP:0002653",
+      "HP:0000505",
+      "HP:0100661",
+      "HP:0001085",
+      "HP:0002516",
+      "HP:0200094"
     ],
     "frequencies": [
       "VERY_FREQUENT",
-      "FREQUENT",
       "OCCASIONAL",
+      "FREQUENT",
       "VERY_RARE"
     ],
     "genes": [
@@ -35030,7 +35067,9 @@ window.searchData = [
     "treatments": [
       "Surveillance without intervention",
       "Posterior fossa decompression",
-      "Mandibular reduction surgery"
+      "Mandibular reduction surgery",
+      "Hearing rehabilitation",
+      "Cochlear implantation"
     ],
     "environmental": [],
     "biochemical": [
@@ -35038,11 +35077,11 @@ window.searchData = [
     ],
     "source_file": "Autosomal_Dominant_Osteosclerosis_Worth_Type.yaml",
     "page_url": "../pages/disorders/Autosomal_Dominant_Osteosclerosis_Worth_Type.html",
-    "num_phenotypes": 12,
-    "num_pathophysiology": 6,
+    "num_phenotypes": 18,
+    "num_pathophysiology": 8,
     "num_genes": 1,
-    "num_treatments": 3,
-    "causal_graph_edges": "22",
+    "num_treatments": 5,
+    "causal_graph_edges": "34",
     "causal_graph_longest_path": "8"
   },
   {
@@ -35204,14 +35243,24 @@ window.searchData = [
       "PCLD1",
       "PCLD2",
       "ALG8-related ADPLD",
-      "LRP5-related ADPLD"
+      "LRP5-related ADPLD",
+      "SEC61B-related ADPLD"
     ],
-    "description": "Autosomal dominant polycystic liver disease (ADPLD), also called isolated polycystic liver disease, is an adult-onset inherited disorder in which numerous cholangiocyte-derived cysts spread through the liver. Cyst burden causes hepatomegaly, abdominal distention, early satiety, dyspnea, pain, and reflux while liver synthetic function is usually preserved. Disease-causing germline variants include PRKCSH, SEC63, ALG8, and LRP5; the best-defined mechanism links PRKCSH and SEC63 endoplasmic-reticulum protein biogenesis defects to inefficient polycystin maturation, reduced polycystin-1 dosage, and progressive hepatic cystogenesis.",
+    "description": "Autosomal dominant polycystic liver disease (ADPLD), also called isolated polycystic liver disease, is an inherited disorder characterized by multiple biliary epithelial cysts with absent or limited kidney involvement. Expression is age-dependent and variably penetrant; many individuals remain asymptomatic, while extensive cyst growth causes hepatomegaly and compression symptoms despite preserved liver synthetic function. PRKCSH, SEC63, GANAB, ALG8 and SEC61B connect endoplasmic-reticulum protein biogenesis to reduced functional polycystin-1 dosage. Monoallelic PKHD1 variants can produce an overlapping liver-predominant phenotype through a less resolved mechanism. The reported LRP5 association remains contested. Treatment is guided by symptoms and cyst distribution, with medical volume control, targeted procedures and transplantation reserved for selected symptomatic disease.",
     "pathophysiology": [
-      "PRKCSH and SEC63 ER protein biogenesis defects",
-      "Inefficient polycystin maturation and reduced PC1 dosage",
-      "Cholangiocyte hyperproliferation and hepatic cystogenesis",
-      "Mass-effect hepatomegaly with preserved liver function"
+      "Somatic inactivation in biliary cyst epithelium",
+      "Impaired ER protein biogenesis",
+      "Impaired polycystin-1 maturation",
+      "Reduced functional polycystin-1 dosage",
+      "PKHD1-associated biliary cyst formation",
+      "Increased cholangiocyte cAMP signaling",
+      "Cholangiocyte proliferation",
+      "Cyst epithelial fluid secretion",
+      "Hepatic cyst expansion",
+      "Hepatic mass effect",
+      "Hepatic vascular compression",
+      "Biliary compression",
+      "Reduced nutritional intake"
     ],
     "cell_types": [
       "cholangiocyte"
@@ -35220,9 +35269,8 @@ window.searchData = [
       "CL:1000488"
     ],
     "biological_processes": [
-      "endoplasmic-reticulum protein folding",
-      "polycystin protein maturation",
-      "cholangiocyte hyperproliferation"
+      "polycystin-1 maturation",
+      "epithelial cell proliferation"
     ],
     "phenotypes": [
       "Polycystic liver disease",
@@ -35243,7 +35291,14 @@ window.searchData = [
       "Pedal edema",
       "Dilatation of the cerebral artery",
       "Abnormal heart valve morphology",
-      "Abnormality of the pancreas"
+      "Abnormality of the pancreas",
+      "Portal hypertension",
+      "Ascites",
+      "Malnutrition",
+      "Skeletal muscle atrophy",
+      "Hepatic cyst hemorrhage",
+      "Hepatic cyst infection",
+      "Hepatic cyst rupture"
     ],
     "phenotype_categories": [
       "Hepatic",
@@ -35286,7 +35341,11 @@ window.searchData = [
       "HP:0010741",
       "HP:0004944",
       "HP:0001654",
-      "HP:0001732"
+      "HP:0001732",
+      "HP:0001409",
+      "HP:0001541",
+      "HP:0004395",
+      "HP:0003202"
     ],
     "frequencies": [
       "VERY_FREQUENT",
@@ -35297,23 +35356,31 @@ window.searchData = [
       "Heterozygous PRKCSH pathogenic variants",
       "Heterozygous SEC63 pathogenic variants",
       "Heterozygous ALG8 pathogenic variants",
-      "Heterozygous LRP5 pathogenic variants"
+      "Reported LRP5 association",
+      "Heterozygous GANAB pathogenic variants",
+      "Heterozygous SEC61B pathogenic variants",
+      "Heterozygous PKHD1 pathogenic variants"
     ],
     "treatments": [
-      "Somatostatin receptor agonist pharmacotherapy",
-      "Cyst-directed surgical decompression",
-      "Liver transplantation"
+      "Somatostatin analogue therapy",
+      "Aspiration sclerotherapy",
+      "Cyst fenestration or selected hepatic resection",
+      "Liver transplantation",
+      "Estrogen exposure counseling",
+      "Nutritional and exercise rehabilitation",
+      "Genetic and reproductive counseling",
+      "Pain and complication management"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Autosomal_Dominant_Polycystic_Liver_Disease.yaml",
     "page_url": "../pages/disorders/Autosomal_dominant_polycystic_liver_disease.html",
-    "num_phenotypes": 19,
-    "num_pathophysiology": 4,
-    "num_genes": 4,
-    "num_treatments": 3,
-    "causal_graph_edges": "24",
-    "causal_graph_longest_path": "5"
+    "num_phenotypes": 26,
+    "num_pathophysiology": 13,
+    "num_genes": 7,
+    "num_treatments": 8,
+    "causal_graph_edges": "48",
+    "causal_graph_longest_path": "9"
   },
   {
     "name": "Autosomal Dominant Progressive External Ophthalmoplegia",
@@ -35683,69 +35750,208 @@ window.searchData = [
     "creation_date": "2026-08-27T00:00:00Z",
     "updated_date": null,
     "subtypes": [],
-    "description": "The DVL3 form of dominant Robinow syndrome \u2014 mesomelic limb shortening, genital hypoplasia and the fetal-facies gestalt, from heterozygous de novo variants in the Dishevelled paralog DVL3.\nThe gene was found by hypothesis rather than by an unbiased search, and that is the most instructive thing about this entity. Once the DVL1 alleles were known to be frameshifts confined to one exon, and given that DVL1, DVL2 and DVL3 are functionally redundant paralogs, the penultimate exon of all three was sequenced directly in Robinow patients who had tested negative for DVL1, WNT5A and ROR2. Five unrelated individuals turned out to carry heterozygous de novo DVL3 variants \u2014 two splice-acceptor changes and three single-base deletions \u2014 and although those are three different mutational events, every one produces the same -1 frameshift of the last exon. The allele architecture, not the gene, is what the disease is about.",
+    "description": "DVL3-related dominant Robinow syndrome is a developmental disorder with variable limb shortening, craniofacial and oral findings, genital abnormalities and a substantial reported burden of congenital heart defects. Cleft lip or palate and abdominal wall defects occur in selected series. Short stature is common but not obligatory.\nSelected coding deletions and splice-site variants alter the terminal reading frame of DVL3, producing a distinctive C-terminal sequence. Patient RNA studies support persistence of tested mutant transcripts, including a directly confirmed splice consequence. The precise effect on Dishevelled signaling remains unresolved; DVL1 overexpression findings are mechanistic comparisons rather than measurements of DVL3 disease.\nDiagnosis depends on clinical assessment and appropriate molecular interpretation. Care addresses the individual skeletal, craniofacial, cardiac, genital and other findings, with family-specific counseling.",
     "pathophysiology": [
-      "DVL3 Last-Exon -1 Frameshift",
-      "Altered Dishevelled-Mediated WNT Signal Transduction",
-      "Disrupted Planar Cell Polarity in Developing Skeleton and Face"
+      "Selected DVL3 terminal-region alteration",
+      "Altered terminal DVL3 reading frame",
+      "Persistence of mutant DVL3 transcript",
+      "Altered DVL3 C-terminal sequence",
+      "Abnormal Dishevelled-mediated WNT transduction",
+      "Skeletal morphogenetic disruption",
+      "Craniofacial morphogenetic disruption",
+      "Genital morphogenetic disruption",
+      "Cardiac morphogenetic disruption"
     ],
     "cell_types": [],
     "cell_type_ids": [],
     "biological_processes": [
       "Wnt signaling pathway",
-      "Wnt signaling pathway, planar cell polarity pathway",
-      "chondrocyte differentiation"
+      "Wnt signaling pathway, planar cell polarity pathway"
     ],
     "phenotypes": [
       "Mesomelic Limb Shortening",
-      "Genital Hypoplasia",
-      "Fetal Facies",
       "Short Stature",
-      "Dental Crowding and Malocclusion"
+      "Hypertelorism",
+      "Micropenis",
+      "Cryptorchidism",
+      "Hypoplastic Labia Majora",
+      "Clitoral Hypoplasia",
+      "Dislocated Radial Head",
+      "Hemivertebrae",
+      "Scoliosis",
+      "Bifid Tongue",
+      "Congenital Heart Defect",
+      "Brachydactyly",
+      "Hypodontia",
+      "Frontal bossing",
+      "Anteverted nares",
+      "Midface retrusion",
+      "Dental malocclusion",
+      "Dental crowding",
+      "Delayed eruption of permanent teeth",
+      "Small scrotum",
+      "Gingival overgrowth",
+      "Broad hallux",
+      "Wide nasal bridge",
+      "Depressed nasal bridge",
+      "Prominent eyes",
+      "Short nose",
+      "High anterior hairline",
+      "Broad nasal tip",
+      "Long philtrum",
+      "Low-set ears",
+      "Wide retromolar ridge",
+      "Alveolar ridge deformation",
+      "Cleft lip",
+      "Cleft palate",
+      "Macrocephaly",
+      "Hearing Loss",
+      "Triangular mouth",
+      "High forehead",
+      "Umbilical hernia",
+      "Upslanted palpebral fissures",
+      "Telecanthus",
+      "Clinodactyly",
+      "Micrognathia",
+      "Omphalocele",
+      "Hypoplastic phalanges",
+      "Hypoplastic right heart",
+      "Hypoplastic left heart",
+      "Pulmonary atresia",
+      "Aberrant subclavian artery",
+      "Ventricular septal defect",
+      "Patent ductus arteriosus",
+      "Patent foramen ovale",
+      "Tricuspid regurgitation",
+      "Long eyelashes",
+      "Blue sclerae",
+      "Epicanthus",
+      "Vesicoureteral reflux",
+      "Pectus excavatum",
+      "Syndactyly",
+      "Camptodactyly",
+      "Broad thumb",
+      "Bifid phalanges",
+      "Supraumbilical raphe",
+      "Cataract",
+      "Tracheomalacia",
+      "Congenital short gut",
+      "Buried penis"
     ],
     "phenotype_categories": [
       "Skeletal",
-      "Genitourinary",
+      "Growth",
       "Craniofacial",
-      "Oral"
+      "Genitourinary",
+      "Cardiovascular",
+      "Dental",
+      "Oral",
+      "Ophthalmologic",
+      "Auditory",
+      "Abdominal",
+      "Respiratory",
+      "Gastrointestinal"
     ],
     "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Ear",
       "Eye",
       "Genitourinary",
       "Growth",
       "Head and Neck",
+      "Integument",
       "Limbs",
-      "Musculoskeletal"
+      "Musculoskeletal",
+      "Respiratory"
     ],
     "phenotype_ids": [
       "HP:0003027",
-      "HP:0000050",
-      "HP:0000316",
       "HP:0004322",
-      "HP:0000678"
+      "HP:0000316",
+      "HP:0000054",
+      "HP:0000028",
+      "HP:0000059",
+      "HP:0000060",
+      "HP:0003083",
+      "HP:0002937",
+      "HP:0002650",
+      "HP:0010297",
+      "HP:0001627",
+      "HP:0001156",
+      "HP:0000668",
+      "HP:0002007",
+      "HP:0000463",
+      "HP:0011800",
+      "HP:0000689",
+      "HP:0000678",
+      "HP:0000696",
+      "HP:0000046",
+      "HP:0000212",
+      "HP:0010055",
+      "HP:0000431",
+      "HP:0005280",
+      "HP:0003196",
+      "HP:0009890",
+      "HP:0000455",
+      "HP:0000343",
+      "HP:0000369",
+      "HP:0006477",
+      "HP:0410030",
+      "HP:0000175",
+      "HP:0000256",
+      "HP:0000365",
+      "HP:0000207",
+      "HP:0000348",
+      "HP:0001537",
+      "HP:0000582",
+      "HP:0000506",
+      "HP:0030084",
+      "HP:0000347",
+      "HP:0001539",
+      "HP:0010954",
+      "HP:0004383",
+      "HP:0004935",
+      "HP:0031251",
+      "HP:0001629",
+      "HP:0001643",
+      "HP:0001655",
+      "HP:0005180",
+      "HP:0000527",
+      "HP:0000592",
+      "HP:0000286",
+      "HP:0000076",
+      "HP:0000767",
+      "HP:0001159",
+      "HP:0012385",
+      "HP:0011304",
+      "HP:0410276",
+      "HP:0000518",
+      "HP:0002779",
+      "HP:0030889"
     ],
-    "frequencies": [
-      "VERY_FREQUENT",
-      "FREQUENT"
-    ],
+    "frequencies": [],
     "genes": [
       "DVL3"
     ],
     "treatments": [
+      "Corrective Surgery for Genital and Orofacial Anomalies",
+      "Structured Multisystem Surveillance",
       "Orthodontic Treatment",
-      "Genital Reconstructive Surgery",
-      "Genetic Counseling"
+      "Growth Hormone Therapy (selected patients)",
+      "Hormone Therapy for Micropenis",
+      "Genetic and reproductive counseling"
     ],
     "environmental": [],
     "biochemical": [],
     "source_file": "Autosomal_Dominant_Robinow_Syndrome_3.yaml",
     "page_url": "../pages/disorders/Autosomal_Dominant_Robinow_Syndrome_3.html",
-    "num_phenotypes": 5,
-    "num_pathophysiology": 3,
+    "num_phenotypes": 68,
+    "num_pathophysiology": 9,
     "num_genes": 1,
-    "num_treatments": 3,
-    "causal_graph_edges": "10",
-    "causal_graph_longest_path": "4"
+    "num_treatments": 6,
+    "causal_graph_edges": "73",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Autosomal Dominant Sensory Ataxia 1",
@@ -100187,6 +100393,139 @@ window.searchData = [
     "num_treatments": 5,
     "causal_graph_edges": "36",
     "causal_graph_longest_path": "7"
+  },
+  {
+    "name": "Developmental and Epileptic Encephalopathy 8",
+    "disease_id": "MONDO:0010375",
+    "category": "Mendelian",
+    "parents": [
+      "Developmental and Epileptic Encephalopathy",
+      "X-Linked Intellectual Disability"
+    ],
+    "creation_date": "2026-09-23T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Developmental and epileptic encephalopathy 8 (DEE8) is the X-linked neurodevelopmental disorder caused by pathogenic variants in ARHGEF9 on Xq11.1, which encodes collybistin, a brain-specific guanine nucleotide exchange factor that recruits the scaffolding protein gephyrin to the postsynaptic membrane of inhibitory synapses. Loss of collybistin function impairs gephyrin clustering and, with it, the synaptic clustering of gephyrin-dependent GABA-A receptors, reducing GABAergic inhibition. The phenotype is broader than the MONDO label suggests. Intellectual disability is the constant feature and is usually moderate to severe; roughly 70% of patients in the largest clinical series also have epilepsy, which begins in infancy or early childhood (median onset 12 months, range one week to 7 years) and is drug-resistant in a subset. The first reported patient had neonatal stiffness and hyperekplexia followed by a fatal progressive epileptic encephalopathy, which is where the \"hyperekplexia-epilepsy syndrome\" synonym comes from; hyperekplexia has since proved uncommon. At the mild end, missense variants confined to the pleckstrin homology (PH) domain cause intellectual disability without epilepsy. Severely affected boys often share a facial gestalt of large fleshy earlobes, midface hypoplasia and prognathism, and autistic features, hyperactivity, anxiety, aggression and sleep disturbance recur. Most affected males carry a de novo variant, but maternally inherited variants from mildly affected or unaffected mothers occur. Affected females are reported both with strongly skewed X-inactivation (mostly chromosomal rearrangements) and with random X-inactivation in blood (de novo intragenic deletions and single-nucleotide variants), and whether loss-of-function alleles behave as X-linked dominant is unsettled.",
+    "pathophysiology": [
+      "ARHGEF9 Loss of Function",
+      "Impaired Gephyrin Clustering at Inhibitory Postsynapses",
+      "Loss of Postsynaptic GABA-A Receptor Clusters",
+      "Loss of Inhibitory Synapses at the Axon Initial Segment",
+      "Reduced GABAergic Synaptic Inhibition",
+      "Cortical and Hippocampal Network Hyperexcitability",
+      "Altered Hippocampal Synaptic Plasticity",
+      "Impaired Gephyrin-Dependent Glycine Receptor Clustering",
+      "Disinhibited mTORC1 Signaling"
+    ],
+    "cell_types": [
+      "hippocampal pyramidal neuron",
+      "pyramidal neuron"
+    ],
+    "cell_type_ids": [
+      "CL:1001571",
+      "CL:0000598"
+    ],
+    "biological_processes": [
+      "gephyrin clustering involved in postsynaptic density assembly",
+      "gamma-aminobutyric acid receptor clustering",
+      "synaptic transmission, GABAergic",
+      "gamma-aminobutyric acid signaling pathway",
+      "glycine receptor clustering",
+      "TOR signaling"
+    ],
+    "phenotypes": [
+      "Intellectual disability",
+      "Global developmental delay",
+      "Absent speech",
+      "Developmental regression",
+      "Seizures",
+      "Epileptic encephalopathy",
+      "Bilateral tonic-clonic seizures",
+      "Focal-onset seizures",
+      "Tonic seizures",
+      "Febrile seizures",
+      "Exaggerated startle response",
+      "Neonatal hypertonia",
+      "Sensory hyperarousal",
+      "EEG abnormality",
+      "Autistic behavior",
+      "Hyperactivity",
+      "Anxiety",
+      "Aggressive behavior",
+      "Sleep disturbance",
+      "Large fleshy earlobes",
+      "Midface retrusion",
+      "Mandibular prognathia",
+      "Macrocephaly",
+      "Fifth-finger clinodactyly",
+      "Pectus excavatum",
+      "Persistent fetal finger and toe pads"
+    ],
+    "phenotype_categories": [
+      "Neurologic",
+      "Behavioral",
+      "Craniofacial",
+      "Skeletal",
+      "Dermatologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Ear",
+      "Head and Neck",
+      "Integument",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001249",
+      "HP:0001263",
+      "HP:0001344",
+      "HP:0002376",
+      "HP:0001250",
+      "HP:0200134",
+      "HP:0002069",
+      "HP:0007359",
+      "HP:0032792",
+      "HP:0002373",
+      "HP:0002267",
+      "HP:0001276",
+      "HP:5200058",
+      "HP:0002353",
+      "HP:0000729",
+      "HP:0000752",
+      "HP:0000739",
+      "HP:0000718",
+      "HP:0002360",
+      "HP:0009748",
+      "HP:0011800",
+      "HP:0000303",
+      "HP:0000256",
+      "HP:0004209",
+      "HP:0000767",
+      "HP:0001212"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "ARHGEF9"
+    ],
+    "treatments": [
+      "Antiseizure medication",
+      "Clonazepam"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Developmental_And_Epileptic_Encephalopathy_8.yaml",
+    "page_url": "../pages/disorders/Developmental_and_Epileptic_Encephalopathy_8.html",
+    "num_phenotypes": 26,
+    "num_pathophysiology": 9,
+    "num_genes": 1,
+    "num_treatments": 2,
+    "causal_graph_edges": "23",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Developmental And Epileptic Encephalopathy 80",
@@ -324952,17 +325291,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3094,
-  "total_subtypes": 3877,
-  "total_disorders_and_subtypes": 6971,
-  "total_unique_evidence_sources": 44627,
-  "total_unique_publications": 41953,
+  "total_disorder_pages": 3095,
+  "total_subtypes": 3878,
+  "total_disorders_and_subtypes": 6973,
+  "total_unique_evidence_sources": 44679,
+  "total_unique_publications": 41996,
   "total_unique_disease_categories": 62,
   "total_unique_phenotype_categories": 282,
-  "total_pathographs": 3089,
-  "total_unique_pathological_events": 19359,
+  "total_pathographs": 3090,
+  "total_unique_pathological_events": 19384,
   "total_modules": 178,
-  "total_research_reports": 3203,
+  "total_research_reports": 3204,
   "total_classifications": 20,
   "total_comorbidities": 46,
   "total_groupings": 103
