@@ -184,8 +184,8 @@ window.searchData = [
     "num_pathophysiology": 3,
     "num_genes": 1,
     "num_treatments": 1,
-    "causal_graph_edges": "5",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "6",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "15q11q13 Microduplication Syndrome",
@@ -3180,8 +3180,8 @@ window.searchData = [
     "num_pathophysiology": 14,
     "num_genes": 1,
     "num_treatments": 6,
-    "causal_graph_edges": "49",
-    "causal_graph_longest_path": "7"
+    "causal_graph_edges": "50",
+    "causal_graph_longest_path": "9"
   },
   {
     "name": "46,XY Sex Reversal 5",
@@ -7722,6 +7722,101 @@ window.searchData = [
     "causal_graph_longest_path": "8"
   },
   {
+    "name": "ARHGDIA-Related Steroid-Resistant Nephrotic Syndrome",
+    "disease_id": "MONDO:0014099",
+    "category": "Mendelian",
+    "parents": [
+      "Familial Idiopathic Steroid-Resistant Nephrotic Syndrome"
+    ],
+    "creation_date": "2026-09-23T15:40:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Autosomal recessive nephrotic syndrome caused by biallelic loss-of-function variants in ARHGDIA, which encodes Rho GDP-dissociation inhibitor alpha (RhoGDIalpha), the protein that holds the Rho-family GTPases RAC1, CDC42 and RHOA in their inactive, GDP-bound cytosolic pool. The disease is podocyte-intrinsic: without functional RhoGDIalpha, RAC1 in particular is released and hyperactivated in podocytes, the actin cytoskeleton and motility of the cell are deranged, foot processes efface and the filtration barrier fails. Presentation in the reported families is congenital or infantile (the first three months of life for the truncating and in-frame-deletion alleles, around one year or later for the G173V missense allele), with diffuse mesangial sclerosis on biopsy, no response to corticosteroids, and rapid progression to kidney failure or death in infancy. Neurological involvement including intellectual disability was reported in one of the two founding series. Fewer than ten affected individuals are described in the sources used here, so frequencies are not assigned. A Rac1-mineralocorticoid-receptor axis is pharmacologically targetable in the knockout mouse and in zebrafish morphants, but no therapy has been tested in patients.",
+    "pathophysiology": [
+      "Biallelic ARHGDIA Loss of Function",
+      "Release of Rho GTPases from RhoGDIalpha Sequestration",
+      "RAC1 Hyperactivation in Podocytes",
+      "Variable CDC42 and RHOA Activation",
+      "Podocyte Actin Cytoskeleton and Motility Derangement",
+      "Renal Mineralocorticoid Receptor Overactivation",
+      "Sensitization of Podocytes to Inflammatory Injury",
+      "Foot Process Effacement and Slit Diaphragm Disruption",
+      "Glomerular Filtration Barrier Failure"
+    ],
+    "cell_types": [
+      "podocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000653"
+    ],
+    "biological_processes": [
+      "Rac protein signal transduction",
+      "Cdc42 protein signal transduction",
+      "actin cytoskeleton organization",
+      "podocyte cell migration",
+      "nuclear receptor-mediated mineralocorticoid signaling pathway",
+      "glomerular filtration"
+    ],
+    "phenotypes": [
+      "Congenital or Infantile Nephrotic Syndrome",
+      "Steroid Resistance",
+      "Nephrotic-Range Proteinuria",
+      "Hypoalbuminemia",
+      "Generalized Edema",
+      "Hypertension",
+      "Diffuse Mesangial Sclerosis",
+      "Podocyte Foot Process Effacement on Electron Microscopy",
+      "Thin Glomerular Basement Membrane",
+      "Renal Tubular Atrophy",
+      "Kidney Failure",
+      "Intellectual Disability"
+    ],
+    "phenotype_categories": [
+      "Renal",
+      "Cardiovascular",
+      "Neurological"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Genitourinary",
+      "Metabolism",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0008677",
+      "HP:0012588",
+      "HP:0012593",
+      "HP:0003073",
+      "HP:0007430",
+      "HP:0000822",
+      "HP:0001967",
+      "HP:0031266",
+      "HP:0012577",
+      "HP:0000092",
+      "HP:0003774",
+      "HP:0001249"
+    ],
+    "frequencies": [],
+    "genes": [
+      "ARHGDIA"
+    ],
+    "treatments": [
+      "Corticosteroid Therapy",
+      "Dialysis",
+      "Kidney Transplantation"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "ARHGDIA-Related_Steroid-Resistant_Nephrotic_Syndrome.yaml",
+    "page_url": "../pages/disorders/ARHGDIA-Related_Steroid-Resistant_Nephrotic_Syndrome.html",
+    "num_phenotypes": 12,
+    "num_pathophysiology": 9,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "33",
+    "causal_graph_longest_path": "9"
+  },
+  {
     "name": "ARPC1B Deficiency",
     "disease_id": "MONDO:0060583",
     "category": "Mendelian",
@@ -10857,8 +10952,8 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 1,
     "num_treatments": 6,
-    "causal_graph_edges": "22",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "23",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Activated PI3K-delta syndrome",
@@ -14264,8 +14359,8 @@ window.searchData = [
     "num_pathophysiology": 14,
     "num_genes": 2,
     "num_treatments": 3,
-    "causal_graph_edges": "47",
-    "causal_graph_longest_path": "8"
+    "causal_graph_edges": "49",
+    "causal_graph_longest_path": "9"
   },
   {
     "name": "Adult-Onset Myasthenia Gravis",
@@ -27796,8 +27891,8 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 1,
     "num_treatments": 0,
-    "causal_graph_edges": "7",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Ataxia-telangiectasia",
@@ -33366,8 +33461,8 @@ window.searchData = [
     "num_pathophysiology": 13,
     "num_genes": 1,
     "num_treatments": 7,
-    "causal_graph_edges": "37",
-    "causal_graph_longest_path": "8"
+    "causal_graph_edges": "38",
+    "causal_graph_longest_path": "9"
   },
   {
     "name": "Autosomal Dominant Non-Syndromic Intellectual Disability",
@@ -33797,8 +33892,8 @@ window.searchData = [
     "num_pathophysiology": 8,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "20",
-    "causal_graph_longest_path": "7"
+    "causal_graph_edges": "21",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Autosomal Dominant Nonsyndromic Hearing Loss 2A",
@@ -37348,8 +37443,8 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 1,
     "num_treatments": 4,
-    "causal_graph_edges": "15",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "16",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Autosomal Recessive Nonsyndromic Hearing Loss 115",
@@ -38233,8 +38328,8 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "12",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Autosomal Recessive Nonsyndromic Hearing Loss 97",
@@ -38299,8 +38394,8 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "7",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Autosomal Recessive Nonsyndromic Hearing Loss 98",
@@ -38726,8 +38821,8 @@ window.searchData = [
     "num_pathophysiology": 10,
     "num_genes": 1,
     "num_treatments": 6,
-    "causal_graph_edges": "30",
-    "causal_graph_longest_path": "6"
+    "causal_graph_edges": "31",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Autosomal Recessive Primary Microcephaly",
@@ -40597,7 +40692,7 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 5,
     "num_treatments": 3,
-    "causal_graph_edges": "21",
+    "causal_graph_edges": "27",
     "causal_graph_longest_path": "5"
   },
   {
@@ -41458,8 +41553,8 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 4,
     "num_treatments": 5,
-    "causal_graph_edges": "5",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "7",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "BRAF V600E-Mutant Non-Small Cell Lung Cancer",
@@ -43669,7 +43764,7 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 4,
     "num_treatments": 7,
-    "causal_graph_edges": "7",
+    "causal_graph_edges": "9",
     "causal_graph_longest_path": "4"
   },
   {
@@ -47029,7 +47124,7 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "5",
+    "causal_graph_edges": "6",
     "causal_graph_longest_path": "4"
   },
   {
@@ -54250,8 +54345,8 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 1,
     "num_treatments": 6,
-    "causal_graph_edges": "12",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "CAPOS Syndrome",
@@ -56514,8 +56609,8 @@ window.searchData = [
     "num_pathophysiology": 3,
     "num_genes": 3,
     "num_treatments": 5,
-    "causal_graph_edges": "8",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "CHILD Syndrome",
@@ -64158,7 +64253,7 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "7",
+    "causal_graph_edges": "8",
     "causal_graph_longest_path": "4"
   },
   {
@@ -69167,8 +69262,8 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "24",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "25",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Charcot-Marie-Tooth Disease Recessive Intermediate D",
@@ -69874,8 +69969,8 @@ window.searchData = [
     "num_pathophysiology": 9,
     "num_genes": 1,
     "num_treatments": 6,
-    "causal_graph_edges": "29",
-    "causal_graph_longest_path": "7"
+    "causal_graph_edges": "30",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Charcot-Marie-Tooth disease type 4D",
@@ -70095,8 +70190,8 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "6",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "7",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Charcot-Marie-Tooth Disease Type X",
@@ -79743,8 +79838,8 @@ window.searchData = [
     "num_pathophysiology": 14,
     "num_genes": 3,
     "num_treatments": 10,
-    "causal_graph_edges": "33",
-    "causal_graph_longest_path": "9"
+    "causal_graph_edges": "35",
+    "causal_graph_longest_path": "10"
   },
   {
     "name": "Cole-Carpenter syndrome",
@@ -80420,7 +80515,7 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "17",
+    "causal_graph_edges": "18",
     "causal_graph_longest_path": "6"
   },
   {
@@ -80813,8 +80908,8 @@ window.searchData = [
     "num_pathophysiology": 13,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "34",
-    "causal_graph_longest_path": "9"
+    "causal_graph_edges": "35",
+    "causal_graph_longest_path": "11"
   },
   {
     "name": "Combined Oxidative Phosphorylation Defect Type 15",
@@ -81598,8 +81693,8 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 1,
     "num_treatments": 0,
-    "causal_graph_edges": "19",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "20",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Combined Oxidative Phosphorylation Defect Type 7",
@@ -82329,8 +82424,8 @@ window.searchData = [
     "num_pathophysiology": 10,
     "num_genes": 1,
     "num_treatments": 4,
-    "causal_graph_edges": "22",
-    "causal_graph_longest_path": "9"
+    "causal_graph_edges": "23",
+    "causal_graph_longest_path": "11"
   },
   {
     "name": "Combined Pituitary Hormone Deficiencies, Genetic Form",
@@ -82706,8 +82801,8 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 2,
     "num_treatments": 2,
-    "causal_graph_edges": "9",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "10",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Complex Hereditary Spastic Paraplegia",
@@ -83987,8 +84082,8 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "5",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "6",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Congenital Disorder of Glycosylation Type IIr",
@@ -84221,8 +84316,8 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 1,
     "num_treatments": 1,
-    "causal_graph_edges": "18",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "19",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Congenital Dyserythropoietic Anemia",
@@ -84878,8 +84973,8 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "20",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "21",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Congenital Heart Defects and Skeletal Malformations Syndrome",
@@ -86521,8 +86616,8 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "10",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Congenital Myasthenic Syndrome 6",
@@ -86718,7 +86813,7 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "16",
+    "causal_graph_edges": "18",
     "causal_graph_longest_path": "5"
   },
   {
@@ -87623,8 +87718,8 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 1,
     "num_treatments": 4,
-    "causal_graph_edges": "16",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Congenital Total Pulmonary Venous Return Anomaly",
@@ -88275,8 +88370,8 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 1,
-    "causal_graph_edges": "11",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Constitutional Mismatch Repair Deficiency",
@@ -89378,8 +89473,8 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "18",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "19",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Cornelia de Lange Syndrome 5",
@@ -89506,8 +89601,8 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 1,
     "num_treatments": 4,
-    "causal_graph_edges": "30",
-    "causal_graph_longest_path": "6"
+    "causal_graph_edges": "31",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Coronary Arterial Fistulas",
@@ -92377,8 +92472,8 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 4,
     "num_treatments": 4,
-    "causal_graph_edges": "11",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Cushing's Syndrome",
@@ -95271,8 +95366,8 @@ window.searchData = [
     "num_pathophysiology": 8,
     "num_genes": 1,
     "num_treatments": 6,
-    "causal_graph_edges": "25",
-    "causal_graph_longest_path": "8"
+    "causal_graph_edges": "26",
+    "causal_graph_longest_path": "9"
   },
   {
     "name": "DNM1 Encephalopathy",
@@ -95446,8 +95541,8 @@ window.searchData = [
     "num_pathophysiology": 9,
     "num_genes": 2,
     "num_treatments": 4,
-    "causal_graph_edges": "26",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "28",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "DONSON-Related Microcephalic Primordial Dwarfism",
@@ -95747,8 +95842,8 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "25",
-    "causal_graph_longest_path": "6"
+    "causal_graph_edges": "26",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "DPM2-congenital disorder of glycosylation",
@@ -96618,8 +96713,8 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 1,
     "num_treatments": 5,
-    "causal_graph_edges": "8",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "9",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "DeSanto-Shinawi syndrome",
@@ -98823,8 +98918,8 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "13",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Dermoid Cyst",
@@ -99545,7 +99640,7 @@ window.searchData = [
     "num_pathophysiology": 9,
     "num_genes": 1,
     "num_treatments": 5,
-    "causal_graph_edges": "28",
+    "causal_graph_edges": "30",
     "causal_graph_longest_path": "8"
   },
   {
@@ -99846,7 +99941,7 @@ window.searchData = [
     "num_pathophysiology": 9,
     "num_genes": 1,
     "num_treatments": 7,
-    "causal_graph_edges": "38",
+    "causal_graph_edges": "39",
     "causal_graph_longest_path": "7"
   },
   {
@@ -103479,8 +103574,8 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 5,
-    "causal_graph_edges": "11",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Dilated Cardiomyopathy 1FF",
@@ -104738,8 +104833,8 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "12",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Dilated Cardiomyopathy 1Y",
@@ -106157,8 +106252,8 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "12",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Donnai-Barrow syndrome",
@@ -107736,8 +107831,8 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 1,
     "num_treatments": 6,
-    "causal_graph_edges": "22",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "23",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Dubin-Johnson Syndrome",
@@ -110335,8 +110430,8 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 3,
     "num_treatments": 7,
-    "causal_graph_edges": "27",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "28",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "EYS-Related Retinitis Pigmentosa",
@@ -112056,8 +112151,8 @@ window.searchData = [
     "num_pathophysiology": 3,
     "num_genes": 12,
     "num_treatments": 3,
-    "causal_graph_edges": "7",
-    "causal_graph_longest_path": "1"
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "2"
   },
   {
     "name": "Emery-Dreifuss Muscular Dystrophy",
@@ -112433,8 +112528,8 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 1,
-    "causal_graph_edges": "21",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "22",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Endometrial Carcinoma",
@@ -120039,8 +120134,8 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 1,
     "num_treatments": 4,
-    "causal_graph_edges": "22",
-    "causal_graph_longest_path": "7"
+    "causal_graph_edges": "23",
+    "causal_graph_longest_path": "9"
   },
   {
     "name": "Familial_Episodic_Pain_Syndrome_With_Predominantly_Lower_Limb_Involvement",
@@ -121198,8 +121293,8 @@ window.searchData = [
     "num_pathophysiology": 9,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "18",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "19",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Familial Isolated Vitamin E Deficiency",
@@ -121739,8 +121834,8 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 1,
     "num_treatments": 1,
-    "causal_graph_edges": "13",
-    "causal_graph_longest_path": "7"
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Familial Renal Glucosuria",
@@ -124900,8 +124995,8 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 1,
     "num_treatments": 0,
-    "causal_graph_edges": "5",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "6",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Filippi Syndrome",
@@ -128076,8 +128171,8 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 0,
-    "causal_graph_edges": "4",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "5",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Furunculosis",
@@ -128381,8 +128476,8 @@ window.searchData = [
     "num_pathophysiology": 9,
     "num_genes": 1,
     "num_treatments": 5,
-    "causal_graph_edges": "14",
-    "causal_graph_longest_path": "6"
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "GABRG2-Related Epilepsy",
@@ -136651,8 +136746,8 @@ window.searchData = [
     "num_pathophysiology": 9,
     "num_genes": 1,
     "num_treatments": 4,
-    "causal_graph_edges": "32",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "33",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Gonorrhea",
@@ -138123,8 +138218,8 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 1,
-    "causal_graph_edges": "11",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Greig Cephalopolysyndactyly Syndrome",
@@ -141586,8 +141681,8 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "12",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Hartnup Disease",
@@ -142661,8 +142756,8 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "8",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "9",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Hearing Loss Autosomal Recessive 106",
@@ -145512,6 +145607,7 @@ window.searchData = [
       "Angiogenesis and VEGF Signaling",
       "Immune Evasion and Immunosuppressive Microenvironment",
       "Aerobic Glycolysis and Metabolic Reprogramming",
+      "MMP9 Upregulation",
       "Portal Vein Invasion and Tumor Thrombus"
     ],
     "cell_types": [
@@ -145594,7 +145690,8 @@ window.searchData = [
     "environmental": [
       "Chronic hepatitis B or C infection",
       "Alcohol and aflatoxin exposure",
-      "Long-term Western diet feeding"
+      "Long-term Western diet feeding",
+      "Monomethyl phthalate exposure"
     ],
     "biochemical": [
       "Alpha-Fetoprotein (AFP)",
@@ -145604,10 +145701,10 @@ window.searchData = [
     "source_file": "Hepatocellular_Carcinoma.yaml",
     "page_url": "../pages/disorders/Hepatocellular_Carcinoma.html",
     "num_phenotypes": 7,
-    "num_pathophysiology": 16,
+    "num_pathophysiology": 17,
     "num_genes": 5,
     "num_treatments": 8,
-    "causal_graph_edges": "24",
+    "causal_graph_edges": "27",
     "causal_graph_longest_path": "5"
   },
   {
@@ -146810,8 +146907,8 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 1,
     "num_treatments": 4,
-    "causal_graph_edges": "30",
-    "causal_graph_longest_path": "8"
+    "causal_graph_edges": "31",
+    "causal_graph_longest_path": "10"
   },
   {
     "name": "Hereditary Hemorrhagic Telangiectasia Type 1",
@@ -146918,8 +147015,8 @@ window.searchData = [
     "num_pathophysiology": 10,
     "num_genes": 1,
     "num_treatments": 9,
-    "causal_graph_edges": "29",
-    "causal_graph_longest_path": "7"
+    "causal_graph_edges": "30",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Hereditary Hemorrhagic Telangiectasia Type 2",
@@ -147048,8 +147145,8 @@ window.searchData = [
     "num_pathophysiology": 14,
     "num_genes": 1,
     "num_treatments": 10,
-    "causal_graph_edges": "46",
-    "causal_graph_longest_path": "8"
+    "causal_graph_edges": "48",
+    "causal_graph_longest_path": "10"
   },
   {
     "name": "Hereditary Hyperekplexia",
@@ -147405,7 +147502,7 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "10",
+    "causal_graph_edges": "11",
     "causal_graph_longest_path": "6"
   },
   {
@@ -147631,7 +147728,7 @@ window.searchData = [
     "num_pathophysiology": 10,
     "num_genes": 2,
     "num_treatments": 6,
-    "causal_graph_edges": "39",
+    "causal_graph_edges": "41",
     "causal_graph_longest_path": "8"
   },
   {
@@ -147991,7 +148088,7 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 7,
     "num_treatments": 4,
-    "causal_graph_edges": "11",
+    "causal_graph_edges": "12",
     "causal_graph_longest_path": "6"
   },
   {
@@ -148331,8 +148428,8 @@ window.searchData = [
     "num_pathophysiology": 3,
     "num_genes": 1,
     "num_treatments": 1,
-    "causal_graph_edges": "5",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "6",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Hereditary Sensory and Autonomic Neuropathy Type 1E",
@@ -149018,8 +149115,8 @@ window.searchData = [
     "num_pathophysiology": 11,
     "num_genes": 1,
     "num_treatments": 7,
-    "causal_graph_edges": "45",
-    "causal_graph_longest_path": "9"
+    "causal_graph_edges": "46",
+    "causal_graph_longest_path": "10"
   },
   {
     "name": "Hereditary Spastic Paraplegia 44",
@@ -152332,7 +152429,7 @@ window.searchData = [
     "num_pathophysiology": 20,
     "num_genes": 15,
     "num_treatments": 14,
-    "causal_graph_edges": "101",
+    "causal_graph_edges": "102",
     "causal_graph_longest_path": "8"
   },
   {
@@ -157142,8 +157239,8 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 1,
     "num_treatments": 5,
-    "causal_graph_edges": "18",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "19",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Hypomyelinating Leukodystrophy 12",
@@ -157234,8 +157331,8 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "19",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "20",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Hypomyelinating Leukodystrophy 15",
@@ -157334,8 +157431,8 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 1,
     "num_treatments": 1,
-    "causal_graph_edges": "12",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Hypomyelinating Leukodystrophy 27",
@@ -157770,8 +157867,8 @@ window.searchData = [
     "num_pathophysiology": 13,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "22",
-    "causal_graph_longest_path": "7"
+    "causal_graph_edges": "23",
+    "causal_graph_longest_path": "9"
   },
   {
     "name": "Hypoplasminogenemia",
@@ -158459,8 +158556,8 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 2,
     "num_treatments": 2,
-    "causal_graph_edges": "14",
-    "causal_graph_longest_path": "6"
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Hypotrichosis with Juvenile Macular Dystrophy",
@@ -159520,8 +159617,8 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 1,
     "num_treatments": 0,
-    "causal_graph_edges": "11",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "IKBKG ectodermal dysplasia with immunodeficiency",
@@ -160231,7 +160328,7 @@ window.searchData = [
     "num_pathophysiology": 3,
     "num_genes": 1,
     "num_treatments": 6,
-    "causal_graph_edges": "4",
+    "causal_graph_edges": "5",
     "causal_graph_longest_path": "3"
   },
   {
@@ -160996,8 +161093,8 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 1,
     "num_treatments": 10,
-    "causal_graph_edges": "34",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "35",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Ichthyotic_Keratoderma_Spasticity_Hypomyelination_And_Dysmorphic_Facial_Features",
@@ -163855,8 +163952,8 @@ window.searchData = [
     "num_pathophysiology": 11,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "14",
-    "causal_graph_longest_path": "6"
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Immunodeficiency 15A",
@@ -163955,8 +164052,8 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 1,
     "num_treatments": 1,
-    "causal_graph_edges": "23",
-    "causal_graph_longest_path": "6"
+    "causal_graph_edges": "24",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Immunodeficiency 18",
@@ -164478,8 +164575,8 @@ window.searchData = [
     "num_pathophysiology": 8,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "11",
-    "causal_graph_longest_path": "6"
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Immunodeficiency 57",
@@ -165181,8 +165278,8 @@ window.searchData = [
     "num_pathophysiology": 8,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "17",
-    "causal_graph_longest_path": "6"
+    "causal_graph_edges": "18",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Immunodeficiency 69",
@@ -165884,8 +165981,8 @@ window.searchData = [
     "num_pathophysiology": 9,
     "num_genes": 1,
     "num_treatments": 4,
-    "causal_graph_edges": "32",
-    "causal_graph_longest_path": "6"
+    "causal_graph_edges": "33",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Immunodeficiency 82 With Systemic Inflammation",
@@ -170245,8 +170342,8 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "12",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Intellectual Developmental Disorder, X-Linked, Syndromic 37",
@@ -171074,8 +171171,8 @@ window.searchData = [
     "num_pathophysiology": 8,
     "num_genes": 1,
     "num_treatments": 5,
-    "causal_graph_edges": "21",
-    "causal_graph_longest_path": "7"
+    "causal_graph_edges": "22",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Intellectual Disability, Autosomal Recessive 43",
@@ -171841,7 +171938,7 @@ window.searchData = [
     "num_pathophysiology": 8,
     "num_genes": 1,
     "num_treatments": 7,
-    "causal_graph_edges": "27",
+    "causal_graph_edges": "28",
     "causal_graph_longest_path": "6"
   },
   {
@@ -176011,8 +176108,8 @@ window.searchData = [
     "num_pathophysiology": 9,
     "num_genes": 3,
     "num_treatments": 5,
-    "causal_graph_edges": "28",
-    "causal_graph_longest_path": "7"
+    "causal_graph_edges": "29",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Juvenile Polyposis Syndrome",
@@ -178660,8 +178757,8 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "16",
-    "causal_graph_longest_path": "6"
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Kasabach-Merritt Syndrome",
@@ -180057,8 +180154,8 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "15",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "16",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Kidney Sarcoma",
@@ -184968,7 +185065,7 @@ window.searchData = [
     "num_pathophysiology": 3,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "4",
+    "causal_graph_edges": "7",
     "causal_graph_longest_path": "4"
   },
   {
@@ -187286,7 +187383,7 @@ window.searchData = [
     "num_pathophysiology": 9,
     "num_genes": 1,
     "num_treatments": 5,
-    "causal_graph_edges": "21",
+    "causal_graph_edges": "22",
     "causal_graph_longest_path": "8"
   },
   {
@@ -187376,8 +187473,8 @@ window.searchData = [
     "num_pathophysiology": 8,
     "num_genes": 1,
     "num_treatments": 4,
-    "causal_graph_edges": "18",
-    "causal_graph_longest_path": "6"
+    "causal_graph_edges": "19",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Leukoencephalopathy Progressive Infantile-onset With Or Without Deafness",
@@ -190875,8 +190972,8 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 1,
     "num_treatments": 4,
-    "causal_graph_edges": "6",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "7",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Lyme Disease",
@@ -193156,7 +193253,7 @@ window.searchData = [
     "num_pathophysiology": 9,
     "num_genes": 1,
     "num_treatments": 4,
-    "causal_graph_edges": "16",
+    "causal_graph_edges": "17",
     "causal_graph_longest_path": "4"
   },
   {
@@ -195518,7 +195615,7 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 5,
     "num_treatments": 4,
-    "causal_graph_edges": "8",
+    "causal_graph_edges": "9",
     "causal_graph_longest_path": "3"
   },
   {
@@ -199556,8 +199653,8 @@ window.searchData = [
     "num_pathophysiology": 8,
     "num_genes": 3,
     "num_treatments": 7,
-    "causal_graph_edges": "12",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Maroteaux-Lamy syndrome",
@@ -199777,8 +199874,8 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "20",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "21",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Marshall Syndrome",
@@ -201232,8 +201329,8 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 1,
     "num_treatments": 1,
-    "causal_graph_edges": "8",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "9",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Megacystis-Microcolon-Intestinal Hypoperistalsis Syndrome 2",
@@ -203450,8 +203547,8 @@ window.searchData = [
     "num_pathophysiology": 9,
     "num_genes": 1,
     "num_treatments": 5,
-    "causal_graph_edges": "19",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "20",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Metaphyseal Chondrodysplasia, Schmid Type",
@@ -204639,8 +204736,8 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 1,
     "num_treatments": 1,
-    "causal_graph_edges": "23",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "24",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Methylmalonic Aciduria and Homocystinuria cblL Type",
@@ -207067,8 +207164,8 @@ window.searchData = [
     "num_pathophysiology": 8,
     "num_genes": 1,
     "num_treatments": 6,
-    "causal_graph_edges": "27",
-    "causal_graph_longest_path": "7"
+    "causal_graph_edges": "28",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Mitochondrial Complex I Deficiency, Nuclear Type 11",
@@ -209193,6 +209290,158 @@ window.searchData = [
     "causal_graph_longest_path": "6"
   },
   {
+    "name": "Mitochondrial DNA Depletion Syndrome 3 (Hepatocerebral Type)",
+    "disease_id": "MONDO:0009636",
+    "category": "Mendelian",
+    "parents": [
+      "mitochondrial DNA depletion syndrome, hepatocerebral form",
+      "inborn disorder of purine metabolism",
+      "mitochondrial DNA maintenance defect"
+    ],
+    "creation_date": "2026-09-23T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [
+      "Hepatocerebral",
+      "Isolated Hepatic",
+      "Hepatomyocerebral"
+    ],
+    "description": "Autosomal recessive mitochondrial DNA (mtDNA) maintenance disorder caused by biallelic loss-of-function variants in DGUOK, which encodes mitochondrial deoxyguanosine kinase, the enzyme that initiates salvage of purine deoxyribonucleosides for mtDNA synthesis. Loss of the enzyme leaves mtDNA replication short of purine precursors, producing severe, liver-predominant mtDNA depletion and a combined deficiency of the mtDNA-encoded respiratory chain complexes. The usual presentation is in the neonatal period or the first months of life, with cholestatic liver disease that progresses to liver failure, lactic acidosis and hypoglycaemia, together with hypotonia, nystagmus (classically rotary, evolving into opsoclonus) and developmental delay. A smaller group has isolated liver disease presenting later in infancy or childhood. Most infants with the hepatocerebral form die in the first year, usually of liver failure. Liver transplantation prolongs survival in selected children, but the role of pre-existing neurological signs in selecting candidates is contested, and hepatocellular carcinoma has been found in infancy, which is why surveillance with alpha-fetoprotein and liver ultrasound is recommended.",
+    "pathophysiology": [
+      "DGUOK Loss of Function",
+      "Impaired Mitochondrial Purine Deoxynucleotide Supply",
+      "Liver-Predominant mtDNA Depletion",
+      "Combined Respiratory Chain Deficiency",
+      "Hepatocyte Ferroptosis Sensitivity Under Iron Load",
+      "Hepatocellular Injury and Progressive Liver Failure",
+      "Pancreatic Islet Cell Hyperplasia and Hyperinsulinism",
+      "Central Nervous System Dysfunction",
+      "Skeletal Muscle mtDNA Depletion and Mitochondrial Myopathy"
+    ],
+    "cell_types": [
+      "hepatocyte",
+      "pancreatic beta cell",
+      "neuron",
+      "skeletal muscle fiber"
+    ],
+    "cell_type_ids": [
+      "CL:0000182",
+      "CL:0000169",
+      "CL:0000540",
+      "CL:0000188"
+    ],
+    "biological_processes": [
+      "deoxyguanosine salvage",
+      "mitochondrial DNA replication",
+      "oxidative phosphorylation",
+      "reactive oxygen species metabolic process",
+      "ferroptosis"
+    ],
+    "phenotypes": [
+      "Hepatic Failure",
+      "Cholestasis",
+      "Jaundice",
+      "Hepatomegaly",
+      "Elevated Transaminases",
+      "Coagulopathy",
+      "Cirrhosis",
+      "Hepatocellular Carcinoma",
+      "Elevated Alpha-Fetoprotein",
+      "Lactic Acidosis",
+      "Hypoglycemia",
+      "Hyperinsulinemic Hypoglycemia",
+      "Hypertyrosinemia",
+      "Failure to Thrive",
+      "Hypotonia",
+      "Nystagmus",
+      "Opsoclonus",
+      "Developmental Delay",
+      "Ascites",
+      "Hepatic Steatosis",
+      "Metabolic Acidosis",
+      "Feeding Difficulties",
+      "Brain MRI Abnormalities",
+      "Muscle Weakness",
+      "Ptosis",
+      "Renal Involvement"
+    ],
+    "phenotype_categories": [
+      "Hepatic",
+      "Neoplasm",
+      "Metabolic",
+      "Growth",
+      "Neurologic",
+      "Neuromuscular",
+      "Renal"
+    ],
+    "phenotype_hpo_categories": [
+      "Blood",
+      "Digestive",
+      "Endocrine",
+      "Eye",
+      "Genitourinary",
+      "Growth",
+      "Integument",
+      "Metabolism",
+      "Musculoskeletal",
+      "Neoplasm",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0001399",
+      "HP:0001396",
+      "HP:0000952",
+      "HP:0002240",
+      "HP:0002910",
+      "HP:0003256",
+      "HP:0001394",
+      "HP:0001402",
+      "HP:0006254",
+      "HP:0003128",
+      "HP:0001943",
+      "HP:0000825",
+      "HP:0003231",
+      "HP:0001508",
+      "HP:0001252",
+      "HP:0000639",
+      "HP:0010543",
+      "HP:0001263",
+      "HP:0001541",
+      "HP:0001397",
+      "HP:0001942",
+      "HP:0011968",
+      "HP:0012443",
+      "HP:0001324",
+      "HP:0000508",
+      "HP:0000077"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "DGUOK"
+    ],
+    "treatments": [
+      "Liver Transplantation",
+      "Nutritional Management of Cholestatic Liver Disease",
+      "Uncooked Cornstarch for Hypoglycemia",
+      "Immunization of Patient and Household Contacts",
+      "Deoxynucleoside or dGMP Prodrug Supplementation (Investigational)",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Mitochondrial_DNA_Depletion_Syndrome_3_Hepatocerebral_Type.yaml",
+    "page_url": "../pages/disorders/Mitochondrial_DNA_Depletion_Syndrome_3_Hepatocerebral_Type.html",
+    "num_phenotypes": 26,
+    "num_pathophysiology": 9,
+    "num_genes": 1,
+    "num_treatments": 6,
+    "causal_graph_edges": "45",
+    "causal_graph_longest_path": "8"
+  },
+  {
     "name": "Mitochondrial DNA Depletion Syndrome 7",
     "disease_id": "MONDO:0010060",
     "category": "Mendelian",
@@ -210562,8 +210811,8 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "11",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Monomelic Amyotrophy",
@@ -212967,7 +213216,7 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 5,
-    "causal_graph_edges": "8",
+    "causal_graph_edges": "9",
     "causal_graph_longest_path": "5"
   },
   {
@@ -215259,8 +215508,8 @@ window.searchData = [
     "num_pathophysiology": 8,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "25",
-    "causal_graph_longest_path": "6"
+    "causal_graph_edges": "26",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Muscular Dystrophy, Limb-Girdle, Autosomal Recessive 28",
@@ -217823,8 +218072,8 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 1,
     "num_treatments": 1,
-    "causal_graph_edges": "20",
-    "causal_graph_longest_path": "6"
+    "causal_graph_edges": "21",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "NAGA Deficiency Type 3",
@@ -219174,8 +219423,8 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 1,
     "num_treatments": 5,
-    "causal_graph_edges": "25",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "26",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Narcolepsy-Cataplexy Syndrome",
@@ -220965,8 +221214,8 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 2,
     "num_treatments": 4,
-    "causal_graph_edges": "23",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "24",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Neurodevelopmental Disorder With Dysmorphic Facies, Sleep Disturbance, and Brain Abnormalities",
@@ -222389,8 +222638,8 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 1,
     "num_treatments": 6,
-    "causal_graph_edges": "11",
-    "causal_graph_longest_path": "6"
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Neurodevelopmental Disorder with Microcephaly, Impaired Language, and Gait Abnormalities",
@@ -225135,8 +225384,8 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 4,
-    "causal_graph_edges": "17",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "18",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Neuropsychiatric Systemic Lupus Erythematosus",
@@ -237980,8 +238229,8 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "22",
-    "causal_graph_longest_path": "6"
+    "causal_graph_edges": "23",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "PMM2-Congenital Disorder of Glycosylation",
@@ -240735,7 +240984,7 @@ window.searchData = [
     "num_pathophysiology": 42,
     "num_genes": 9,
     "num_treatments": 15,
-    "causal_graph_edges": "59",
+    "causal_graph_edges": "60",
     "causal_graph_longest_path": "7"
   },
   {
@@ -243553,8 +243802,8 @@ window.searchData = [
     "num_pathophysiology": 9,
     "num_genes": 1,
     "num_treatments": 5,
-    "causal_graph_edges": "28",
-    "causal_graph_longest_path": "6"
+    "causal_graph_edges": "29",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Pearson syndrome",
@@ -244052,8 +244301,8 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 0,
-    "causal_graph_edges": "9",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "10",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Pelizaeus-Merzbacher Disease",
@@ -244710,8 +244959,8 @@ window.searchData = [
     "num_pathophysiology": 9,
     "num_genes": 1,
     "num_treatments": 8,
-    "causal_graph_edges": "29",
-    "causal_graph_longest_path": "6"
+    "causal_graph_edges": "30",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Penile Cancer",
@@ -245188,8 +245437,8 @@ window.searchData = [
     "num_pathophysiology": 9,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "22",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "23",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Periodontal Ehlers-Danlos Syndrome",
@@ -246499,8 +246748,8 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 1,
     "num_treatments": 5,
-    "causal_graph_edges": "19",
-    "causal_graph_longest_path": "6"
+    "causal_graph_edges": "20",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Peroxisome Biogenesis Disorder 12A (Zellweger)",
@@ -247310,8 +247559,8 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "7",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Perrault Syndrome",
@@ -250664,8 +250913,8 @@ window.searchData = [
     "num_pathophysiology": 8,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "14",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Platelet-type bleeding disorder 8",
@@ -253765,7 +254014,7 @@ window.searchData = [
     "num_pathophysiology": 3,
     "num_genes": 2,
     "num_treatments": 3,
-    "causal_graph_edges": "5",
+    "causal_graph_edges": "6",
     "causal_graph_longest_path": "3"
   },
   {
@@ -257713,8 +257962,8 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "11",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Progressive Myoclonic Epilepsy Type 8",
@@ -257966,8 +258215,8 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 9,
-    "causal_graph_edges": "9",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "10",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Progressive_Retinal_Dystrophy_Due_To_Retinol_Transport_Defect",
@@ -262947,8 +263196,8 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 2,
     "num_treatments": 3,
-    "causal_graph_edges": "22",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "23",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "RLBP1-Related Retinopathy",
@@ -264209,8 +264458,8 @@ window.searchData = [
     "num_pathophysiology": 10,
     "num_genes": 1,
     "num_treatments": 11,
-    "causal_graph_edges": "27",
-    "causal_graph_longest_path": "6"
+    "causal_graph_edges": "28",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Radioulnar Synostosis with Amegakaryocytic Thrombocytopenia",
@@ -265649,8 +265898,8 @@ window.searchData = [
     "num_pathophysiology": 8,
     "num_genes": 1,
     "num_treatments": 9,
-    "causal_graph_edges": "31",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "32",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Renal Nutcracker Syndrome",
@@ -265716,6 +265965,7 @@ window.searchData = [
       "Conservative management",
       "Left renal vein transposition",
       "Endovascular stenting of the left renal vein",
+      "Extravascular stenting of the left renal vein",
       "ACE inhibition for orthostatic proteinuria",
       "Gonadal or ovarian vein transposition",
       "Renal autotransplantation"
@@ -265729,8 +265979,8 @@ window.searchData = [
     "num_phenotypes": 7,
     "num_pathophysiology": 6,
     "num_genes": 0,
-    "num_treatments": 6,
-    "causal_graph_edges": "16",
+    "num_treatments": 7,
+    "causal_graph_edges": "17",
     "causal_graph_longest_path": "4"
   },
   {
@@ -265824,8 +266074,8 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 1,
     "num_treatments": 4,
-    "causal_graph_edges": "13",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Renal Tubular Acidosis, Distal, 3, With or Without Sensorineural Hearing Loss",
@@ -265916,8 +266166,8 @@ window.searchData = [
     "num_pathophysiology": 9,
     "num_genes": 1,
     "num_treatments": 4,
-    "causal_graph_edges": "24",
-    "causal_graph_longest_path": "6"
+    "causal_graph_edges": "25",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Renal Tubular Acidosis Distal 4 with Hemolytic Anemia",
@@ -266642,8 +266892,8 @@ window.searchData = [
     "num_pathophysiology": 10,
     "num_genes": 1,
     "num_treatments": 5,
-    "causal_graph_edges": "27",
-    "causal_graph_longest_path": "6"
+    "causal_graph_edges": "28",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Retinal Arterial Tortuosity",
@@ -266813,8 +267063,8 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 1,
     "num_treatments": 0,
-    "causal_graph_edges": "21",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "22",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Retinoblastoma",
@@ -266905,7 +267155,7 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 6,
-    "causal_graph_edges": "5",
+    "causal_graph_edges": "6",
     "causal_graph_longest_path": "5"
   },
   {
@@ -268543,8 +268793,8 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "12",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "13",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Rhizomelic Dysplasia, Ain-Naz Type",
@@ -268944,8 +269194,8 @@ window.searchData = [
     "num_pathophysiology": 8,
     "num_genes": 1,
     "num_treatments": 8,
-    "causal_graph_edges": "7",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "8",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Ring Chromosome 14 Syndrome",
@@ -274147,8 +274397,8 @@ window.searchData = [
     "num_pathophysiology": 11,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "16",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "SOX10 Neurocristopathy Spectrum",
@@ -278971,8 +279221,8 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 1,
     "num_treatments": 5,
-    "causal_graph_edges": "19",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "20",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Schindler Disease",
@@ -279623,8 +279873,8 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 1,
     "num_treatments": 4,
-    "causal_graph_edges": "13",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "14",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "Schwannoma",
@@ -284268,8 +284518,8 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 1,
     "num_treatments": 1,
-    "causal_graph_edges": "14",
-    "causal_graph_longest_path": "5"
+    "causal_graph_edges": "15",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "Short Stature, Microcephaly, and Endocrine Dysfunction",
@@ -288391,8 +288641,8 @@ window.searchData = [
     "num_pathophysiology": 13,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "37",
-    "causal_graph_longest_path": "7"
+    "causal_graph_edges": "38",
+    "causal_graph_longest_path": "8"
   },
   {
     "name": "Southern Tick-Associated Rash Illness",
@@ -289644,7 +289894,7 @@ window.searchData = [
     "num_pathophysiology": 8,
     "num_genes": 4,
     "num_treatments": 4,
-    "causal_graph_edges": "17",
+    "causal_graph_edges": "19",
     "causal_graph_longest_path": "5"
   },
   {
@@ -290493,8 +290743,8 @@ window.searchData = [
     "num_pathophysiology": 8,
     "num_genes": 1,
     "num_treatments": 0,
-    "causal_graph_edges": "10",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "11",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Spinocerebellar Ataxia, Autosomal Recessive 32",
@@ -292913,8 +293163,8 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 1,
     "num_treatments": 0,
-    "causal_graph_edges": "6",
-    "causal_graph_longest_path": "3"
+    "causal_graph_edges": "7",
+    "causal_graph_longest_path": "4"
   },
   {
     "name": "Spondyloepimetaphyseal Dysplasia Maroteaux Type",
@@ -292995,8 +293245,8 @@ window.searchData = [
     "num_pathophysiology": 4,
     "num_genes": 1,
     "num_treatments": 5,
-    "causal_graph_edges": "5",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "6",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Spondyloepimetaphyseal Dysplasia Missouri Type",
@@ -293998,6 +294248,108 @@ window.searchData = [
     "num_treatments": 4,
     "causal_graph_edges": "26",
     "causal_graph_longest_path": "3"
+  },
+  {
+    "name": "Spondylometaphyseal Dysplasia, Schmidt Type",
+    "disease_id": "MONDO:0008478",
+    "category": "Mendelian",
+    "parents": [
+      "spondylometaphyseal dysplasia",
+      "type 2 collagenopathy"
+    ],
+    "creation_date": "2026-09-09T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "Spondylometaphyseal dysplasia, Schmidt type - almost always written in the modern literature as spondylometaphyseal dysplasia Algerian type, SMD-A, and listed in the skeletal dysplasia nosology as \"SMD with severe genu valgum\" - is an autosomal dominant type II collagenopathy caused by heterozygous COL2A1 variants. The phenotype is a short trunk with severe genu valgum, progressive kyphoscoliosis, wrist deformity and myopia, on a radiological background of moderate platyspondyly with dorsal vertebral flattening, short ilia with narrow greater sciatic notches, and generalised metaphyseal dysplasia that is most conspicuous at the hip and knee. The hands and feet are barely affected.\nThe mechanism is the standard type II collagenopathy one. Both reported COL2A1 alleles are glycine substitutions in the Gly-X-Y repeat of the triple-helical domain - Gly861Val in exon 39 and Gly1092Asp in exon 47 - the class of change that prevents an obligatory glycine from occupying the sterically constrained interior position of the collagen triple helix. The consequence is an abnormal type II collagen network in the hyaline cartilage of the growth plate and the vertebral bodies, which is why the disease is a growth disorder of endochondral bone rather than a metabolic one, and why the eye is involved at all.\nWhat is specific to this entry is its nosological position rather than its mechanism, and it is genuinely unsettled. Kozlowski's 1988 report of an Algerian family proposed the disorder as a distinct skeletal dysplasia and suggested that a 1963 case of Schmidt's was the same entity, which is where the eponym in the MONDO label comes from. The 2013 report that first found a COL2A1 allele in the phenotype went further and argued that SMD-A and spondyloepimetaphyseal dysplasia Strudwick type should be lumped, on the grounds that dorsal vertebral flattening, iliac hypoplasia, extensive metaphyseal dysplasia and near-normal short tubular bones are shared, and that the one apparent difference - normal proximal femoral epiphyses in SMD-A - dissolved in their own patient, whose mottled femoral heads improved with age. This entry is curated separately because MONDO, OMIM and Orphanet all keep the concept distinct and dismech already curates Strudwick type as its own entry; the argument for merging them is recorded in `notes` rather than acted on.",
+    "pathophysiology": [
+      "Heterozygous COL2A1 Glycine Substitution",
+      "Disrupted Type II Collagen Triple-Helix Assembly",
+      "Abnormal Cartilage Extracellular Matrix",
+      "Metaphyseal Growth Plate Dysplasia",
+      "Vertebral Body Growth Failure",
+      "Pelvic and Proximal Femoral Dysplasia",
+      "Abnormal Vitreous Collagen"
+    ],
+    "cell_types": [
+      "chondrocyte"
+    ],
+    "cell_type_ids": [
+      "CL:0000138"
+    ],
+    "biological_processes": [
+      "collagen fibril organization",
+      "extracellular matrix organization",
+      "endochondral ossification",
+      "bone development"
+    ],
+    "phenotypes": [
+      "Disproportionate Short-Trunk Short Stature",
+      "Short Stature",
+      "Genu Valgum",
+      "Metaphyseal Dysplasia",
+      "Metaphyseal Irregularity",
+      "Metaphyseal Corner Fracture",
+      "Wrist Deformity",
+      "Platyspondyly",
+      "Kyphoscoliosis",
+      "Lumbar Hyperlordosis",
+      "Hypoplastic Ilia",
+      "Narrow Greater Sciatic Notch",
+      "Coxa Vara",
+      "Delayed Proximal Femoral Epiphyseal Ossification",
+      "Myopia",
+      "Cleft Soft Palate"
+    ],
+    "phenotype_categories": [
+      "Growth",
+      "Skeletal",
+      "Ophthalmologic",
+      "Craniofacial"
+    ],
+    "phenotype_hpo_categories": [
+      "Eye",
+      "Growth",
+      "Head and Neck",
+      "Limbs",
+      "Musculoskeletal"
+    ],
+    "phenotype_ids": [
+      "HP:0003521",
+      "HP:0004322",
+      "HP:0002857",
+      "HP:0100255",
+      "HP:0003025",
+      "HP:0003908",
+      "HP:0003019",
+      "HP:0000926",
+      "HP:0002751",
+      "HP:0002938",
+      "HP:0000946",
+      "HP:0003375",
+      "HP:0002812",
+      "HP:0002663",
+      "HP:0000545",
+      "HP:0000185"
+    ],
+    "frequencies": [],
+    "genes": [
+      "COL2A1"
+    ],
+    "treatments": [
+      "Realignment Osteotomy for Severe Genu Valgum",
+      "Ophthalmologic Surveillance",
+      "Spinal Deformity Monitoring"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Spondylometaphyseal_Dysplasia_Schmidt_Type.yaml",
+    "page_url": "../pages/disorders/Spondylometaphyseal_Dysplasia,_Schmidt_Type.html",
+    "num_phenotypes": 16,
+    "num_pathophysiology": 7,
+    "num_genes": 1,
+    "num_treatments": 3,
+    "causal_graph_edges": "22",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Spondylometaphyseal Dysplasia with Cone-Rod Dystrophy",
@@ -295300,8 +295652,8 @@ window.searchData = [
     "num_pathophysiology": 9,
     "num_genes": 1,
     "num_treatments": 8,
-    "causal_graph_edges": "28",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "29",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "Stickler Syndrome Type 4",
@@ -297379,7 +297731,7 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 1,
     "num_treatments": 6,
-    "causal_graph_edges": "51",
+    "causal_graph_edges": "53",
     "causal_graph_longest_path": "8"
   },
   {
@@ -298780,8 +299132,8 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "8",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "9",
+    "causal_graph_longest_path": "5"
   },
   {
     "name": "TFRC-related Combined Immunodeficiency",
@@ -305019,8 +305371,8 @@ window.searchData = [
     "num_pathophysiology": 3,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "6",
-    "causal_graph_longest_path": "2"
+    "causal_graph_edges": "7",
+    "causal_graph_longest_path": "3"
   },
   {
     "name": "Thrombophilia",
@@ -306341,6 +306693,183 @@ window.searchData = [
     "num_genes": 3,
     "num_treatments": 3,
     "causal_graph_edges": "16",
+    "causal_graph_longest_path": "7"
+  },
+  {
+    "name": "Townes-Brocks Syndrome 1",
+    "disease_id": "MONDO:0054581",
+    "category": "Genetic",
+    "parents": [
+      "Multiple Congenital Anomaly Syndrome",
+      "Syndromic Hearing Loss",
+      "Congenital Anomaly of the Kidney and Urinary Tract",
+      "Anorectal Malformation"
+    ],
+    "creation_date": "2026-09-23T00:00:00Z",
+    "updated_date": null,
+    "subtypes": [],
+    "description": "An autosomal dominant multiple congenital anomaly syndrome caused by heterozygous germline pathogenic variants in SALL1, which encodes a zinc-finger transcriptional repressor of the spalt family. The classic triad is an anorectal malformation (imperforate anus or anal stenosis), dysplastic external ears (overfolded superior helices, preauricular tags) with sensorineural and/or conductive hearing impairment, and thumb malformations (preaxial polydactyly, triphalangeal thumb, rarely thumb hypoplasia) without radial hypoplasia. Congenital anomalies of the kidney and urinary tract, chronic kidney disease that can reach kidney failure from the neonatal period onwards, foot and genital malformations, congenital heart disease, and less often developmental delay, endocrine deficiencies and ocular anomalies complete the picture. The malformations are present at birth and most patients are recognized in infancy or childhood, but expressivity is highly variable within families and mildly affected adults are often diagnosed only after an affected child, or after presenting with kidney failure. Most pathogenic variants are truncating alleles in a hotspot of exon 2 whose products escape nonsense-mediated decay and are thought to act dominant-negatively on the SALL protein family; whole- or partial-gene deletions (haploinsufficiency) are rarer and have been associated with a milder phenotype, although this correlation is disputed.",
+    "pathophysiology": [
+      "SALL1 Truncating Variant",
+      "Truncated SALL1 Protein Escaping Nonsense-Mediated Decay",
+      "Dominant-Negative Interference with SALL-Family Repressors",
+      "Ectopic Derepression of SALL Target Genes",
+      "SALL1 Whole- or Partial-Gene Deletion",
+      "SALL1 Haploinsufficiency",
+      "Aberrant Primary Cilium Formation",
+      "Impaired Metanephric Kidney Development",
+      "Disrupted Autopod Digit Patterning"
+    ],
+    "cell_types": [
+      "fibroblast",
+      "metanephric mesenchyme stem cell"
+    ],
+    "cell_type_ids": [
+      "CL:0000057",
+      "CL:0000324"
+    ],
+    "biological_processes": [
+      "SALL-dependent transcriptional repression",
+      "cilium assembly",
+      "Sonic hedgehog signal transduction",
+      "metanephros development",
+      "ureteric bud development",
+      "anterior/posterior pattern specification",
+      "embryonic limb morphogenesis"
+    ],
+    "phenotypes": [
+      "Anal Atresia",
+      "Anal Stenosis",
+      "Anteriorly Placed Anus",
+      "Constipation",
+      "Dysplastic Ears",
+      "Overfolded Helix",
+      "Preauricular Skin Tag",
+      "Microtia",
+      "Hearing Impairment",
+      "Sensorineural Hearing Impairment",
+      "Conductive Hearing Impairment",
+      "Preaxial Hand Polydactyly",
+      "Triphalangeal Thumb",
+      "Thumb Hypoplasia",
+      "Overlapping Toes",
+      "Pes Planus",
+      "Renal Hypoplasia",
+      "Polycystic Kidney Dysplasia",
+      "Horseshoe Kidney",
+      "Ectopic Kidney",
+      "Vesicoureteral Reflux",
+      "Chronic Kidney Disease",
+      "Kidney Failure",
+      "Focal Segmental Glomerulosclerosis",
+      "Cryptorchidism",
+      "Hypospadias",
+      "Congenital Heart Defect",
+      "Tetralogy of Fallot",
+      "Developmental Delay",
+      "Hypothyroidism",
+      "Growth Hormone Deficiency",
+      "Growth Delay",
+      "Duane Anomaly",
+      "Iris Coloboma",
+      "Congenital Cataract",
+      "Microphthalmia",
+      "Chiari Type I Malformation"
+    ],
+    "phenotype_categories": [
+      "Gastrointestinal",
+      "Auditory",
+      "Skeletal",
+      "Renal",
+      "Genitourinary",
+      "Cardiovascular",
+      "Neurological",
+      "Endocrine",
+      "Growth",
+      "Ophthalmologic"
+    ],
+    "phenotype_hpo_categories": [
+      "Cardiovascular",
+      "Digestive",
+      "Ear",
+      "Endocrine",
+      "Eye",
+      "Genitourinary",
+      "Growth",
+      "Head and Neck",
+      "Integument",
+      "Limbs",
+      "Musculoskeletal",
+      "Nervous System"
+    ],
+    "phenotype_ids": [
+      "HP:0002023",
+      "HP:0002025",
+      "HP:0001545",
+      "HP:0002019",
+      "HP:0000377",
+      "HP:0000396",
+      "HP:0000384",
+      "HP:0008551",
+      "HP:0000365",
+      "HP:0000407",
+      "HP:0000405",
+      "HP:0001177",
+      "HP:0001199",
+      "HP:0009601",
+      "HP:0001845",
+      "HP:0001763",
+      "HP:0000089",
+      "HP:0000113",
+      "HP:0000085",
+      "HP:0000086",
+      "HP:0000076",
+      "HP:0012622",
+      "HP:0003774",
+      "HP:0000097",
+      "HP:0000028",
+      "HP:0000047",
+      "HP:0001627",
+      "HP:0001636",
+      "HP:0001263",
+      "HP:0000821",
+      "HP:0000824",
+      "HP:0001510",
+      "HP:0009921",
+      "HP:0000612",
+      "HP:0000519",
+      "HP:0000568",
+      "HP:0007099"
+    ],
+    "frequencies": [
+      "VERY_FREQUENT",
+      "FREQUENT",
+      "VERY_RARE",
+      "OCCASIONAL"
+    ],
+    "genes": [
+      "SALL1"
+    ],
+    "treatments": [
+      "Surgical Repair of Anorectal Malformation",
+      "Surgery for Severe Hand Malformations",
+      "Hearing Surveillance and Early Treatment of Hearing Loss",
+      "Lifelong Kidney Function Surveillance",
+      "Hemodialysis",
+      "Kidney Transplantation",
+      "Growth Hormone Therapy",
+      "Cardiac Management of Congenital Heart Defects",
+      "Genetic Counseling"
+    ],
+    "environmental": [],
+    "biochemical": [],
+    "source_file": "Townes-Brocks_Syndrome_1.yaml",
+    "page_url": "../pages/disorders/Townes-Brocks_Syndrome_1.html",
+    "num_phenotypes": 37,
+    "num_pathophysiology": 9,
+    "num_genes": 1,
+    "num_treatments": 9,
+    "causal_graph_edges": "39",
     "causal_graph_longest_path": "7"
   },
   {
@@ -309143,7 +309672,7 @@ window.searchData = [
     "num_pathophysiology": 15,
     "num_genes": 3,
     "num_treatments": 10,
-    "causal_graph_edges": "74",
+    "causal_graph_edges": "79",
     "causal_graph_longest_path": "8"
   },
   {
@@ -319226,7 +319755,7 @@ window.searchData = [
     "num_pathophysiology": 13,
     "num_genes": 1,
     "num_treatments": 7,
-    "causal_graph_edges": "94",
+    "causal_graph_edges": "97",
     "causal_graph_longest_path": "9"
   },
   {
@@ -320508,8 +321037,8 @@ window.searchData = [
     "num_pathophysiology": 10,
     "num_genes": 1,
     "num_treatments": 7,
-    "causal_graph_edges": "42",
-    "causal_graph_longest_path": "8"
+    "causal_graph_edges": "43",
+    "causal_graph_longest_path": "9"
   },
   {
     "name": "X-Linked Spondyloepiphyseal Dysplasia Tarda",
@@ -320580,8 +321109,8 @@ window.searchData = [
     "num_pathophysiology": 6,
     "num_genes": 1,
     "num_treatments": 2,
-    "causal_graph_edges": "11",
-    "causal_graph_longest_path": "6"
+    "causal_graph_edges": "12",
+    "causal_graph_longest_path": "7"
   },
   {
     "name": "X-linked Agammaglobulinemia",
@@ -320794,7 +321323,7 @@ window.searchData = [
     "num_pathophysiology": 5,
     "num_genes": 1,
     "num_treatments": 4,
-    "causal_graph_edges": "14",
+    "causal_graph_edges": "15",
     "causal_graph_longest_path": "5"
   },
   {
@@ -320905,7 +321434,7 @@ window.searchData = [
     "num_pathophysiology": 9,
     "num_genes": 1,
     "num_treatments": 3,
-    "causal_graph_edges": "23",
+    "causal_graph_edges": "24",
     "causal_graph_longest_path": "5"
   },
   {
@@ -321415,7 +321944,7 @@ window.searchData = [
     "num_pathophysiology": 10,
     "num_genes": 1,
     "num_treatments": 4,
-    "causal_graph_edges": "32",
+    "causal_graph_edges": "33",
     "causal_graph_longest_path": "7"
   },
   {
@@ -321524,7 +322053,7 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 1,
     "num_treatments": 4,
-    "causal_graph_edges": "20",
+    "causal_graph_edges": "21",
     "causal_graph_longest_path": "5"
   },
   {
@@ -321608,8 +322137,8 @@ window.searchData = [
     "num_pathophysiology": 7,
     "num_genes": 1,
     "num_treatments": 4,
-    "causal_graph_edges": "16",
-    "causal_graph_longest_path": "4"
+    "causal_graph_edges": "17",
+    "causal_graph_longest_path": "6"
   },
   {
     "name": "X-linked Nonsyndromic Hearing Loss",
@@ -324423,17 +324952,17 @@ window.searchData = [
   }
 ];
 window.searchMetrics = {
-  "total_disorder_pages": 3090,
-  "total_subtypes": 3874,
-  "total_disorders_and_subtypes": 6964,
-  "total_unique_evidence_sources": 44543,
-  "total_unique_publications": 41875,
+  "total_disorder_pages": 3094,
+  "total_subtypes": 3877,
+  "total_disorders_and_subtypes": 6971,
+  "total_unique_evidence_sources": 44627,
+  "total_unique_publications": 41953,
   "total_unique_disease_categories": 62,
   "total_unique_phenotype_categories": 282,
-  "total_pathographs": 3085,
-  "total_unique_pathological_events": 19327,
+  "total_pathographs": 3089,
+  "total_unique_pathological_events": 19359,
   "total_modules": 178,
-  "total_research_reports": 3199,
+  "total_research_reports": 3203,
   "total_classifications": 20,
   "total_comorbidities": 46,
   "total_groupings": 103
