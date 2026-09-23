@@ -1,13 +1,11 @@
 from __future__ import annotations
 
 import re
-import sys
 from pathlib import Path
 
-ROOT = Path(__file__).parent.parent
-sys.path.insert(0, str(ROOT))
-
 from dismech.yaml_io import safe_load
+
+ROOT = Path(__file__).parent.parent
 
 
 def _recipe_body(justfile: str, recipe: str) -> str:
@@ -54,6 +52,22 @@ def test_ci_changed_comorbidity_validation_uses_batched_recipe() -> None:
     assert 'just validate-comorbidity "$f"' not in changed_step
 
 
+def test_ci_validates_hypothesis_review_artifacts_on_report_or_yaml_changes() -> None:
+    """Raw-report edits can break quote anchors, so the whole subtree triggers QC."""
+    workflow_text = (ROOT / ".github" / "workflows" / "main.yaml").read_text()
+    assert "kb_hypotheses:\n" in workflow_text
+    assert "- 'kb/hypotheses/**'" in workflow_text
+
+    step = _step_named("main.yaml", "Validate hypothesis review artifacts")
+    # Forced on merge_group: queue builds run the full suite (#10168).
+    assert step["if"] == (
+        "github.event_name == 'merge_group' "
+        "|| steps.changes.outputs.kb_hypotheses == 'true'"
+    )
+    assert "just validate-hypothesis-assessment-all" in step["run"]
+    assert "just validate-hypothesis-reconciliation-all" in step["run"]
+
+
 def _workflow_steps(filename: str) -> list[dict]:
     """Every step of every job in a workflow, parsed rather than string-sliced.
 
@@ -75,6 +89,15 @@ def _step_named(filename: str, name: str) -> dict:
     matches = [s for s in _workflow_steps(filename) if s.get("name") == name]
     assert len(matches) == 1, f"expected exactly one {name!r} step in {filename}"
     return matches[0]
+
+
+def test_retired_dataset_cache_guard_runs_on_curation_only_prs() -> None:
+    step = _step_named("main.yaml", "Reject retired dataset cache")
+    assert "if" not in step, "old curation PRs must not bypass the cache guard"
+    assert step["run"].strip() == (
+        "uv run pytest -q "
+        "tests/test_data.py::test_no_automation_touches_the_frozen_dataset_cache"
+    )
 
 
 def test_entity_ref_check_runs_ungated_over_the_whole_kb() -> None:

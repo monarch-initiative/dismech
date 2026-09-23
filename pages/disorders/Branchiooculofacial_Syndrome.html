@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2954,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2969,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3078,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3091,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3295,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3305,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3341,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3362,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3740,6 +3817,22 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3782,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 26</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 30</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Branchiooculofacial%20Syndrome"
@@ -3815,7 +3908,7 @@
             </div>
 
             <p style="margin-top: 16px; font-size: 1rem; line-height: 1.6; color: var(--gray-700); position: relative;">
-                Branchiooculofacial syndrome (BOFS) is a rare autosomal dominant multiple congenital anomaly disorder caused by heterozygous pathogenic variants in TFAP2A, which encodes the transcription factor AP-2 alpha. It is characterized by branchial (cervical or infra-/supra-auricular) skin defects that range from thin skin or hair patches to erythematous &#34;hemangiomatous&#34; lesions or weeping erosions; ocular anomalies including microphthalmia, anophthalmia, coloboma, cataract, and nasolacrimal duct stenosis/atresia; and a characteristic facial appearance with cleft lip or prominent philtral pillars (&#34;pseudocleft lip&#34;), broad nasal tip, hypertelorism/telecanthus, and malformed pinnae. Hearing loss from inner ear and/or petrous bone anomalies is common, and renal, thymic, ectodermal, and dental anomalies occur in a subset. Intellect is usually normal. BOFS is regarded as a neurocristopathy: TFAP2A acts in premigratory and migratory neural crest cells, and its haploinsufficiency or functional impairment disrupts morphogenesis of structures derived from the cranial neural crest and pharyngeal arches.
+                Branchiooculofacial syndrome (BOFS) is a rare autosomal dominant multiple congenital anomaly disorder caused by heterozygous pathogenic variants affecting TFAP2A function or regulation. TFAP2A encodes the transcription factor AP-2 alpha. The disorder is characterized by branchial (cervical or infra-/supra-auricular) skin defects that range from thin skin or hair patches to erythematous &#34;hemangiomatous&#34; lesions or weeping erosions; ocular anomalies including microphthalmia, anophthalmia, coloboma, cataract, and nasolacrimal duct stenosis/atresia; and a characteristic facial appearance with cleft lip or prominent philtral pillars (&#34;pseudocleft lip&#34;), broad nasal tip, hypertelorism/telecanthus, and malformed pinnae. Hearing loss from inner ear and/or petrous bone anomalies is common, and renal, thymic, ectodermal, and dental anomalies occur in a subset. Intellect is usually normal. BOFS is regarded as a neurocristopathy: TFAP2A acts in premigratory and migratory neural crest cells, and its haploinsufficiency or functional impairment disrupts morphogenesis of structures derived from the cranial neural crest and pharyngeal arches.
 
             </p>
 
@@ -3932,7 +4025,7 @@
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
-                <div class="stat-value">3</div>
+                <div class="stat-value">6</div>
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
@@ -3953,7 +4046,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">26</div>
+                <div class="stat-value">30</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -3967,6 +4060,14 @@
             </div>
             </a>
 
+
+            <a class="stat-link" href="#genetic">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🔬</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">Variants</div>
+            </div>
+            </a>
 
 
             <a class="stat-link" href="#treatments">
@@ -4069,6 +4170,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4090,6 +4193,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4133,13 +4238,543 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">3</span>
+                <span class="card-count">6</span>
             </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-chromosome-6-inversion-disconnecting-the-tfap2a-regulatory-domain" data-dismech-node="Chromosome 6 Inversion Disconnecting the TFAP2A Regulatory Domain" data-dismech-type="pathophysiology">
+                <div class="item-name">Chromosome 6 Inversion Disconnecting the TFAP2A Regulatory Domain</div>
+
+
+                <div class="item-desc">A BOFS-associated heterozygous inversion separates an intact TFAP2A allele from neural crest enhancers within its original topologically associating domain. The experimentally studied allele is POSTRE Table 1 patient Nr1. Its physical alteration is distinct from the resulting loss of enhancer contact and reduced expression.</div>
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <span class="tag tag-classification">Genetic context</span>
+
+
+
+
+
+
+        <span class="tag tag-classification">Variant type: inversion</span>
+
+
+
+
+        <span class="tag tag-classification">variant_origin: GERMLINE</span>
+
+
+
+
+        <span class="tag tag-classification">zygosity: HETEROZYGOUS</span>
+
+
+
+    </div>
+
+
+
+
+    <div class="context-detail">De novo approximately 89 Mb inversion inv(6)(p24.3;q16.2), with reported hg19 breakpoints chr6:10,355,280 and chr6:99,103,873. The 6p24.3 breakpoint lies approximately 40 kb downstream of TFAP2A; the TFAP2A coding sequence remains intact. This is a large chromosomal rearrangement with a demonstrated regulatory effect, not a claim that its entire span consists of noncoding sequence.</div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Loss of TFAP2A-Neural Crest Enhancer Contact</span>
+
+	                            <span class="crosslink-desc">The inversion physically separates the intact gene from its cognate enhancers.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30982769" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30982769" target="_blank">PMID:30982769</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Here, we present a BOFS patient carrying a heterozygous inversion with one breakpoint located within a topologically associating domain (TAD) containing enhancers essential for TFAP2A expression in human neural crest cells (hNCCs)."</div>
+
+
+                <div class="evidence-explanation">Identifies the clinical inversion and the affected TFAP2A regulatory domain. The reported hg19 breakpoints also identify patient Nr1 in POSTRE&#39;s Table1_LongRange_SVs.tsv.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-tfap2a-neural-crest-enhancer-contact" data-dismech-node="Loss of TFAP2A-Neural Crest Enhancer Contact" data-dismech-type="pathophysiology">
+                <div class="item-name">Loss of TFAP2A-Neural Crest Enhancer Contact</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
+                <div class="item-desc">Patient-specific hiPSC-derived human neural crest cells demonstrate disconnection of the rearranged TFAP2A allele from its cognate enhancers. Although the displaced enhancers become colocated with other genes in a rearranged domain, enhancer adoption was not observed in this experimental system.</div>
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-cell">
+                        human neural crest cells derived from patient hiPSCs
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000333" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000333</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves human neural crest cells derived from patient hiPSCs, annotated with migratory neural crest cell (CL:0000333). CL:0000333 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        TFAP2A
+
+
+    <a href="https://bioregistry.io/hgnc:11742" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:11742</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TFAP2A (hgnc:11742). hgnc:11742 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        TFAP2A enhancer-promoter contact
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0140588" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0140588</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased TFAP2A enhancer-promoter contact, annotated with chromatin looping (GO:0140588). GO:0140588 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Monoallelic TFAP2A Expression in Neural Crest Cells</span>
+
+	                            <span class="crosslink-desc">Loss of cognate enhancer contact prevents normal expression of the rearranged allele in the assayed neural crest cells.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30982769" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30982769" target="_blank">PMID:30982769</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the inversion disconnects one TFAP2A allele from its cognate enhancers"</div>
+
+
+                <div class="evidence-explanation">Patient-derived neural crest cell experiments establish enhancer disconnection.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30982769" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30982769" target="_blank">PMID:30982769</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"although the inversion shuffles the TFAP2A hNCC enhancers with novel genes within the same TAD, this does not result in enhancer adoption."</div>
+
+
+                <div class="evidence-explanation">Limits the mechanism to enhancer disconnection rather than asserting enhancer adoption by neighboring genes.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-monoallelic-tfap2a-expression-in-neural-crest-cells" data-dismech-node="Monoallelic TFAP2A Expression in Neural Crest Cells" data-dismech-type="pathophysiology">
+                <div class="item-name">Monoallelic TFAP2A Expression in Neural Crest Cells</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
+                <div class="item-desc">TFAP2A expression is monoallelic and haploinsufficient in neural crest cells differentiated from the inversion carrier&#39;s hiPSCs. This measured decrease concerns gene expression, while the encoded protein sequence remains intact. The demonstrated neural crest effect does not establish whether expression is preserved in every other TFAP2A-expressing lineage; LOE versus mLOE is therefore left unclassified.</div>
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-cell">
+                        human neural crest cells derived from patient hiPSCs
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/CL_0000333" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000333</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+Relation: this pathophysiological event involves this cell type
+This pathophysiological event involves human neural crest cells derived from patient hiPSCs, annotated with migratory neural crest cell (CL:0000333). CL:0000333 is a cell type from the Cell Ontology.</span>
+                    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        TFAP2A
+
+
+    <a href="https://bioregistry.io/hgnc:11742" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:11742</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves TFAP2A (hgnc:11742). hgnc:11742 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+                    <span class="tag tag-bio">
+                        TFAP2A gene expression
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/GO_0010467" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0010467</a>
+
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+Relation: this pathophysiological event involves this biological process
+This pathophysiological event involves decreased TFAP2A gene expression, annotated with gene expression (GO:0010467). GO:0010467 is a biological process from the Gene Ontology.</span>
+                    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ↓ DECREASED
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">TFAP2A Dysfunction Disrupts Cranial Neural Crest Development</span>
+
+	                            <span class="crosslink-desc">Reduced availability of functional AP-2 alpha perturbs the neural crest developmental transcriptional program.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30982769" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30982769" target="_blank">PMID:30982769</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"leading to monoallelic and haploinsufficient TFAP2A expression in patient hNCCs."</div>
+
+
+                <div class="evidence-explanation">Establishes the allele-specific expression consequence in patient-derived human neural crest cells.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tfap2a-dysfunction-disrupts-cranial-neural-crest-development" data-dismech-node="TFAP2A Dysfunction Disrupts Cranial Neural Crest Development" data-dismech-type="pathophysiology">
                 <div class="item-name">TFAP2A Dysfunction Disrupts Cranial Neural Crest Development</div>
 
-                <div class="item-desc">BOFS is caused by heterozygous pathogenic variants in TFAP2A, encoding the transcription factor AP-2 alpha. TFAP2A is expressed in premigratory and migratory neural crest cells and regulates gene expression during embryogenesis of the eye, ear, face, and related structures. Most BOFS families carry missense variants clustered in the highly conserved exons 4 and 5 (basic DNA-binding domain); deletions, nonsense, splice-altering, and regulatory (enhancer-disconnecting) variants also cause BOFS. Functional studies show these mutations reduce transcriptional activity, alter nuclear localization of AP-2 alpha, and can act as null, hypomorphic, or dominant-negative (antimorphic) alleles. The combination of cleft lip/palate, premature graying, coloboma, heterochromia irides, and ectopic thymus is cited as evidence that BOFS is a neurocristopathy.
+
+                <div class="item-desc">BOFS is caused by heterozygous pathogenic variants affecting TFAP2A, encoding the transcription factor AP-2 alpha. TFAP2A is expressed in premigratory and migratory neural crest cells and regulates gene expression during embryogenesis of the eye, ear, face, and related structures. Most BOFS families carry missense variants clustered in the highly conserved exons 4 and 5 (basic DNA-binding domain); deletions, nonsense, splice-altering, and regulatory (enhancer-disconnecting) variants also cause BOFS. Functional studies show these mutations reduce transcriptional activity, alter nuclear localization of AP-2 alpha, and can act as null, hypomorphic, or dominant-negative (antimorphic) alleles. The combination of cleft lip/palate, premature graying, coloboma, heterochromia irides, and ectopic thymus is cited as evidence that BOFS is a neurocristopathy.
 </div>
 
 
@@ -4154,11 +4789,11 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000333" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000333</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000333" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000333</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves cranial neural crest cell, annotated with migratory neural crest cell (CL:0000333). CL:0000333 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4195,11 +4830,11 @@ This pathophysiological event involves cranial neural crest cell, annotated with
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0014032" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0014032</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0014032" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0014032</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased Neural crest cell development (GO:0014032). GO:0014032 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4229,11 +4864,11 @@ This pathophysiological event involves decreased Neural crest cell development (
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006357" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-3">GO:0006357</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006357" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0006357</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased Regulation of transcription by RNA polymerase II (GO:0006357). GO:0006357 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4387,6 +5022,8 @@ This pathophysiological event involves decreased Regulation of transcription by 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4408,6 +5045,8 @@ This pathophysiological event involves decreased Regulation of transcription by 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4433,6 +5072,8 @@ This pathophysiological event involves decreased Regulation of transcription by 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4456,6 +5097,7 @@ This pathophysiological event involves decreased Regulation of transcription by 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-and-dominant-negative-ap-2-alpha-transcriptional-activity" data-dismech-node="Reduced and Dominant-Negative AP-2 alpha Transcriptional Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced and Dominant-Negative AP-2 alpha Transcriptional Activity</div>
 
+
                 <div class="item-desc">Individual TFAP2A BOFS mutations within the DNA-binding region have different effects on DNA binding but all significantly reduce transcriptional activity. Mutant AP-2 alpha proteins show altered nuclear:cytoplasmic distribution compared with the predominantly nuclear wild-type protein, and several can exert dominant-negative activity on wild-type AP-2 alpha. These differences mean individual variants can generate null, hypomorphic, or antimorphic alleles, contributing to the marked phenotypic variability of BOFS.
 </div>
 
@@ -4477,11 +5119,11 @@ This pathophysiological event involves decreased Regulation of transcription by 
         TFAP2A
 
 
-    <a href="https://bioregistry.io/hgnc:11742" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:11742</a>
+    <a href="https://bioregistry.io/hgnc:11742" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:11742</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves TFAP2A (hgnc:11742). hgnc:11742 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -4519,11 +5161,11 @@ This pathophysiological event involves TFAP2A (hgnc:11742). hgnc:11742 is a gene
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006355" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0006355</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006355" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0006355</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased Regulation of DNA-templated transcription (GO:0006355). GO:0006355 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4587,6 +5229,8 @@ This pathophysiological event involves decreased Regulation of DNA-templated tra
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4608,6 +5252,8 @@ This pathophysiological event involves decreased Regulation of DNA-templated tra
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4633,6 +5279,8 @@ This pathophysiological event involves decreased Regulation of DNA-templated tra
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4656,6 +5304,7 @@ This pathophysiological event involves decreased Regulation of DNA-templated tra
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tfap2-regulation-of-midfacial-neural-crest-gene-networks-alx-axis" data-dismech-node="TFAP2 Regulation of Midfacial Neural Crest Gene Networks (ALX axis)" data-dismech-type="pathophysiology">
                 <div class="item-name">TFAP2 Regulation of Midfacial Neural Crest Gene Networks (ALX axis)</div>
 
+
                 <div class="item-desc">In mouse and zebrafish models, TFAP2 paralogs (Tfap2a and Tfap2b) regulate midfacial development of the cranial neural crest. Concerted inactivation in the neural crest produces a midfacial cleft and skeletal abnormalities, with dysregulation of midface gene regulatory network components. TFAP2 factors directly and positively regulate the ALX transcription factor genes (Alx1, Alx3, Alx4); loss of TFAP2 reduces ALX transcript levels. This provides a developmental mechanism linking TFAP2A dysfunction to the midfacial clefting characteristic of BOFS.
 </div>
 
@@ -4678,11 +5327,11 @@ This pathophysiological event involves decreased Regulation of DNA-templated tra
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0001755" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0001755</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0001755" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0001755</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves Neural crest cell migration (GO:0001755). GO:0001755 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4776,6 +5425,8 @@ This pathophysiological event involves Neural crest cell migration (GO:0001755).
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4797,6 +5448,8 @@ This pathophysiological event involves Neural crest cell migration (GO:0001755).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4844,7 +5497,7 @@ This pathophysiological event involves Neural crest cell migration (GO:0001755).
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal pinna morphology\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Malformed and prominent pinnae are common in BOFS.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000377\"}}, {\"id\": \"Anophthalmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Absence of one or both eyes, at the severe end of the BOFS ocular spectrum.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000528\"}}, {\"id\": \"Asymmetric crying face\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Lower facial weakness (asymmetric crying face or partial weakness of cranial nerve VII) is described in BOFS.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011333\"}}, {\"id\": \"Branchial skin defect\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bilateral branchial (cervical or infra-/supra-auricular) skin defects, ranging from thin skin or a hair patch to erythematous \\\"hemangiomatous\\\" lesions or large weeping erosions. A cardinal feature of BOFS.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0009794\"}}, {\"id\": \"Broad nasal tip\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A broad nasal tip is part of the characteristic facial appearance of BOFS.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000455\"}}, {\"id\": \"Cataract\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cataract is part of the BOFS ocular anomaly spectrum.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000518\"}}, {\"id\": \"Cleft lip\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cleft lip, or prominent philtral pillars giving the appearance of a repaired cleft lip (\\\"pseudocleft lip\\\"), with or without cleft palate, is a cardinal craniofacial feature of BOFS (CL/P).\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000204\"}}, {\"id\": \"Cleft palate\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cleft palate may accompany cleft lip in BOFS (CL/P).\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000175\"}}, {\"id\": \"Coloboma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ocular coloboma is part of the spectrum of ocular anomalies in BOFS.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000589\"}}, {\"id\": \"Congenital heart defect\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital heart defects occur in a subset of individuals with BOFS and are listed among the manifestations requiring standard management.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001627\"}}, {\"id\": \"Dental anomaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dental manifestations (abnormal tooth size, number, and malocclusion) occur in BOFS and are monitored during surveillance.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000164\"}}, {\"id\": \"Dolichocephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A long, narrow head shape is part of the characteristic BOFS facial appearance.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000268\"}}, {\"id\": \"Ectopic thymus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ectopic (dermal/cervical) thymic tissue is a characteristic finding in BOFS and is one of the cardinal diagnostic criteria, consistent with a neural crest / pharyngeal arch developmental defect.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0010517\"}}, {\"id\": \"Hearing loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hearing loss from inner ear and/or petrous (temporal) bone anomalies is common in BOFS; conductive, sensorineural, and mixed hearing loss all occur.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000365\"}}, {\"id\": \"Hypertelorism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Increased distance between the eyes, part of the characteristic BOFS facies.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000316\"}}, {\"id\": \"Microphthalmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Small eye(s), part of the spectrum of ocular anomalies in BOFS that also includes anophthalmia.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000568\"}}, {\"id\": \"Nasolacrimal duct obstruction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Nasolacrimal duct stenosis or atresia is an ocular-adnexal anomaly in BOFS that often requires surgical correction.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000579\"}}, {\"id\": \"Premature graying of hair\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Premature graying of hair is an ectodermal feature of BOFS, occurring in roughly a third of patients, and contributes to the neurocristopathy classification.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002216\"}}, {\"id\": \"Reduced and Dominant-Negative AP-2 alpha Transcriptional Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Individual TFAP2A BOFS mutations within the DNA-binding region have different effects on DNA binding but all significantly reduce transcriptional activity. Mutant AP-2 alpha proteins show altered nuclear:cytoplasmic distribution compared with the predominantly nuclear wild-type protein, and several can exert dominant-negative activity on wild-type AP-2 alpha. These differences mean individual variants can generate null, hypomorphic, or antimorphic alleles, contributing to the marked phenotypic variability of BOFS.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"Regulation of DNA-templated transcription\"], \"genes\": [\"TFAP2A\"], \"gene_terms\": [{\"label\": \"TFAP2A\", \"id\": \"hgnc:11742\"}]}}, {\"id\": \"Renal anomaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Renal structural anomalies (e.g., agenesis, dysplasia, vesicoureteral reflux) occur in a subset (~35%) of individuals with BOFS.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0012210\"}}, {\"id\": \"TFAP2 Regulation of Midfacial Neural Crest Gene Networks (ALX axis)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In mouse and zebrafish models, TFAP2 paralogs (Tfap2a and Tfap2b) regulate midfacial development of the cranial neural crest. Concerted inactivation in the neural crest produces a midfacial cleft and skeletal abnormalities, with dysregulation of midface gene regulatory network components. TFAP2 factors directly and positively regulate the ALX transcription factor genes (Alx1, Alx3, Alx4); loss of TFAP2 reduces ALX transcript levels. This provides a developmental mechanism linking TFAP2A dysfunction to the midfacial clefting characteristic of BOFS.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Neural crest cell migration\"]}}, {\"id\": \"TFAP2A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"TFAP2A\"], \"gene_terms\": [{\"label\": \"TFAP2A\", \"id\": \"hgnc:11742\"}]}}, {\"id\": \"TFAP2A Dysfunction Disrupts Cranial Neural Crest Development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"BOFS is caused by heterozygous pathogenic variants in TFAP2A, encoding the transcription factor AP-2 alpha. TFAP2A is expressed in premigratory and migratory neural crest cells and regulates gene expression during embryogenesis of the eye, ear, face, and related structures. Most BOFS families carry missense variants clustered in the highly conserved exons 4 and 5 (basic DNA-binding domain); deletions, nonsense, splice-altering, and regulatory (enhancer-disconnecting) variants also cause BOFS. Functional studies show these mutations reduce transcriptional activity, alter nuclear localization of AP-2 alpha, and can act as null, hypomorphic, or dominant-negative (antimorphic) alleles. The combination of cleft lip/palate, premature graying, coloboma, heterochromia irides, and ectopic thymus is cited as evidence that BOFS is a neurocristopathy.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"cranial neural crest cell\"], \"biological_processes\": [\"Neural crest cell development\", \"Regulation of transcription by RNA polymerase II\"]}}, {\"id\": \"Temporal bone anomaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"CT temporal bone anomalies related to branchial arch defects are reported in BOFS and aid differential diagnosis.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0009911\"}}, {\"id\": \"Upper lip pit\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Upper lip pits are among the characteristic facial anomalies of BOFS.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100268\"}}, {\"id\": \"Upslanted palpebral fissures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Upslanting palpebral fissures contribute to the characteristic BOFS facies.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000582\"}}], \"edges\": [{\"source\": \"TFAP2A Dysfunction Disrupts Cranial Neural Crest Development\", \"target\": \"TFAP2 Regulation of Midfacial Neural Crest Gene Networks (ALX axis)\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disrupted neural crest development is mediated in part by dysregulation of the TFAP2-controlled ALX midface gene regulatory network.\"}, {\"source\": \"TFAP2A Dysfunction Disrupts Cranial Neural Crest Development\", \"target\": \"Branchial skin defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"TFAP2A Dysfunction Disrupts Cranial Neural Crest Development\", \"target\": \"Microphthalmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"TFAP2A Dysfunction Disrupts Cranial Neural Crest Development\", \"target\": \"Anophthalmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"TFAP2A Dysfunction Disrupts Cranial Neural Crest Development\", \"target\": \"Coloboma\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"TFAP2A Dysfunction Disrupts Cranial Neural Crest Development\", \"target\": \"Cataract\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"TFAP2A Dysfunction Disrupts Cranial Neural Crest Development\", \"target\": \"Nasolacrimal duct obstruction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"TFAP2A Dysfunction Disrupts Cranial Neural Crest Development\", \"target\": \"Asymmetric crying face\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"TFAP2A Dysfunction Disrupts Cranial Neural Crest Development\", \"target\": \"Abnormal pinna morphology\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"TFAP2A Dysfunction Disrupts Cranial Neural Crest Development\", \"target\": \"Hearing loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"TFAP2A Dysfunction Disrupts Cranial Neural Crest Development\", \"target\": \"Temporal bone anomaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"TFAP2A Dysfunction Disrupts Cranial Neural Crest Development\", \"target\": \"Renal anomaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"TFAP2A Dysfunction Disrupts Cranial Neural Crest Development\", \"target\": \"Congenital heart defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"TFAP2A Dysfunction Disrupts Cranial Neural Crest Development\", \"target\": \"Dental anomaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"TFAP2A Dysfunction Disrupts Cranial Neural Crest Development\", \"target\": \"Ectopic thymus\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"TFAP2A Dysfunction Disrupts Cranial Neural Crest Development\", \"target\": \"Premature graying of hair\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced and Dominant-Negative AP-2 alpha Transcriptional Activity\", \"target\": \"TFAP2A Dysfunction Disrupts Cranial Neural Crest Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced and dominant-negative AP-2 alpha transcriptional activity is the molecular basis for impaired cranial neural crest development in BOFS.\"}, {\"source\": \"TFAP2 Regulation of Midfacial Neural Crest Gene Networks (ALX axis)\", \"target\": \"Cleft lip\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"TFAP2 Regulation of Midfacial Neural Crest Gene Networks (ALX axis)\", \"target\": \"Cleft palate\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"TFAP2 Regulation of Midfacial Neural Crest Gene Networks (ALX axis)\", \"target\": \"Hypertelorism\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"TFAP2 Regulation of Midfacial Neural Crest Gene Networks (ALX axis)\", \"target\": \"Broad nasal tip\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"TFAP2 Regulation of Midfacial Neural Crest Gene Networks (ALX axis)\", \"target\": \"Upslanted palpebral fissures\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"TFAP2 Regulation of Midfacial Neural Crest Gene Networks (ALX axis)\", \"target\": \"Dolichocephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"TFAP2 Regulation of Midfacial Neural Crest Gene Networks (ALX axis)\", \"target\": \"Upper lip pit\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"TFAP2A\", \"target\": \"Reduced and Dominant-Negative AP-2 alpha Transcriptional Activity\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Abnormal pinna morphology\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Malformed and prominent pinnae are common in BOFS.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000377\"}}, {\"id\": \"Anophthalmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Absence of one or both eyes, at the severe end of the BOFS ocular spectrum.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000528\"}}, {\"id\": \"Asymmetric crying face\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Lower facial weakness (asymmetric crying face or partial weakness of cranial nerve VII) is described in BOFS.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0011333\"}}, {\"id\": \"Branchial skin defect\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Bilateral branchial (cervical or infra-/supra-auricular) skin defects, ranging from thin skin or a hair patch to erythematous \\\"hemangiomatous\\\" lesions or large weeping erosions. A cardinal feature of BOFS.\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0009794\"}}, {\"id\": \"Broad nasal tip\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A broad nasal tip is part of the characteristic facial appearance of BOFS.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000455\"}}, {\"id\": \"Cataract\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cataract is part of the BOFS ocular anomaly spectrum.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000518\"}}, {\"id\": \"Chromosome 6 Inversion Disconnecting the TFAP2A Regulatory Domain\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A BOFS-associated heterozygous inversion separates an intact TFAP2A allele from neural crest enhancers within its original topologically associating domain. The experimentally studied allele is POSTRE Table 1 patient Nr1. Its physical alteration is distinct from the resulting loss of enhancer contact and reduced expression.\", \"meta\": {\"evidence_count\": 1, \"genetic_context\": {\"variant_type\": \"inversion\", \"variant_origin\": \"GERMLINE\", \"zygosity\": \"HETEROZYGOUS\", \"description\": \"De novo approximately 89 Mb inversion inv(6)(p24.3;q16.2), with reported hg19 breakpoints chr6:10,355,280 and chr6:99,103,873. The 6p24.3 breakpoint lies approximately 40 kb downstream of TFAP2A; the TFAP2A coding sequence remains intact. This is a large chromosomal rearrangement with a demonstrated regulatory effect, not a claim that its entire span consists of noncoding sequence.\"}}}, {\"id\": \"Cleft lip\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cleft lip, or prominent philtral pillars giving the appearance of a repaired cleft lip (\\\"pseudocleft lip\\\"), with or without cleft palate, is a cardinal craniofacial feature of BOFS (CL/P).\\n\", \"meta\": {\"evidence_count\": 1, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000204\"}}, {\"id\": \"Cleft palate\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Cleft palate may accompany cleft lip in BOFS (CL/P).\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000175\"}}, {\"id\": \"Coloboma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ocular coloboma is part of the spectrum of ocular anomalies in BOFS.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0000589\"}}, {\"id\": \"Congenital heart defect\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital heart defects occur in a subset of individuals with BOFS and are listed among the manifestations requiring standard management.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001627\"}}, {\"id\": \"Dental anomaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Dental manifestations (abnormal tooth size, number, and malocclusion) occur in BOFS and are monitored during surveillance.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000164\"}}, {\"id\": \"Dolichocephaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A long, narrow head shape is part of the characteristic BOFS facial appearance.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000268\"}}, {\"id\": \"Ectopic thymus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Ectopic (dermal/cervical) thymic tissue is a characteristic finding in BOFS and is one of the cardinal diagnostic criteria, consistent with a neural crest / pharyngeal arch developmental defect.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0010517\"}}, {\"id\": \"Hearing loss\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Hearing loss from inner ear and/or petrous (temporal) bone anomalies is common in BOFS; conductive, sensorineural, and mixed hearing loss all occur.\\n\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000365\"}}, {\"id\": \"Hypertelorism\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Increased distance between the eyes, part of the characteristic BOFS facies.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000316\"}}, {\"id\": \"Loss of TFAP2A-Neural Crest Enhancer Contact\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient-specific hiPSC-derived human neural crest cells demonstrate disconnection of the rearranged TFAP2A allele from its cognate enhancers. Although the displaced enhancers become colocated with other genes in a rearranged domain, enhancer adoption was not observed in this experimental system.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"human neural crest cells derived from patient hiPSCs\"], \"biological_processes\": [\"TFAP2A enhancer-promoter contact\"], \"genes\": [\"TFAP2A\"], \"gene_terms\": [{\"label\": \"TFAP2A\", \"id\": \"hgnc:11742\"}], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Microphthalmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Small eye(s), part of the spectrum of ocular anomalies in BOFS that also includes anophthalmia.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000568\"}}, {\"id\": \"Monoallelic TFAP2A Expression in Neural Crest Cells\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"TFAP2A expression is monoallelic and haploinsufficient in neural crest cells differentiated from the inversion carrier\u0027s hiPSCs. This measured decrease concerns gene expression, while the encoded protein sequence remains intact. The demonstrated neural crest effect does not establish whether expression is preserved in every other TFAP2A-expressing lineage; LOE versus mLOE is therefore left unclassified.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"human neural crest cells derived from patient hiPSCs\"], \"biological_processes\": [\"TFAP2A gene expression\"], \"genes\": [\"TFAP2A\"], \"gene_terms\": [{\"label\": \"TFAP2A\", \"id\": \"hgnc:11742\"}], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Nasolacrimal duct obstruction\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Nasolacrimal duct stenosis or atresia is an ocular-adnexal anomaly in BOFS that often requires surgical correction.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000579\"}}, {\"id\": \"Premature graying of hair\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Premature graying of hair is an ectodermal feature of BOFS, occurring in roughly a third of patients, and contributes to the neurocristopathy classification.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0002216\"}}, {\"id\": \"Reduced and Dominant-Negative AP-2 alpha Transcriptional Activity\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Individual TFAP2A BOFS mutations within the DNA-binding region have different effects on DNA binding but all significantly reduce transcriptional activity. Mutant AP-2 alpha proteins show altered nuclear:cytoplasmic distribution compared with the predominantly nuclear wild-type protein, and several can exert dominant-negative activity on wild-type AP-2 alpha. These differences mean individual variants can generate null, hypomorphic, or antimorphic alleles, contributing to the marked phenotypic variability of BOFS.\\n\", \"meta\": {\"evidence_count\": 3, \"biological_processes\": [\"Regulation of DNA-templated transcription\"], \"genes\": [\"TFAP2A\"], \"gene_terms\": [{\"label\": \"TFAP2A\", \"id\": \"hgnc:11742\"}]}}, {\"id\": \"Renal anomaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Renal structural anomalies (e.g., agenesis, dysplasia, vesicoureteral reflux) occur in a subset (~35%) of individuals with BOFS.\\n\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0012210\"}}, {\"id\": \"TFAP2 Regulation of Midfacial Neural Crest Gene Networks (ALX axis)\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"In mouse and zebrafish models, TFAP2 paralogs (Tfap2a and Tfap2b) regulate midfacial development of the cranial neural crest. Concerted inactivation in the neural crest produces a midfacial cleft and skeletal abnormalities, with dysregulation of midface gene regulatory network components. TFAP2 factors directly and positively regulate the ALX transcription factor genes (Alx1, Alx3, Alx4); loss of TFAP2 reduces ALX transcript levels. This provides a developmental mechanism linking TFAP2A dysfunction to the midfacial clefting characteristic of BOFS.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Neural crest cell migration\"]}}, {\"id\": \"TFAP2A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"TFAP2A\"], \"gene_terms\": [{\"label\": \"TFAP2A\", \"id\": \"hgnc:11742\"}], \"variant_count\": 1}}, {\"id\": \"TFAP2A Dysfunction Disrupts Cranial Neural Crest Development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"BOFS is caused by heterozygous pathogenic variants affecting TFAP2A, encoding the transcription factor AP-2 alpha. TFAP2A is expressed in premigratory and migratory neural crest cells and regulates gene expression during embryogenesis of the eye, ear, face, and related structures. Most BOFS families carry missense variants clustered in the highly conserved exons 4 and 5 (basic DNA-binding domain); deletions, nonsense, splice-altering, and regulatory (enhancer-disconnecting) variants also cause BOFS. Functional studies show these mutations reduce transcriptional activity, alter nuclear localization of AP-2 alpha, and can act as null, hypomorphic, or dominant-negative (antimorphic) alleles. The combination of cleft lip/palate, premature graying, coloboma, heterochromia irides, and ectopic thymus is cited as evidence that BOFS is a neurocristopathy.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"cranial neural crest cell\"], \"biological_processes\": [\"Neural crest cell development\", \"Regulation of transcription by RNA polymerase II\"]}}, {\"id\": \"TFAP2A regulatory-domain inversion inv(6)(p24.3;q16.2) (Laugsch et al., 2019)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"De novo heterozygous approximately 89 Mb inversion, with reported hg19 breakpoints chr6:10,355,280 and chr6:99,103,873. The 6p24.3 breakpoint is approximately 40 kb downstream of TFAP2A and disconnects its intact coding sequence from neural crest enhancers. This is patient Nr1 in POSTRE Table 1 and Table1_LongRange_SVs.tsv; no coordinate conversion or inferred nucleotide HGVS representation is applied.\", \"meta\": {\"evidence_count\": 1, \"regulatory_target_gene\": {\"label\": \"TFAP2A\", \"id\": \"hgnc:11742\"}, \"genes\": [\"TFAP2A\"], \"gene_terms\": [{\"label\": \"TFAP2A\", \"id\": \"hgnc:11742\"}], \"variant_type\": \"inversion\"}}, {\"id\": \"Temporal bone anomaly\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"CT temporal bone anomalies related to branchial arch defects are reported in BOFS and aid differential diagnosis.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0009911\"}}, {\"id\": \"Upper lip pit\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Upper lip pits are among the characteristic facial anomalies of BOFS.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0100268\"}}, {\"id\": \"Upslanted palpebral fissures\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Upslanting palpebral fissures contribute to the characteristic BOFS facies.\\n\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000582\"}}], \"edges\": [{\"source\": \"Chromosome 6 Inversion Disconnecting the TFAP2A Regulatory Domain\", \"target\": \"Loss of TFAP2A-Neural Crest Enhancer Contact\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"The inversion physically separates the intact gene from its cognate enhancers.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of TFAP2A-Neural Crest Enhancer Contact\", \"target\": \"Monoallelic TFAP2A Expression in Neural Crest Cells\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of cognate enhancer contact prevents normal expression of the rearranged allele in the assayed neural crest cells.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Monoallelic TFAP2A Expression in Neural Crest Cells\", \"target\": \"TFAP2A Dysfunction Disrupts Cranial Neural Crest Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced availability of functional AP-2 alpha perturbs the neural crest developmental transcriptional program.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"TFAP2A Dysfunction Disrupts Cranial Neural Crest Development\", \"target\": \"TFAP2 Regulation of Midfacial Neural Crest Gene Networks (ALX axis)\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disrupted neural crest development is mediated in part by dysregulation of the TFAP2-controlled ALX midface gene regulatory network.\"}, {\"source\": \"TFAP2A Dysfunction Disrupts Cranial Neural Crest Development\", \"target\": \"Branchial skin defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"TFAP2A Dysfunction Disrupts Cranial Neural Crest Development\", \"target\": \"Microphthalmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"TFAP2A Dysfunction Disrupts Cranial Neural Crest Development\", \"target\": \"Anophthalmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"TFAP2A Dysfunction Disrupts Cranial Neural Crest Development\", \"target\": \"Coloboma\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"TFAP2A Dysfunction Disrupts Cranial Neural Crest Development\", \"target\": \"Cataract\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"TFAP2A Dysfunction Disrupts Cranial Neural Crest Development\", \"target\": \"Nasolacrimal duct obstruction\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"TFAP2A Dysfunction Disrupts Cranial Neural Crest Development\", \"target\": \"Asymmetric crying face\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"TFAP2A Dysfunction Disrupts Cranial Neural Crest Development\", \"target\": \"Abnormal pinna morphology\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"TFAP2A Dysfunction Disrupts Cranial Neural Crest Development\", \"target\": \"Hearing loss\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"TFAP2A Dysfunction Disrupts Cranial Neural Crest Development\", \"target\": \"Temporal bone anomaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"TFAP2A Dysfunction Disrupts Cranial Neural Crest Development\", \"target\": \"Renal anomaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"TFAP2A Dysfunction Disrupts Cranial Neural Crest Development\", \"target\": \"Congenital heart defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"TFAP2A Dysfunction Disrupts Cranial Neural Crest Development\", \"target\": \"Dental anomaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"TFAP2A Dysfunction Disrupts Cranial Neural Crest Development\", \"target\": \"Ectopic thymus\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"TFAP2A Dysfunction Disrupts Cranial Neural Crest Development\", \"target\": \"Premature graying of hair\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced and Dominant-Negative AP-2 alpha Transcriptional Activity\", \"target\": \"TFAP2A Dysfunction Disrupts Cranial Neural Crest Development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced and dominant-negative AP-2 alpha transcriptional activity is the molecular basis for impaired cranial neural crest development in BOFS.\"}, {\"source\": \"TFAP2 Regulation of Midfacial Neural Crest Gene Networks (ALX axis)\", \"target\": \"Cleft lip\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"TFAP2 Regulation of Midfacial Neural Crest Gene Networks (ALX axis)\", \"target\": \"Cleft palate\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"TFAP2 Regulation of Midfacial Neural Crest Gene Networks (ALX axis)\", \"target\": \"Hypertelorism\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"TFAP2 Regulation of Midfacial Neural Crest Gene Networks (ALX axis)\", \"target\": \"Broad nasal tip\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"TFAP2 Regulation of Midfacial Neural Crest Gene Networks (ALX axis)\", \"target\": \"Upslanted palpebral fissures\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"TFAP2 Regulation of Midfacial Neural Crest Gene Networks (ALX axis)\", \"target\": \"Dolichocephaly\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"TFAP2 Regulation of Midfacial Neural Crest Gene Networks (ALX axis)\", \"target\": \"Upper lip pit\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"TFAP2A\", \"target\": \"Loss of TFAP2A-Neural Crest Enhancer Contact\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TFAP2A\", \"target\": \"Monoallelic TFAP2A Expression in Neural Crest Cells\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TFAP2A\", \"target\": \"Reduced and Dominant-Negative AP-2 alpha Transcriptional Activity\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"TFAP2A regulatory-domain inversion inv(6)(p24.3;q16.2) (Laugsch et al., 2019)\", \"target\": \"TFAP2A\", \"predicate\": \"has_regulatory_target\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -4863,15 +5516,17 @@ This pathophysiological event involves Neural crest cell migration (GO:0001755).
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(2)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Ear<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Eye<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Eye<span class="pill-count">(5)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Head and Neck<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Genitourinary<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Other<span class="pill-count">(11)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Head and Neck<span class="pill-count">(11)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Integument<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -4881,7 +5536,7 @@ This pathophysiological event involves Neural crest cell migration (GO:0001755).
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Cardiovascular
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-congenital-heart-defect" data-dismech-node="Congenital heart defect" data-dismech-type="phenotype">
@@ -4900,15 +5555,18 @@ This pathophysiological event involves Neural crest cell migration (GO:0001755).
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0001627</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001627</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Congenital heart defect, annotated with Abnormal heart morphology (HP:0001627). HP:0001627 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -4930,6 +5588,8 @@ This clinical feature is Congenital heart defect, annotated with Abnormal heart 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4938,6 +5598,80 @@ This clinical feature is Congenital heart defect, annotated with Abnormal heart 
 
 
                 <div class="evidence-explanation">GeneReviews lists congenital heart defects among BOFS manifestations requiring management.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-ectopic-thymus" data-dismech-node="Ectopic thymus" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Ectopic thymus
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Ectopic thymus tissue</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010517" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0010517</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ectopic thymus tissue (HP:0010517). HP:0010517 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21204207" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21204207" target="_blank">PMID:21204207</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"we documented TFAP2A mutations in three (10%) probands in our series without a classic cervical cutaneous defect or ectopic thymus"</div>
+
+
+                <div class="evidence-explanation">Ectopic thymus is one of the cardinal BOFS features in the diagnostic criteria.</div>
 
 
 
@@ -4976,15 +5710,18 @@ This clinical feature is Congenital heart defect, annotated with Abnormal heart 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000377" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0000377</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000377" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000377</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal pinna morphology (HP:0000377). HP:0000377 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5004,6 +5741,8 @@ This clinical feature is Abnormal pinna morphology (HP:0000377). HP:0000377 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5047,15 +5786,18 @@ This clinical feature is Abnormal pinna morphology (HP:0000377). HP:0000377 is a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0000365</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000365" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000365</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5075,6 +5817,8 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5098,6 +5842,8 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5129,7 +5875,7 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Eye
-                    <span class="cat-count">4</span>
+                    <span class="cat-count">5</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-microphthalmia" data-dismech-node="Microphthalmia" data-dismech-type="phenotype">
@@ -5146,15 +5892,18 @@ This clinical feature is Hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000568" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0000568</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000568" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000568</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Microphthalmia (HP:0000568). HP:0000568 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5176,6 +5925,8 @@ This clinical feature is Microphthalmia (HP:0000568). HP:0000568 is a phenotype 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5184,6 +5935,78 @@ This clinical feature is Microphthalmia (HP:0000568). HP:0000568 is a phenotype 
 
 
                 <div class="evidence-explanation">GeneReviews lists microphthalmia among the ocular anomalies of BOFS.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-anophthalmia" data-dismech-node="Anophthalmia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Anophthalmia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000528" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000528</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Anophthalmia (HP:0000528). HP:0000528 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21634087" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21634087" target="_blank">PMID:21634087</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"ocular anomalies that can include microphthalmia, anophthalmia, coloboma, cataract, and nasolacrimal duct stenosis/atresia"</div>
+
+
+                <div class="evidence-explanation">GeneReviews lists anophthalmia among the ocular anomalies of BOFS.</div>
 
 
 
@@ -5213,15 +6036,18 @@ This clinical feature is Microphthalmia (HP:0000568). HP:0000568 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000589" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0000589</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000589" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000589</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Coloboma (HP:0000589). HP:0000589 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5241,6 +6067,8 @@ This clinical feature is Coloboma (HP:0000589). HP:0000589 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5264,6 +6092,8 @@ This clinical feature is Coloboma (HP:0000589). HP:0000589 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5303,15 +6133,18 @@ This clinical feature is Coloboma (HP:0000589). HP:0000589 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0000518</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000518" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000518</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5331,6 +6164,8 @@ This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5370,15 +6205,18 @@ This clinical feature is Cataract (HP:0000518). HP:0000518 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000316" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0000316</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000316" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000316</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5398,6 +6236,8 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5428,13 +6268,13 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
             <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Head and Neck
-                    <span class="cat-count">4</span>
+                    Genitourinary
+                    <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-cleft-palate" data-dismech-node="Cleft palate" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-renal-anomaly" data-dismech-node="Renal anomaly" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Cleft palate
+                        Renal anomaly
 
 
 
@@ -5443,15 +6283,17 @@ This clinical feature is Hypertelorism (HP:0000316). HP:0000316 is a phenotype f
 
                     <span class="phenotype-id">
 
+                        <span class="phenotype-term-label">Abnormal renal morphology</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000175" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000175</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012210" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0012210</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Abnormal renal morphology (HP:0012210). HP:0012210 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5460,76 +6302,12 @@ This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype fr
 
 
 
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:19764023" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19764023" target="_blank">PMID:19764023</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Branchio-oculo-facial syndrome (BOFS) is an autosomal-dominant condition characterized by three main features, respectively: branchial defects, ocular anomalies, and craniofacial defects including cleft lip and/or palate (CL/P)."</div>
-
-
-                <div class="evidence-explanation">Cleft lip and/or palate is a defining craniofacial feature of BOFS.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-broad-nasal-tip" data-dismech-node="Broad nasal tip" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Broad nasal tip
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000455" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000455</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Broad nasal tip (HP:0000455). HP:0000455 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
 
 
 
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
@@ -5543,62 +6321,20 @@ This clinical feature is Broad nasal tip (HP:0000455). HP:0000455 is a phenotype
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"facial anomalies that can include dolichocephaly, hypertelorism or telecanthus, broad nasal tip, upslanted palpebral fissures"</div>
+                <div class="evidence-snippet">"Standard treatments for hearing loss, renal malformations, dental manifestations, and congenital heart defects."</div>
 
 
-                <div class="evidence-explanation">GeneReviews lists broad nasal tip among BOFS facial anomalies.</div>
+                <div class="evidence-explanation">GeneReviews references renal malformations among BOFS manifestations requiring management.</div>
 
 
 
             </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-upslanted-palpebral-fissures" data-dismech-node="Upslanted palpebral fissures" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Upslanted palpebral fissures
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000582" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000582</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Upslanted palpebral fissure (HP:0000582). HP:0000582 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
 
             <div class="evidence-item" data-dismech-evidence="PMID:21634087" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
@@ -5610,83 +6346,16 @@ This clinical feature is Upslanted palpebral fissure (HP:0000582). HP:0000582 is
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"facial anomalies that can include dolichocephaly, hypertelorism or telecanthus, broad nasal tip, upslanted palpebral fissures"</div>
-
-
-                <div class="evidence-explanation">GeneReviews lists upslanted palpebral fissures among BOFS facial anomalies.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-dental-anomaly" data-dismech-node="Dental anomaly" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Dental anomaly
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Abnormality of the dentition</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000164" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000164</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Abnormality of the dentition (HP:0000164). HP:0000164 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:21634087" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21634087" target="_blank">PMID:21634087</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"assess teeth for size, number, carries, and malocclusion"</div>
+                <div class="evidence-snippet">"assess for a recurrent urinary tract infection suggestive of vesicoureteral reflux"</div>
 
 
-                <div class="evidence-explanation">GeneReviews surveillance recommends assessing teeth for size, number, and malocclusion in BOFS.</div>
+                <div class="evidence-explanation">GeneReviews surveillance recommends monitoring for vesicoureteral reflux, a renal-tract anomaly in BOFS.</div>
 
 
 
@@ -5707,7 +6376,7 @@ This clinical feature is Abnormality of the dentition (HP:0000164). HP:0000164 i
             <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
+                    Head and Neck
                     <span class="cat-count">11</span>
                 </summary>
 
@@ -5729,10 +6398,10 @@ This clinical feature is Abnormality of the dentition (HP:0000164). HP:0000164 i
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0009794" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0009794</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0009794" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0009794</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Branchial anomaly (HP:0009794). HP:0009794 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5743,6 +6412,9 @@ This clinical feature is Branchial anomaly (HP:0009794). HP:0009794 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5757,6 +6429,8 @@ This clinical feature is Branchial anomaly (HP:0009794). HP:0009794 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5767,73 +6441,6 @@ This clinical feature is Branchial anomaly (HP:0009794). HP:0009794 is a phenoty
 
 
                 <div class="evidence-explanation">GeneReviews lists branchial skin defects as a defining feature of BOFS.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-anophthalmia" data-dismech-node="Anophthalmia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Anophthalmia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000528" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000528</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Anophthalmia (HP:0000528). HP:0000528 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:21634087" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21634087" target="_blank">PMID:21634087</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"ocular anomalies that can include microphthalmia, anophthalmia, coloboma, cataract, and nasolacrimal duct stenosis/atresia"</div>
-
-
-                <div class="evidence-explanation">GeneReviews lists anophthalmia among the ocular anomalies of BOFS.</div>
 
 
 
@@ -5863,15 +6470,18 @@ This clinical feature is Anophthalmia (HP:0000528). HP:0000528 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000579" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000579</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000579" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000579</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Nasolacrimal duct obstruction (HP:0000579). HP:0000579 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5891,6 +6501,8 @@ This clinical feature is Nasolacrimal duct obstruction (HP:0000579). HP:0000579 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5934,15 +6546,18 @@ This clinical feature is Nasolacrimal duct obstruction (HP:0000579). HP:0000579 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000204" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000204</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000204" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0000204</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cleft upper lip (HP:0000204). HP:0000204 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5964,6 +6579,8 @@ This clinical feature is Cleft upper lip (HP:0000204). HP:0000204 is a phenotype
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5972,6 +6589,222 @@ This clinical feature is Cleft upper lip (HP:0000204). HP:0000204 is a phenotype
 
 
                 <div class="evidence-explanation">GeneReviews describes cleft lip / pseudocleft lip as a characteristic facial anomaly of BOFS.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cleft-palate" data-dismech-node="Cleft palate" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Cleft palate
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000175" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000175</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cleft palate (HP:0000175). HP:0000175 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19764023" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19764023" target="_blank">PMID:19764023</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Branchio-oculo-facial syndrome (BOFS) is an autosomal-dominant condition characterized by three main features, respectively: branchial defects, ocular anomalies, and craniofacial defects including cleft lip and/or palate (CL/P)."</div>
+
+
+                <div class="evidence-explanation">Cleft lip and/or palate is a defining craniofacial feature of BOFS.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-broad-nasal-tip" data-dismech-node="Broad nasal tip" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Broad nasal tip
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000455" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000455</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Broad nasal tip (HP:0000455). HP:0000455 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21634087" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21634087" target="_blank">PMID:21634087</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"facial anomalies that can include dolichocephaly, hypertelorism or telecanthus, broad nasal tip, upslanted palpebral fissures"</div>
+
+
+                <div class="evidence-explanation">GeneReviews lists broad nasal tip among BOFS facial anomalies.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-upslanted-palpebral-fissures" data-dismech-node="Upslanted palpebral fissures" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Upslanted palpebral fissures
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000582" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000582</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Upslanted palpebral fissure (HP:0000582). HP:0000582 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21634087" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21634087" target="_blank">PMID:21634087</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"facial anomalies that can include dolichocephaly, hypertelorism or telecanthus, broad nasal tip, upslanted palpebral fissures"</div>
+
+
+                <div class="evidence-explanation">GeneReviews lists upslanted palpebral fissures among BOFS facial anomalies.</div>
 
 
 
@@ -6001,15 +6834,18 @@ This clinical feature is Cleft upper lip (HP:0000204). HP:0000204 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000268" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000268</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000268" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000268</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Dolichocephaly (HP:0000268). HP:0000268 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6029,6 +6865,8 @@ This clinical feature is Dolichocephaly (HP:0000268). HP:0000268 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6068,15 +6906,18 @@ This clinical feature is Dolichocephaly (HP:0000268). HP:0000268 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100268" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0100268</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100268" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0100268</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Upper lip pit (HP:0100268). HP:0100268 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6096,6 +6937,8 @@ This clinical feature is Upper lip pit (HP:0100268). HP:0100268 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6135,15 +6978,18 @@ This clinical feature is Upper lip pit (HP:0100268). HP:0100268 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011333" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0011333</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011333" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0011333</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Asymmetric crying face (HP:0011333). HP:0011333 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6163,6 +7009,8 @@ This clinical feature is Asymmetric crying face (HP:0011333). HP:0011333 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6204,15 +7052,18 @@ This clinical feature is Asymmetric crying face (HP:0011333). HP:0011333 is a ph
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0009911" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0009911</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0009911" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0009911</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal temporal bone morphology (HP:0009911). HP:0009911 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6232,6 +7083,8 @@ This clinical feature is Abnormal temporal bone morphology (HP:0009911). HP:0009
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6257,9 +7110,9 @@ This clinical feature is Abnormal temporal bone morphology (HP:0009911). HP:0009
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-renal-anomaly" data-dismech-node="Renal anomaly" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-dental-anomaly" data-dismech-node="Dental anomaly" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Renal anomaly
+                        Dental anomaly
 
 
 
@@ -6268,112 +7121,23 @@ This clinical feature is Abnormal temporal bone morphology (HP:0009911). HP:0009
 
                     <span class="phenotype-id">
 
-                        <span class="phenotype-term-label">Abnormal renal morphology</span>
+                        <span class="phenotype-term-label">Abnormality of the dentition</span>
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012210" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0012210</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000164" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0000164</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal renal morphology (HP:0012210). HP:0012210 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Abnormality of the dentition (HP:0000164). HP:0000164 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
 
 
 
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:21634087" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21634087" target="_blank">PMID:21634087</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Standard treatments for hearing loss, renal malformations, dental manifestations, and congenital heart defects."</div>
-
-
-                <div class="evidence-explanation">GeneReviews references renal malformations among BOFS manifestations requiring management.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:21634087" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21634087" target="_blank">PMID:21634087</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"assess for a recurrent urinary tract infection suggestive of vesicoureteral reflux"</div>
-
-
-                <div class="evidence-explanation">GeneReviews surveillance recommends monitoring for vesicoureteral reflux, a renal-tract anomaly in BOFS.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-ectopic-thymus" data-dismech-node="Ectopic thymus" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Ectopic thymus
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Ectopic thymus tissue</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0010517" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0010517</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Ectopic thymus tissue (HP:0010517). HP:0010517 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
 
 
 
@@ -6385,24 +7149,26 @@ This clinical feature is Ectopic thymus tissue (HP:0010517). HP:0010517 is a phe
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:21204207" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:21634087" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21204207" target="_blank">PMID:21204207</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21634087" target="_blank">PMID:21634087</a>
                     </span>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"we documented TFAP2A mutations in three (10%) probands in our series without a classic cervical cutaneous defect or ectopic thymus"</div>
+                <div class="evidence-snippet">"assess teeth for size, number, carries, and malocclusion"</div>
 
 
-                <div class="evidence-explanation">Ectopic thymus is one of the cardinal BOFS features in the diagnostic criteria.</div>
+                <div class="evidence-explanation">GeneReviews surveillance recommends assessing teeth for size, number, and malocclusion in BOFS.</div>
 
 
 
@@ -6417,6 +7183,15 @@ This clinical feature is Ectopic thymus tissue (HP:0010517). HP:0010517 is a phe
 
 
                 </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-6">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Integument
+                    <span class="cat-count">1</span>
+                </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-premature-graying-of-hair" data-dismech-node="Premature graying of hair" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -6432,15 +7207,18 @@ This clinical feature is Ectopic thymus tissue (HP:0010517). HP:0010517 is a phe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002216" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0002216</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002216" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0002216</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Premature graying of hair (HP:0002216). HP:0002216 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6460,6 +7238,8 @@ This clinical feature is Premature graying of hair (HP:0002216). HP:0002216 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6540,10 +7320,10 @@ This clinical feature is Premature graying of hair (HP:0002216). HP:0002216 is a
                         Gene: TFAP2A
 
 
-    <a href="https://bioregistry.io/hgnc:11742" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-29">hgnc:11742</a>
+    <a href="https://bioregistry.io/hgnc:11742" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-35">hgnc:11742</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is TFAP2A (hgnc:11742). hgnc:11742 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
@@ -6551,6 +7331,9 @@ This disease-associated gene is TFAP2A (hgnc:11742). hgnc:11742 is a gene from t
 
 
                 </div>
+
+
+
 
 
                 <div class="item-meta">
@@ -6577,6 +7360,8 @@ This disease-associated gene is TFAP2A (hgnc:11742). hgnc:11742 is a gene from t
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6598,6 +7383,8 @@ This disease-associated gene is TFAP2A (hgnc:11742). hgnc:11742 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6623,6 +7410,8 @@ This disease-associated gene is TFAP2A (hgnc:11742). hgnc:11742 is a gene from t
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6643,6 +7432,133 @@ This disease-associated gene is TFAP2A (hgnc:11742). hgnc:11742 is a gene from t
     </details>
 
 
+
+                <details class="variant-list">
+                    <summary class="variant-list-toggle">Variants (1)</summary>
+
+
+    <div class="item-box variant-box variant-box-nested anchor-target" id="variant-tfap2a-regulatory-domain-inversion-inv-6-p24-3-q16-2-laugsch-et-al-2019" data-dismech-node="TFAP2A regulatory-domain inversion inv(6)(p24.3;q16.2) (Laugsch et al., 2019)" data-dismech-type="genetic">
+
+    <div class="item-name">
+        TFAP2A regulatory-domain inversion inv(6)(p24.3;q16.2) (Laugsch et al., 2019)
+
+    </div>
+
+
+    <div class="item-meta">
+
+
+
+
+
+
+
+        <span class="tag" style="background: #dbeafe; color: #1e40af;">
+            Regulatory target: TFAP2A
+
+
+    <a href="https://bioregistry.io/hgnc:11742" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-36">hgnc:11742</a>
+
+
+            <span class="pill-tip" role="tooltip" id="pill-tip-36">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this variant has a reported or proposed regulatory effect on this gene
+This variant has a reported or proposed regulatory effect on TFAP2A (hgnc:11742). hgnc:11742 is a gene from the HUGO Gene Nomenclature Committee.</span>
+        </span>
+
+
+        <span class="tag" style="background: #e0e7ff; color: #3730a3;">inversion</span>
+
+
+
+    </div>
+
+
+
+
+
+
+
+    <div class="item-desc">De novo heterozygous approximately 89 Mb inversion, with reported hg19 breakpoints chr6:10,355,280 and chr6:99,103,873. The 6p24.3 breakpoint is approximately 40 kb downstream of TFAP2A and disconnects its intact coding sequence from neural crest enhancers. This is patient Nr1 in POSTRE Table 1 and Table1_LongRange_SVs.tsv; no coordinate conversion or inferred nucleotide HGVS representation is applied.</div>
+
+
+
+
+    <div class="crosslink-block">
+        <div class="crosslink-title">Functional effects</div>
+
+        <div class="variant-effect">
+
+            <div class="item-meta">
+
+                <span class="tag" style="background: #dcfce7; color: #166534;">TFAP2A gene expression in human neural crest cells</span>
+
+
+                <span class="tag" style="background: #e0e7ff; color: #3730a3;">Reduced gene expression</span>
+
+
+
+                <span class="tag" style="background: #fce7f3; color: #9d174d;">ENHANCER</span>
+
+            </div>
+
+
+            <div class="item-desc">Patient-derived hiPSC differentiation demonstrates monoallelic and haploinsufficient TFAP2A expression in human neural crest cells. No enhancer adoption by newly neighboring genes was detected. The evidence does not resolve LOE versus mLOE across other lineages.</div>
+
+
+            <div class="item-desc"><strong>Mechanism:</strong> Enhancer disconnection by inversion</div>
+
+
+
+        </div>
+
+    </div>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30982769" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30982769" target="_blank">PMID:30982769</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Instead, the inversion disconnects one TFAP2A allele from its cognate enhancers, leading to monoallelic and haploinsufficient TFAP2A expression in patient hNCCs."</div>
+
+
+                <div class="evidence-explanation">Establishes enhancer disconnection and an expression defect without a TFAP2A coding mutation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+    </div>
+
+
+                </details>
 
             </div>
 
@@ -6672,7 +7588,7 @@ This disease-associated gene is TFAP2A (hgnc:11742). hgnc:11742 is a gene from t
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-30">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-37">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6705,6 +7621,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Children with BOFS are best managed by a multispecialty team including craniofacial specialists, plastic surgeons, otolaryngologists, and speech-language therapists.
 </div>
 
@@ -6727,6 +7657,8 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6757,7 +7689,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-31">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-38">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6790,6 +7722,31 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Surgical repair of cleft lip by an experienced pediatric plastic surgeon.
 </div>
 
@@ -6812,6 +7769,8 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6842,7 +7801,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-32">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-39">surgical procedure<span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6875,6 +7834,31 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Nasolacrimal duct stenosis or atresia often requires surgical correction.
 </div>
 
@@ -6897,6 +7881,8 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6927,7 +7913,7 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-33">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-40">supportive care<span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6960,6 +7946,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Standard treatments for hearing loss, including hearing rehabilitation and ear surgery; bone-anchored hearing aids have been used for conductive loss.
 </div>
 
@@ -6982,6 +7982,8 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7012,7 +8014,7 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-34">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-34">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-41">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7044,6 +8046,20 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">BOFS is autosomal dominant with a 50% recurrence risk to offspring; de novo variants occur in 50%-60%. Once the familial TFAP2A variant is identified, prenatal and preimplantation genetic testing are possible.
 </div>
 
@@ -7066,6 +8082,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7095,6 +8113,33 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -7136,8 +8181,9 @@ synonyms:
 - Hemangiomatous branchial clefts-lip pseudocleft syndrome
 description: &gt;
   Branchiooculofacial syndrome (BOFS) is a rare autosomal dominant multiple
-  congenital anomaly disorder caused by heterozygous pathogenic variants in
-  TFAP2A, which encodes the transcription factor AP-2 alpha. It is
+  congenital anomaly disorder caused by heterozygous pathogenic variants
+  affecting TFAP2A function or regulation. TFAP2A encodes the transcription
+  factor AP-2 alpha. The disorder is
   characterized by branchial (cervical or infra-/supra-auricular) skin defects
   that range from thin skin or hair patches to erythematous &#34;hemangiomatous&#34;
   lesions or weeping erosions; ocular anomalies including microphthalmia,
@@ -7184,10 +8230,122 @@ inheritance:
     snippet: &#34;BOFS is inherited in an autosomal dominant manner. De novo pathogenic variants are observed in 50%-60% of affected individuals.&#34;
     explanation: GeneReviews confirms autosomal dominant inheritance with a high de novo rate.
 pathophysiology:
+- name: Chromosome 6 Inversion Disconnecting the TFAP2A Regulatory Domain
+  biological_scale: MOLECULAR
+  genetic_context:
+    variant_type: inversion
+    zygosity: HETEROZYGOUS
+    variant_origin: GERMLINE
+    description: &gt;-
+      De novo approximately 89 Mb inversion inv(6)(p24.3;q16.2), with
+      reported hg19 breakpoints chr6:10,355,280 and chr6:99,103,873.
+      The 6p24.3 breakpoint lies approximately 40 kb downstream of TFAP2A;
+      the TFAP2A coding sequence remains intact. This is a large chromosomal
+      rearrangement with a demonstrated regulatory effect, not a claim that
+      its entire span consists of noncoding sequence.
+  description: &gt;-
+    A BOFS-associated heterozygous inversion separates an intact TFAP2A
+    allele from neural crest enhancers within its original topologically
+    associating domain. The experimentally studied allele is POSTRE Table 1
+    patient Nr1. Its physical alteration is distinct from the resulting
+    loss of enhancer contact and reduced expression.
+  evidence:
+  - reference: PMID:30982769
+    reference_title: Modeling the Pathological Long-Range Regulatory Effects of Human Structural Variation with Patient-Specific hiPSCs.
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Here, we present a BOFS patient carrying a heterozygous inversion with one breakpoint located within a topologically associating domain (TAD) containing enhancers essential for TFAP2A expression in human neural crest cells (hNCCs).&#34;
+    explanation: &gt;-
+      Identifies the clinical inversion and the affected TFAP2A regulatory
+      domain. The reported hg19 breakpoints also identify patient Nr1 in
+      POSTRE&#39;s Table1_LongRange_SVs.tsv.
+  downstream:
+  - target: Loss of TFAP2A-Neural Crest Enhancer Contact
+    causal_link_type: DIRECT
+    description: The inversion physically separates the intact gene from its cognate enhancers.
+- name: Loss of TFAP2A-Neural Crest Enhancer Contact
+  biological_scale: MOLECULAR
+  mechanism_confidence: ESTABLISHED
+  description: &gt;-
+    Patient-specific hiPSC-derived human neural crest cells demonstrate
+    disconnection of the rearranged TFAP2A allele from its cognate
+    enhancers. Although the displaced enhancers become colocated with
+    other genes in a rearranged domain, enhancer adoption was not observed
+    in this experimental system.
+  genes:
+  - preferred_term: TFAP2A
+    term:
+      id: hgnc:11742
+      label: TFAP2A
+  cell_types:
+  - preferred_term: human neural crest cells derived from patient hiPSCs
+    term:
+      id: CL:0000333
+      label: migratory neural crest cell
+  biological_processes:
+  - preferred_term: TFAP2A enhancer-promoter contact
+    modifier: DECREASED
+    term:
+      id: GO:0140588
+      label: chromatin looping
+  evidence:
+  - reference: PMID:30982769
+    reference_title: Modeling the Pathological Long-Range Regulatory Effects of Human Structural Variation with Patient-Specific hiPSCs.
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &#34;the inversion disconnects one TFAP2A allele from its cognate enhancers&#34;
+    explanation: Patient-derived neural crest cell experiments establish enhancer disconnection.
+  - reference: PMID:30982769
+    reference_title: Modeling the Pathological Long-Range Regulatory Effects of Human Structural Variation with Patient-Specific hiPSCs.
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &#34;although the inversion shuffles the TFAP2A hNCC enhancers with novel genes within the same TAD, this does not result in enhancer adoption.&#34;
+    explanation: Limits the mechanism to enhancer disconnection rather than asserting enhancer adoption by neighboring genes.
+  downstream:
+  - target: Monoallelic TFAP2A Expression in Neural Crest Cells
+    causal_link_type: DIRECT
+    description: Loss of cognate enhancer contact prevents normal expression of the rearranged allele in the assayed neural crest cells.
+- name: Monoallelic TFAP2A Expression in Neural Crest Cells
+  biological_scale: MOLECULAR
+  mechanism_confidence: ESTABLISHED
+  description: &gt;-
+    TFAP2A expression is monoallelic and haploinsufficient in neural crest
+    cells differentiated from the inversion carrier&#39;s hiPSCs. This measured
+    decrease concerns gene expression, while the encoded protein sequence
+    remains intact. The demonstrated neural crest effect does not establish
+    whether expression is preserved in every other TFAP2A-expressing lineage;
+    LOE versus mLOE is therefore left unclassified.
+  genes:
+  - preferred_term: TFAP2A
+    term:
+      id: hgnc:11742
+      label: TFAP2A
+  cell_types:
+  - preferred_term: human neural crest cells derived from patient hiPSCs
+    term:
+      id: CL:0000333
+      label: migratory neural crest cell
+  biological_processes:
+  - preferred_term: TFAP2A gene expression
+    modifier: DECREASED
+    term:
+      id: GO:0010467
+      label: gene expression
+  evidence:
+  - reference: PMID:30982769
+    reference_title: Modeling the Pathological Long-Range Regulatory Effects of Human Structural Variation with Patient-Specific hiPSCs.
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &#34;leading to monoallelic and haploinsufficient TFAP2A expression in patient hNCCs.&#34;
+    explanation: Establishes the allele-specific expression consequence in patient-derived human neural crest cells.
+  downstream:
+  - target: TFAP2A Dysfunction Disrupts Cranial Neural Crest Development
+    causal_link_type: INDIRECT_KNOWN_INTERMEDIATES
+    description: Reduced availability of functional AP-2 alpha perturbs the neural crest developmental transcriptional program.
 - name: TFAP2A Dysfunction Disrupts Cranial Neural Crest Development
   description: &gt;
-    BOFS is caused by heterozygous pathogenic variants in TFAP2A, encoding the
-    transcription factor AP-2 alpha. TFAP2A is expressed in premigratory and
+    BOFS is caused by heterozygous pathogenic variants affecting TFAP2A,
+    encoding the transcription factor AP-2 alpha. TFAP2A is expressed in premigratory and
     migratory neural crest cells and regulates gene expression during
     embryogenesis of the eye, ear, face, and related structures. Most BOFS
     families carry missense variants clustered in the highly conserved exons 4
@@ -7756,13 +8914,47 @@ genetic:
       label: TFAP2A
   inheritance:
   - name: Autosomal dominant
+  variants:
+  - name: TFAP2A regulatory-domain inversion inv(6)(p24.3;q16.2) (Laugsch et al., 2019)
+    variant_type: inversion
+    regulatory_target_gene:
+      preferred_term: TFAP2A
+      term:
+        id: hgnc:11742
+        label: TFAP2A
+    description: &gt;-
+      De novo heterozygous approximately 89 Mb inversion, with reported hg19
+      breakpoints chr6:10,355,280 and chr6:99,103,873. The 6p24.3 breakpoint
+      is approximately 40 kb downstream of TFAP2A and disconnects its intact
+      coding sequence from neural crest enhancers. This is patient Nr1 in
+      POSTRE Table 1 and Table1_LongRange_SVs.tsv; no coordinate conversion
+      or inferred nucleotide HGVS representation is applied.
+    functional_effects:
+    - function: TFAP2A gene expression in human neural crest cells
+      type: Reduced gene expression
+      regulatory_element_type: ENHANCER
+      regulatory_mechanism: Enhancer disconnection by inversion
+      description: &gt;-
+        Patient-derived hiPSC differentiation demonstrates monoallelic and
+        haploinsufficient TFAP2A expression in human neural crest cells.
+        No enhancer adoption by newly neighboring genes was detected.
+        The evidence does not resolve LOE versus mLOE across other lineages.
+    evidence:
+    - reference: PMID:30982769
+      reference_title: Modeling the Pathological Long-Range Regulatory Effects of Human Structural Variation with Patient-Specific hiPSCs.
+      supports: SUPPORT
+      evidence_source: IN_VITRO
+      snippet: &#34;Instead, the inversion disconnects one TFAP2A allele from its cognate enhancers, leading to monoallelic and haploinsufficient TFAP2A expression in patient hNCCs.&#34;
+      explanation: Establishes enhancer disconnection and an expression defect without a TFAP2A coding mutation.
   notes: &gt;
     Heterozygous pathogenic variants in TFAP2A (encoding transcription factor
     AP-2 alpha; gene OMIM 107580, locus 6p24.3) cause autosomal dominant BOFS.
     The mutational spectrum includes recurrent missense variants in the
     conserved DNA-binding domain (exons 4-5), nonsense and splice variants,
     small indels/frameshifts, whole- or multi-exon deletions (including a
-    3.2 Mb deletion in the original family), and mosaicism. No genetic
+    3.2 Mb deletion in the original family), and mosaicism. A de novo
+    inversion can also leave TFAP2A coding sequence intact while disconnecting
+    neural crest enhancers and reducing TFAP2A expression. No genetic
     heterogeneity has been established.
   evidence:
   - reference: PMID:18423521
@@ -7916,6 +9108,8 @@ datasets: []
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -8348,7 +9542,7 @@ Secondary/variable:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Branchiooculofacial Syndrome", "mondoId": "MONDO:0007235", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Branchiooculofacial_Syndrome", "yamlRevision": "7773cf2932e0"};
+        const OS_CONFIG = {"diseaseName": "Branchiooculofacial Syndrome", "mondoId": "MONDO:0007235", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Branchiooculofacial_Syndrome", "yamlRevision": "b2f96f11b14a"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

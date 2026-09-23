@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2954,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2969,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3078,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3091,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3295,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3305,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3341,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3362,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3675,6 +3752,18 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4297,6 +4386,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-alpha-synuclein-pathology-in-the-brainstem-rem-atonia-circuit" data-dismech-node="Alpha-Synuclein Pathology in the Brainstem REM-Atonia Circuit" data-dismech-type="pathophysiology">
                 <div class="item-name">Alpha-Synuclein Pathology in the Brainstem REM-Atonia Circuit</div>
 
+
                 <div class="item-desc">The trigger in the common, age-related form. Alpha-synuclein aggregates and associated neuronal loss and gliosis involve the pontomedullary structures that generate REM atonia - the subcoeruleus nucleus (the human homologue of the rodent sublaterodorsal nucleus), the gigantocellular reticular nucleus, and the laterodorsal tegmentum - at a stage when nigrostriatal and cortical structures are still relatively spared. The anatomical specificity is the point: this is not incidental pathology in a diffusely affected brain but involvement of the exact circuit whose failure the syndrome expresses, which is what licenses reading the parasomnia as a topographically early stage of the disease rather than as an associated feature. Alternative triggers substitute at this node: a structural pontine lesion, the state instability of narcolepsy type 1, or serotonergic/noradrenergic antidepressant exposure.</div>
 
 
@@ -4424,6 +4514,8 @@ This pathophysiological event occurs in brainstem (UBERON:0002298). UBERON:00022
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4445,6 +4537,8 @@ This pathophysiological event occurs in brainstem (UBERON:0002298). UBERON:00022
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4470,6 +4564,8 @@ This pathophysiological event occurs in brainstem (UBERON:0002298). UBERON:00022
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4492,6 +4588,7 @@ This pathophysiological event occurs in brainstem (UBERON:0002298). UBERON:00022
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-descending-drive-to-inhibitory-premotor-neurons" data-dismech-node="Loss of Descending Drive to Inhibitory Premotor Neurons" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Descending Drive to Inhibitory Premotor Neurons</div>
+
 
                 <div class="item-desc">REM atonia is actively imposed rather than passively permitted: glutamatergic REM-on neurons excite glycinergic and GABAergic premotor neurons in the ventromedial medulla and spinal cord, which hyperpolarise skeletal motor neurons. Losing the descending drive releases motor neurons from an inhibition that should be present. The critical anatomical fact is that this descending pathway is separate from the ascending pathway generating the EEG features of REM sleep - so atonia can be lost while REM sleep itself proceeds entirely normally, which is exactly what polysomnography shows in these patients.</div>
 
@@ -4603,6 +4700,8 @@ This pathophysiological event occurs in brainstem (UBERON:0002298). UBERON:00022
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4624,6 +4723,8 @@ This pathophysiological event occurs in brainstem (UBERON:0002298). UBERON:00022
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4648,6 +4749,7 @@ This pathophysiological event occurs in brainstem (UBERON:0002298). UBERON:00022
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-rem-sleep-without-atonia" data-dismech-node="REM Sleep Without Atonia" data-dismech-type="pathophysiology">
                 <div class="item-name">REM Sleep Without Atonia</div>
+
 
                 <div class="item-desc">The central, measurable abnormality: excess tonic or phasic electromyographic activity scored during REM sleep. It is graded rather than binary, and its magnitude carries prognostic weight - quantified atonia loss is among the significant predictors of phenoconversion. It is also separable from the clinical behaviours: population screening finds isolated REM sleep without atonia roughly nine times more often than full disorder, which suggests it is the earlier and more sensitive marker of the same process, though whether every case progresses is unknown.</div>
 
@@ -4772,6 +4874,8 @@ This pathophysiological event involves increased skeletal muscle contraction dur
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4793,6 +4897,8 @@ This pathophysiological event involves increased skeletal muscle contraction dur
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4817,6 +4923,7 @@ This pathophysiological event involves increased skeletal muscle contraction dur
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dream-enactment-behaviour" data-dismech-node="Dream Enactment Behaviour" data-dismech-type="pathophysiology">
                 <div class="item-name">Dream Enactment Behaviour</div>
+
 
                 <div class="item-desc">Released motor output takes the form of behaviour matched to dream content - the observation that ties the syndrome to REM physiology rather than to a nonspecific motor release. Because dream content in this population is disproportionately confrontational, the behaviours are frequently violent, and injury to the patient or bed partner is the presenting problem. Unlike an NREM parasomnia the episodes are not preceded by confusional arousal, and the patient wakes alert with dream recall that matches the observed behaviour.</div>
 
@@ -4915,6 +5022,8 @@ This pathophysiological event involves increased muscle contraction (GO:0006936)
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4937,6 +5046,7 @@ This pathophysiological event involves increased muscle contraction (GO:0006936)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sleep-related-injury" data-dismech-node="Sleep-Related Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Sleep-Related Injury</div>
+
 
                 <div class="item-desc">The immediate consequence, and the one management addresses: bruising, lacerations, fractures, subdural haematoma, and injury to the bed partner. Environmental safety measures - removing bedside weapons and hard objects, padding, sleeping separately in severe uncontrolled cases - are graded as a good-practice statement necessary for appropriate management, ahead of any drug recommendation, which is an unusual ordering and reflects that the modifiable risk here is mechanical rather than pharmacological.</div>
 
@@ -4974,6 +5084,8 @@ This pathophysiological event involves increased muscle contraction (GO:0006936)
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4996,6 +5108,7 @@ This pathophysiological event involves increased muscle contraction (GO:0006936)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progression-to-overt-synucleinopathy" data-dismech-node="Progression to Overt Synucleinopathy" data-dismech-type="pathophysiology">
                 <div class="item-name">Progression to Overt Synucleinopathy</div>
+
 
                 <div class="item-desc">The second consequence, of a different kind and applying only to the degenerative route. The brainstem pathology spreads to involve nigral and limbic-cortical structures, and the patient converts to Parkinson disease, dementia with Lewy bodies, or multiple system atrophy. Conversion runs at about 6.3% per year, reaching 73.5% by twelve years - high, but neither immediate nor universal, and the distinction matters when counselling. The post-mortem series adds a topographic dimension worth preserving: those who remained free of another neurological disorder, or who developed Parkinson disease without dementia, had alpha-synuclein largely confined to brainstem and limbic system with few coexisting pathologies, whereas those who developed dementia had diffuse cortical involvement and frequent comorbid Alzheimer pathology - so the destination, not just the timing, tracks the extent of spread.</div>
 
@@ -5033,6 +5146,8 @@ This pathophysiological event involves increased muscle contraction (GO:0006936)
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5056,6 +5171,8 @@ This pathophysiological event involves increased muscle contraction (GO:0006936)
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5069,14 +5186,16 @@ This pathophysiological event involves increased muscle contraction (GO:0006936)
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:39577924" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:39577924" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39577924" target="_blank">PMID:39577924</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5141,38 +5260,20 @@ This pathophysiological event involves increased muscle contraction (GO:0006936)
             </div>
 
 
-            <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Nervous System<span class="pill-count">(2)</span></button>
+            <div class="item-box phenotype-box anchor-target" id="phenotype-dream-enactment-behaviour" data-dismech-node="Dream Enactment Behaviour" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Dream Enactment Behaviour
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Other<span class="pill-count">(1)</span></button>
-
-                <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
-            </div>
+                    <span class="phenotype-freq">OBLIGATE</span>
 
 
-            <details class="phenotype-category-group" id="pheno-cat-1">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Nervous System
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-dream-enactment-behaviour" data-dismech-node="Dream Enactment Behaviour" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Dream Enactment Behaviour
-
-                        <span class="phenotype-freq">OBLIGATE</span>
-
-
+                    <span class="phenotype-category">Neurological</span>
 
 
 
 
                     <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">REM sleep behavior disorder</span>
-
 
 
 
@@ -5184,9 +5285,9 @@ Relation: this clinical feature is this phenotype
 This clinical feature is REM sleep behavior disorder (HP:5200291), qualified as temporality recurrent. HP:5200291 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
 
-                    <div class="item-meta">
+                <div class="item-meta">
 
 
 
@@ -5202,7 +5303,10 @@ This clinical feature is REM sleep behavior disorder (HP:5200291), qualified as 
 
 
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -5222,6 +5326,8 @@ This clinical feature is REM sleep behavior disorder (HP:5200291), qualified as 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5245,23 +5351,21 @@ This clinical feature is REM sleep behavior disorder (HP:5200291), qualified as 
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-rem-sleep-without-atonia" data-dismech-node="REM Sleep Without Atonia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        REM Sleep Without Atonia
+            <div class="item-box phenotype-box anchor-target" id="phenotype-rem-sleep-without-atonia" data-dismech-node="REM Sleep Without Atonia" data-dismech-type="phenotype">
+                <div class="item-name">
+                    REM Sleep Without Atonia
 
-                        <span class="phenotype-freq">OBLIGATE</span>
+                    <span class="phenotype-freq">OBLIGATE</span>
 
 
+                    <span class="phenotype-category">Neurological</span>
 
 
 
 
                     <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Abnormal rapid eye movement sleep</span>
-
 
 
 
@@ -5273,7 +5377,10 @@ Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal rapid eye movement sleep (HP:0002494). HP:0002494 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -5293,6 +5400,8 @@ This clinical feature is Abnormal rapid eye movement sleep (HP:0002494). HP:0002
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5316,30 +5425,19 @@ This clinical feature is Abnormal rapid eye movement sleep (HP:0002494). HP:0002
 
 
 
-                </div>
+            </div>
 
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-2">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-sleep-related-injury" data-dismech-node="Sleep-Related Injury" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Sleep-Related Injury
+            <div class="item-box phenotype-box anchor-target" id="phenotype-sleep-related-injury" data-dismech-node="Sleep-Related Injury" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Sleep-Related Injury
 
 
+                    <span class="phenotype-category">Neurological</span>
 
 
 
 
                     <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Abnormal movement during sleep</span>
-
 
 
 
@@ -5351,7 +5449,10 @@ Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal movement during sleep (HP:5200300). HP:5200300 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -5371,6 +5472,8 @@ This clinical feature is Abnormal movement during sleep (HP:5200300). HP:5200300
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5394,34 +5497,8 @@ This clinical feature is Abnormal movement during sleep (HP:5200300). HP:5200300
 
 
 
-                </div>
+            </div>
 
-            </details>
-
-            <script>
-            (function() {
-                // TOC pill click: expand target group and scroll to it
-                document.querySelectorAll('.pheno-toc-pill').forEach(function(pill) {
-                    pill.addEventListener('click', function() {
-                        var target = document.getElementById(pill.dataset.target);
-                        if (target) {
-                            target.open = true;
-                            target.scrollIntoView({behavior: 'smooth', block: 'start'});
-                        }
-                    });
-                });
-                // Expand/collapse all toggle
-                var btn = document.getElementById('phenoToggleAll');
-                if (btn) {
-                    btn.addEventListener('click', function() {
-                        var groups = document.querySelectorAll('.phenotype-category-group');
-                        var anyOpen = Array.from(groups).some(function(g) { return g.open; });
-                        groups.forEach(function(g) { g.open = !anyOpen; });
-                        btn.textContent = anyOpen ? 'Expand all' : 'Collapse all';
-                    });
-                }
-            })();
-            </script>
 
         </div>
 
@@ -5484,6 +5561,31 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Removal of bedside weapons and injury-capable objects, padding of sharp furniture and headboard, soft floor covering beside the bed, and separate sleeping arrangements in severe uncontrolled cases. Graded as a good-practice statement whose implementation is necessary for appropriate management - that is, ahead of any pharmacological recommendation in the guideline&#39;s own ordering. It addresses the injury consequence directly and has no mechanistic action, which is precisely why it is the most reliably effective intervention available.</div>
 
 
@@ -5523,6 +5625,8 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5607,6 +5711,31 @@ This treatment uses clonazepam (CHEBI:3756). CHEBI:3756 is a therapeutic agent f
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Low-dose benzodiazepine that suppresses the enacted behaviours. It acts on the behavioural effector node and is not disease-modifying; the AASM recommendation is conditional. Sedation, falls and cognitive effects are material concerns in a population that is by definition in a neurodegenerative prodrome.</div>
 
 
@@ -5638,14 +5767,16 @@ This treatment uses clonazepam (CHEBI:3756). CHEBI:3756 is a therapeutic agent f
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:36515157" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:36515157" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36515157" target="_blank">PMID:36515157</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5730,6 +5861,31 @@ This treatment uses melatonin (CHEBI:16796). CHEBI:16796 is a therapeutic agent 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">The alternative symptomatic agent, generally preferred where sedation, falls, or cognitive impairment make a benzodiazepine unattractive. Also a conditional recommendation, and also acting on the behavioural node rather than on the pathology.</div>
 
 
@@ -5761,14 +5917,16 @@ This treatment uses melatonin (CHEBI:16796). CHEBI:16796 is a therapeutic agent 
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:36515157" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:36515157" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36515157" target="_blank">PMID:36515157</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5842,6 +6000,8 @@ This treatment uses melatonin (CHEBI:16796). CHEBI:16796 is a therapeutic agent 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5863,6 +6023,8 @@ This treatment uses melatonin (CHEBI:16796). CHEBI:16796 is a therapeutic agent 
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5944,6 +6106,8 @@ This treatment uses melatonin (CHEBI:16796). CHEBI:16796 is a therapeutic agent 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5965,6 +6129,8 @@ This treatment uses melatonin (CHEBI:16796). CHEBI:16796 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6373,7 +6539,7 @@ pathophysiology:
       duration.
   - reference: PMID:39577924
     reference_title: &#34;Post-mortem neuropathology of idiopathic rapid eye movement sleep behaviour disorder: a case series.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Concomitant pathologies are frequent and their role remains to be
@@ -6545,7 +6711,7 @@ treatments:
   evidence:
   - reference: PMID:36515157
     reference_title: &#34;Management of REM sleep behavior disorder: an American Academy of Sleep Medicine clinical practice guideline.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       The AASM suggests that clinicians use clonazepam (vs no treatment) for the
@@ -6579,7 +6745,7 @@ treatments:
   evidence:
   - reference: PMID:36515157
     reference_title: &#34;Management of REM sleep behavior disorder: an American Academy of Sleep Medicine clinical practice guideline.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       The AASM suggests that clinicians use immediate-release melatonin (vs no
@@ -6751,7 +6917,7 @@ discussions:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "REM Sleep Behavior Disorder", "mondoId": "MONDO:0005937", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "REM_Sleep_Behavior_Disorder", "yamlRevision": "d7f8512becbc"};
+        const OS_CONFIG = {"diseaseName": "REM Sleep Behavior Disorder", "mondoId": "MONDO:0005937", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "REM_Sleep_Behavior_Disorder", "yamlRevision": "ec90d6a9e78d"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

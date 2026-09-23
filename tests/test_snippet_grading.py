@@ -220,12 +220,20 @@ def test_divergence_is_found_across_unrelated_sections():
 def test_supports_divergence_is_not_gated_by_default():
     """`supports` is claim-relative by design, so it is measured, not enforced.
 
-    The same sentence legitimately reads SUPPORT for one claim and PARTIAL for
-    another; across kb/ that shape outnumbers the evidence_source signal ~11:1.
+    The same sentence legitimately reads SUPPORT for one claim and REFUTE for
+    another -- a result can support a mechanism while counting against a
+    stronger sufficiency reading of it.
+
+    This was the field's weaker justification when it also had to carry PARTIAL:
+    a whole-KB census before the issue #7439 narrowing found 8,285 `supports`
+    divergences against 715 for evidence_source. Retiring PARTIAL removed 96% of
+    them (353 remain), which says most of that gap was the value's ambiguity
+    rather than genuine claim-relativity. The remainder is small enough that
+    gating this field is now worth revisiting.
     """
     data = _doc(
         _item(SENTENCE, supports="SUPPORT"),
-        _item(SENTENCE, supports="PARTIAL"),
+        _item(SENTENCE, supports="REFUTE"),
     )
     assert not _violations(data)
     assert _violations(data, fields=("supports",))

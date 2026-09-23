@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2954,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2969,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3078,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3091,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3295,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3305,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3341,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3362,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3675,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4183,6 +4276,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4254,6 +4349,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4275,6 +4372,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4373,6 +4472,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4432,6 +4533,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4495,6 +4598,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4539,6 +4644,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-leptospiral-ribosomal-translation-doxycycline-target" data-dismech-node="Leptospiral Ribosomal Translation (Doxycycline Target)" data-dismech-type="pathophysiology">
                 <div class="item-name">Leptospiral Ribosomal Translation (Doxycycline Target)</div>
+
 
                 <div class="item-desc">Leptospira spp. depend on 70S-ribosome translation. Doxycycline, the first-line agent for mild leptospirosis, binds the 30S subunit and arrests bacterial protein synthesis.</div>
 
@@ -4610,6 +4716,8 @@ This pathophysiological event involves Translation (GO:0006412). GO:0006412 is a
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4632,6 +4740,7 @@ This pathophysiological event involves Translation (GO:0006412). GO:0006412 is a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-leptospiral-peptidoglycan-cross-linking-beta-lactam-target" data-dismech-node="Leptospiral Peptidoglycan Cross-Linking (Beta-Lactam Target)" data-dismech-type="pathophysiology">
                 <div class="item-name">Leptospiral Peptidoglycan Cross-Linking (Beta-Lactam Target)</div>
+
 
                 <div class="item-desc">Leptospira, a spirochete, maintains its peptidoglycan cell wall by penicillin-binding protein (PBP) transpeptidase cross-linking. This is the target of the intravenous penicillin or ceftriaxone used for severe leptospirosis; acylation of the PBP active site halts cross-linking and is bactericidal.</div>
 
@@ -4703,6 +4812,8 @@ This pathophysiological event involves Peptidoglycan-Based Cell Wall Biogenesis 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4725,6 +4836,7 @@ This pathophysiological event involves Peptidoglycan-Based Cell Wall Biogenesis 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-vm-protein-mediated-epithelial-barrier-disruption" data-dismech-node="VM protein-mediated epithelial barrier disruption" data-dismech-type="pathophysiology">
                 <div class="item-name">VM protein-mediated epithelial barrier disruption</div>
+
 
                 <div class="item-desc">Secreted virulence-modifying proteins exploit host calcium signaling to destabilize epithelial junctions and enable early barrier breach.</div>
 
@@ -4883,6 +4995,8 @@ This pathophysiological event involves increased tight junction disassembly (GO:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4904,6 +5018,8 @@ This pathophysiological event involves increased tight junction disassembly (GO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4928,6 +5044,7 @@ This pathophysiological event involves increased tight junction disassembly (GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cola-mediated-collagen-degradation" data-dismech-node="ColA-mediated collagen degradation" data-dismech-type="pathophysiology">
                 <div class="item-name">ColA-mediated collagen degradation</div>
+
 
                 <div class="item-desc">Pathogenic Leptospira expresses collagenase activity that degrades host collagen substrates during invasive infection.</div>
 
@@ -5018,6 +5135,8 @@ This pathophysiological event involves increased collagen catabolic process (GO:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5040,6 +5159,7 @@ This pathophysiological event involves increased collagen catabolic process (GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-barrier-transcytosis-across-endothelial-and-epithelial-monolayers" data-dismech-node="Barrier transcytosis across endothelial and epithelial monolayers" data-dismech-type="pathophysiology">
                 <div class="item-name">Barrier transcytosis across endothelial and epithelial monolayers</div>
+
 
                 <div class="item-desc">Pathogenic leptospires traverse endothelial and epithelial cell barriers during invasive infection.</div>
 
@@ -5194,6 +5314,8 @@ This pathophysiological event involves increased transcytosis (GO:0045056). GO:0
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5216,6 +5338,7 @@ This pathophysiological event involves increased transcytosis (GO:0045056). GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hematogenous-leptospiral-dissemination" data-dismech-node="Hematogenous leptospiral dissemination" data-dismech-type="pathophysiology">
                 <div class="item-name">Hematogenous leptospiral dissemination</div>
+
 
                 <div class="item-desc">Pathogenic Leptospira disseminate through blood during acute systemic infection.</div>
 
@@ -5351,6 +5474,8 @@ This pathophysiological event occurs in blood (UBERON:0000178). UBERON:0000178 i
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5373,6 +5498,7 @@ This pathophysiological event occurs in blood (UBERON:0000178). UBERON:0000178 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-acute-systemic-immune-activation-with-tnf-and-interferon-signaling" data-dismech-node="Acute systemic immune activation with TNF and interferon signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Acute systemic immune activation with TNF and interferon signaling</div>
+
 
                 <div class="item-desc">Disseminated leptospiral infection triggers acute systemic immune activation characterized by broad upregulation of inflammatory mediators including TNF signaling, type I interferon responses, neutrophil activation, and acute-phase host factors. This response encompasses both protective host-defense mechanisms and pathogenic inflammatory dysregulation that contributes to severity spectrum and multi-organ phenotypes.</div>
 
@@ -5764,6 +5890,8 @@ This pathophysiological event involves increased neutrophil degranulation (GO:00
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5785,6 +5913,8 @@ This pathophysiological event involves increased neutrophil degranulation (GO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5810,6 +5940,8 @@ This pathophysiological event involves increased neutrophil degranulation (GO:00
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5832,6 +5964,7 @@ This pathophysiological event involves increased neutrophil degranulation (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cgas-sting-dependent-type-i-interferon-response" data-dismech-node="cGAS-STING-dependent type I interferon response" data-dismech-type="pathophysiology">
                 <div class="item-name">cGAS-STING-dependent type I interferon response</div>
+
 
                 <div class="item-desc">Cytosolic DNA sensing in macrophages triggers cGAS-STING signaling that helps restrain renal colonization during leptospiral infection.</div>
 
@@ -6023,6 +6156,8 @@ This pathophysiological event involves increased cGAS-STING signaling pathway, a
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6044,6 +6179,8 @@ This pathophysiological event involves increased cGAS-STING signaling pathway, a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -6068,6 +6205,7 @@ This pathophysiological event involves increased cGAS-STING signaling pathway, a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tlr2-signaling-activation-in-monocytes-and-macrophages" data-dismech-node="TLR2 signaling activation in monocytes and macrophages" data-dismech-type="pathophysiology">
                 <div class="item-name">TLR2 signaling activation in monocytes and macrophages</div>
+
 
                 <div class="item-desc">TLR2-dependent innate signaling is activated in myeloid cells during leptospirosis.</div>
 
@@ -6265,6 +6403,8 @@ This pathophysiological event involves increased toll-like receptor signaling pa
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6278,14 +6418,16 @@ This pathophysiological event involves increased toll-like receptor signaling pa
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="DOI:10.1371/journal.pone.0312466" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1371/journal.pone.0312466" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1371/journal.pone.0312466" target="_blank">DOI:10.1371/journal.pone.0312466</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6310,6 +6452,7 @@ This pathophysiological event involves increased toll-like receptor signaling pa
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cytokine-and-chemokine-upregulation" data-dismech-node="Cytokine and chemokine upregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Cytokine and chemokine upregulation</div>
+
 
                 <div class="item-desc">Pro-inflammatory cytokine and chemokine expression increases during acute leptospirosis.</div>
 
@@ -6482,6 +6625,8 @@ This pathophysiological event involves increased positive regulation of cytokine
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6504,6 +6649,7 @@ This pathophysiological event involves increased positive regulation of cytokine
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nlrp3-inflammasome-complex-assembly" data-dismech-node="NLRP3 inflammasome complex assembly" data-dismech-type="pathophysiology">
                 <div class="item-name">NLRP3 inflammasome complex assembly</div>
+
 
                 <div class="item-desc">Leptospirosis-associated molecular stimuli activate NLRP3 inflammasome assembly.</div>
 
@@ -6676,6 +6822,8 @@ This pathophysiological event involves increased NLRP3 inflammasome complex asse
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6698,6 +6846,7 @@ This pathophysiological event involves increased NLRP3 inflammasome complex asse
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-interleukin-1-beta-production" data-dismech-node="Increased interleukin-1 beta production" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased interleukin-1 beta production</div>
+
 
                 <div class="item-desc">Interleukin-1 beta production increases during innate immune activation in leptospirosis.</div>
 
@@ -6839,6 +6988,8 @@ This pathophysiological event involves increased interleukin-1 beta production (
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6861,6 +7012,7 @@ This pathophysiological event involves increased interleukin-1 beta production (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tolc-mediated-factor-h-recruitment" data-dismech-node="TolC-mediated factor H recruitment" data-dismech-type="pathophysiology">
                 <div class="item-name">TolC-mediated factor H recruitment</div>
+
 
                 <div class="item-desc">Leptospiral TolC interacts with factor H and preserves factor H cofactor activity.</div>
 
@@ -6913,6 +7065,8 @@ This pathophysiological event involves increased interleukin-1 beta production (
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6935,6 +7089,7 @@ This pathophysiological event involves increased interleukin-1 beta production (
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-membrane-attack-complex-deposition" data-dismech-node="Reduced membrane attack complex deposition" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced membrane attack complex deposition</div>
+
 
                 <div class="item-desc">Complement terminal pathway activity is reduced by TolC-dependent immune evasion.</div>
 
@@ -7025,6 +7180,8 @@ This pathophysiological event involves decreased complement activation (GO:00069
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7047,6 +7204,7 @@ This pathophysiological event involves decreased complement activation (GO:00069
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-persistent-tissue-colonization-by-leptospira" data-dismech-node="Persistent tissue colonization by Leptospira" data-dismech-type="pathophysiology">
                 <div class="item-name">Persistent tissue colonization by Leptospira</div>
+
 
                 <div class="item-desc">In vitro evidence supports a model in which immune evasion promotes ongoing leptospiral tissue colonization and virulence.</div>
 
@@ -7099,6 +7257,8 @@ This pathophysiological event involves decreased complement activation (GO:00069
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7121,6 +7281,7 @@ This pathophysiological event involves decreased complement activation (GO:00069
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-leptospiral-glp-engagement-of-na-k-atpase" data-dismech-node="Leptospiral GLP engagement of Na/K-ATPase" data-dismech-type="pathophysiology">
                 <div class="item-name">Leptospiral GLP engagement of Na/K-ATPase</div>
+
 
                 <div class="item-desc">Leptospiral glycolipoprotein directly targets host Na/K-ATPase.</div>
 
@@ -7211,6 +7372,8 @@ This pathophysiological event involves increased response to lipopolysaccharide 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7233,6 +7396,7 @@ This pathophysiological event involves increased response to lipopolysaccharide 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-na-k-atpase-dysfunction-in-endothelial-and-kidney-epithelial-cells" data-dismech-node="Na/K-ATPase dysfunction in endothelial and kidney epithelial cells" data-dismech-type="pathophysiology">
                 <div class="item-name">Na/K-ATPase dysfunction in endothelial and kidney epithelial cells</div>
+
 
                 <div class="item-desc">Na/K-ATPase dysfunction in vascular and renal cells drives inflammatory-metabolic dysregulation.</div>
 
@@ -7387,6 +7551,8 @@ This pathophysiological event involves dysregulated inflammatory response (GO:00
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7408,6 +7574,8 @@ This pathophysiological event involves dysregulated inflammatory response (GO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7432,6 +7600,7 @@ This pathophysiological event involves dysregulated inflammatory response (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ve-cadherin-adherens-junction-disruption-in-endothelial-cells" data-dismech-node="VE-cadherin adherens junction disruption in endothelial cells" data-dismech-type="pathophysiology">
                 <div class="item-name">VE-cadherin adherens junction disruption in endothelial cells</div>
+
 
                 <div class="item-desc">Virulent leptospires disrupt endothelial VE-cadherin localization in adherens junctions, linking host-cell association to vascular barrier injury.</div>
 
@@ -7556,6 +7725,8 @@ This pathophysiological event involves decreased adherens junction organization 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7577,6 +7748,8 @@ This pathophysiological event involves decreased adherens junction organization 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -7601,6 +7774,7 @@ This pathophysiological event involves decreased adherens junction organization 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pulmonary-microvascular-damage-in-hemorrhagic-leptospirosis" data-dismech-node="Pulmonary microvascular damage in hemorrhagic leptospirosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Pulmonary microvascular damage in hemorrhagic leptospirosis</div>
+
 
                 <div class="item-desc">Hemorrhagic leptospirosis is associated with prominent injury to the lung microcirculation.</div>
 
@@ -7708,6 +7882,8 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7730,6 +7906,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-multi-organ-tissue-injury-in-severe-leptospirosis" data-dismech-node="Multi-organ tissue injury in severe leptospirosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Multi-organ tissue injury in severe leptospirosis</div>
+
 
                 <div class="item-desc">Severe leptospirosis causes clinically significant injury across kidney, liver, and lung.</div>
 
@@ -7899,6 +8076,8 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7920,6 +8099,8 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7944,6 +8125,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-coagulation-derangement-in-critical-leptospirosis" data-dismech-node="Coagulation derangement in critical leptospirosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Coagulation derangement in critical leptospirosis</div>
+
 
                 <div class="item-desc">Severe leptospirosis can involve dysregulated coagulation with disseminated intravascular coagulation.</div>
 
@@ -8066,6 +8248,8 @@ This pathophysiological event involves dysregulated blood coagulation (GO:000759
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8193,6 +8377,9 @@ This clinical feature is Pulmonary hemorrhage (HP:0040223). HP:0040223 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8207,6 +8394,8 @@ This clinical feature is Pulmonary hemorrhage (HP:0040223). HP:0040223 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8230,6 +8419,8 @@ This clinical feature is Pulmonary hemorrhage (HP:0040223). HP:0040223 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8285,6 +8476,9 @@ This clinical feature is Disseminated intravascular coagulation (HP:0005521). HP
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8299,6 +8493,8 @@ This clinical feature is Disseminated intravascular coagulation (HP:0005521). HP
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8354,6 +8550,9 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8368,6 +8567,8 @@ This clinical feature is Thrombocytopenia (HP:0001873). HP:0001873 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8431,6 +8632,9 @@ This clinical feature is Conjunctival suffusion, annotated with Conjunctivitis (
                     </div>
 
 
+
+
+
                     <div class="item-desc">HPO did not yield a precise conjunctival suffusion term in the local ontology build. HP:0000509 (Conjunctivitis) is retained as the closest available conjunctival abnormality mapping, but conjunctival suffusion is clinically distinct because it classically lacks purulent discharge.</div>
 
 
@@ -8450,6 +8654,8 @@ This clinical feature is Conjunctival suffusion, annotated with Conjunctivitis (
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8514,6 +8720,9 @@ This clinical feature is Nausea (HP:0002018). HP:0002018 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8528,6 +8737,8 @@ This clinical feature is Nausea (HP:0002018). HP:0002018 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8583,6 +8794,9 @@ This clinical feature is Vomiting (HP:0002013). HP:0002013 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8597,6 +8811,8 @@ This clinical feature is Vomiting (HP:0002013). HP:0002013 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8652,6 +8868,9 @@ This clinical feature is Jaundice (HP:0000952). HP:0000952 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8666,6 +8885,8 @@ This clinical feature is Jaundice (HP:0000952). HP:0000952 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8689,6 +8910,8 @@ This clinical feature is Jaundice (HP:0000952). HP:0000952 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8753,6 +8976,9 @@ This clinical feature is Acute kidney injury (HP:0001919). HP:0001919 is a pheno
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8767,6 +8993,8 @@ This clinical feature is Acute kidney injury (HP:0001919). HP:0001919 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8790,6 +9018,8 @@ This clinical feature is Acute kidney injury (HP:0001919). HP:0001919 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8845,6 +9075,9 @@ This clinical feature is Oliguria (HP:0100520). HP:0100520 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8859,6 +9092,8 @@ This clinical feature is Oliguria (HP:0100520). HP:0100520 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8923,6 +9158,9 @@ This clinical feature is Meningitis (HP:0001287). HP:0001287 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8937,6 +9175,8 @@ This clinical feature is Meningitis (HP:0001287). HP:0001287 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9001,6 +9241,9 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9015,6 +9258,8 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9079,6 +9324,9 @@ This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9093,6 +9341,8 @@ This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9157,6 +9407,9 @@ This clinical feature is Acute respiratory distress syndrome (HP:0033677). HP:00
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9171,6 +9424,8 @@ This clinical feature is Acute respiratory distress syndrome (HP:0033677). HP:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9235,6 +9490,9 @@ This clinical feature is Myalgia (HP:0003326). HP:0003326 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9249,6 +9507,8 @@ This clinical feature is Myalgia (HP:0003326). HP:0003326 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9304,6 +9564,9 @@ This clinical feature is Chills (HP:0025143). HP:0025143 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9318,6 +9581,8 @@ This clinical feature is Chills (HP:0025143). HP:0025143 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9382,6 +9647,9 @@ This clinical feature is Secondary atypical hemolytic uremic syndrome, annotated
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9396,6 +9664,8 @@ This clinical feature is Secondary atypical hemolytic uremic syndrome, annotated
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9566,6 +9836,31 @@ This treatment uses benzylpenicillin (CHEBI:18208). CHEBI:18208 is a therapeutic
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Antibiotics are central treatment across mild and severe presentations, with early therapy improving outcomes.</div>
 
 
@@ -9620,6 +9915,8 @@ This treatment uses benzylpenicillin (CHEBI:18208). CHEBI:18208 is a therapeutic
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9641,6 +9938,8 @@ This treatment uses benzylpenicillin (CHEBI:18208). CHEBI:18208 is a therapeutic
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9704,6 +10003,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Severe disease may require multi-organ support including renal replacement therapy and mechanical ventilation.</div>
 
 
@@ -9725,6 +10038,8 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9788,6 +10103,20 @@ This treatment is systemic corticosteroid therapy (NCIT:C122080). NCIT:C122080 i
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Corticosteroids may help selected severe pulmonary presentations, but current evidence remains inconclusive.</div>
 
 
@@ -9801,14 +10130,16 @@ This treatment is systemic corticosteroid therapy (NCIT:C122080). NCIT:C122080 i
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="DOI:10.3390/jcm13154310" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="DOI:10.3390/jcm13154310" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/jcm13154310" target="_blank">DOI:10.3390/jcm13154310</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9872,6 +10203,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">ECLS/ECMO can be considered as rescue support in severe ARDS and multi-organ failure.</div>
 
 
@@ -9893,6 +10238,8 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9956,6 +10303,20 @@ This treatment is plasma exchange, annotated with Plasmapheresis (NCIT:C15304). 
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Plasma exchange can be employed as rescue therapy in severe leptospirosis with secondary complications such as aHUS and ARDS.</div>
 
 
@@ -9977,6 +10338,8 @@ This treatment is plasma exchange, annotated with Plasmapheresis (NCIT:C15304). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10062,6 +10425,31 @@ This treatment uses butyrate (CHEBI:17968). CHEBI:17968 is a therapeutic agent f
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Experimental butyrate supplementation improved outcomes in hamster acute leptospirosis models via macrophage ROS-linked killing.</div>
 
 
@@ -10075,14 +10463,16 @@ This treatment uses butyrate (CHEBI:17968). CHEBI:17968 is a therapeutic agent f
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="DOI:10.1128/mbio.01906-24" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1128/mbio.01906-24" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.1128/mbio.01906-24" target="_blank">DOI:10.1128/mbio.01906-24</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -10146,6 +10536,31 @@ This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Vaccine</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Recombinant vaccine approaches are under active development but face translational barriers before broad protective use.</div>
 
 
@@ -10159,14 +10574,16 @@ This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="DOI:10.3390/pathogens12060787" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="DOI:10.3390/pathogens12060787" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/DOI:10.3390/pathogens12060787" target="_blank">DOI:10.3390/pathogens12060787</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -10196,6 +10613,1093 @@ This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-exposure-informed-clinical-evaluation">
+                <div class="item-name">
+                    Exposure-informed clinical evaluation
+
+                </div>
+
+                <div class="item-desc">Exposure history plus non-specific acute febrile presentation should trigger suspicion and testing.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        diagnostic procedure
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C18020" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-79">NCIT:C18020</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-79">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29621837" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29621837" target="_blank">PMID:29621837</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In patients with risk factors for leptospirosis, a high index of clinical suspicion is important to ensure early diagnosis and treatment."</div>
+
+
+                <div class="evidence-explanation">Supports risk-informed bedside assessment for diagnostic triage.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35469592" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35469592" target="_blank">PMID:35469592</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The differential diagnosis can be narrowed by thorough history-taking with particular attention to the patient&#39;s travel route, combined with a good knowledge of the geographic spread and incubation times of the main tropical diseases."</div>
+
+
+                <div class="evidence-explanation">Supports structured exposure/travel history-taking as a key diagnostic triage step for tropical febrile syndromes that include leptospirosis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-preliminary-serologic-screening">
+                <div class="item-name">
+                    Preliminary serologic screening
+
+                </div>
+
+                <div class="item-desc">Initial laboratory workups often include serologic testing before confirmatory molecular testing.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        diagnostic procedure
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C18020" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-80">NCIT:C18020</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-80">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1371/journal.pntd.0012449" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1371/journal.pntd.0012449" target="_blank">DOI:10.1371/journal.pntd.0012449</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Enrollment was based on leptospirosis-compatible clinical syndrome and a positive preliminary serological test, with PCR used to confirm the disease."</div>
+
+
+                <div class="evidence-explanation">Supports practical use of preliminary serology in clinical workflows.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-pcr-based-confirmation">
+                <div class="item-name">
+                    PCR-based confirmation
+
+                </div>
+
+                <div class="item-desc">PCR provides confirmatory evidence of acute leptospirosis in clinically suspected cases.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        diagnostic procedure
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C18020" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-81">NCIT:C18020</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-81">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1371/journal.pntd.0012449" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1371/journal.pntd.0012449" target="_blank">DOI:10.1371/journal.pntd.0012449</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Enrollment was based on leptospirosis-compatible clinical syndrome and a positive preliminary serological test, with PCR used to confirm the disease."</div>
+
+
+                <div class="evidence-explanation">Supports PCR as a confirmatory diagnostic modality.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-early-undifferentiated-febrile-illness">
+                <div class="item-name">Early undifferentiated febrile illness</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">Initial illness can be non-specific and overlap with other febrile syndromes, delaying diagnosis.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29621837" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29621837" target="_blank">PMID:29621837</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Leptospirosis is sometimes misdiagnosed because clinical presentation can be non-specific and overlap with many other causes of acute febrile illnesses."</div>
+
+
+                <div class="evidence-explanation">Supports an early non-specific febrile phase with diagnostic ambiguity.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-severe-multi-organ-dysfunction-phase">
+                <div class="item-name">Severe multi-organ dysfunction phase</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">A subset progresses to severe disease with jaundice, hemorrhage, meningitis, and acute kidney injury.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.3390/kidneydial4020006" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/kidneydial4020006" target="_blank">DOI:10.3390/kidneydial4020006</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The spectrum of symptoms is variable and usually ranges from asymptomatic cases to severe manifestations involving multiple organ dysfunction accompanied by jaundice, hemorrhage, meningitis, and acute kidney injury that requires the need for intensive care assistance."</div>
+
+
+                <div class="evidence-explanation">Supports progression from mild disease to severe multi-organ involvement.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-critical-care-rescue-phase">
+                <div class="item-name">Critical-care rescue phase</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">Patients with severe pulmonary and multi-organ failure may require extracorporeal rescue support.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.3138/jammi-2023-0033" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3138/jammi-2023-0033" target="_blank">DOI:10.3138/jammi-2023-0033</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"ECLS is a viable rescue strategy in severe leptospirosis, even with established MSOF."</div>
+
+
+                <div class="evidence-explanation">Supports advanced rescue interventions in late critical illness.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+        <div class="card" id="epidemiology">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">🌍</div>
+                <h2 class="card-title">Epidemiology</h2>
+                <span class="card-count">5</span>
+            </div>
+
+            <div class="item-box anchor-target" id="epidemiology-estimated-annual-global-case-burden">
+                <div class="item-name">Estimated annual global case burden</div>
+
+                <div class="item-desc">Contemporary reviews estimate over one million infections globally each year.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag">
+                        1000000&ndash;? cases_per_year
+                    </span>
+
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.3389/fmicb.2024.1403765" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3389/fmicb.2024.1403765" target="_blank">DOI:10.3389/fmicb.2024.1403765</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Leptospirosis, one of the most common global zoonotic infections, significantly impacts global human health, infecting more than a million people and causing approximately 60,000 deaths annually."</div>
+
+
+                <div class="evidence-explanation">Supports large annual global case burden.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="epidemiology-estimated-annual-global-mortality-burden">
+                <div class="item-name">Estimated annual global mortality burden</div>
+
+                <div class="item-desc">Annual global mortality is estimated at approximately sixty thousand deaths.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag">
+                        60000&ndash;? deaths_per_year
+                    </span>
+
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.3389/fmicb.2024.1403765" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3389/fmicb.2024.1403765" target="_blank">DOI:10.3389/fmicb.2024.1403765</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Leptospirosis, one of the most common global zoonotic infections, significantly impacts global human health, infecting more than a million people and causing approximately 60,000 deaths annually."</div>
+
+
+                <div class="evidence-explanation">Supports substantial annual global mortality burden.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="epidemiology-confirmed-case-fatality-in-prospective-febrile-cohort">
+                <div class="item-name">Confirmed-case fatality in prospective febrile cohort</div>
+
+                <div class="item-desc">In one prospective PCR-confirmed cohort, fatality was 2.7%.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag">
+                        2.7&ndash;? percent
+                    </span>
+
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1371/journal.pntd.0012449" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1371/journal.pntd.0012449" target="_blank">DOI:10.1371/journal.pntd.0012449</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"One confirmed case died resulting in a fatality of 2.7% (95% CI 0.5-13.8)."</div>
+
+
+                <div class="evidence-explanation">Provides cohort-level fatality estimate in confirmed acute cases.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="epidemiology-leptospirosis-among-tropical-infectious-causes-of-acute-kidney-injury">
+                <div class="item-name">Leptospirosis among tropical infectious causes of acute kidney injury</div>
+
+                <div class="item-desc">Leptospirosis is recognized among major tropical infectious causes of community-acquired acute kidney injury.</div>
+
+                <div class="item-meta">
+
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28088326" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28088326" target="_blank">PMID:28088326</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"This article reviews the epidemiology, clinical picture, prevention, risk factors, and pathophysiology of acute kidney injury associated with tropical diseases (malaria, dengue, leptospirosis, scrub typhus, and yellow fever)"</div>
+
+
+                <div class="evidence-explanation">Supports placement of leptospirosis in the major tropical infection-AKI disease group.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="epidemiology-reported-mortality-in-ecls-treated-severe-leptospirosis-cases">
+                <div class="item-name">Reported mortality in ECLS-treated severe leptospirosis cases</div>
+
+                <div class="item-desc">In published ECLS-treated severe cases, reported overall mortality was 16% (selected critical-care population).</div>
+
+                <div class="item-meta">
+
+                    <span class="tag">
+                        16&ndash;? percent
+                    </span>
+
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.3138/jammi-2023-0033" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3138/jammi-2023-0033" target="_blank">DOI:10.3138/jammi-2023-0033</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Literature review identified 25 articles containing 43 reported cases of patients treated with ECLS for severe leptospirosis. Patients were mostly young and male. Overall mortality was 16%."</div>
+
+
+                <div class="evidence-explanation">Supports a quantified mortality estimate for the severe ECLS-treated subgroup.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Infectious Agent -->
+
+        <div class="card" id="infectious-agent">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fee2e2; color: #b91c1c;">🦠</div>
+                <h2 class="card-title">Infectious Agent</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="infectious-agent-pathogenic-leptospira-species">
+                <div class="item-name">Pathogenic Leptospira species</div>
+
+                <div class="item-desc">Pathogenic spirochetes in the genus Leptospira cause human leptospirosis.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-bio">
+
+        Leptospira
+
+
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_171" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-82">NCBITaxon:171</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-82">NCBI Taxonomy (NCBITaxon)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1128/spectrum.03135-22" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1128/spectrum.03135-22" target="_blank">DOI:10.1128/spectrum.03135-22</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Leptospirosis is a zoonotic disease of global importance. It is caused by a Gram-negative bacterial spirochete of the genus"</div>
+
+
+                <div class="evidence-explanation">Supports Leptospira genus as the causative infectious agent.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="infectious-agent-leptospira-interrogans">
+                <div class="item-name">Leptospira interrogans</div>
+
+                <div class="item-desc">A major pathogenic Leptospira species used in contemporary virulence studies.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-bio">
+
+        Leptospira interrogans
+
+
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_173" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-83">NCBITaxon:173</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-83">NCBI Taxonomy (NCBITaxon)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.3389/fmicb.2023.1199660" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3389/fmicb.2023.1199660" target="_blank">DOI:10.3389/fmicb.2023.1199660</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In this work, we tailored plasmids for silencing the major proteins of L. interrogans serovar Copenhageni strain Fiocruz L1-130, namely LipL32, LipL41, LipL21 and OmpL1."</div>
+
+
+                <div class="evidence-explanation">Confirms L. interrogans as a key pathogenic species in mechanistic pathogenesis work.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Transmission -->
+
+        <div class="card" id="transmission">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fee2e2; color: #b91c1c;">↔️</div>
+                <h2 class="card-title">Transmission</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="transmission-animal-contact-zoonotic-transmission">
+                <div class="item-name">Animal-contact zoonotic transmission</div>
+
+                <div class="item-desc">Human infection occurs through contact with infected animals and their contaminated excreta.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29621837" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29621837" target="_blank">PMID:29621837</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Infection occurs through contact with infected animals, or soil or water that has been contaminated by the urine of infected animals."</div>
+
+
+                <div class="evidence-explanation">Supports direct and indirect zoonotic transmission from infected animals.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="transmission-waterborne-and-soil-associated-transmission">
+                <div class="item-name">Waterborne and soil-associated transmission</div>
+
+                <div class="item-desc">Infection is frequently acquired from urine-contaminated environmental water or soil.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29621837" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29621837" target="_blank">PMID:29621837</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Infection occurs through contact with infected animals, or soil or water that has been contaminated by the urine of infected animals."</div>
+
+
+                <div class="evidence-explanation">Supports environmental water/soil as major transmission media.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="transmission-exposure-risk-amplification-during-floods-and-recreation">
+                <div class="item-name">Exposure-risk amplification during floods and recreation</div>
+
+                <div class="item-desc">Floodwaters and recreational/occupational exposures increase transmission risk.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29621837" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29621837" target="_blank">PMID:29621837</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Risk factors include occupational and recreational exposures, contact with floodwaters, and travel to areas with a high risk of leptospirosis, particularly tropical, developing countries."</div>
+
+
+                <div class="evidence-explanation">Supports flood-associated and activity-associated transmission risk contexts.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -10264,6 +11768,8 @@ This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10285,6 +11791,8 @@ This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10357,6 +11865,8 @@ This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10432,6 +11942,8 @@ This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10453,6 +11965,8 @@ This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10529,6 +12043,8 @@ This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10550,6 +12066,8 @@ This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10649,6 +12167,8 @@ This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10724,6 +12244,8 @@ This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10807,6 +12329,8 @@ This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -10896,6 +12420,8 @@ This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -10953,11 +12479,11 @@ This treatment is vaccination (NCIT:C15346). NCIT:C15346 is a clinical intervent
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0040223" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-79">HP:0040223</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0040223" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-84">HP:0040223</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-79">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-84">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets Pulmonary hemorrhage (HP:0040223). HP:0040223 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -10980,6 +12506,8 @@ This clinical trial targets Pulmonary hemorrhage (HP:0040223). HP:0040223 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -11027,11 +12555,11 @@ This clinical trial targets Pulmonary hemorrhage (HP:0040223). HP:0040223 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001919" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-80">HP:0001919</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001919" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-85">HP:0001919</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-80">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-85">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets Acute kidney injury (HP:0001919). HP:0001919 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -11044,11 +12572,11 @@ This clinical trial targets Acute kidney injury (HP:0001919). HP:0001919 is a ph
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0040223" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-81">HP:0040223</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0040223" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-86">HP:0040223</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-81">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-86">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets Pulmonary hemorrhage (HP:0040223). HP:0040223 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -11071,6 +12599,8 @@ This clinical trial targets Pulmonary hemorrhage (HP:0040223). HP:0040223 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -11118,11 +12648,11 @@ This clinical trial targets Pulmonary hemorrhage (HP:0040223). HP:0040223 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-82">HP:0001945</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-87">HP:0001945</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-82">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-87">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets Fever (HP:0001945). HP:0001945 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -11145,6 +12675,8 @@ This clinical trial targets Fever (HP:0001945). HP:0001945 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -11214,7 +12746,7 @@ classifications:
       snippet: &#34;BACKGROUND: Leptospirosis is one of the most common zoonotic diseases worldwide.&#34;
       explanation: Supports classification as an infectious disease.
     - reference: DOI:10.1128/spectrum.03135-22
-      reference_title: &#34;Use of an Integrated Multi-Omics Approach To Identify Molecular Mechanisms and Critical Factors Involved in the Pathogenesis of Leptospira&#34;
+      reference_title: &#34;Use of an Integrated Multi-Omics Approach To Identify Molecular Mechanisms and Critical Factors Involved in the Pathogenesis of &lt;i&gt;Leptospira&lt;/i&gt;&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;Leptospirosis is a zoonotic disease of global importance. It is caused by a Gram-negative bacterial spirochete of the genus&#34;
@@ -11299,7 +12831,7 @@ infectious_agent:
   description: Pathogenic spirochetes in the genus Leptospira cause human leptospirosis.
   evidence:
   - reference: DOI:10.1128/spectrum.03135-22
-    reference_title: &#34;Use of an Integrated Multi-Omics Approach To Identify Molecular Mechanisms and Critical Factors Involved in the Pathogenesis of Leptospira&#34;
+    reference_title: &#34;Use of an Integrated Multi-Omics Approach To Identify Molecular Mechanisms and Critical Factors Involved in the Pathogenesis of &lt;i&gt;Leptospira&lt;/i&gt;&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Leptospirosis is a zoonotic disease of global importance. It is caused by a Gram-negative bacterial spirochete of the genus&#34;
@@ -11732,7 +13264,7 @@ pathophysiology:
     explanation: Supports activation of a TLR2-centered innate signaling node.
   - reference: DOI:10.1371/journal.pone.0312466
     reference_title: &#34;Role of Toll-like receptor 2 during infection of Leptospira spp: A systematic review&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Even though increased TLR2 expression in in-vivo and in-vitro studies was evident, human studies reported mixed results showing that the postulated effect of TLR2 response based on other studies may not be valid for human leptospirosis.&#34;
     explanation: Captures uncertainty in direct translation of model-system TLR2 findings to human disease.
@@ -11858,7 +13390,7 @@ pathophysiology:
   notes: Current support for this TolC-centered immune-evasion mechanism is derived from in vitro experiments rather than direct in vivo infection models.
   evidence:
   - reference: DOI:10.1128/iai.00419-24
-    reference_title: &#34;Unveiling the impact of Leptospira TolC efflux protein on host tissue adherence, complement evasion, and diagnostic potential&#34;
+    reference_title: &#34;Unveiling the impact of &lt;i&gt;Leptospira&lt;/i&gt; TolC efflux protein on host tissue adherence, complement evasion, and diagnostic potential&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &#34;Functional assays demonstrated that rTolC-bound FH retained cofactor activity for C3b cleavage, highlighting TolC’s role in complement regulation.&#34;
@@ -11868,7 +13400,7 @@ pathophysiology:
     description: Factor H-assisted complement control via TolC reduces terminal complement activity.
     evidence:
     - reference: DOI:10.1128/iai.00419-24
-      reference_title: &#34;Unveiling the impact of Leptospira TolC efflux protein on host tissue adherence, complement evasion, and diagnostic potential&#34;
+      reference_title: &#34;Unveiling the impact of &lt;i&gt;Leptospira&lt;/i&gt; TolC efflux protein on host tissue adherence, complement evasion, and diagnostic potential&#34;
       supports: SUPPORT
       evidence_source: IN_VITRO
       snippet: &#34;The rTolC protein inhibited both the alternative and the classical pathway-mediated membrane attack complex (MAC) deposition in vitro.&#34;
@@ -11883,7 +13415,7 @@ pathophysiology:
       label: complement activation
   evidence:
   - reference: DOI:10.1128/iai.00419-24
-    reference_title: &#34;Unveiling the impact of Leptospira TolC efflux protein on host tissue adherence, complement evasion, and diagnostic potential&#34;
+    reference_title: &#34;Unveiling the impact of &lt;i&gt;Leptospira&lt;/i&gt; TolC efflux protein on host tissue adherence, complement evasion, and diagnostic potential&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &#34;The rTolC protein inhibited both the alternative and the classical pathway-mediated membrane attack complex (MAC) deposition in vitro.&#34;
@@ -11893,7 +13425,7 @@ pathophysiology:
     description: Reduced complement-mediated killing supports persistence in host tissues.
     evidence:
     - reference: DOI:10.1128/iai.00419-24
-      reference_title: &#34;Unveiling the impact of Leptospira TolC efflux protein on host tissue adherence, complement evasion, and diagnostic potential&#34;
+      reference_title: &#34;Unveiling the impact of &lt;i&gt;Leptospira&lt;/i&gt; TolC efflux protein on host tissue adherence, complement evasion, and diagnostic potential&#34;
       supports: SUPPORT
       evidence_source: IN_VITRO
       snippet: &#34;These findings indicate that TolC contributes to leptospiral virulence by promoting host tissue colonization and evading the immune response, presenting it as a potential target for diagnostic and therapeutic strategies.&#34;
@@ -11903,7 +13435,7 @@ pathophysiology:
   notes: Persistent colonization in this TolC-driven chain is currently inferred from in vitro immune-evasion assays rather than directly demonstrated in human or animal infection models.
   evidence:
   - reference: DOI:10.1128/iai.00419-24
-    reference_title: &#34;Unveiling the impact of Leptospira TolC efflux protein on host tissue adherence, complement evasion, and diagnostic potential&#34;
+    reference_title: &#34;Unveiling the impact of &lt;i&gt;Leptospira&lt;/i&gt; TolC efflux protein on host tissue adherence, complement evasion, and diagnostic potential&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &#34;These findings indicate that TolC contributes to leptospiral virulence by promoting host tissue colonization and evading the immune response, presenting it as a potential target for diagnostic and therapeutic strategies.&#34;
@@ -11913,7 +13445,7 @@ pathophysiology:
     description: Persistent colonization enables continuing systemic dissemination.
     evidence:
     - reference: DOI:10.1128/iai.00419-24
-      reference_title: &#34;Unveiling the impact of Leptospira TolC efflux protein on host tissue adherence, complement evasion, and diagnostic potential&#34;
+      reference_title: &#34;Unveiling the impact of &lt;i&gt;Leptospira&lt;/i&gt; TolC efflux protein on host tissue adherence, complement evasion, and diagnostic potential&#34;
       supports: SUPPORT
       evidence_source: IN_VITRO
       snippet: &#34;These findings indicate that TolC contributes to leptospiral virulence by promoting host tissue colonization and evading the immune response, presenting it as a potential target for diagnostic and therapeutic strategies.&#34;
@@ -12606,7 +14138,7 @@ treatments:
   evidence:
   - reference: DOI:10.3390/jcm13154310
     reference_title: &#34;Corticosteroid Treatment for Leptospirosis: A Systematic Review and Meta-Analysis&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Although some studies suggest potential benefits, particularly for pulmonary complications, the evidence remains inconclusive due to the limited number of studies and their methodological limitations.&#34;
     explanation: Supports only partial confidence for routine corticosteroid use.
@@ -12654,8 +14186,8 @@ treatments:
         label: butyrate
   evidence:
   - reference: DOI:10.1128/mbio.01906-24
-    reference_title: &#34;Gut microbiota-derived butyrate improved acute leptospirosis in hamster via promoting macrophage ROS mediated by HDAC3 inhibition&#34;
-    supports: PARTIAL
+    reference_title: &#34;Gut microbiota-derived butyrate improved acute leptospirosis in hamster &lt;i&gt;via&lt;/i&gt; promoting macrophage ROS mediated by HDAC3 inhibition&#34;
+    supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;The depletion of SCFAs by antibiotic cocktail treatment reduced survival time after Leptospira infection while supplementation with butyrate but not acetate or propionate significantly amelioration of leptospirosis.&#34;
     explanation: Supports model-organism evidence for a host-directed adjunctive approach that is not yet validated for standard human care.
@@ -12670,7 +14202,7 @@ treatments:
   evidence:
   - reference: DOI:10.3390/pathogens12060787
     reference_title: &#34;Challenges and Strategies for Developing Recombinant Vaccines against Leptospirosis: Role of Expression Platforms and Adjuvants in Achieving Protective Efficacy&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;However, developing recombinant vaccines for leptospirosis faces various challenges, including selecting the ideal expression platform or delivery system, assessing immunogenicity, selecting adjuvants, establishing vaccine formulation, demonstrating protective efficacy against lethal disease in homologous challenge, achieving full renal clearance using experimental models, and reproducibility of protective efficacy against heterologous challenge.&#34;
     explanation: Supports current investigational status of recombinant vaccine strategies and their unresolved translational constraints.
@@ -12993,6 +14525,18 @@ review_notes: Updated with 2026 mechanistic evidence adding VM protein-driven ep
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Initial curation synthesized from AI-assisted deep research and reference-cache-grounded evidence, with emphasis on mechanistic granularity and clinically actionable diagnosis/treatment pathways.</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -13338,7 +14882,7 @@ The GLP→Na/K-ATPase inhibition model and the integrated Na/K-ATPase signalosom
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Leptospirosis", "mondoId": "MONDO:0005825", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Leptospirosis", "yamlRevision": "c10e1130cded"};
+        const OS_CONFIG = {"diseaseName": "Leptospirosis", "mondoId": "MONDO:0005825", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Leptospirosis", "yamlRevision": "bc925f1bb32e"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

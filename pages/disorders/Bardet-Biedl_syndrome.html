@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2954,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2969,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3078,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3091,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3295,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3305,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3341,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3362,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3675,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4194,6 +4287,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4215,6 +4310,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4286,6 +4383,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4309,6 +4408,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4330,6 +4431,8 @@
 
 
                     <span class="evidence-support support-REFUTE">REFUTE</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4378,6 +4481,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pathogenic-bbs-gene-defects" data-dismech-node="Pathogenic BBS gene defects" data-dismech-type="pathophysiology">
                 <div class="item-name">Pathogenic BBS gene defects</div>
+
 
                 <div class="item-desc">Biallelic pathogenic variants in any of the &gt;20 established BBS genes initiate classic Bardet-Biedl syndrome. The genes partition into four functional modules that converge on a common ciliary trafficking defect: BBSome subunits, the BBS-chaperonin assembly complex, the ARL6/IFT membrane-recruitment and transport machinery, and transition-zone/basal-body gatekeeping proteins.</div>
 
@@ -4692,6 +4796,8 @@ This pathophysiological event involves CEP290 (hgnc:29021). hgnc:29021 is a gene
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4713,6 +4819,8 @@ This pathophysiological event involves CEP290 (hgnc:29021). hgnc:29021 is a gene
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4738,6 +4846,8 @@ This pathophysiological event involves CEP290 (hgnc:29021). hgnc:29021 is a gene
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4760,6 +4870,7 @@ This pathophysiological event involves CEP290 (hgnc:29021). hgnc:29021 is a gene
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bbsome-subunit-deficiency" data-dismech-node="BBSome subunit deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">BBSome subunit deficiency</div>
+
 
                 <div class="item-desc">Pathogenic variants in core BBSome subunit genes destabilize the obligate eight-subunit BBSome, the membrane-coat complex that escorts signaling cargo out of cilia.</div>
 
@@ -5149,6 +5260,8 @@ This pathophysiological event involves BBSome (GO:0034464). GO:0034464 is a cell
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5171,6 +5284,7 @@ This pathophysiological event involves BBSome (GO:0034464). GO:0034464 is a cell
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bbs-chaperonin-assembly-defect" data-dismech-node="BBS-chaperonin assembly defect" data-dismech-type="pathophysiology">
                 <div class="item-name">BBS-chaperonin assembly defect</div>
+
 
                 <div class="item-desc">The chaperonin-like BBS proteins MKKS/BBS6, BBS10, and BBS12 form a BBS-chaperonin complex with CCT/TRiC that is required for ordered BBSome assembly; their loss prevents the BBSome from being built.</div>
 
@@ -5344,6 +5458,8 @@ This pathophysiological event involves BBS12 (hgnc:26648). hgnc:26648 is a gene 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5365,6 +5481,8 @@ This pathophysiological event involves BBS12 (hgnc:26648). hgnc:26648 is a gene 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5389,6 +5507,7 @@ This pathophysiological event involves BBS12 (hgnc:26648). hgnc:26648 is a gene 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-bbsome-assembly" data-dismech-node="Defective BBSome assembly" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective BBSome assembly</div>
+
 
                 <div class="item-desc">Loss of core subunits or of the chaperonin assembly machinery prevents formation of the obligate BBSome, the ciliary membrane-coat trafficking complex central to BBS biology.</div>
 
@@ -5479,6 +5598,8 @@ This pathophysiological event involves primary cilium, annotated with cilium (GO
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5501,6 +5622,7 @@ This pathophysiological event involves primary cilium, annotated with cilium (GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-arl6-ift-bbsome-membrane-recruitment-and-transport-defect" data-dismech-node="ARL6/IFT BBSome membrane recruitment and transport defect" data-dismech-type="pathophysiology">
                 <div class="item-name">ARL6/IFT BBSome membrane recruitment and transport defect</div>
+
 
                 <div class="item-desc">The ARF-like GTPase ARL6/BBS3 recruits the autoinhibited BBSome to the ciliary membrane, where it couples to intraflagellar transport (IFT) trains; LZTFL1 regulates this trafficking. Loss of ARL6, LZTFL1, or IFT subunits blocks BBSome-dependent cargo movement even when the BBSome is intact.</div>
 
@@ -5807,6 +5929,8 @@ This pathophysiological event involves primary cilium, annotated with cilium (GO
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5828,6 +5952,8 @@ This pathophysiological event involves primary cilium, annotated with cilium (GO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5853,6 +5979,8 @@ This pathophysiological event involves primary cilium, annotated with cilium (GO
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5875,6 +6003,7 @@ This pathophysiological event involves primary cilium, annotated with cilium (GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ciliary-transition-zone-and-basal-body-dysfunction" data-dismech-node="Ciliary transition zone and basal body dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Ciliary transition zone and basal body dysfunction</div>
+
 
                 <div class="item-desc">Transition-zone and basal-body BBS genes maintain the ciliary diffusion barrier and protein gate that the BBSome traverses. Their loss disrupts ciliary protein composition and produces BBS-like multisystem disease.</div>
 
@@ -6275,6 +6404,8 @@ This pathophysiological event involves ciliary basal body (GO:0036064). GO:00360
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6297,6 +6428,7 @@ This pathophysiological event involves ciliary basal body (GO:0036064). GO:00360
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ciliary-membrane-protein-trafficking-defect" data-dismech-node="Ciliary membrane protein trafficking defect" data-dismech-type="pathophysiology">
                 <div class="item-name">Ciliary membrane protein trafficking defect</div>
+
 
                 <div class="item-desc">Failure of an intact, membrane-recruited BBSome traversing a competent ciliary gate disrupts trafficking of signaling proteins and other cargos into and within the ciliary compartment.</div>
 
@@ -6458,6 +6590,8 @@ This pathophysiological event involves primary cilium, annotated with cilium (GO
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6480,6 +6614,7 @@ This pathophysiological event involves primary cilium, annotated with cilium (GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hypothalamic-leptin-receptor-signaling-defect" data-dismech-node="Hypothalamic leptin receptor signaling defect" data-dismech-type="pathophysiology">
                 <div class="item-name">Hypothalamic leptin receptor signaling defect</div>
+
 
                 <div class="item-desc">BBS proteins are required for leptin-receptor trafficking and leptin-induced hypothalamic signaling, creating ciliary leptin resistance and impaired satiety signaling.</div>
 
@@ -6629,6 +6764,8 @@ This pathophysiological event occurs in hypothalamus (UBERON:0001898). UBERON:00
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6650,6 +6787,8 @@ This pathophysiological event occurs in hypothalamus (UBERON:0001898). UBERON:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6674,6 +6813,7 @@ This pathophysiological event occurs in hypothalamus (UBERON:0001898). UBERON:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-photoreceptor-outer-segment-transport-defect" data-dismech-node="Photoreceptor outer-segment transport defect" data-dismech-type="pathophysiology">
                 <div class="item-name">Photoreceptor outer-segment transport defect</div>
+
 
                 <div class="item-desc">In photoreceptors, defective ciliary transport mislocalizes rhodopsin and other outer-segment cargo, leading to photoreceptor degeneration.</div>
 
@@ -6826,6 +6966,8 @@ This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6848,6 +6990,7 @@ This pathophysiological event occurs in retina (UBERON:0000966). UBERON:0000966 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-renal-tubulointerstitial-injury" data-dismech-node="Renal tubulointerstitial injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Renal tubulointerstitial injury</div>
+
 
                 <div class="item-desc">Kidney involvement in BBS includes renal dysmorphism, impaired kidney function, and chronic tubulointerstitial disease consistent with a renal ciliopathy.</div>
 
@@ -6963,6 +7106,8 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6985,6 +7130,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-altered-sonic-hedgehog-dependent-limb-patterning" data-dismech-node="Altered Sonic hedgehog-dependent limb patterning" data-dismech-type="pathophysiology">
                 <div class="item-name">Altered Sonic hedgehog-dependent limb patterning</div>
+
 
                 <div class="item-desc">BBS loss perturbs cilia-dependent Sonic hedgehog signaling during limb-bud development, predisposing to postaxial digit duplication.</div>
 
@@ -7092,6 +7238,8 @@ This pathophysiological event occurs in limb bud (UBERON:0004347). UBERON:000434
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7172,11 +7320,9 @@ This pathophysiological event occurs in limb bud (UBERON:0004347). UBERON:000434
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Metabolism<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Nervous System<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Nervous System<span class="pill-count">(3)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-10">Growth<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-11">Other<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -7219,6 +7365,9 @@ This clinical feature is hypertension (HP:0000822). HP:0000822 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7233,6 +7382,8 @@ This clinical feature is hypertension (HP:0000822). HP:0000822 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7256,6 +7407,8 @@ This clinical feature is hypertension (HP:0000822). HP:0000822 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7320,6 +7473,9 @@ This clinical feature is hepatic fibrosis (HP:0001395). HP:0001395 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7334,6 +7490,8 @@ This clinical feature is hepatic fibrosis (HP:0001395). HP:0001395 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7398,6 +7556,9 @@ This clinical feature is hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7412,6 +7573,8 @@ This clinical feature is hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7435,6 +7598,8 @@ This clinical feature is hearing impairment (HP:0000365). HP:0000365 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7499,6 +7664,9 @@ This clinical feature is hypogonadism (HP:0000135). HP:0000135 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7513,6 +7681,8 @@ This clinical feature is hypogonadism (HP:0000135). HP:0000135 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7536,6 +7706,8 @@ This clinical feature is hypogonadism (HP:0000135). HP:0000135 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7591,6 +7763,9 @@ This clinical feature is type II diabetes mellitus (HP:0005978). HP:0005978 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7605,6 +7780,8 @@ This clinical feature is type II diabetes mellitus (HP:0005978). HP:0005978 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7669,6 +7846,9 @@ This clinical feature is rod-cone dystrophy (HP:0000510). HP:0000510 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -7683,6 +7863,8 @@ This clinical feature is rod-cone dystrophy (HP:0000510). HP:0000510 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7708,6 +7890,8 @@ This clinical feature is rod-cone dystrophy (HP:0000510). HP:0000510 is a phenot
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7729,6 +7913,8 @@ This clinical feature is rod-cone dystrophy (HP:0000510). HP:0000510 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7782,6 +7968,9 @@ This clinical feature is progressive visual loss (HP:0000529). HP:0000529 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7796,6 +7985,8 @@ This clinical feature is progressive visual loss (HP:0000529). HP:0000529 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7819,6 +8010,8 @@ This clinical feature is progressive visual loss (HP:0000529). HP:0000529 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7874,6 +8067,9 @@ This clinical feature is Abnormal electroretinogram (HP:0000512). HP:0000512 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7888,6 +8084,8 @@ This clinical feature is Abnormal electroretinogram (HP:0000512). HP:0000512 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7943,6 +8141,9 @@ This clinical feature is Nyctalopia (HP:0000662). HP:0000662 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7957,6 +8158,8 @@ This clinical feature is Nyctalopia (HP:0000662). HP:0000662 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8012,6 +8215,9 @@ This clinical feature is Blindness (HP:0000618). HP:0000618 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8026,6 +8232,8 @@ This clinical feature is Blindness (HP:0000618). HP:0000618 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8092,6 +8300,9 @@ This clinical feature is renal abnormalities, annotated with Abnormality of the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -8106,6 +8317,8 @@ This clinical feature is renal abnormalities, annotated with Abnormality of the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8131,6 +8344,8 @@ This clinical feature is renal abnormalities, annotated with Abnormality of the 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8152,6 +8367,8 @@ This clinical feature is renal abnormalities, annotated with Abnormality of the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8207,6 +8424,9 @@ This clinical feature is Chronic kidney disease (HP:0012622). HP:0012622 is a ph
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8221,6 +8441,8 @@ This clinical feature is Chronic kidney disease (HP:0012622). HP:0012622 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8285,6 +8507,9 @@ This clinical feature is postaxial polydactyly (HP:0100259). HP:0100259 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -8299,6 +8524,8 @@ This clinical feature is postaxial polydactyly (HP:0100259). HP:0100259 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8324,6 +8551,8 @@ This clinical feature is postaxial polydactyly (HP:0100259). HP:0100259 is a phe
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8345,6 +8574,8 @@ This clinical feature is postaxial polydactyly (HP:0100259). HP:0100259 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8400,6 +8631,9 @@ This clinical feature is brachydactyly (HP:0001156). HP:0001156 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8414,6 +8648,8 @@ This clinical feature is brachydactyly (HP:0001156). HP:0001156 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8478,6 +8714,9 @@ This clinical feature is hypertriglyceridemia (HP:0002155). HP:0002155 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8492,6 +8731,8 @@ This clinical feature is hypertriglyceridemia (HP:0002155). HP:0002155 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8523,7 +8764,7 @@ This clinical feature is hypertriglyceridemia (HP:0002155). HP:0002155 is a phen
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-hyperphagia" data-dismech-node="Hyperphagia" data-dismech-type="phenotype">
@@ -8556,6 +8797,9 @@ This clinical feature is hyperphagia, annotated with Polyphagia (HP:0002591). HP
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8570,6 +8814,8 @@ This clinical feature is hyperphagia, annotated with Polyphagia (HP:0002591). HP
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8625,6 +8871,9 @@ This clinical feature is neurodevelopmental delay (HP:0012758). HP:0012758 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8641,6 +8890,8 @@ This clinical feature is neurodevelopmental delay (HP:0012758). HP:0012758 is a 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8649,6 +8900,82 @@ This clinical feature is neurodevelopmental delay (HP:0012758). HP:0012758 is a 
 
 
                 <div class="evidence-explanation">Orphanet classifies neurodevelopmental delay as very frequent (99-80%) in Bardet-Biedl syndrome.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-learning-disability" data-dismech-node="Learning disability" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Learning disability
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Specific learning disability</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001328" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-68">HP:0001328</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-68">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is specific learning disability (HP:0001328). HP:0001328 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:110" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:110" target="_blank">ORPHA:110</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0001328 | Specific learning disability | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet classifies specific learning disability as frequent (79-30%) in Bardet-Biedl syndrome.</div>
 
 
 
@@ -8689,15 +9016,18 @@ This clinical feature is neurodevelopmental delay (HP:0012758). HP:0012758 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001513" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-68">HP:0001513</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001513" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-69">HP:0001513</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-68">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-69">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is obesity (HP:0001513). HP:0001513 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8717,6 +9047,8 @@ This clinical feature is obesity (HP:0001513). HP:0001513 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8742,6 +9074,8 @@ This clinical feature is obesity (HP:0001513). HP:0001513 is a phenotype from th
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8765,6 +9099,8 @@ This clinical feature is obesity (HP:0001513). HP:0001513 is a phenotype from th
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8773,86 +9109,6 @@ This clinical feature is obesity (HP:0001513). HP:0001513 is a phenotype from th
 
 
                 <div class="evidence-explanation">Orphanet classifies obesity as very frequent (99-80%) in Bardet-Biedl syndrome.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-11">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-learning-disability" data-dismech-node="Learning disability" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Learning disability
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Specific learning disability</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001328" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-69">HP:0001328</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-69">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is specific learning disability (HP:0001328). HP:0001328 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:110" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:110" target="_blank">ORPHA:110</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0001328 | Specific learning disability | Frequent (79-30%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet classifies specific learning disability as frequent (79-30%) in Bardet-Biedl syndrome.</div>
 
 
 
@@ -8940,6 +9196,9 @@ This disease-associated gene is BBS1 (hgnc:966). hgnc:966 is a gene from the HUG
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -8954,6 +9213,8 @@ This disease-associated gene is BBS1 (hgnc:966). hgnc:966 is a gene from the HUG
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8979,6 +9240,8 @@ This disease-associated gene is BBS1 (hgnc:966). hgnc:966 is a gene from the HUG
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9000,6 +9263,8 @@ This disease-associated gene is BBS1 (hgnc:966). hgnc:966 is a gene from the HUG
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9056,6 +9321,9 @@ This disease-associated gene is BBS10 (hgnc:26291). hgnc:26291 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -9070,6 +9338,8 @@ This disease-associated gene is BBS10 (hgnc:26291). hgnc:26291 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9095,6 +9365,8 @@ This disease-associated gene is BBS10 (hgnc:26291). hgnc:26291 is a gene from th
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9116,6 +9388,8 @@ This disease-associated gene is BBS10 (hgnc:26291). hgnc:26291 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9174,6 +9448,9 @@ This disease-associated gene is BBS2 (hgnc:967). hgnc:967 is a gene from the HUG
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9188,6 +9465,8 @@ This disease-associated gene is BBS2 (hgnc:967). hgnc:967 is a gene from the HUG
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9244,6 +9523,9 @@ This disease-associated gene is ARL6 (hgnc:13210). hgnc:13210 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9258,6 +9540,8 @@ This disease-associated gene is ARL6 (hgnc:13210). hgnc:13210 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9314,6 +9598,9 @@ This disease-associated gene is MKKS (hgnc:7108). hgnc:7108 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9328,6 +9615,8 @@ This disease-associated gene is MKKS (hgnc:7108). hgnc:7108 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9384,6 +9673,9 @@ This disease-associated gene is CEP290 (hgnc:29021). hgnc:29021 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9398,6 +9690,8 @@ This disease-associated gene is CEP290 (hgnc:29021). hgnc:29021 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9454,6 +9748,9 @@ This disease-associated gene is TTC8 (hgnc:20087). hgnc:20087 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9468,6 +9765,8 @@ This disease-associated gene is TTC8 (hgnc:20087). hgnc:20087 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9524,6 +9823,9 @@ This disease-associated gene is BBS4 (hgnc:969). hgnc:969 is a gene from the HUG
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9538,6 +9840,8 @@ This disease-associated gene is BBS4 (hgnc:969). hgnc:969 is a gene from the HUG
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9594,6 +9898,9 @@ This disease-associated gene is BBS5 (hgnc:970). hgnc:970 is a gene from the HUG
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9608,6 +9915,8 @@ This disease-associated gene is BBS5 (hgnc:970). hgnc:970 is a gene from the HUG
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9664,6 +9973,9 @@ This disease-associated gene is BBS7 (hgnc:18758). hgnc:18758 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9678,6 +9990,8 @@ This disease-associated gene is BBS7 (hgnc:18758). hgnc:18758 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9734,6 +10048,9 @@ This disease-associated gene is BBS9 (hgnc:30000). hgnc:30000 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -9748,6 +10065,8 @@ This disease-associated gene is BBS9 (hgnc:30000). hgnc:30000 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9773,6 +10092,8 @@ This disease-associated gene is BBS9 (hgnc:30000). hgnc:30000 is a gene from the
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9794,6 +10115,8 @@ This disease-associated gene is BBS9 (hgnc:30000). hgnc:30000 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9850,6 +10173,9 @@ This disease-associated gene is BBIP1 (hgnc:28093). hgnc:28093 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9864,6 +10190,8 @@ This disease-associated gene is BBIP1 (hgnc:28093). hgnc:28093 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9920,6 +10248,9 @@ This disease-associated gene is BBS12 (hgnc:26648). hgnc:26648 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9934,6 +10265,8 @@ This disease-associated gene is BBS12 (hgnc:26648). hgnc:26648 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9990,6 +10323,9 @@ This disease-associated gene is LZTFL1 (hgnc:6741). hgnc:6741 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10004,6 +10340,8 @@ This disease-associated gene is LZTFL1 (hgnc:6741). hgnc:6741 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -10060,6 +10398,9 @@ This disease-associated gene is TRIM32 (hgnc:16380). hgnc:16380 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10074,6 +10415,8 @@ This disease-associated gene is TRIM32 (hgnc:16380). hgnc:16380 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -10130,6 +10473,9 @@ This disease-associated gene is WDPCP (hgnc:28027). hgnc:28027 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10144,6 +10490,8 @@ This disease-associated gene is WDPCP (hgnc:28027). hgnc:28027 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -10200,6 +10548,9 @@ This disease-associated gene is IFT27 (hgnc:18626). hgnc:18626 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10214,6 +10565,8 @@ This disease-associated gene is IFT27 (hgnc:18626). hgnc:18626 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -10270,6 +10623,9 @@ This disease-associated gene is IFT172 (hgnc:30391). hgnc:30391 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10284,6 +10640,8 @@ This disease-associated gene is IFT172 (hgnc:30391). hgnc:30391 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -10340,6 +10698,9 @@ This disease-associated gene is IFT74 (hgnc:21424). hgnc:21424 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10354,6 +10715,8 @@ This disease-associated gene is IFT74 (hgnc:21424). hgnc:21424 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -10410,6 +10773,9 @@ This disease-associated gene is MKS1 (hgnc:7121). hgnc:7121 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10424,6 +10790,8 @@ This disease-associated gene is MKS1 (hgnc:7121). hgnc:7121 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -10480,6 +10848,9 @@ This disease-associated gene is SDCCAG8 (hgnc:10671). hgnc:10671 is a gene from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10494,6 +10865,8 @@ This disease-associated gene is SDCCAG8 (hgnc:10671). hgnc:10671 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -10550,6 +10923,9 @@ This disease-associated gene is NPHP1 (hgnc:7905). hgnc:7905 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10564,6 +10940,8 @@ This disease-associated gene is NPHP1 (hgnc:7905). hgnc:7905 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -10620,6 +10998,9 @@ This disease-associated gene is CEP19 (hgnc:28209). hgnc:28209 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10634,6 +11015,8 @@ This disease-associated gene is CEP19 (hgnc:28209). hgnc:28209 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -10690,6 +11073,9 @@ This disease-associated gene is CFAP418 (hgnc:27232). hgnc:27232 is a gene from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10704,6 +11090,8 @@ This disease-associated gene is CFAP418 (hgnc:27232). hgnc:27232 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -10760,6 +11148,9 @@ This disease-associated gene is SCAPER (hgnc:13081). hgnc:13081 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10774,6 +11165,8 @@ This disease-associated gene is SCAPER (hgnc:13081). hgnc:13081 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -10830,6 +11223,9 @@ This disease-associated gene is SCLT1 (hgnc:26406). hgnc:26406 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -10844,6 +11240,8 @@ This disease-associated gene is SCLT1 (hgnc:26406). hgnc:26406 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -10948,6 +11346,20 @@ This treatment uses setmelanotide (NCIT:C152349). NCIT:C152349 is a therapeutic 
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">MC4R agonist pharmacotherapy that bypasses upstream ciliopathy-related satiety-pathway dysfunction and reduces bodyweight in Bardet-Biedl syndrome.</div>
 
 
@@ -10993,6 +11405,8 @@ This treatment targets obesity (HP:0001513). HP:0001513 is a phenotype from the 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11014,6 +11428,8 @@ This treatment targets obesity (HP:0001513). HP:0001513 is a phenotype from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -11077,6 +11493,31 @@ This treatment is organ transplantation (NCIT:C15289). NCIT:C15289 is a clinical
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Organ transplantation is a viable treatment option for the subset of BBS patients who progress to end-stage renal disease.</div>
 
 
@@ -11098,6 +11539,8 @@ This treatment is organ transplantation (NCIT:C15289). NCIT:C15289 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -11163,6 +11606,8 @@ This treatment is organ transplantation (NCIT:C15289). NCIT:C15289 is a clinical
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -11184,6 +11629,267 @@ This treatment is organ transplantation (NCIT:C15289). NCIT:C15289 is a clinical
             </div>
 
         </div>
+
+
+        <!-- Diagnosis -->
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-european-populations">
+                <div class="item-name">European populations</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Birth Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        0.625 per 100,000
+                    </span>
+
+
+                    <span class="tag">1–9 per 1,000,000 (births)</span>
+
+                </div>
+
+                <div class="item-notes">Founder populations can be much more common; the same epidemiologic abstract cites prevalence as high as 1 in 13,000 in Kuwaiti Bedouins and estimated minimum prevalence of approximately 1 in 156,000 in Tunisia.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22109794" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22109794" target="_blank">PMID:22109794</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The prevalence of BBS has been estimated in different populations, ranging from 1 in 160,000 in European populations to 1 in 13,000 in Bedouins from Kuwait."</div>
+
+
+                <div class="evidence-explanation">This epidemiologic study provides a commonly cited prevalence range for BBS, including the European estimate used here.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:110" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:110" target="_blank">ORPHA:110</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"1-9 / 1 000 000 | Europe | Prevalence at birth"</div>
+
+
+                <div class="evidence-explanation">Orphanet epidemiology data supports the 1 in 160,000 European birth prevalence estimate.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-united-states">
+                <div class="item-name">United States</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Point Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        1.0 per 100,000
+                    </span>
+
+
+                    <span class="tag">1–9 per 100,000</span>
+
+                </div>
+
+                <div class="item-notes">Aggregate population frequency estimate for a general North American outbred population descended primarily from Europeans.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20949666" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20949666" target="_blank">PMID:20949666</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"an aggregate population frequency of 1/100,000 for the phenotype"</div>
+
+
+                <div class="evidence-explanation">This locus-heterogeneity study uses 1/100,000 as the aggregate US population frequency for BBS.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:110" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:110" target="_blank">ORPHA:110</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"1-9 / 100 000 | United States | Point prevalence"</div>
+
+
+                <div class="evidence-explanation">Orphanet epidemiology lists US point prevalence in the 1-9 per 100,000 range, consistent with the 1/100,000 estimate.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-specific-populations-bedouin-newfoundland">
+                <div class="item-name">Specific populations (Bedouin, Newfoundland)</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Point Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">5.882353&ndash;7.692308 per 100,000
+                    </span>
+
+                    <span class="tag">1–9 per 100,000</span>
+
+                </div>
+
+                <div class="item-notes">Founder populations with high consanguinity rates show much higher prevalence.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:110" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:110" target="_blank">ORPHA:110</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"1-9 / 100 000 | Specific population | Point prevalence"</div>
+
+
+                <div class="evidence-explanation">Orphanet epidemiology lists prevalence in specific populations as 1-9 per 100,000, reflecting founder-effect populations.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -11314,7 +12020,7 @@ inheritance:
       This cohort abstract explicitly states autosomal recessive inheritance for
       classic BBS.
   - reference: ORPHA:110
-    reference_title: &#34;Bardet-Biedl syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Bardet-Biedl syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Autosomal recessive&#34;
@@ -11342,7 +12048,7 @@ inheritance:
     retired if a large modern cohort replicates the negative result.
   evidence:
   - reference: ORPHA:110
-    reference_title: &#34;Bardet-Biedl syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Bardet-Biedl syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Oligogenic&#34;
@@ -11396,7 +12102,7 @@ prevalence:
       This epidemiologic study provides a commonly cited prevalence range for
       BBS, including the European estimate used here.
   - reference: ORPHA:110
-    reference_title: &#34;Bardet-Biedl syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Bardet-Biedl syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;1-9 / 1 000 000 | Europe | Prevalence at birth&#34;
@@ -11422,7 +12128,7 @@ prevalence:
       This locus-heterogeneity study uses 1/100,000 as the aggregate US
       population frequency for BBS.
   - reference: ORPHA:110
-    reference_title: &#34;Bardet-Biedl syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Bardet-Biedl syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;1-9 / 100 000 | United States | Point prevalence&#34;
@@ -11440,7 +12146,7 @@ prevalence:
     prevalence.
   evidence:
   - reference: ORPHA:110
-    reference_title: &#34;Bardet-Biedl syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Bardet-Biedl syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;1-9 / 100 000 | Specific population | Point prevalence&#34;
@@ -11521,7 +12227,7 @@ genetic:
       This independent cohort confirms BBS1 as one of the two dominant genotype
       groups in contemporary clinical series.
   - reference: ORPHA:110
-    reference_title: &#34;Bardet-Biedl syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Bardet-Biedl syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;BBS1 | Bardet-Biedl syndrome 1 | hgnc:966 | Disease-causing germline mutation(s) in&#34;
@@ -11608,7 +12314,7 @@ genetic:
       This metabolic cohort independently confirms BBS10 as one of the most
       prevalent genotypes.
   - reference: ORPHA:110
-    reference_title: &#34;Bardet-Biedl syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Bardet-Biedl syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;BBS10 | Bardet-Biedl syndrome 10 | hgnc:26291 | Disease-causing germline mutation(s) in&#34;
@@ -11626,7 +12332,7 @@ genetic:
     BBS.
   evidence:
   - reference: ORPHA:110
-    reference_title: &#34;Bardet-Biedl syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Bardet-Biedl syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;BBS2 | Bardet-Biedl syndrome 2 | hgnc:967 | Disease-causing germline mutation(s) in&#34;
@@ -11659,7 +12365,7 @@ genetic:
     membrane trafficking.
   evidence:
   - reference: ORPHA:110
-    reference_title: &#34;Bardet-Biedl syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Bardet-Biedl syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;ARL6 | ARF like GTPase 6 | hgnc:13210 | Disease-causing germline mutation(s) in&#34;
@@ -11690,7 +12396,7 @@ genetic:
     MKKS (BBS6) encodes a chaperonin-like protein required for BBSome assembly.
   evidence:
   - reference: ORPHA:110
-    reference_title: &#34;Bardet-Biedl syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Bardet-Biedl syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;MKKS | MKKS centrosomal shuttling protein | hgnc:7108 | Disease-causing germline mutation(s) in&#34;
@@ -11708,7 +12414,7 @@ genetic:
     function; pathogenic variants can cause BBS and other ciliopathies.
   evidence:
   - reference: ORPHA:110
-    reference_title: &#34;Bardet-Biedl syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Bardet-Biedl syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;CEP290 | centrosomal protein 290 | hgnc:29021 | Disease-causing germline mutation(s) in&#34;
@@ -11725,7 +12431,7 @@ genetic:
     TTC8 (BBS8) encodes a core BBSome subunit.
   evidence:
   - reference: ORPHA:110
-    reference_title: &#34;Bardet-Biedl syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Bardet-Biedl syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;TTC8 | tetratricopeptide repeat domain 8 | hgnc:20087 | Disease-causing germline mutation(s) in&#34;
@@ -11743,7 +12449,7 @@ genetic:
     pericentriolar material and microtubule transport.
   evidence:
   - reference: ORPHA:110
-    reference_title: &#34;Bardet-Biedl syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Bardet-Biedl syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;BBS4 | Bardet-Biedl syndrome 4 | hgnc:969 | Disease-causing germline mutation(s) in&#34;
@@ -11761,7 +12467,7 @@ genetic:
     bind membrane phosphoinositides.
   evidence:
   - reference: ORPHA:110
-    reference_title: &#34;Bardet-Biedl syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Bardet-Biedl syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;BBS5 | Bardet-Biedl syndrome 5 | hgnc:970 | Disease-causing germline mutation(s) in&#34;
@@ -11779,7 +12485,7 @@ genetic:
     BBS-chaperonin complex during BBSome assembly.
   evidence:
   - reference: ORPHA:110
-    reference_title: &#34;Bardet-Biedl syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Bardet-Biedl syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;BBS7 | Bardet-Biedl syndrome 7 | hgnc:18758 | Disease-causing germline mutation(s) in&#34;
@@ -11812,7 +12518,7 @@ genetic:
     classic BBS in molecularly confirmed cohorts.
   evidence:
   - reference: ORPHA:110
-    reference_title: &#34;Bardet-Biedl syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Bardet-Biedl syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;BBS9 | Bardet-Biedl syndrome 9 | hgnc:30000 | Disease-causing germline mutation(s) in&#34;
@@ -11851,7 +12557,7 @@ genetic:
     integrity and cytoplasmic microtubule stabilization.
   evidence:
   - reference: ORPHA:110
-    reference_title: &#34;Bardet-Biedl syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Bardet-Biedl syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;BBIP1 | BBSome interacting protein 1 | hgnc:28093 | Disease-causing germline mutation(s) in&#34;
@@ -11869,7 +12575,7 @@ genetic:
     BBS10, forms the BBS-chaperonin complex required for BBSome assembly.
   evidence:
   - reference: ORPHA:110
-    reference_title: &#34;Bardet-Biedl syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Bardet-Biedl syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;BBS12 | Bardet-Biedl syndrome 12 | hgnc:26648 | Disease-causing germline mutation(s) in&#34;
@@ -11887,7 +12593,7 @@ genetic:
     Hedgehog/Smoothened signaling.
   evidence:
   - reference: ORPHA:110
-    reference_title: &#34;Bardet-Biedl syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Bardet-Biedl syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;LZTFL1 | leucine zipper transcription factor like 1 | hgnc:6741 | Disease-causing germline mutation(s) in&#34;
@@ -11905,7 +12611,7 @@ genetic:
     associated with limb-girdle muscular dystrophy.
   evidence:
   - reference: ORPHA:110
-    reference_title: &#34;Bardet-Biedl syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Bardet-Biedl syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;TRIM32 | tripartite motif containing 32 | hgnc:16380 | Disease-causing germline mutation(s) in&#34;
@@ -11923,7 +12629,7 @@ genetic:
     and collective cell movement.
   evidence:
   - reference: ORPHA:110
-    reference_title: &#34;Bardet-Biedl syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Bardet-Biedl syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;WDPCP | WD repeat containing planar cell polarity effector | hgnc:28027 | Disease-causing germline mutation(s) in&#34;
@@ -11941,7 +12647,7 @@ genetic:
     recycling and exit of signaling receptors from cilia.
   evidence:
   - reference: ORPHA:110
-    reference_title: &#34;Bardet-Biedl syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Bardet-Biedl syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;IFT27 | intraflagellar transport 27 | hgnc:18626 | Disease-causing germline mutation(s) (loss of function) in&#34;
@@ -11959,7 +12665,7 @@ genetic:
     intraflagellar transport and ciliary assembly.
   evidence:
   - reference: ORPHA:110
-    reference_title: &#34;Bardet-Biedl syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Bardet-Biedl syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;IFT172 | intraflagellar transport 172 | hgnc:30391 | Disease-causing germline mutation(s) in&#34;
@@ -11977,7 +12683,7 @@ genetic:
     variants cause a BBS phenotype.
   evidence:
   - reference: ORPHA:110
-    reference_title: &#34;Bardet-Biedl syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Bardet-Biedl syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;IFT74 | intraflagellar transport 74 | hgnc:21424 | Disease-causing germline mutation(s) (loss of function) in&#34;
@@ -11995,7 +12701,7 @@ genetic:
     cause BBS as well as Meckel and Joubert syndromes.
   evidence:
   - reference: ORPHA:110
-    reference_title: &#34;Bardet-Biedl syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Bardet-Biedl syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;MKS1 | MKS transition zone complex subunit 1 | hgnc:7121 | Disease-causing germline mutation(s) in&#34;
@@ -12013,7 +12719,7 @@ genetic:
     with renal-retinal ciliopathy and BBS.
   evidence:
   - reference: ORPHA:110
-    reference_title: &#34;Bardet-Biedl syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Bardet-Biedl syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;SDCCAG8 | SHH signaling and ciliogenesis regulator SDCCAG8 | hgnc:10671 | Disease-causing germline mutation(s) (loss of function) in&#34;
@@ -12031,7 +12737,7 @@ genetic:
     can produce a BBS-like nephronophthisis-related ciliopathy.
   evidence:
   - reference: ORPHA:110
-    reference_title: &#34;Bardet-Biedl syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Bardet-Biedl syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;NPHP1 | nephrocystin 1 | hgnc:7905 | Disease-causing germline mutation(s) (loss of function) in&#34;
@@ -12049,7 +12755,7 @@ genetic:
     cause a morbid-obesity BBS-like ciliopathy.
   evidence:
   - reference: ORPHA:110
-    reference_title: &#34;Bardet-Biedl syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Bardet-Biedl syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;CEP19 | centrosomal protein 19 | hgnc:28209 | Disease-causing germline mutation(s) (loss of function) in&#34;
@@ -12067,7 +12773,7 @@ genetic:
     dystrophy and BBS.
   evidence:
   - reference: ORPHA:110
-    reference_title: &#34;Bardet-Biedl syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Bardet-Biedl syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;CFAP418 | cilia and flagella associated protein 418 | hgnc:27232 | Disease-causing germline mutation(s) (loss of function) in&#34;
@@ -12085,7 +12791,7 @@ genetic:
     retinitis pigmentosa with intellectual disability.
   evidence:
   - reference: ORPHA:110
-    reference_title: &#34;Bardet-Biedl syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Bardet-Biedl syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;SCAPER | S-phase cyclin A associated protein in the ER | hgnc:13081 | Disease-causing germline mutation(s) (loss of function) in&#34;
@@ -12103,7 +12809,7 @@ genetic:
     protein required for ciliogenesis and is associated with BBS.
   evidence:
   - reference: ORPHA:110
-    reference_title: &#34;Bardet-Biedl syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Bardet-Biedl syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;SCLT1 | sodium channel and clathrin linker 1 | hgnc:26406 | Disease-causing germline mutation(s) in&#34;
@@ -12166,7 +12872,7 @@ pathophysiology:
       This recent cohort confirms that clinically diagnosed BBS is anchored by
       biallelic pathogenic variants in established BBS genes.
   - reference: ORPHA:110
-    reference_title: &#34;Bardet-Biedl syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Bardet-Biedl syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;A rare genetic multisystem disorder characterized by the variable association of retinal dystrophy, obesity, polydactyly, genitourinary and kidney anomalies, learning disability and hypogonadism&#34;
@@ -12588,7 +13294,7 @@ pathophysiology:
     causal_link_type: DIRECT
     evidence:
     - reference: ORPHA:110
-      reference_title: &#34;Bardet-Biedl syndrome (Orphanet structured-database record)&#34;
+      reference_title: &#34;Bardet-Biedl syndrome&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0000662 | Nyctalopia | Frequent (79-30%)&#34;
@@ -12600,7 +13306,7 @@ pathophysiology:
     - Progressive retinal dystrophy
     evidence:
     - reference: ORPHA:110
-      reference_title: &#34;Bardet-Biedl syndrome (Orphanet structured-database record)&#34;
+      reference_title: &#34;Bardet-Biedl syndrome&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0000618 | Blindness | Frequent (79-30%)&#34;
@@ -12641,7 +13347,7 @@ pathophysiology:
     causal_link_type: DIRECT
     evidence:
     - reference: ORPHA:110
-      reference_title: &#34;Bardet-Biedl syndrome (Orphanet structured-database record)&#34;
+      reference_title: &#34;Bardet-Biedl syndrome&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0012622 | Chronic kidney disease | Frequent (79-30%)&#34;
@@ -12711,7 +13417,7 @@ phenotypes:
       at 94.1% supports the very frequent band, scoped to true BBS rather than the
       BBSome-opathy spectrum.
   - reference: ORPHA:110
-    reference_title: &#34;Bardet-Biedl syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Bardet-Biedl syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0000556 | Retinal dystrophy | Obligate (100%)&#34;
@@ -12771,14 +13477,14 @@ phenotypes:
       by it, and is used diagnostically to detect the retinal dystrophy early.
     evidence:
     - reference: ORPHA:110
-      reference_title: &#34;Bardet-Biedl syndrome (Orphanet structured-database record)&#34;
+      reference_title: &#34;Bardet-Biedl syndrome&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0000512 | Abnormal electroretinogram | Frequent (79-30%)&#34;
       explanation: Orphanet records abnormal electroretinogram as a frequent Bardet-Biedl syndrome phenotype reflecting photoreceptor dysfunction.
   evidence:
   - reference: ORPHA:110
-    reference_title: &#34;Bardet-Biedl syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Bardet-Biedl syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0000512 | Abnormal electroretinogram | Frequent (79-30%)&#34;
@@ -12794,7 +13500,7 @@ phenotypes:
       label: Nyctalopia
   evidence:
   - reference: ORPHA:110
-    reference_title: &#34;Bardet-Biedl syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Bardet-Biedl syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0000662 | Nyctalopia | Frequent (79-30%)&#34;
@@ -12810,7 +13516,7 @@ phenotypes:
       label: Blindness
   evidence:
   - reference: ORPHA:110
-    reference_title: &#34;Bardet-Biedl syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Bardet-Biedl syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0000618 | Blindness | Frequent (79-30%)&#34;
@@ -12853,7 +13559,7 @@ phenotypes:
       cohort is pediatric-inclusive, illustrating the cohort-dependence of the
       frequency. Subject is confirmed BBS.
   - reference: ORPHA:110
-    reference_title: &#34;Bardet-Biedl syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Bardet-Biedl syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001513 | Obesity | Very frequent (99-80%)&#34;
@@ -12918,7 +13624,7 @@ phenotypes:
       explicit as a molecularly confirmed antenatal (fetal) BBS cohort, whose
       ascertainment differs from postnatal clinical series.
   - reference: ORPHA:110
-    reference_title: &#34;Bardet-Biedl syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Bardet-Biedl syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0100259 | Postaxial polydactyly | Frequent (79-30%)&#34;
@@ -12961,7 +13667,7 @@ phenotypes:
       at 52% remains common but more variable than retinal disease or
       polydactyly, scoped to true BBS.
   - reference: ORPHA:110
-    reference_title: &#34;Bardet-Biedl syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Bardet-Biedl syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0012622 | Chronic kidney disease | Frequent (79-30%)&#34;
@@ -12979,7 +13685,7 @@ phenotypes:
       label: Chronic kidney disease
   evidence:
   - reference: ORPHA:110
-    reference_title: &#34;Bardet-Biedl syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Bardet-Biedl syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0012622 | Chronic kidney disease | Frequent (79-30%)&#34;
@@ -12997,7 +13703,7 @@ phenotypes:
       label: Hypogonadism
   evidence:
   - reference: ORPHA:110
-    reference_title: &#34;Bardet-Biedl syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Bardet-Biedl syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0000135 | Hypogonadism | Frequent (79-30%)&#34;
@@ -13029,7 +13735,7 @@ phenotypes:
       label: Neurodevelopmental delay
   evidence:
   - reference: ORPHA:110
-    reference_title: &#34;Bardet-Biedl syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Bardet-Biedl syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0012758 | Neurodevelopmental delay | Very frequent (99-80%)&#34;
@@ -13049,7 +13755,7 @@ phenotypes:
       label: Specific learning disability
   evidence:
   - reference: ORPHA:110
-    reference_title: &#34;Bardet-Biedl syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Bardet-Biedl syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001328 | Specific learning disability | Frequent (79-30%)&#34;
@@ -13069,7 +13775,7 @@ phenotypes:
       label: Brachydactyly
   evidence:
   - reference: ORPHA:110
-    reference_title: &#34;Bardet-Biedl syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Bardet-Biedl syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001156 | Brachydactyly | Frequent (79-30%)&#34;
@@ -13089,7 +13795,7 @@ phenotypes:
       label: Hypertension
   evidence:
   - reference: ORPHA:110
-    reference_title: &#34;Bardet-Biedl syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Bardet-Biedl syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0000822 | Hypertension | Frequent (79-30%)&#34;
@@ -13119,7 +13825,7 @@ phenotypes:
       label: Hypertriglyceridemia
   evidence:
   - reference: ORPHA:110
-    reference_title: &#34;Bardet-Biedl syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Bardet-Biedl syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0002155 | Hypertriglyceridemia | Frequent (79-30%)&#34;
@@ -13138,7 +13844,7 @@ phenotypes:
       label: Hearing impairment
   evidence:
   - reference: ORPHA:110
-    reference_title: &#34;Bardet-Biedl syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Bardet-Biedl syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0000365 | Hearing impairment | Occasional (29-5%)&#34;
@@ -13168,7 +13874,7 @@ phenotypes:
       label: Hepatic fibrosis
   evidence:
   - reference: ORPHA:110
-    reference_title: &#34;Bardet-Biedl syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Bardet-Biedl syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001395 | Hepatic fibrosis | Occasional (29-5%)&#34;
@@ -13188,7 +13894,7 @@ phenotypes:
       label: Type II diabetes mellitus
   evidence:
   - reference: ORPHA:110
-    reference_title: &#34;Bardet-Biedl syndrome (Orphanet structured-database record)&#34;
+    reference_title: &#34;Bardet-Biedl syndrome&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0005978 | Type II diabetes mellitus | Occasional (29-5%)&#34;
@@ -13343,6 +14049,8 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">3</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -13710,7 +14418,7 @@ datasets:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Bardet-Biedl syndrome", "mondoId": "MONDO:0015229", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Bardet-Biedl_syndrome", "yamlRevision": "2b20c9a6ed6a"};
+        const OS_CONFIG = {"diseaseName": "Bardet-Biedl syndrome", "mondoId": "MONDO:0015229", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Bardet-Biedl_syndrome", "yamlRevision": "c9004e924af3"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

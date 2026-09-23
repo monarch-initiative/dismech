@@ -108,6 +108,23 @@ class ReferenceCacheFrontmatter(BaseModel):
     # it). Absent on every cache file fetched before that bump, so it stays
     # optional rather than becoming a required contract field.
     publication_types: list[Any] | str | None = None
+    # Cache-staleness stamps and full-text access outcome, written by
+    # linkml-reference-validator once it could tell a cache entry written by an
+    # older extractor from a current one (upstream #62, #85). The version
+    # integers are the fetcher's own cache-format counters -- dismech never
+    # interprets them, it only has to accept them, and a refresh rewrites the
+    # file rather than bumping a stamp in place. ``full_text_declined`` names
+    # the policy that stopped a full-text fetch (for example
+    # ``landing_page_only``), and ``full_text_access_type`` records whether the
+    # located file was openly licensed. All five are absent on cache files
+    # written before the upgrade, so they stay optional: the repository holds
+    # both generations at once and `just check-reference-cache-frontmatter`
+    # must pass over both.
+    extractor_version: int | None = None
+    xml_extraction_version: int | None = None
+    html_full_text_version: int | None = None
+    full_text_declined: str | None = None
+    full_text_access_type: str | None = None
     # Local extension (dismech): identifies the source database for cache
     # files derived from a structured knowledge base (Orphanet, OMIM, MONDO,
     # …) rather than from a literature reference. The upstream

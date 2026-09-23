@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2954,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2969,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3078,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3091,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3295,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3305,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3341,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3362,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3675,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4094,6 +4187,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4155,6 +4250,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4220,6 +4317,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4281,6 +4380,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4346,6 +4447,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4391,6 +4494,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-unbalanced-placental-vascular-anastomoses" data-dismech-node="Unbalanced placental vascular anastomoses" data-dismech-type="pathophysiology">
                 <div class="item-name">Unbalanced placental vascular anastomoses</div>
+
 
                 <div class="item-desc">TTTS depends on unbalanced vascular communications in a shared monochorionic placenta. At least one arteriovenous placental anastomosis permits unequal blood exchange and a chronic net transfusion from donor to recipient.
 </div>
@@ -4639,6 +4743,8 @@ This pathophysiological event occurs in Placenta (UBERON:0001987). UBERON:000198
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4661,6 +4767,8 @@ This pathophysiological event occurs in Placenta (UBERON:0001987). UBERON:000198
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4687,6 +4795,8 @@ This pathophysiological event occurs in Placenta (UBERON:0001987). UBERON:000198
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4710,6 +4820,7 @@ This pathophysiological event occurs in Placenta (UBERON:0001987). UBERON:000198
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-donor-twin-hypovolemia" data-dismech-node="Donor twin hypovolemia" data-dismech-type="pathophysiology">
                 <div class="item-name">Donor twin hypovolemia</div>
+
 
                 <div class="item-desc">The donor twin experiences chronic hypovolemia due to net blood loss through placental anastomoses. Decreased renal perfusion and augmented RAAS secretion accompany the donor state; oligohydramnios and growth restriction are characteristic outcomes.
 </div>
@@ -4779,6 +4890,8 @@ This pathophysiological event occurs in Placenta (UBERON:0001987). UBERON:000198
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4801,6 +4914,8 @@ This pathophysiological event occurs in Placenta (UBERON:0001987). UBERON:000198
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4827,6 +4942,8 @@ This pathophysiological event occurs in Placenta (UBERON:0001987). UBERON:000198
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4850,6 +4967,7 @@ This pathophysiological event occurs in Placenta (UBERON:0001987). UBERON:000198
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-donor-raas-activation-and-hormonal-transfer-to-recipient" data-dismech-node="Donor RAAS activation and hormonal transfer to recipient" data-dismech-type="pathophysiology">
                 <div class="item-name">Donor RAAS activation and hormonal transfer to recipient</div>
+
 
                 <div class="item-desc">The donor twin has decreased renal blood flow due to hypovolemia, which augments secretion of renin-angiotensin-aldosterone system (RAAS) hormones in the fetal kidneys. These RAAS hormones transfer to the recipient through placental anastomoses, contributing to recipient hypertension and cardiac afterload in addition to the volume overload.
 </div>
@@ -4937,6 +5055,8 @@ This pathophysiological event involves Regulation of blood volume by renin-angio
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4959,6 +5079,8 @@ This pathophysiological event involves Regulation of blood volume by renin-angio
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4984,6 +5106,7 @@ This pathophysiological event involves Regulation of blood volume by renin-angio
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-recipient-twin-hypervolemia" data-dismech-node="Recipient twin hypervolemia" data-dismech-type="pathophysiology">
                 <div class="item-name">Recipient twin hypervolemia</div>
+
 
                 <div class="item-desc">The recipient twin is the net recipient of the chronic intertwin blood transfer. Polyhydramnios, weight gain, cardiomegaly, and hydrops are documented features of this recipient volume-overload state.
 </div>
@@ -5045,6 +5168,8 @@ This pathophysiological event involves Regulation of blood volume by renin-angio
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5067,6 +5192,8 @@ This pathophysiological event involves Regulation of blood volume by renin-angio
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5092,6 +5219,7 @@ This pathophysiological event involves Regulation of blood volume by renin-angio
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-recipient-twin-cardiac-dysfunction" data-dismech-node="Recipient twin cardiac dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Recipient twin cardiac dysfunction</div>
+
 
                 <div class="item-desc">Recipient cardiovascular abnormalities include cardiomegaly, myocardial hypertrophy, atrioventricular valve regurgitation, and pulmonary valve stenosis or atresia. RAAS hormones transferred from the donor add systemic vasoconstrictive afterload.
 </div>
@@ -5187,6 +5315,8 @@ This pathophysiological event involves Cardiac muscle hypertrophy (GO:0003300). 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5209,6 +5339,8 @@ This pathophysiological event involves Cardiac muscle hypertrophy (GO:0003300). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5323,6 +5455,9 @@ This clinical feature is Cardiomegaly (HP:0001640). HP:0001640 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5337,6 +5472,8 @@ This clinical feature is Cardiomegaly (HP:0001640). HP:0001640 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5400,6 +5537,9 @@ This clinical feature is Hydrops fetalis (HP:0001789). HP:0001789 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5414,6 +5554,8 @@ This clinical feature is Hydrops fetalis (HP:0001789). HP:0001789 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5479,6 +5621,9 @@ This clinical feature is Polyhydramnios (HP:0001561). HP:0001561 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5493,6 +5638,8 @@ This clinical feature is Polyhydramnios (HP:0001561). HP:0001561 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5549,6 +5696,9 @@ This clinical feature is Oligohydramnios (HP:0001562). HP:0001562 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5563,6 +5713,8 @@ This clinical feature is Oligohydramnios (HP:0001562). HP:0001562 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5617,6 +5769,9 @@ This clinical feature is Fetal anemia (HP:0025716). HP:0025716 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5631,6 +5786,8 @@ This clinical feature is Fetal anemia (HP:0025716). HP:0025716 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5685,6 +5842,9 @@ This clinical feature is Premature birth (HP:0001622). HP:0001622 is a phenotype
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5699,6 +5859,8 @@ This clinical feature is Premature birth (HP:0001622). HP:0001622 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5723,6 +5885,8 @@ This clinical feature is Premature birth (HP:0001622). HP:0001622 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5778,6 +5942,9 @@ This clinical feature is Twin-to-twin transfusion (HP:0031110). HP:0031110 is a 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5792,6 +5959,8 @@ This clinical feature is Twin-to-twin transfusion (HP:0031110). HP:0031110 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5848,6 +6017,9 @@ This clinical feature is Intrauterine fetal demise of one twin after midgestatio
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5862,6 +6034,8 @@ This clinical feature is Intrauterine fetal demise of one twin after midgestatio
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5925,6 +6099,9 @@ This clinical feature is Intrauterine growth retardation (HP:0001511). HP:000151
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5939,6 +6116,8 @@ This clinical feature is Intrauterine growth retardation (HP:0001511). HP:000151
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6054,6 +6233,20 @@ This treatment is Laser ablation for twin twin transfusion syndrome, annotated w
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">The primary treatment for TTTS diagnosed at 16-26 weeks. A fetoscope is introduced into the recipient sac under ultrasound guidance and a laser is used to coagulate all placental vascular anastomoses connecting the two fetal circulations. The Solomon technique (dichorionization) involves coagulating the entire vascular equator to reduce the risk of recurrent TTTS and twin anemia-polycythemia sequence (TAPS). High-volume centers report up to 70% double survival and at least one survivor in over 90% of cases.
 </div>
 
@@ -6085,6 +6278,8 @@ This treatment is Laser ablation for twin twin transfusion syndrome, annotated w
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6129,6 +6324,8 @@ This treatment is Laser ablation for twin twin transfusion syndrome, annotated w
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6153,6 +6350,8 @@ This treatment is Laser ablation for twin twin transfusion syndrome, annotated w
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6175,6 +6374,8 @@ This treatment is Laser ablation for twin twin transfusion syndrome, annotated w
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6241,6 +6442,20 @@ This treatment is Therapeutic amnioreduction, annotated with Therapeutic Procedu
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Serial amnioreduction drains excess amniotic fluid from the recipient sac. It is an established management option, but randomized evidence found fetoscopic laser coagulation more effective as first-line treatment for severe TTTS before 26 weeks.
 </div>
 
@@ -6255,14 +6470,16 @@ This treatment is Therapeutic amnioreduction, annotated with Therapeutic Procedu
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:15238624" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:15238624" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15238624" target="_blank">PMID:15238624</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6287,6 +6504,8 @@ This treatment is Therapeutic amnioreduction, annotated with Therapeutic Procedu
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6351,6 +6570,20 @@ This treatment is Supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Both twins may require specialized neonatal care after an often-preterm delivery, with management individualized to donor and recipient complications and subsequent developmental risk.
 </div>
 
@@ -6365,14 +6598,16 @@ This treatment is Supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:33851804" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:33851804" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33851804" target="_blank">PMID:33851804</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6436,6 +6671,20 @@ This treatment is Supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Survivors require longitudinal developmental follow-up because substantial long-term neurodevelopmental impairment persists despite fetal therapy.
 </div>
 
@@ -6458,6 +6707,8 @@ This treatment is Supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6522,6 +6773,20 @@ This treatment is Intrauterine fetal transfusion, annotated with Blood Transfusi
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Intrauterine fetal transfusion delivers donor blood to a fetus with clinically significant anemia and is one management option for anemic monochorionic-twin complications.
 </div>
 
@@ -6544,6 +6809,8 @@ This treatment is Intrauterine fetal transfusion, annotated with Blood Transfusi
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6574,6 +6841,503 @@ This treatment is Intrauterine fetal transfusion, annotated with Blood Transfusi
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-ultrasound-diagnosis-of-monochorionic-diamniotic-fluid-discordance">
+                <div class="item-name">
+                    Ultrasound diagnosis of monochorionic diamniotic fluid discordance
+
+                </div>
+
+                <div class="item-desc">Diagnosis requires a monochorionic diamniotic pregnancy with oligohydramnios in one sac and polyhydramnios in the co-twin sac, assessed by maximal vertical fluid pockets.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        ultrasound imaging
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C17230" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-23">NCIT:C17230</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-23">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23200164" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23200164" target="_blank">PMID:23200164</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The diagnosis of TTTS requires 2 criteria: (1) the presence of a MCDA pregnancy; and (2) the presence of oligohydramnios (defined as a maximal vertical pocket of &lt;2 cm) in one sac, and of polyhydramnios (a maximal vertical pocket of &gt;8 cm) in the other sac."</div>
+
+
+                <div class="evidence-explanation">Clinical guideline states the ultrasound diagnostic criteria.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-quintero-ultrasound-and-doppler-staging">
+                <div class="item-name">
+                    Quintero ultrasound and Doppler staging
+
+                </div>
+
+                <div class="item-desc">Donor-bladder visibility, fetal Doppler studies, hydrops, and fetal survival classify sonographically diagnosed TTTS from stages I through V.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        ultrasound imaging
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C17230" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-24">NCIT:C17230</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-24">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10645517" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10645517" target="_blank">PMID:10645517</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"TTTS was staged as follows: stage I, BDT still visible; stage II, BDT no longer visible, no CADs; stage III, CADs; stage IV, hydrops; stage V, demise of one or both twins."</div>
+
+
+                <div class="evidence-explanation">Supports ultrasound/Doppler severity staging after diagnosis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-onset-of-chronic-intertwin-perfusion-imbalance">
+                <div class="item-name">Onset of chronic intertwin perfusion imbalance</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Typically 15-26 weeks of gestation</span>
+
+
+
+                </div>
+
+                <div class="item-notes">TTTS usually emerges during mid-gestation as chronic perfusion imbalance across unbalanced placental anastomoses.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24858318" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24858318" target="_blank">PMID:24858318</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"TTTS results from progression of a chronic perfusion imbalance across unbalanced placental anastomoses, typically arising between 15 and 26 weeks gestation."</div>
+
+
+                <div class="evidence-explanation">Review defines both the initiating mechanism and typical gestational window.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-quintero-progression">
+                <div class="item-name">Quintero progression</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Antenatal course after diagnostic fluid discordance</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Severity is described from a visible donor bladder through absent bladder, critically abnormal Doppler studies, hydrops, and fetal demise. Stage does not imply that every pregnancy progresses through each step.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10645517" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10645517" target="_blank">PMID:10645517</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"TTTS was staged as follows: stage I, BDT still visible; stage II, BDT no longer visible, no CADs; stage III, CADs; stage IV, hydrops; stage V, demise of one or both twins."</div>
+
+
+                <div class="evidence-explanation">The original staging study defines the ordered severity states.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-monochorionic-diamniotic-twin-pregnancies">
+                <div class="item-name">Monochorionic diamniotic twin pregnancies</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Point Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">10000.0&ndash;15000.0 per 100,000
+                    </span>
+
+                    <span class="tag">&gt;1 in 1,000</span>
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30850326" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30850326" target="_blank">PMID:30850326</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Twin-to-twin transfusion syndrome (TTTS) is a serious complication that affects 10-15% of monochorionic multiple pregnancies."</div>
+
+
+                <div class="evidence-explanation">Establishes the prevalence of TTTS at 10-15% of monochorionic multiple pregnancies.
+</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21142846" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21142846" target="_blank">PMID:21142846</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The reported prevalence is 10-15% of all MC twins, or about 1 in 2000 pregnancies."</div>
+
+
+                <div class="evidence-explanation">WAPM consensus document confirming prevalence of 10-15% in monochorionic twins, equivalent to approximately 1 in 2000 pregnancies overall.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+        <div class="card" id="clinical-burden">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ffe4e6; color: #be123c;">⚖️</div>
+                <h2 class="card-title">Clinical Burden</h2>
+            </div>
+            <div class="item-box anchor-target">
+
+                <div class="item-name">High</div>
+
+
+                <div class="item-desc">Advanced untreated TTTS carries very high perinatal loss, and survivors remain at risk of long-term neurodevelopmental impairment even after laser therapy. Management requires specialized fetal intervention and frequently preterm neonatal care.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23200164" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23200164" target="_blank">PMID:23200164</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The natural history of advanced (eg, stage ≥III) TTTS is bleak, with a reported perinatal loss rate of 70-100%, particularly when it presents &lt;26 weeks."</div>
+
+
+                <div class="evidence-explanation">Quantifies the high untreated burden in advanced early-presenting disease.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:29436080" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/29436080" target="_blank">PMID:29436080</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"However, there is still an 11-14% risk of long-term neurodevelopment impairment."</div>
+
+
+                <div class="evidence-explanation">Supports persistent long-term morbidity despite fetal therapy.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+        </div>
 
 
         <!-- Differential Diagnoses -->
@@ -6763,7 +7527,7 @@ pathophysiology:
     evidence:
     - reference: PMID:24858318
       reference_title: &#34;Twin-to-twin transfusion syndrome: prenatal diagnosis and treatment.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;TTTS results from progression of a chronic perfusion imbalance across unbalanced placental anastomoses, typically arising between 15 and 26 weeks gestation.&#34;
       explanation: Supports the chronic intertwin perfusion imbalance; the cited abstract does not resolve every volume-regulatory intermediate.
@@ -6865,7 +7629,7 @@ pathophysiology:
     evidence:
     - reference: PMID:31484880
       reference_title: &#34;Fetal and Neonatal Circulatory Disorders in Twin to Twin Transfusion Syndrome (The Secondary Publication).&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;the donor develops oligohydramnios and intrauterine growth restriction.&#34;
       explanation: Documents the donor outcome but does not resolve the full causal intermediates, so the edge is partial and unknown-intermediates.
@@ -6960,7 +7724,7 @@ pathophysiology:
     evidence:
     - reference: PMID:31484880
       reference_title: &#34;Fetal and Neonatal Circulatory Disorders in Twin to Twin Transfusion Syndrome (The Secondary Publication).&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;the recipient develops polyhydramnios, weight gain, cardiomegaly and hydrops fetalis in the uterus.&#34;
       explanation: Supports polyhydramnios in the recipient state but does not specify the complete causal intermediates.
@@ -7012,7 +7776,7 @@ pathophysiology:
     evidence:
     - reference: PMID:31484880
       reference_title: &#34;Fetal and Neonatal Circulatory Disorders in Twin to Twin Transfusion Syndrome (The Secondary Publication).&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;the recipient develops polyhydramnios, weight gain, cardiomegaly and hydrops fetalis in the uterus.&#34;
       explanation: Documents cardiomegaly in the recipient state without resolving the full causal route.
@@ -7022,7 +7786,7 @@ pathophysiology:
     evidence:
     - reference: PMID:31484880
       reference_title: &#34;Fetal and Neonatal Circulatory Disorders in Twin to Twin Transfusion Syndrome (The Secondary Publication).&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;the recipient develops polyhydramnios, weight gain, cardiomegaly and hydrops fetalis in the uterus.&#34;
       explanation: Documents hydrops in the recipient state without resolving the full causal route.
@@ -7388,7 +8152,7 @@ treatments:
   evidence:
   - reference: PMID:15238624
     reference_title: &#34;Endoscopic laser surgery versus serial amnioreduction for severe twin-to-twin transfusion syndrome.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Endoscopic laser coagulation of anastomoses is a more effective first-line treatment than serial amnioreduction for severe twin-to-twin transfusion syndrome diagnosed before 26 weeks of gestation.&#34;
     explanation: &gt;
@@ -7414,7 +8178,7 @@ treatments:
   evidence:
   - reference: PMID:33851804
     reference_title: &#34;Fetoscopic laser ablation in twin-to-twin transfusion syndrome: tips for counselling.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;pPROM, chorioamniotic separation and iatrogenic preterm birth are among the most common complications of fetoscopic laser ablation, and the mean gestational age at delivery after laser procedure is about 31 weeks.&#34;
     explanation: Supports the frequent need for neonatal care after preterm delivery, without asserting a fixed protocol for every twin.
@@ -7811,6 +8575,24 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record review notes</strong></p>
+                        <p class="research-review-text">Review checked the cached Falcon deep-research artifact against the intended MONDO:0019805 identity. Automated gene preflight returned SKIP because TTTS has no canonical causal gene; manual review confirmed that the report concerns the correct monochorionic placental transfusion entity, although its identifier discussion was stale and was not reused. Curated claims were therefore verified against repository-cached primary studies and clinical reviews. Frequencies were retained only for the obligatory diagnostic oligohydramnios, polyhydramnios, and defining intertwin transfusion; unsupported qualitative bands were removed. Fetal anemia, preterm birth, and fetal demise remain deliberately unwired where retained evidence establishes occurrence or outcome but not a sufficiently specific causal arrow. The verified GSE47394 dataset is disease-specific amniotic-fluid cell-free RNA data. No causal genetics or evidence-supported experimental/animal model was identified. The legacy references[].findings copies were removed deliberately because they duplicated the same quotes already represented as typed EvidenceItem records but lacked support calibration and evidence-source classification; no underlying citation or validated snippet was removed. Cellular/process descriptors on the placental vascular trigger were retained as structural grounding, while unsupported causal arrows were not introduced.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Review: Twin-to-Twin Transfusion Syndrome</strong> · 2026-08-12T16:15:42Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Twin_to_Twin_Transfusion_Syndrome/2026-08-12T161542Z-codex-8096c4.yaml">View source</a></p>
+                        <p class="research-review-text">Reviewed the full entry against cached primary and review evidence and the existing deep-research artifact. Replaced unsupported phenotype frequency bands and over-specific mechanistic claims; added calibrated, evidence-bearing causal edges, biological scale and role annotations, diagnosis, progression, clinical burden, treatment targeting, and explicit empty genetics/model sections. Preserved fetal anemia, premature birth, and fetal demise as evidence-backed but intentionally unwired phenotypes because retained sources establish occurrence rather than a sufficiently supported causal route. Verified the disease-relevant GEO dataset. Final checks passed: disorder schema and ontology terms, 55/55 strict cached snippets, causal graph integrity, 6/9 phenotype connectivity with documented gaps, 1/1 dataset accession, snippet-length ratchet, and diff hygiene.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -8270,7 +9052,7 @@ Focus on the molecular and cellular mechanisms underlying disease progression.</
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Twin to Twin Transfusion Syndrome", "mondoId": "MONDO:0019805", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Twin_to_Twin_Transfusion_Syndrome", "yamlRevision": "21cd2a14bb8c"};
+        const OS_CONFIG = {"diseaseName": "Twin to Twin Transfusion Syndrome", "mondoId": "MONDO:0019805", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Twin_to_Twin_Transfusion_Syndrome", "yamlRevision": "2004723ae58d"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2954,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2969,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3078,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3091,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3295,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3305,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3341,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3362,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3675,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4198,6 +4291,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4221,6 +4316,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4234,14 +4331,16 @@
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:31650526" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:31650526" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31650526" target="_blank">PMID:31650526</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4328,6 +4427,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4499,14 +4600,16 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:35708058" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:35708058" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35708058" target="_blank">PMID:35708058</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4683,6 +4786,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4847,14 +4952,16 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:9015265" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:9015265" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9015265" target="_blank">PMID:9015265</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4870,14 +4977,16 @@
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:34702855" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:34702855" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34702855" target="_blank">PMID:34702855</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4914,6 +5023,13 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-calcium-coordination-at-the-n-cadherin-ec4-ec5-interdomain-site" data-dismech-node="Loss of Calcium Coordination at the N-cadherin EC4-EC5 Interdomain Site" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Calcium Coordination at the N-cadherin EC4-EC5 Interdomain Site</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The N-cadherin ectodomain is a chain of five extracellular cadherin (EC) domains whose linkers each bind calcium ions. Calcium occupancy is not decorative: the crystallographic work on type I cadherin ectodomains attributes what stiffness the interdomain linkers have to bound calcium, while noting in the same sentence that the resulting curvature of the rod is still &#34;likely to be somewhat variable&#34; and citing unpublished data for the rigidification itself. The geometry that presents the distal EC1 tip to a partner molecule on the apposing membrane therefore depends on these calcium-loaded linkers. Four of the seven ACOGS missense substitutions replace conserved residues of the calcium-binding site at the EC4-EC5 interdomain, and six of the seven fall within EC4-EC5 overall. This node is the proximal molecular lesion for the missense class of ACOGS alleles: the substitutions are not predicted to abolish the protein, they are predicted to unhinge it.</div>
 
@@ -5002,6 +5118,8 @@ This pathophysiological event involves decreased interdomain calcium ion binding
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5025,6 +5143,8 @@ This pathophysiological event involves decreased interdomain calcium ion binding
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5038,14 +5158,18 @@ This pathophysiological event involves decreased interdomain calcium ion binding
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:21300292" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:21300292" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/21300292" target="_blank">PMID:21300292</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5055,7 +5179,7 @@ This pathophysiological event involves decreased interdomain calcium ion binding
                 <div class="evidence-snippet">"ectodomain curvature, which is likely to be somewhat variable despite rigidification by interdomain calcium binding"</div>
 
 
-                <div class="evidence-explanation">Structural work on type I cadherin ectodomains (including N-cadherin) treats interdomain calcium binding as what rigidifies the ectodomain, which is the biophysical reason a calcium-site substitution is expected to be damaging even though it is a single conservative-looking amino acid change. Graded PARTIAL rather than SUPPORT because the paper states the rigidification in passing, citing unpublished data, and in the same sentence says the resulting curvature is still somewhat variable - it does not demonstrate the point.</div>
+                <div class="evidence-explanation">Structural work on type I cadherin ectodomains (including N-cadherin) treats interdomain calcium binding as what rigidifies the ectodomain, which is the biophysical reason a calcium-site substitution is expected to be damaging even though it is a single conservative-looking amino acid change. Graded INDIRECT because the paper states the rigidification in passing, citing unpublished data, and in the same sentence says the resulting curvature is still somewhat variable - it does not demonstrate the point.</div>
 
 
 
@@ -5070,6 +5194,13 @@ This pathophysiological event involves decreased interdomain calcium ion binding
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-trans-homophilic-adhesion-with-dominant-negative-interference" data-dismech-node="Failure of Trans Homophilic Adhesion with Dominant-Negative Interference" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Trans Homophilic Adhesion with Dominant-Negative Interference</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Adherens junctions are built from a trans strand-swap dimer formed between EC1 domains projecting from opposing cells, laterally clustered by a weaker cis interface. Cells expressing the ACOGS EC4-EC5 variants have a demonstrable cell-cell adhesion defect, and - critically - the defect includes impaired trans binding to wild-type N-cadherin displayed on the apposing cell. That last observation is what converts this from a quantitative dosage problem into an interference problem: in a heterozygote, a mutant molecule reaching the surface does not merely fail to contribute, it occupies a binding partner&#39;s trans interface unproductively, so the fraction of competent adhesive bonds falls further than the 50% expected from allele dosage alone. Structural work on type I cadherins independently shows that trans-interface mutations ablate adhesion outright while cis-interface mutations instead destabilise junction assembly, which is the framework in which the ACOGS alleles should be read.</div>
 
@@ -5269,6 +5400,8 @@ This pathophysiological event involves adherens junction (GO:0005912). GO:000591
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5292,6 +5425,8 @@ This pathophysiological event involves adherens junction (GO:0005912). GO:000591
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5313,6 +5448,8 @@ This pathophysiological event involves adherens junction (GO:0005912). GO:000591
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5339,6 +5476,13 @@ This pathophysiological event involves adherens junction (GO:0005912). GO:000591
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-truncation-of-the-n-cadherin-cytoplasmic-catenin-binding-tail" data-dismech-node="Truncation of the N-cadherin Cytoplasmic Catenin-Binding Tail" data-dismech-type="pathophysiology">
                 <div class="item-name">Truncation of the N-cadherin Cytoplasmic Catenin-Binding Tail</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">A minority of ACOGS alleles are not ectodomain missense changes at all. Two frameshift variants in the founding cohort are predicted to produce a truncated cytoplasmic domain, and a later patient carried a de novo nonsense allele. The cytoplasmic tail of N-cadherin is the docking site for beta-catenin and p120-catenin and thus the entire link from the adhesion complex to the actin cytoskeleton; a molecule that keeps its ectodomain but loses its tail can still engage a partner in trans yet cannot transmit or resist force, and cannot be stabilised in a junction. Whether these alleles act that way or are instead degraded - producing true haploinsufficiency - is not resolved by any published experiment, which is why this node is PROVISIONAL and is kept separate from the ectodomain node rather than merged into it. The distinction matters because the two readings predict different things about modifier therapy and about the phenotype of whole-gene deletions.</div>
 
@@ -5454,6 +5598,8 @@ This pathophysiological event involves cadherin-catenin adhesion complex, annota
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5467,14 +5613,16 @@ This pathophysiological event involves cadherin-catenin adhesion complex, annota
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:35708058" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:35708058" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35708058" target="_blank">PMID:35708058</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5499,6 +5647,13 @@ This pathophysiological event involves cadherin-catenin adhesion complex, annota
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-midline-axon-pathfinding-and-callosal-tract-formation" data-dismech-node="Failure of Midline Axon Pathfinding and Callosal Tract Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Midline Axon Pathfinding and Callosal Tract Formation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">Growth cones navigating to and across the telencephalic midline advance by making and breaking adhesive contacts with each other and with the glial substrate; N-cadherin is one of the adhesion systems those contacts run on, and axon pathfinding is named among its essential roles in neural development. When adhesive competence is degraded, callosal axons reach the midline but fail to fasciculate and cross, and the tract is not formed - hence agenesis rather than degeneration of the corpus callosum, and hence a developmental rather than progressive course. The same logic covers the other two axon-pathfinding features of the syndrome: failure of the corticospinal projection to remain fully crossed produces mirror movements, and maldevelopment of the abducens projection to lateral rectus produces the Duane anomaly. This node is PROVISIONAL: the causal chain is inferred from N-cadherin&#39;s established role plus the human imaging and examination phenotype, and no patient-derived neuron or CDH2-variant axon-guidance assay has been reported.</div>
 
@@ -5689,6 +5844,8 @@ This pathophysiological event involves decreased axon extension (GO:0048675). GO
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5710,6 +5867,8 @@ This pathophysiological event involves decreased axon extension (GO:0048675). GO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5735,6 +5894,8 @@ This pathophysiological event involves decreased axon extension (GO:0048675). GO
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5757,6 +5918,13 @@ This pathophysiological event involves decreased axon extension (GO:0048675). GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-neuroepithelial-adherens-junction-integrity-and-neuronal-migration-failure" data-dismech-node="Loss of Neuroepithelial Adherens Junction Integrity and Neuronal Migration Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Neuroepithelial Adherens Junction Integrity and Neuronal Migration Failure</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">N-cadherin is the principal adhesion molecule of the apical adherens junction belt that seals the ventricular-zone neuroepithelium and anchors radial glial endfeet at the ventricular surface. That belt is both the structural scaffold of the neuroepithelium and the launch pad for radially migrating neurons. Loss of adhesive competence therefore predicts two coupled failures: breaches in the ventricular lining, and neurons that never leave the periventricular region - the cell-biological signature of periventricular nodular heterotopia, which is present in a substantial minority of the ACOGS cohort. The experimental support cited here is the N-cadherin-null mouse, in which neurulation begins normally but the neural tube is malformed and undulating, showing that N-cadherin is required for neuroepithelial integrity rather than for the initiation of neurulation. This is model-organism evidence from a homozygous null, so it is directional support for the mechanism, not a model of the human heterozygous disease.</div>
 
@@ -5977,6 +6145,8 @@ This pathophysiological event involves abnormal neural tube closure (GO:0001843)
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6000,6 +6170,8 @@ This pathophysiological event involves abnormal neural tube closure (GO:0001843)
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6013,14 +6185,16 @@ This pathophysiological event involves abnormal neural tube closure (GO:0001843)
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:9015265" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:9015265" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/9015265" target="_blank">PMID:9015265</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -6045,6 +6219,13 @@ This pathophysiological event involves abnormal neural tube closure (GO:0001843)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-myocardial-cell-cohesion-during-cardiac-morphogenesis" data-dismech-node="Failure of Myocardial Cell Cohesion During Cardiac Morphogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of Myocardial Cell Cohesion During Cardiac Morphogenesis</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">The looping heart tube and the septating chambers are built by sheets of cardiomyocytes that must stay mechanically coupled while they deform. In N-cadherin-null mouse embryos this is the single most dramatic defect: myocardial tissue forms, then the myocytes dissociate and the heart tube fails to develop. Notably, isolated null cardiomyocytes still beat synchronously, so the primary lesion is mechanical cohesion, not electrical coupling. In ACOGS the human phenotype is correspondingly structural - atrioventricular canal defect, coarctation, ventricular septal defect, hypoplastic left heart, dextrocardia - rather than a cardiomyopathy. This is the node that must not be conflated with N-cadherin&#39;s separate, postnatal role at the intercalated disc of the working myocardium, where induced deletion in the adult mouse causes intercalated-disc dissolution, dilated cardiomyopathy and fatal ventricular arrhythmia.</div>
 
@@ -6201,6 +6382,8 @@ This pathophysiological event involves abnormal cardiac septum development (GO:0
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6224,6 +6407,8 @@ This pathophysiological event involves abnormal cardiac septum development (GO:0
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6237,14 +6422,16 @@ This pathophysiological event involves abnormal cardiac septum development (GO:0
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:15662031" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:15662031" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15662031" target="_blank">PMID:15662031</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -6269,6 +6456,13 @@ This pathophysiological event involves abnormal cardiac septum development (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-adhesion-failure-in-ocular-and-genital-primordia" data-dismech-node="Adhesion Failure in Ocular and Genital Primordia" data-dismech-type="pathophysiology">
                 <div class="item-name">Adhesion Failure in Ocular and Genital Primordia</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Hypothetical</span>
+
+                </div>
+
 
                 <div class="item-desc">Ocular and genital anomalies are two of the four organ systems in the disease name, and both involve epithelial and mesenchymal tissues in which N-cadherin is expressed - the optic cup and lens vesicle in the eye, the genital tubercle and gubernacular apparatus in genital and testicular descent. The reported ocular findings include Peters anomaly, an anterior-segment dysgenesis that arises from failed separation of the lens vesicle from surface ectoderm, which is at least mechanistically congenial to an adhesion defect. Expression evidence now places N-cadherin at exactly the tissue interface and developmental moment whose failure produces the lesion: immunostaining of mouse embryonic eyes localises it to the lens stalk at the time of separation from the future cornea, and to the developing lens and corneal endothelium afterwards (PMID:31650526). But this remains the weakest node in the entry, and the confidence is unchanged at HYPOTHETICAL, because every absence enumerated here survives that result: showing the protein is present where the lesion arises is not the same as showing its loss causes the lesion. No experiment has tested N-cadherin function in an ACOGS patient&#39;s ocular or genital tissue, no animal model of the human alleles exists, the mouse immunostaining is wild-type localisation rather than a disease model, and the male-limited genital findings (cryptorchidism, micropenis) could equally reflect an endocrine rather than an adhesive lesion. It is kept as a terminal branch so that nothing downstream depends on it.</div>
 
@@ -6347,14 +6541,16 @@ This pathophysiological event involves abnormal eye development (GO:0001654). GO
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:31585109" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:31585109" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31585109" target="_blank">PMID:31585109</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6370,14 +6566,16 @@ This pathophysiological event involves abnormal eye development (GO:0001654). GO
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:31650526" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:31650526" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31650526" target="_blank">PMID:31650526</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -6402,6 +6600,13 @@ This pathophysiological event involves abnormal eye development (GO:0001654). GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-structural-midline-brain-malformation-and-neurodevelopmental-impairment" data-dismech-node="Structural Midline Brain Malformation and Neurodevelopmental Impairment" data-dismech-type="pathophysiology">
                 <div class="item-name">Structural Midline Brain Malformation and Neurodevelopmental Impairment</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The convergent output of the axon-pathfinding and neuroepithelial arms is a brain that is structurally miswired at the midline and at the ventricular zone: corpus callosum agenesis or hypoplasia, interhemispheric cysts, interhypothalamic adhesion, and periventricular heterotopia. Clinically this presents as global developmental delay in infancy evolving to intellectual disability, with mirror movements, seizures and behavioural phenotypes (autistic behaviour, attention deficit hyperactivity disorder) in a minority. Because the lesions are malformative rather than degenerative, the expected course is static impairment with developmental progress, not regression.</div>
 
@@ -6439,6 +6644,8 @@ This pathophysiological event involves abnormal eye development (GO:0001654). GO
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6460,6 +6667,8 @@ This pathophysiological event involves abnormal eye development (GO:0001654). GO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6484,6 +6693,13 @@ This pathophysiological event involves abnormal eye development (GO:0001654). GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-structural-congenital-heart-disease" data-dismech-node="Structural Congenital Heart Disease" data-dismech-type="pathophysiology">
                 <div class="item-name">Structural Congenital Heart Disease</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The cardiac output of the syndrome is structural malformation present at birth, spanning septation defects (atrioventricular canal defect, ventricular septal defect), left-sided obstructive lesions (coarctation of the aorta, hypoplastic left heart syndrome), valvar regurgitation and situs abnormality (dextrocardia). The severity is not predicted by genotype: a likely monozygotic twin pair sharing one pathogenic CDH2 variant had hypoplastic left heart syndrome in one twin and a ventricular septal defect with pulmonary hypertension in the other, which is the cleanest available demonstration that stochastic or non-genetic factors set the cardiac outcome.</div>
 
@@ -6521,6 +6737,8 @@ This pathophysiological event involves abnormal eye development (GO:0001654). GO
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6542,6 +6760,8 @@ This pathophysiological event involves abnormal eye development (GO:0001654). GO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6566,6 +6786,13 @@ This pathophysiological event involves abnormal eye development (GO:0001654). GO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ocular-and-genital-malformation" data-dismech-node="Ocular and Genital Malformation" data-dismech-type="pathophysiology">
                 <div class="item-name">Ocular and Genital Malformation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">The ocular phenotype spans anterior-segment dysgenesis (Peters anomaly), ocular motility disorders (strabismus, Duane anomaly) and periorbital dysmorphism. The genital phenotype has so far been reported only in males (cryptorchidism, micropenis); the single reported female with a genitourinary finding had a renal rather than genital anomaly, which is the one published hint that the urinary tract may also be involved.</div>
 
@@ -6603,6 +6830,8 @@ This pathophysiological event involves abnormal eye development (GO:0001654). GO
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6624,6 +6853,8 @@ This pathophysiological event involves abnormal eye development (GO:0001654). GO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6671,7 +6902,7 @@ This pathophysiological event involves abnormal eye development (GO:0001654). GO
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Adhesion Failure in Ocular and Genital Primordia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Ocular and genital anomalies are two of the four organ systems in the disease name, and both involve epithelial and mesenchymal tissues in which N-cadherin is expressed - the optic cup and lens vesicle in the eye, the genital tubercle and gubernacular apparatus in genital and testicular descent. The reported ocular findings include Peters anomaly, an anterior-segment dysgenesis that arises from failed separation of the lens vesicle from surface ectoderm, which is at least mechanistically congenial to an adhesion defect. Expression evidence now places N-cadherin at exactly the tissue interface and developmental moment whose failure produces the lesion: immunostaining of mouse embryonic eyes localises it to the lens stalk at the time of separation from the future cornea, and to the developing lens and corneal endothelium afterwards (PMID:31650526). But this remains the weakest node in the entry, and the confidence is unchanged at HYPOTHETICAL, because every absence enumerated here survives that result: showing the protein is present where the lesion arises is not the same as showing its loss causes the lesion. No experiment has tested N-cadherin function in an ACOGS patient\u0027s ocular or genital tissue, no animal model of the human alleles exists, the mouse immunostaining is wild-type localisation rather than a disease model, and the male-limited genital findings (cryptorchidism, micropenis) could equally reflect an endocrine rather than an adhesive lesion. It is kept as a terminal branch so that nothing downstream depends on it.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"eye development\"]}}, {\"id\": \"Failure of Midline Axon Pathfinding and Callosal Tract Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Growth cones navigating to and across the telencephalic midline advance by making and breaking adhesive contacts with each other and with the glial substrate; N-cadherin is one of the adhesion systems those contacts run on, and axon pathfinding is named among its essential roles in neural development. When adhesive competence is degraded, callosal axons reach the midline but fail to fasciculate and cross, and the tract is not formed - hence agenesis rather than degeneration of the corpus callosum, and hence a developmental rather than progressive course. The same logic covers the other two axon-pathfinding features of the syndrome: failure of the corticospinal projection to remain fully crossed produces mirror movements, and maldevelopment of the abducens projection to lateral rectus produces the Duane anomaly. This node is PROVISIONAL: the causal chain is inferred from N-cadherin\u0027s established role plus the human imaging and examination phenotype, and no patient-derived neuron or CDH2-variant axon-guidance assay has been reported.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"projection neuron with a midline-crossing axon\"], \"biological_processes\": [\"axon guidance\", \"corpus callosum development\", \"axon extension\"]}}, {\"id\": \"Failure of Myocardial Cell Cohesion During Cardiac Morphogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The looping heart tube and the septating chambers are built by sheets of cardiomyocytes that must stay mechanically coupled while they deform. In N-cadherin-null mouse embryos this is the single most dramatic defect: myocardial tissue forms, then the myocytes dissociate and the heart tube fails to develop. Notably, isolated null cardiomyocytes still beat synchronously, so the primary lesion is mechanical cohesion, not electrical coupling. In ACOGS the human phenotype is correspondingly structural - atrioventricular canal defect, coarctation, ventricular septal defect, hypoplastic left heart, dextrocardia - rather than a cardiomyopathy. This is the node that must not be conflated with N-cadherin\u0027s separate, postnatal role at the intercalated disc of the working myocardium, where induced deletion in the adult mouse causes intercalated-disc dissolution, dilated cardiomyopathy and fatal ventricular arrhythmia.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"embryonic cardiomyocyte\"], \"biological_processes\": [\"heart development\", \"cardiac septum development\"]}}, {\"id\": \"Failure of Trans Homophilic Adhesion with Dominant-Negative Interference\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Adherens junctions are built from a trans strand-swap dimer formed between EC1 domains projecting from opposing cells, laterally clustered by a weaker cis interface. Cells expressing the ACOGS EC4-EC5 variants have a demonstrable cell-cell adhesion defect, and - critically - the defect includes impaired trans binding to wild-type N-cadherin displayed on the apposing cell. That last observation is what converts this from a quantitative dosage problem into an interference problem: in a heterozygote, a mutant molecule reaching the surface does not merely fail to contribute, it occupies a binding partner\u0027s trans interface unproductively, so the fraction of competent adhesive bonds falls further than the 50% expected from allele dosage alone. Structural work on type I cadherins independently shows that trans-interface mutations ablate adhesion outright while cis-interface mutations instead destabilise junction assembly, which is the framework in which the ACOGS alleles should be read.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"homophilic cell-cell adhesion\", \"calcium-dependent cell-cell adhesion\"], \"molecular_functions\": [\"N-cadherin trans homophilic binding\"]}}, {\"id\": \"Loss of Calcium Coordination at the N-cadherin EC4-EC5 Interdomain Site\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The N-cadherin ectodomain is a chain of five extracellular cadherin (EC) domains whose linkers each bind calcium ions. Calcium occupancy is not decorative: the crystallographic work on type I cadherin ectodomains attributes what stiffness the interdomain linkers have to bound calcium, while noting in the same sentence that the resulting curvature of the rod is still \\\"likely to be somewhat variable\\\" and citing unpublished data for the rigidification itself. The geometry that presents the distal EC1 tip to a partner molecule on the apposing membrane therefore depends on these calcium-loaded linkers. Four of the seven ACOGS missense substitutions replace conserved residues of the calcium-binding site at the EC4-EC5 interdomain, and six of the seven fall within EC4-EC5 overall. This node is the proximal molecular lesion for the missense class of ACOGS alleles: the substitutions are not predicted to abolish the protein, they are predicted to unhinge it.\", \"meta\": {\"evidence_count\": 3, \"molecular_functions\": [\"interdomain calcium ion binding by the N-cadherin ectodomain\"]}}, {\"id\": \"Loss of Neuroepithelial Adherens Junction Integrity and Neuronal Migration Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"N-cadherin is the principal adhesion molecule of the apical adherens junction belt that seals the ventricular-zone neuroepithelium and anchors radial glial endfeet at the ventricular surface. That belt is both the structural scaffold of the neuroepithelium and the launch pad for radially migrating neurons. Loss of adhesive competence therefore predicts two coupled failures: breaches in the ventricular lining, and neurons that never leave the periventricular region - the cell-biological signature of periventricular nodular heterotopia, which is present in a substantial minority of the ACOGS cohort. The experimental support cited here is the N-cadherin-null mouse, in which neurulation begins normally but the neural tube is malformed and undulating, showing that N-cadherin is required for neuroepithelial integrity rather than for the initiation of neurulation. This is model-organism evidence from a homozygous null, so it is directional support for the mechanism, not a model of the human heterozygous disease.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"radial glial cell of the ventricular zone\", \"migrating cortical neuron\"], \"biological_processes\": [\"neuron migration\", \"adherens junction organization\", \"neural tube closure\"]}}, {\"id\": \"Ocular and Genital Malformation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The ocular phenotype spans anterior-segment dysgenesis (Peters anomaly), ocular motility disorders (strabismus, Duane anomaly) and periorbital dysmorphism. The genital phenotype has so far been reported only in males (cryptorchidism, micropenis); the single reported female with a genitourinary finding had a renal rather than genital anomaly, which is the one published hint that the urinary tract may also be involved.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Structural Congenital Heart Disease\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The cardiac output of the syndrome is structural malformation present at birth, spanning septation defects (atrioventricular canal defect, ventricular septal defect), left-sided obstructive lesions (coarctation of the aorta, hypoplastic left heart syndrome), valvar regurgitation and situs abnormality (dextrocardia). The severity is not predicted by genotype: a likely monozygotic twin pair sharing one pathogenic CDH2 variant had hypoplastic left heart syndrome in one twin and a ventricular septal defect with pulmonary hypertension in the other, which is the cleanest available demonstration that stochastic or non-genetic factors set the cardiac outcome.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Structural Midline Brain Malformation and Neurodevelopmental Impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The convergent output of the axon-pathfinding and neuroepithelial arms is a brain that is structurally miswired at the midline and at the ventricular zone: corpus callosum agenesis or hypoplasia, interhemispheric cysts, interhypothalamic adhesion, and periventricular heterotopia. Clinically this presents as global developmental delay in infancy evolving to intellectual disability, with mirror movements, seizures and behavioural phenotypes (autistic behaviour, attention deficit hyperactivity disorder) in a minority. Because the lesions are malformative rather than degenerative, the expected course is static impairment with developmental progress, not regression.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Truncation of the N-cadherin Cytoplasmic Catenin-Binding Tail\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A minority of ACOGS alleles are not ectodomain missense changes at all. Two frameshift variants in the founding cohort are predicted to produce a truncated cytoplasmic domain, and a later patient carried a de novo nonsense allele. The cytoplasmic tail of N-cadherin is the docking site for beta-catenin and p120-catenin and thus the entire link from the adhesion complex to the actin cytoskeleton; a molecule that keeps its ectodomain but loses its tail can still engage a partner in trans yet cannot transmit or resist force, and cannot be stabilised in a junction. Whether these alleles act that way or are instead degraded - producing true haploinsufficiency - is not resolved by any published experiment, which is why this node is PROVISIONAL and is kept separate from the ectodomain node rather than merged into it. The distinction matters because the two readings predict different things about modifier therapy and about the phenotype of whole-gene deletions.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"adherens junction organization\"]}}], \"edges\": [{\"source\": \"Loss of Calcium Coordination at the N-cadherin EC4-EC5 Interdomain Site\", \"target\": \"Failure of Trans Homophilic Adhesion with Dominant-Negative Interference\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Failure of Trans Homophilic Adhesion with Dominant-Negative Interference\", \"target\": \"Failure of Midline Axon Pathfinding and Callosal Tract Formation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Failure of Trans Homophilic Adhesion with Dominant-Negative Interference\", \"target\": \"Loss of Neuroepithelial Adherens Junction Integrity and Neuronal Migration Failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Failure of Trans Homophilic Adhesion with Dominant-Negative Interference\", \"target\": \"Failure of Myocardial Cell Cohesion During Cardiac Morphogenesis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Failure of Trans Homophilic Adhesion with Dominant-Negative Interference\", \"target\": \"Adhesion Failure in Ocular and Genital Primordia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Truncation of the N-cadherin Cytoplasmic Catenin-Binding Tail\", \"target\": \"Failure of Midline Axon Pathfinding and Callosal Tract Formation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Truncation of the N-cadherin Cytoplasmic Catenin-Binding Tail\", \"target\": \"Failure of Myocardial Cell Cohesion During Cardiac Morphogenesis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Failure of Midline Axon Pathfinding and Callosal Tract Formation\", \"target\": \"Structural Midline Brain Malformation and Neurodevelopmental Impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Loss of Neuroepithelial Adherens Junction Integrity and Neuronal Migration Failure\", \"target\": \"Structural Midline Brain Malformation and Neurodevelopmental Impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Failure of Myocardial Cell Cohesion During Cardiac Morphogenesis\", \"target\": \"Structural Congenital Heart Disease\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Adhesion Failure in Ocular and Genital Primordia\", \"target\": \"Ocular and Genital Malformation\", \"predicate\": \"causes\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Adhesion Failure in Ocular and Genital Primordia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Ocular and genital anomalies are two of the four organ systems in the disease name, and both involve epithelial and mesenchymal tissues in which N-cadherin is expressed - the optic cup and lens vesicle in the eye, the genital tubercle and gubernacular apparatus in genital and testicular descent. The reported ocular findings include Peters anomaly, an anterior-segment dysgenesis that arises from failed separation of the lens vesicle from surface ectoderm, which is at least mechanistically congenial to an adhesion defect. Expression evidence now places N-cadherin at exactly the tissue interface and developmental moment whose failure produces the lesion: immunostaining of mouse embryonic eyes localises it to the lens stalk at the time of separation from the future cornea, and to the developing lens and corneal endothelium afterwards (PMID:31650526). But this remains the weakest node in the entry, and the confidence is unchanged at HYPOTHETICAL, because every absence enumerated here survives that result: showing the protein is present where the lesion arises is not the same as showing its loss causes the lesion. No experiment has tested N-cadherin function in an ACOGS patient\u0027s ocular or genital tissue, no animal model of the human alleles exists, the mouse immunostaining is wild-type localisation rather than a disease model, and the male-limited genital findings (cryptorchidism, micropenis) could equally reflect an endocrine rather than an adhesive lesion. It is kept as a terminal branch so that nothing downstream depends on it.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"eye development\"], \"mechanism_confidence\": \"HYPOTHETICAL\"}}, {\"id\": \"Failure of Midline Axon Pathfinding and Callosal Tract Formation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Growth cones navigating to and across the telencephalic midline advance by making and breaking adhesive contacts with each other and with the glial substrate; N-cadherin is one of the adhesion systems those contacts run on, and axon pathfinding is named among its essential roles in neural development. When adhesive competence is degraded, callosal axons reach the midline but fail to fasciculate and cross, and the tract is not formed - hence agenesis rather than degeneration of the corpus callosum, and hence a developmental rather than progressive course. The same logic covers the other two axon-pathfinding features of the syndrome: failure of the corticospinal projection to remain fully crossed produces mirror movements, and maldevelopment of the abducens projection to lateral rectus produces the Duane anomaly. This node is PROVISIONAL: the causal chain is inferred from N-cadherin\u0027s established role plus the human imaging and examination phenotype, and no patient-derived neuron or CDH2-variant axon-guidance assay has been reported.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"projection neuron with a midline-crossing axon\"], \"biological_processes\": [\"axon guidance\", \"corpus callosum development\", \"axon extension\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Failure of Myocardial Cell Cohesion During Cardiac Morphogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The looping heart tube and the septating chambers are built by sheets of cardiomyocytes that must stay mechanically coupled while they deform. In N-cadherin-null mouse embryos this is the single most dramatic defect: myocardial tissue forms, then the myocytes dissociate and the heart tube fails to develop. Notably, isolated null cardiomyocytes still beat synchronously, so the primary lesion is mechanical cohesion, not electrical coupling. In ACOGS the human phenotype is correspondingly structural - atrioventricular canal defect, coarctation, ventricular septal defect, hypoplastic left heart, dextrocardia - rather than a cardiomyopathy. This is the node that must not be conflated with N-cadherin\u0027s separate, postnatal role at the intercalated disc of the working myocardium, where induced deletion in the adult mouse causes intercalated-disc dissolution, dilated cardiomyopathy and fatal ventricular arrhythmia.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"embryonic cardiomyocyte\"], \"biological_processes\": [\"heart development\", \"cardiac septum development\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Failure of Trans Homophilic Adhesion with Dominant-Negative Interference\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Adherens junctions are built from a trans strand-swap dimer formed between EC1 domains projecting from opposing cells, laterally clustered by a weaker cis interface. Cells expressing the ACOGS EC4-EC5 variants have a demonstrable cell-cell adhesion defect, and - critically - the defect includes impaired trans binding to wild-type N-cadherin displayed on the apposing cell. That last observation is what converts this from a quantitative dosage problem into an interference problem: in a heterozygote, a mutant molecule reaching the surface does not merely fail to contribute, it occupies a binding partner\u0027s trans interface unproductively, so the fraction of competent adhesive bonds falls further than the 50% expected from allele dosage alone. Structural work on type I cadherins independently shows that trans-interface mutations ablate adhesion outright while cis-interface mutations instead destabilise junction assembly, which is the framework in which the ACOGS alleles should be read.\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"homophilic cell-cell adhesion\", \"calcium-dependent cell-cell adhesion\"], \"molecular_functions\": [\"N-cadherin trans homophilic binding\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Loss of Calcium Coordination at the N-cadherin EC4-EC5 Interdomain Site\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The N-cadherin ectodomain is a chain of five extracellular cadherin (EC) domains whose linkers each bind calcium ions. Calcium occupancy is not decorative: the crystallographic work on type I cadherin ectodomains attributes what stiffness the interdomain linkers have to bound calcium, while noting in the same sentence that the resulting curvature of the rod is still \\\"likely to be somewhat variable\\\" and citing unpublished data for the rigidification itself. The geometry that presents the distal EC1 tip to a partner molecule on the apposing membrane therefore depends on these calcium-loaded linkers. Four of the seven ACOGS missense substitutions replace conserved residues of the calcium-binding site at the EC4-EC5 interdomain, and six of the seven fall within EC4-EC5 overall. This node is the proximal molecular lesion for the missense class of ACOGS alleles: the substitutions are not predicted to abolish the protein, they are predicted to unhinge it.\", \"meta\": {\"evidence_count\": 3, \"molecular_functions\": [\"interdomain calcium ion binding by the N-cadherin ectodomain\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Loss of Neuroepithelial Adherens Junction Integrity and Neuronal Migration Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"N-cadherin is the principal adhesion molecule of the apical adherens junction belt that seals the ventricular-zone neuroepithelium and anchors radial glial endfeet at the ventricular surface. That belt is both the structural scaffold of the neuroepithelium and the launch pad for radially migrating neurons. Loss of adhesive competence therefore predicts two coupled failures: breaches in the ventricular lining, and neurons that never leave the periventricular region - the cell-biological signature of periventricular nodular heterotopia, which is present in a substantial minority of the ACOGS cohort. The experimental support cited here is the N-cadherin-null mouse, in which neurulation begins normally but the neural tube is malformed and undulating, showing that N-cadherin is required for neuroepithelial integrity rather than for the initiation of neurulation. This is model-organism evidence from a homozygous null, so it is directional support for the mechanism, not a model of the human heterozygous disease.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"radial glial cell of the ventricular zone\", \"migrating cortical neuron\"], \"biological_processes\": [\"neuron migration\", \"adherens junction organization\", \"neural tube closure\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Ocular and Genital Malformation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The ocular phenotype spans anterior-segment dysgenesis (Peters anomaly), ocular motility disorders (strabismus, Duane anomaly) and periorbital dysmorphism. The genital phenotype has so far been reported only in males (cryptorchidism, micropenis); the single reported female with a genitourinary finding had a renal rather than genital anomaly, which is the one published hint that the urinary tract may also be involved.\", \"meta\": {\"evidence_count\": 2, \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Structural Congenital Heart Disease\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The cardiac output of the syndrome is structural malformation present at birth, spanning septation defects (atrioventricular canal defect, ventricular septal defect), left-sided obstructive lesions (coarctation of the aorta, hypoplastic left heart syndrome), valvar regurgitation and situs abnormality (dextrocardia). The severity is not predicted by genotype: a likely monozygotic twin pair sharing one pathogenic CDH2 variant had hypoplastic left heart syndrome in one twin and a ventricular septal defect with pulmonary hypertension in the other, which is the cleanest available demonstration that stochastic or non-genetic factors set the cardiac outcome.\", \"meta\": {\"evidence_count\": 2, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Structural Midline Brain Malformation and Neurodevelopmental Impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The convergent output of the axon-pathfinding and neuroepithelial arms is a brain that is structurally miswired at the midline and at the ventricular zone: corpus callosum agenesis or hypoplasia, interhemispheric cysts, interhypothalamic adhesion, and periventricular heterotopia. Clinically this presents as global developmental delay in infancy evolving to intellectual disability, with mirror movements, seizures and behavioural phenotypes (autistic behaviour, attention deficit hyperactivity disorder) in a minority. Because the lesions are malformative rather than degenerative, the expected course is static impairment with developmental progress, not regression.\", \"meta\": {\"evidence_count\": 2, \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Truncation of the N-cadherin Cytoplasmic Catenin-Binding Tail\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A minority of ACOGS alleles are not ectodomain missense changes at all. Two frameshift variants in the founding cohort are predicted to produce a truncated cytoplasmic domain, and a later patient carried a de novo nonsense allele. The cytoplasmic tail of N-cadherin is the docking site for beta-catenin and p120-catenin and thus the entire link from the adhesion complex to the actin cytoskeleton; a molecule that keeps its ectodomain but loses its tail can still engage a partner in trans yet cannot transmit or resist force, and cannot be stabilised in a junction. Whether these alleles act that way or are instead degraded - producing true haploinsufficiency - is not resolved by any published experiment, which is why this node is PROVISIONAL and is kept separate from the ectodomain node rather than merged into it. The distinction matters because the two readings predict different things about modifier therapy and about the phenotype of whole-gene deletions.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"adherens junction organization\"], \"mechanism_confidence\": \"PROVISIONAL\"}}], \"edges\": [{\"source\": \"Loss of Calcium Coordination at the N-cadherin EC4-EC5 Interdomain Site\", \"target\": \"Failure of Trans Homophilic Adhesion with Dominant-Negative Interference\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Failure of Trans Homophilic Adhesion with Dominant-Negative Interference\", \"target\": \"Failure of Midline Axon Pathfinding and Callosal Tract Formation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Failure of Trans Homophilic Adhesion with Dominant-Negative Interference\", \"target\": \"Loss of Neuroepithelial Adherens Junction Integrity and Neuronal Migration Failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Failure of Trans Homophilic Adhesion with Dominant-Negative Interference\", \"target\": \"Failure of Myocardial Cell Cohesion During Cardiac Morphogenesis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Failure of Trans Homophilic Adhesion with Dominant-Negative Interference\", \"target\": \"Adhesion Failure in Ocular and Genital Primordia\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Truncation of the N-cadherin Cytoplasmic Catenin-Binding Tail\", \"target\": \"Failure of Midline Axon Pathfinding and Callosal Tract Formation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Truncation of the N-cadherin Cytoplasmic Catenin-Binding Tail\", \"target\": \"Failure of Myocardial Cell Cohesion During Cardiac Morphogenesis\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Failure of Midline Axon Pathfinding and Callosal Tract Formation\", \"target\": \"Structural Midline Brain Malformation and Neurodevelopmental Impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Loss of Neuroepithelial Adherens Junction Integrity and Neuronal Migration Failure\", \"target\": \"Structural Midline Brain Malformation and Neurodevelopmental Impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Failure of Myocardial Cell Cohesion During Cardiac Morphogenesis\", \"target\": \"Structural Congenital Heart Disease\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Adhesion Failure in Ocular and Genital Primordia\", \"target\": \"Ocular and Genital Malformation\", \"predicate\": \"causes\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6690,17 +6921,17 @@ This pathophysiological event involves abnormal eye development (GO:0001654). GO
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(6)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Eye<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Eye<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Genitourinary<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Genitourinary<span class="pill-count">(3)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Head and Neck<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Nervous System<span class="pill-count">(6)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Musculoskeletal<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Other<span class="pill-count">(11)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Nervous System<span class="pill-count">(11)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6710,8 +6941,82 @@ This pathophysiological event involves abnormal eye development (GO:0001654). GO
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Cardiovascular
-                    <span class="cat-count">4</span>
+                    <span class="cat-count">6</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-atrioventricular-canal-defect" data-dismech-node="Atrioventricular canal defect" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Atrioventricular canal defect
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0006695" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0006695</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Atrioventricular canal defect (HP:0006695). HP:0006695 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31585109" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31585109" target="_blank">PMID:31585109</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"cardiac, and genital anomalies. All seven missense variants (c.1057G&gt;A"</div>
+
+
+                <div class="evidence-explanation">Partial support: the snippet establishes that cardiac anomalies occur. The specific lesion and its 2 of 9 fraction (22%, OCCASIONAL band) come from the HPO annotation set for OMIM:618929 (retrieved 2026-08-01).</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-coarctation-of-aorta" data-dismech-node="Coarctation of aorta" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -6729,15 +7034,18 @@ This pathophysiological event involves abnormal eye development (GO:0001654). GO
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001680" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001680</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001680" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001680</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Coarctation of aorta (HP:0001680). HP:0001680 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6749,14 +7057,16 @@ This clinical feature is Coarctation of aorta (HP:0001680). HP:0001680 is a phen
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:31585109" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:31585109" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31585109" target="_blank">PMID:31585109</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6798,15 +7108,18 @@ This clinical feature is Coarctation of aorta (HP:0001680). HP:0001680 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001651" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001651</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001651" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001651</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Dextrocardia (HP:0001651). HP:0001651 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6818,14 +7131,16 @@ This clinical feature is Dextrocardia (HP:0001651). HP:0001651 is a phenotype fr
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:31585109" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:31585109" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31585109" target="_blank">PMID:31585109</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6836,6 +7151,80 @@ This clinical feature is Dextrocardia (HP:0001651). HP:0001651 is a phenotype fr
 
 
                 <div class="evidence-explanation">Partial support: the snippet establishes that cardiac anomalies occur. The specific lesion and its 1 of 9 fraction (11%, OCCASIONAL band) come from the HPO annotation set for OMIM:618929 (retrieved 2026-08-01).</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypoplastic-left-heart-syndrome" data-dismech-node="Hypoplastic left heart syndrome" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hypoplastic left heart syndrome
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Hypoplastic left ventricle</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0004383" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0004383</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypoplastic left heart syndrome, annotated with Hypoplastic left ventricle (HP:0004383). HP:0004383 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41997214" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41997214" target="_blank">PMID:41997214</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"hypoplastic left heart syndrome and the other with ventricular septal defect and"</div>
+
+
+                <div class="evidence-explanation">Documents hypoplastic left heart syndrome in a CDH2-variant individual. HP:0004383 (Hypoplastic left ventricle) is the closest available HPO term; HPO has no term for the full hypoplastic left heart syndrome, so preferred_term carries the clinical diagnosis and term.label the ontology label.</div>
 
 
 
@@ -6865,15 +7254,18 @@ This clinical feature is Dextrocardia (HP:0001651). HP:0001651 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001629" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001629</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001629" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001629</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Ventricular septal defect (HP:0001629). HP:0001629 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6893,6 +7285,8 @@ This clinical feature is Ventricular septal defect (HP:0001629). HP:0001629 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6934,15 +7328,18 @@ This clinical feature is Ventricular septal defect (HP:0001629). HP:0001629 is a
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004890" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0004890</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004890" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0004890</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Pulmonary hypertension, annotated with Elevated pulmonary artery pressure (HP:0004890). HP:0004890 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6954,14 +7351,16 @@ This clinical feature is Pulmonary hypertension, annotated with Elevated pulmona
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:41997214" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:41997214" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41997214" target="_blank">PMID:41997214</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6993,8 +7392,80 @@ This clinical feature is Pulmonary hypertension, annotated with Elevated pulmona
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Eye
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-duane-anomaly" data-dismech-node="Duane anomaly" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Duane anomaly
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0009921" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0009921</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Duane anomaly (HP:0009921). HP:0009921 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31585109" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31585109" target="_blank">PMID:31585109</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"callosum agenesis or hypoplasia, mirror movements, Duane anomaly), and ocular,"</div>
+
+
+                <div class="evidence-explanation">Names Duane anomaly among the axon pathfinding defects of the syndrome. No frequency band is asserted: unlike the other features in this entry, Duane anomaly does not appear in the HPO annotation set for OMIM:618929, so there is no count to derive a band from.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-peters-anomaly" data-dismech-node="Peters anomaly" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -7012,15 +7483,18 @@ This clinical feature is Pulmonary hypertension, annotated with Elevated pulmona
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000659" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0000659</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000659" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000659</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Peters anomaly (HP:0000659). HP:0000659 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7040,6 +7514,8 @@ This clinical feature is Peters anomaly (HP:0000659). HP:0000659 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7065,6 +7541,8 @@ This clinical feature is Peters anomaly (HP:0000659). HP:0000659 is a phenotype 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7078,14 +7556,16 @@ This clinical feature is Peters anomaly (HP:0000659). HP:0000659 is a phenotype 
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:31585109" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:31585109" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31585109" target="_blank">PMID:31585109</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7127,15 +7607,18 @@ This clinical feature is Peters anomaly (HP:0000659). HP:0000659 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000486" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000486</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000486" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000486</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7147,14 +7630,16 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:31585109" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:31585109" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31585109" target="_blank">PMID:31585109</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7186,7 +7671,7 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Genitourinary
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-cryptorchidism" data-dismech-node="Cryptorchidism" data-dismech-type="phenotype">
@@ -7205,15 +7690,18 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000028" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000028</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000028" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000028</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7233,6 +7721,8 @@ This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7274,15 +7764,18 @@ This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000054" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000054</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000054" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0000054</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Micropenis (HP:0000054). HP:0000054 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7304,6 +7797,8 @@ This clinical feature is Micropenis (HP:0000054). HP:0000054 is a phenotype from
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7312,6 +7807,78 @@ This clinical feature is Micropenis (HP:0000054). HP:0000054 is a phenotype from
 
 
                 <div class="evidence-explanation">Names micropenis among the reported male genital malformations. The OCCASIONAL band (5-29%) derives from the HPO annotation fraction of 1 of 5 males = 20% for HP:0000054.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-renal-morphology" data-dismech-node="Abnormal renal morphology" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Abnormal renal morphology
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012210" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0012210</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Renal anomaly, annotated with Abnormal renal morphology (HP:0012210). HP:0012210 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35708058" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35708058" target="_blank">PMID:35708058</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"finding. Our patient was the first female to have a renal anomaly since only"</div>
+
+
+                <div class="evidence-explanation">The single reported renal anomaly, explicitly flagged by the authors as the first of its kind in ACOGS.</div>
 
 
 
@@ -7352,15 +7919,18 @@ This clinical feature is Micropenis (HP:0000054). HP:0000054 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000256" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000256</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000256" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0000256</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Macrocephaly (HP:0000256). HP:0000256 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7372,14 +7942,16 @@ This clinical feature is Macrocephaly (HP:0000256). HP:0000256 is a phenotype fr
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:31585109" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:31585109" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31585109" target="_blank">PMID:31585109</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7423,15 +7995,18 @@ This clinical feature is Macrocephaly (HP:0000256). HP:0000256 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001999</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0001999</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Craniofacial dysmorphism, annotated with Abnormal facial shape (HP:0001999). HP:0001999 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7451,6 +8026,8 @@ This clinical feature is Craniofacial dysmorphism, annotated with Abnormal facia
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7481,8 +8058,165 @@ This clinical feature is Craniofacial dysmorphism, annotated with Abnormal facia
             <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Musculoskeletal
+                    <span class="cat-count">2</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-axial-hypotonia" data-dismech-node="Axial hypotonia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Axial hypotonia
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008936" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0008936</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Axial hypotonia (HP:0008936). HP:0008936 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31585109" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31585109" target="_blank">PMID:31585109</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"variants (seven missense, two frameshift) in CDH2 in nine individuals with a"</div>
+
+
+                <div class="evidence-explanation">Partial support: the snippet gives the cohort denominator only. The hypotonia finding and its 3 of 9 fraction (33%, FREQUENT band) come from the HPO annotation set for OMIM:618929 (retrieved 2026-08-01).</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-sprengel-anomaly" data-dismech-node="Sprengel anomaly" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Sprengel anomaly
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000912" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0000912</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Sprengel anomaly (HP:0000912). HP:0000912 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31585109" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31585109" target="_blank">PMID:31585109</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"variants (seven missense, two frameshift) in CDH2 in nine individuals with a"</div>
+
+
+                <div class="evidence-explanation">Partial support: the snippet gives the cohort denominator only. The Sprengel anomaly annotation and its 2 of 9 fraction (22%, OCCASIONAL band) come from the HPO annotation set for OMIM:618929 (retrieved 2026-08-01).</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-6">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">6</span>
+                    <span class="cat-count">11</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-agenesis-of-corpus-callosum" data-dismech-node="Agenesis of corpus callosum" data-dismech-type="phenotype">
@@ -7501,15 +8235,18 @@ This clinical feature is Craniofacial dysmorphism, annotated with Abnormal facia
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001274" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001274</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001274" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0001274</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Agenesis or hypoplasia of the corpus callosum, annotated with Agenesis of corpus callosum (HP:0001274). HP:0001274 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7529,6 +8266,8 @@ This clinical feature is Agenesis or hypoplasia of the corpus callosum, annotate
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7554,6 +8293,8 @@ This clinical feature is Agenesis or hypoplasia of the corpus callosum, annotate
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7562,6 +8303,78 @@ This clinical feature is Agenesis or hypoplasia of the corpus callosum, annotate
 
 
                 <div class="evidence-explanation">Independent restatement of the callosal phenotype as a defining feature.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-inferior-cerebellar-vermis-hypoplasia" data-dismech-node="Inferior cerebellar vermis hypoplasia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Inferior cerebellar vermis hypoplasia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007068" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0007068</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Inferior cerebellar vermis hypoplasia (HP:0007068). HP:0007068 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31650526" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31650526" target="_blank">PMID:31650526</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"hypoplasia of the inferior cerebellar vermis in both patients"</div>
+
+
+                <div class="evidence-explanation">Brain MRI was reviewed for the two imaged patients and showed inferior cerebellar vermis hypoplasia in both, establishing the association. The denominator is 2, so no frequency band is asserted.</div>
 
 
 
@@ -7593,15 +8406,18 @@ This clinical feature is Agenesis or hypoplasia of the corpus callosum, annotate
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0001263</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7621,6 +8437,8 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7662,15 +8480,18 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001249</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0001249</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7692,6 +8513,8 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7700,289 +8523,6 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                 <div class="evidence-explanation">Supports the association. The FREQUENT band (30-79%) corresponds to the HPO annotation set fraction of 4 of 8 = 50% for HP:0001249.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-seizure" data-dismech-node="Seizure" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Seizure
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0001250</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:31585109" data-dismech-supports="PARTIAL">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31585109" target="_blank">PMID:31585109</a>
-                    </span>
-
-
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"variants (seven missense, two frameshift) in CDH2 in nine individuals with a"</div>
-
-
-                <div class="evidence-explanation">Partial support: the snippet gives the cohort denominator only. Seizures are not mentioned in the cached abstract; the two seizure annotations (each 1 of 8, i.e. 13%, OCCASIONAL band) come from the HPO annotation set for OMIM:618929 (retrieved 2026-08-01).</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-attention-deficit-hyperactivity-disorder" data-dismech-node="Attention deficit hyperactivity disorder" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Attention deficit hyperactivity disorder
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007018" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0007018</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Attention deficit hyperactivity disorder (HP:0007018). HP:0007018 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:31585109" data-dismech-supports="PARTIAL">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31585109" target="_blank">PMID:31585109</a>
-                    </span>
-
-
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"variants (seven missense, two frameshift) in CDH2 in nine individuals with a"</div>
-
-
-                <div class="evidence-explanation">Partial support: the snippet gives the cohort denominator only. The ADHD annotation and its 2 of 8 fraction (25%, OCCASIONAL band) come from the HPO annotation set for OMIM:618929 (retrieved 2026-08-01).</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-autistic-behavior" data-dismech-node="Autistic behavior" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Autistic behavior
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000729" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0000729</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:31585109" data-dismech-supports="PARTIAL">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31585109" target="_blank">PMID:31585109</a>
-                    </span>
-
-
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"variants (seven missense, two frameshift) in CDH2 in nine individuals with a"</div>
-
-
-                <div class="evidence-explanation">Partial support: the snippet gives the cohort denominator only. The autistic-behaviour annotation and its 2 of 8 fraction (25%, OCCASIONAL band) come from the HPO annotation set for OMIM:618929 (retrieved 2026-08-01).</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-6">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">11</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-inferior-cerebellar-vermis-hypoplasia" data-dismech-node="Inferior cerebellar vermis hypoplasia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Inferior cerebellar vermis hypoplasia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007068" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0007068</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Inferior cerebellar vermis hypoplasia (HP:0007068). HP:0007068 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:31650526" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31650526" target="_blank">PMID:31650526</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"hypoplasia of the inferior cerebellar vermis in both patients"</div>
-
-
-                <div class="evidence-explanation">Brain MRI was reviewed for the two imaged patients and showed inferior cerebellar vermis hypoplasia in both, establishing the association. The denominator is 2, so no frequency band is asserted.</div>
 
 
 
@@ -8016,10 +8556,10 @@ This clinical feature is Inferior cerebellar vermis hypoplasia (HP:0007068). HP:
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001335" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0001335</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001335" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0001335</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Mirror movements, annotated with Bimanual synkinesia (HP:0001335). HP:0001335 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8030,6 +8570,9 @@ This clinical feature is Mirror movements, annotated with Bimanual synkinesia (H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8044,6 +8587,8 @@ This clinical feature is Mirror movements, annotated with Bimanual synkinesia (H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8054,73 +8599,6 @@ This clinical feature is Mirror movements, annotated with Bimanual synkinesia (H
 
 
                 <div class="evidence-explanation">Supports the association. The OCCASIONAL band (5-29%) corresponds to the HPO annotation set fraction of 1 of 9 = 11% for HP:0001335.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-duane-anomaly" data-dismech-node="Duane anomaly" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Duane anomaly
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0009921" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0009921</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Duane anomaly (HP:0009921). HP:0009921 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:31585109" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31585109" target="_blank">PMID:31585109</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"callosum agenesis or hypoplasia, mirror movements, Duane anomaly), and ocular,"</div>
-
-
-                <div class="evidence-explanation">Names Duane anomaly among the axon pathfinding defects of the syndrome. No frequency band is asserted: unlike the other features in this entry, Duane anomaly does not appear in the HPO annotation set for OMIM:618929, so there is no count to derive a band from.</div>
 
 
 
@@ -8152,15 +8630,18 @@ This clinical feature is Duane anomaly (HP:0009921). HP:0009921 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0007165" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0007165</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007165" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0007165</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Periventricular nodular heterotopia, annotated with Periventricular heterotopia (HP:0007165). HP:0007165 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8172,14 +8653,16 @@ This clinical feature is Periventricular nodular heterotopia, annotated with Per
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:31585109" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:31585109" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31585109" target="_blank">PMID:31585109</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8221,15 +8704,18 @@ This clinical feature is Periventricular nodular heterotopia, annotated with Per
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0033105" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0033105</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0033105" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0033105</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Interhypothalamic adhesion (HP:0033105). HP:0033105 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8241,14 +8727,16 @@ This clinical feature is Interhypothalamic adhesion (HP:0033105). HP:0033105 is 
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:31585109" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:31585109" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31585109" target="_blank">PMID:31585109</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8290,15 +8778,18 @@ This clinical feature is Interhypothalamic adhesion (HP:0033105). HP:0033105 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0032327" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0032327</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0032327" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0032327</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Interhemispheric cyst (HP:0032327). HP:0032327 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8310,14 +8801,16 @@ This clinical feature is Interhemispheric cyst (HP:0032327). HP:0032327 is a phe
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:31585109" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:31585109" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31585109" target="_blank">PMID:31585109</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8343,78 +8836,9 @@ This clinical feature is Interhemispheric cyst (HP:0032327). HP:0032327 is a phe
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-axial-hypotonia" data-dismech-node="Axial hypotonia" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-seizure" data-dismech-node="Seizure" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Axial hypotonia
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0008936" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0008936</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Axial hypotonia (HP:0008936). HP:0008936 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:31585109" data-dismech-supports="PARTIAL">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31585109" target="_blank">PMID:31585109</a>
-                    </span>
-
-
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"variants (seven missense, two frameshift) in CDH2 in nine individuals with a"</div>
-
-
-                <div class="evidence-explanation">Partial support: the snippet gives the cohort denominator only. The hypotonia finding and its 3 of 9 fraction (33%, FREQUENT band) come from the HPO annotation set for OMIM:618929 (retrieved 2026-08-01).</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-atrioventricular-canal-defect" data-dismech-node="Atrioventricular canal defect" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Atrioventricular canal defect
+                        Seizure
 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
@@ -8428,84 +8852,18 @@ This clinical feature is Axial hypotonia (HP:0008936). HP:0008936 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006695" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0006695</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Atrioventricular canal defect (HP:0006695). HP:0006695 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:31585109" data-dismech-supports="PARTIAL">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31585109" target="_blank">PMID:31585109</a>
-                    </span>
-
-
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"cardiac, and genital anomalies. All seven missense variants (c.1057G&gt;A"</div>
-
-
-                <div class="evidence-explanation">Partial support: the snippet establishes that cardiac anomalies occur. The specific lesion and its 2 of 9 fraction (22%, OCCASIONAL band) come from the HPO annotation set for OMIM:618929 (retrieved 2026-08-01).</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hypoplastic-left-heart-syndrome" data-dismech-node="Hypoplastic left heart syndrome" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hypoplastic left heart syndrome
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Hypoplastic left ventricle</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0004383" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0004383</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0001250</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Hypoplastic left heart syndrome, annotated with Hypoplastic left ventricle (HP:0004383). HP:0004383 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8517,24 +8875,26 @@ This clinical feature is Hypoplastic left heart syndrome, annotated with Hypopla
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:41997214" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:31585109" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41997214" target="_blank">PMID:41997214</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31585109" target="_blank">PMID:31585109</a>
                     </span>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"hypoplastic left heart syndrome and the other with ventricular septal defect and"</div>
+                <div class="evidence-snippet">"variants (seven missense, two frameshift) in CDH2 in nine individuals with a"</div>
 
 
-                <div class="evidence-explanation">Documents hypoplastic left heart syndrome in a CDH2-variant individual. HP:0004383 (Hypoplastic left ventricle) is the closest available HPO term; HPO has no term for the full hypoplastic left heart syndrome, so preferred_term carries the clinical diagnosis and term.label the ontology label.</div>
+                <div class="evidence-explanation">Partial support: the snippet gives the cohort denominator only. Seizures are not mentioned in the cached abstract; the two seizure annotations (each 1 of 8, i.e. 13%, OCCASIONAL band) come from the HPO annotation set for OMIM:618929 (retrieved 2026-08-01).</div>
 
 
 
@@ -8550,76 +8910,9 @@ This clinical feature is Hypoplastic left heart syndrome, annotated with Hypopla
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-renal-morphology" data-dismech-node="Abnormal renal morphology" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-attention-deficit-hyperactivity-disorder" data-dismech-node="Attention deficit hyperactivity disorder" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Abnormal renal morphology
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012210" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0012210</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Renal anomaly, annotated with Abnormal renal morphology (HP:0012210). HP:0012210 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:35708058" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35708058" target="_blank">PMID:35708058</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"finding. Our patient was the first female to have a renal anomaly since only"</div>
-
-
-                <div class="evidence-explanation">The single reported renal anomaly, explicitly flagged by the authors as the first of its kind in ACOGS.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-sprengel-anomaly" data-dismech-node="Sprengel anomaly" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Sprengel anomaly
+                        Attention deficit hyperactivity disorder
 
                         <span class="phenotype-freq">OCCASIONAL</span>
 
@@ -8633,15 +8926,18 @@ This clinical feature is Renal anomaly, annotated with Abnormal renal morphology
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000912" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0000912</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0007018" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0007018</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Sprengel anomaly (HP:0000912). HP:0000912 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Attention deficit hyperactivity disorder (HP:0007018). HP:0007018 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8653,14 +8949,16 @@ This clinical feature is Sprengel anomaly (HP:0000912). HP:0000912 is a phenotyp
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:31585109" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:31585109" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31585109" target="_blank">PMID:31585109</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8670,7 +8968,81 @@ This clinical feature is Sprengel anomaly (HP:0000912). HP:0000912 is a phenotyp
                 <div class="evidence-snippet">"variants (seven missense, two frameshift) in CDH2 in nine individuals with a"</div>
 
 
-                <div class="evidence-explanation">Partial support: the snippet gives the cohort denominator only. The Sprengel anomaly annotation and its 2 of 9 fraction (22%, OCCASIONAL band) come from the HPO annotation set for OMIM:618929 (retrieved 2026-08-01).</div>
+                <div class="evidence-explanation">Partial support: the snippet gives the cohort denominator only. The ADHD annotation and its 2 of 8 fraction (25%, OCCASIONAL band) come from the HPO annotation set for OMIM:618929 (retrieved 2026-08-01).</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-autistic-behavior" data-dismech-node="Autistic behavior" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Autistic behavior
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000729" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0000729</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31585109" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31585109" target="_blank">PMID:31585109</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"variants (seven missense, two frameshift) in CDH2 in nine individuals with a"</div>
+
+
+                <div class="evidence-explanation">Partial support: the snippet gives the cohort denominator only. The autistic-behaviour annotation and its 2 of 8 fraction (25%, OCCASIONAL band) come from the HPO annotation set for OMIM:618929 (retrieved 2026-08-01).</div>
 
 
 
@@ -8762,6 +9134,9 @@ This disease-associated gene is CDH2 (hgnc:1759). hgnc:1759 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -8776,6 +9151,8 @@ This disease-associated gene is CDH2 (hgnc:1759). hgnc:1759 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8801,6 +9178,8 @@ This disease-associated gene is CDH2 (hgnc:1759). hgnc:1759 is a gene from the H
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8822,6 +9201,8 @@ This disease-associated gene is CDH2 (hgnc:1759). hgnc:1759 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8863,6 +9244,509 @@ This disease-associated gene is CDH2 (hgnc:1759). hgnc:1759 is a gene from the H
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">4</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-exome-or-genome-sequencing-with-de-novo-cdh2-variant-interpretation">
+                <div class="item-name">
+                    Exome or genome sequencing with de novo CDH2 variant interpretation
+
+                </div>
+
+                <div class="item-desc">Molecular diagnosis rests on finding a heterozygous CDH2 variant, confirmed de novo by parental testing, in a child with developmental delay plus a midline brain malformation and/or structural congenital heart disease. Two interpretation points follow from the published allelic spectrum. First, missense changes should be weighted by domain: substitutions of conserved residues in EC4-EC5, and particularly at the EC4-EC5 interdomain calcium site, are where the reported pathogenic missense alleles sit, and a variant there deserves more weight than its in-silico score alone would give it. Second, a CDH2 variant found on a cardiomyopathy gene panel is a different claim entirely and does not diagnose ACOGS - the panel association is with adult arrhythmogenic and dilated cardiomyopathy, is classified by ClinGen as Limited, and carries no expectation of callosal, ocular or genital involvement.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        exome or genome sequencing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C101293" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-49">NCIT:C101293</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31585109" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31585109" target="_blank">PMID:31585109</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"seven cluster within EC domains 4 and 5. Four of the substitutions affect the"</div>
+
+
+                <div class="evidence-explanation">Supports the domain-weighted interpretation advice by locating the pathogenic missense alleles in EC4-EC5.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="CGGV:assertion_c7a03805-bf73-4d2d-9756-c666c67be119-2018-07-13T160000.000Z" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/CGGV:assertion_c7a03805-bf73-4d2d-9756-c666c67be119-2018-07-13T160000.000Z" target="_blank">CGGV:assertion_c7a03805-bf73-4d2d-9756-c666c67be119-2018-07-13T160000.000Z</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"CDH2 | HGNC:1759 | arrhythmogenic right ventricular cardiomyopathy | MONDO:0016587 | AD | Limited"</div>
+
+
+                <div class="evidence-explanation">Supports the caution about panel findings: the CDH2-cardiomyopathy gene-disease relationship is separately curated by ClinGen and classified as Limited.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-brain-mri">
+                <div class="item-name">
+                    Brain MRI
+
+                </div>
+
+                <div class="item-desc">Brain MRI is the single highest-yield investigation. It documents the callosal agenesis or hypoplasia that names the syndrome and the associated midline and migration findings - interhypothalamic adhesion, interhemispheric cyst, periventricular nodular heterotopia, enlarged cisterna magna. The combination of a callosal anomaly with periventricular heterotopia in a child who also has congenital heart disease is the imaging pattern that should prompt CDH2 testing.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        brain magnetic resonance imaging
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C16809" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-50">NCIT:C16809</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-50">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-notes">The list of associated MRI findings is taken from the HPO annotation set for OMIM:618929 (retrieved 2026-08-01), not from the cached abstracts, which mention only the callosal anomaly. On the term binding: the only brain-specific MRI descendants of NCIT:C16809 are contrast-qualified (NCIT:C137874 without contrast, NCIT:C137913 with and without contrast; checked with runoak against sqlite:obo:ncit on 2026-08-01), and no source here states whether contrast was given, so the unqualified parent is bound with a UBERON brain site qualifier instead.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35708058" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35708058" target="_blank">PMID:35708058</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"agenesis or hypoplasia of corpus callosum, craniofacial dysmorphism, ocular,"</div>
+
+
+                <div class="evidence-explanation">The callosal anomaly is a defining feature and is an imaging diagnosis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-echocardiography">
+                <div class="item-name">
+                    Echocardiography
+
+                </div>
+
+                <div class="item-desc">Structural congenital heart disease is one of the four defining organ systems and has ranged from atrioventricular canal defect and coarctation to hypoplastic left heart syndrome. Echocardiography is therefore indicated in every newly diagnosed individual regardless of whether a murmur is present, and the twin report shows that a normal or mild finding in one relative says nothing about another.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        echocardiography
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C16525" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-51">NCIT:C16525</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-51">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41997214" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41997214" target="_blank">PMID:41997214</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"pathogenic CDH2 variant yet exhibited a spectrum of CHD with one presenting with"</div>
+
+
+                <div class="evidence-explanation">Demonstrates the range of congenital heart disease within a single genotype, which is the argument for imaging every individual rather than extrapolating from a relative.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-ophthalmological-assessment-including-ocular-motility">
+                <div class="item-name">
+                    Ophthalmological assessment including ocular motility
+
+                </div>
+
+                <div class="item-desc">Formal ophthalmological review is needed for two separable reasons: to detect anterior-segment dysgenesis (Peters anomaly), which is sight-threatening and surgically actionable; and to detect the ocular motility disorders, where the distinction between common strabismus and the Duane anomaly matters, since Duane anomaly is a cranial dysinnervation pattern that changes both the surgical plan and the mechanistic interpretation.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        ophthalmological assessment including ocular motility
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C38060" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-52">NCIT:C38060</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-52">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31585109" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31585109" target="_blank">PMID:31585109</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"callosum agenesis or hypoplasia, mirror movements, Duane anomaly), and ocular,"</div>
+
+
+                <div class="evidence-explanation">Names Duane anomaly and ocular anomalies as features requiring ophthalmological assessment.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-worldwide">
+                <div class="item-name">Worldwide</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Cases In Literature</span>
+
+
+
+                    <span class="tag">Not yet documented</span>
+
+                </div>
+
+                <div class="item-notes">No population prevalence or incidence estimate exists. The published case tally is the only available denominator: nine individuals in the 2019 founding cohort, fifteen in total as of the 2022 case report, and a likely monozygotic twin pair reported in 2026. Ascertainment is genotype-first (exome or genome sequencing for developmental delay or congenital heart disease), so these are case counts rather than a population rate, and the tally almost certainly under-counts milder presentations that are not sequenced. No Orphanet prevalence class is quoted: MONDO:0030065 carries no Orphanet xref (its xrefs are DOID:0080948, MEDGEN:1718475, OMIM:618929 and UMLS:C5394523; checked with OAK on 2026-08-01), and no ORPHA record for this disorder is present in references_cache/.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31585109" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31585109" target="_blank">PMID:31585109</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"variants (seven missense, two frameshift) in CDH2 in nine individuals with a"</div>
+
+
+                <div class="evidence-explanation">Establishes the nine-individual founding cohort that is the denominator for every frequency band in this entry.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35708058" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35708058" target="_blank">PMID:35708058</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"best of our knowledge, only 14 patients with ACOGS have been reported. Here, we"</div>
+
+
+                <div class="evidence-explanation">Gives the cumulative published tally as of 2022 - fourteen prior patients plus the reported fifteenth.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -9061,6 +9945,8 @@ This disease-associated gene is CDH2 (hgnc:1759). hgnc:1759 is a gene from the H
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9084,6 +9970,8 @@ This disease-associated gene is CDH2 (hgnc:1759). hgnc:1759 is a gene from the H
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9105,6 +9993,8 @@ This disease-associated gene is CDH2 (hgnc:1759). hgnc:1759 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -9184,6 +10074,8 @@ This disease-associated gene is CDH2 (hgnc:1759). hgnc:1759 is a gene from the H
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -9205,6 +10097,8 @@ This disease-associated gene is CDH2 (hgnc:1759). hgnc:1759 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -9280,6 +10174,8 @@ This disease-associated gene is CDH2 (hgnc:1759). hgnc:1759 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9371,11 +10267,11 @@ This disease-associated gene is CDH2 (hgnc:1759). hgnc:1759 is a gene from the H
         CDH2
 
 
-    <a href="https://bioregistry.io/hgnc:1759" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-49">hgnc:1759</a>
+    <a href="https://bioregistry.io/hgnc:1759" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-53">hgnc:1759</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-49">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-53">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this experimental model concerns this gene
 This experimental model concerns CDH2 (hgnc:1759). hgnc:1759 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -9426,6 +10322,8 @@ This experimental model concerns CDH2 (hgnc:1759). hgnc:1759 is a gene from the 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9447,6 +10345,8 @@ This experimental model concerns CDH2 (hgnc:1759). hgnc:1759 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -9516,11 +10416,11 @@ This experimental model concerns CDH2 (hgnc:1759). hgnc:1759 is a gene from the 
         CDH2
 
 
-    <a href="https://bioregistry.io/hgnc:1759" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-50">hgnc:1759</a>
+    <a href="https://bioregistry.io/hgnc:1759" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-54">hgnc:1759</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-50">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-54">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this experimental model concerns this gene
 This experimental model concerns CDH2 (hgnc:1759). hgnc:1759 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -9571,6 +10471,8 @@ This experimental model concerns CDH2 (hgnc:1759). hgnc:1759 is a gene from the 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9592,6 +10494,8 @@ This experimental model concerns CDH2 (hgnc:1759). hgnc:1759 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -9666,11 +10570,11 @@ This experimental model concerns CDH2 (hgnc:1759). hgnc:1759 is a gene from the 
         CDH2
 
 
-    <a href="https://bioregistry.io/hgnc:1759" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-51">hgnc:1759</a>
+    <a href="https://bioregistry.io/hgnc:1759" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-55">hgnc:1759</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-51">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-55">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this experimental model concerns this gene
 This experimental model concerns CDH2 (hgnc:1759). hgnc:1759 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -9721,6 +10625,8 @@ This experimental model concerns CDH2 (hgnc:1759). hgnc:1759 is a gene from the 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -9742,6 +10648,8 @@ This experimental model concerns CDH2 (hgnc:1759). hgnc:1759 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -9910,7 +10818,7 @@ inheritance:
       ascertained outside the founding cohort.
   - reference: PMID:31650526
     reference_title: &#34;Novel variants in CDH2 are associated with a new syndrome including Peters anomaly.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;the variant was also present in the mother, who is apparently unaffected but without evidence of formal eye exam&#34;
     explanation: &gt;-
@@ -10066,7 +10974,8 @@ pathophysiology:
       site, which is precisely what this node models.
   - reference: PMID:21300292
     reference_title: &#34;The extracellular architecture of adherens junctions revealed by crystal structures of type I cadherins.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
+    directness: INDIRECT
     evidence_source: IN_VITRO
     snippet: &#34;ectodomain curvature, which is likely to be somewhat variable despite rigidification by interdomain calcium binding&#34;
     explanation: &gt;-
@@ -10074,7 +10983,7 @@ pathophysiology:
       treats interdomain calcium binding as what rigidifies the ectodomain,
       which is the biophysical reason a calcium-site substitution is expected to
       be damaging even though it is a single conservative-looking amino acid
-      change. Graded PARTIAL rather than SUPPORT because the paper states the
+      change. Graded INDIRECT because the paper states the
       rigidification in passing, citing unpublished data, and in the same
       sentence says the resulting curvature is still somewhat variable - it does
       not demonstrate the point.
@@ -10201,7 +11110,7 @@ pathophysiology:
       cytoplasmic domain, which is the lesion this node models.
   - reference: PMID:35708058
     reference_title: &#34;A Novel nonsense variant in the CDH2 gene associated with ACOGS: A case report.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;reported the fifteenth patient with ACOGS, having a novel de novo nonsense&#34;
     explanation: &gt;-
@@ -10346,7 +11255,7 @@ pathophysiology:
       structure.
   - reference: PMID:9015265
     reference_title: &#34;Developmental defects in mouse embryos lacking N-cadherin.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;wild-type littermates, and the epithelial organization of the somites is&#34;
     explanation: &gt;-
@@ -10419,7 +11328,7 @@ pathophysiology:
       ACOGS congenital heart disease.
   - reference: PMID:15662031
     reference_title: &#34;Induced deletion of the N-cadherin gene in the heart leads to dissolution of the intercalated disc structure.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;desmosomes. The mutant mice exhibited modest dilated cardiomyopathy and impaired&#34;
     explanation: &gt;-
@@ -10465,7 +11374,7 @@ pathophysiology:
   evidence:
   - reference: PMID:31585109
     reference_title: &#34;De Novo Pathogenic Variants in N-cadherin Cause a Syndromic Neurodevelopmental Disorder with Corpus Collosum, Axon, Cardiac, Ocular, and Genital Defects.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;cardiac, and genital anomalies. All seven missense variants (c.1057G&gt;A&#34;
     explanation: &gt;-
@@ -10474,7 +11383,7 @@ pathophysiology:
       documents the association, not the adhesive mechanism proposed here.
   - reference: PMID:31650526
     reference_title: &#34;Novel variants in CDH2 are associated with a new syndrome including Peters anomaly.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;Immunostaining in mouse embryonic eyes confirmed N-cadherin is present in the lens stalk at the time of separation from the future cornea and in the developing lens and corneal endothelium at later stages, supporting a possible role in PA&#34;
     explanation: &gt;-
@@ -10745,7 +11654,7 @@ phenotypes:
   evidence:
   - reference: PMID:31585109
     reference_title: &#34;De Novo Pathogenic Variants in N-cadherin Cause a Syndromic Neurodevelopmental Disorder with Corpus Collosum, Axon, Cardiac, Ocular, and Genital Defects.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;whose essential roles in neural development include neuronal migration and axon&#34;
     explanation: &gt;-
@@ -10770,7 +11679,7 @@ phenotypes:
   evidence:
   - reference: PMID:31585109
     reference_title: &#34;De Novo Pathogenic Variants in N-cadherin Cause a Syndromic Neurodevelopmental Disorder with Corpus Collosum, Axon, Cardiac, Ocular, and Genital Defects.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;variants (seven missense, two frameshift) in CDH2 in nine individuals with a&#34;
     explanation: &gt;-
@@ -10792,7 +11701,7 @@ phenotypes:
   evidence:
   - reference: PMID:31585109
     reference_title: &#34;De Novo Pathogenic Variants in N-cadherin Cause a Syndromic Neurodevelopmental Disorder with Corpus Collosum, Axon, Cardiac, Ocular, and Genital Defects.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;variants (seven missense, two frameshift) in CDH2 in nine individuals with a&#34;
     explanation: &gt;-
@@ -10814,7 +11723,7 @@ phenotypes:
   evidence:
   - reference: PMID:31585109
     reference_title: &#34;De Novo Pathogenic Variants in N-cadherin Cause a Syndromic Neurodevelopmental Disorder with Corpus Collosum, Axon, Cardiac, Ocular, and Genital Defects.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;variants (seven missense, two frameshift) in CDH2 in nine individuals with a&#34;
     explanation: &gt;-
@@ -10834,7 +11743,7 @@ phenotypes:
   evidence:
   - reference: PMID:31585109
     reference_title: &#34;De Novo Pathogenic Variants in N-cadherin Cause a Syndromic Neurodevelopmental Disorder with Corpus Collosum, Axon, Cardiac, Ocular, and Genital Defects.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;variants (seven missense, two frameshift) in CDH2 in nine individuals with a&#34;
     explanation: &gt;-
@@ -10856,7 +11765,7 @@ phenotypes:
   evidence:
   - reference: PMID:31585109
     reference_title: &#34;De Novo Pathogenic Variants in N-cadherin Cause a Syndromic Neurodevelopmental Disorder with Corpus Collosum, Axon, Cardiac, Ocular, and Genital Defects.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;variants (seven missense, two frameshift) in CDH2 in nine individuals with a&#34;
     explanation: &gt;-
@@ -10879,7 +11788,7 @@ phenotypes:
   evidence:
   - reference: PMID:31585109
     reference_title: &#34;De Novo Pathogenic Variants in N-cadherin Cause a Syndromic Neurodevelopmental Disorder with Corpus Collosum, Axon, Cardiac, Ocular, and Genital Defects.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;variants (seven missense, two frameshift) in CDH2 in nine individuals with a&#34;
     explanation: &gt;-
@@ -10899,7 +11808,7 @@ phenotypes:
   evidence:
   - reference: PMID:31585109
     reference_title: &#34;De Novo Pathogenic Variants in N-cadherin Cause a Syndromic Neurodevelopmental Disorder with Corpus Collosum, Axon, Cardiac, Ocular, and Genital Defects.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;variants (seven missense, two frameshift) in CDH2 in nine individuals with a&#34;
     explanation: &gt;-
@@ -10950,7 +11859,7 @@ phenotypes:
       phenotype.
   - reference: PMID:31585109
     reference_title: &#34;De Novo Pathogenic Variants in N-cadherin Cause a Syndromic Neurodevelopmental Disorder with Corpus Collosum, Axon, Cardiac, Ocular, and Genital Defects.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;cardiac, and genital anomalies. All seven missense variants (c.1057G&gt;A&#34;
     explanation: &gt;-
@@ -10973,7 +11882,7 @@ phenotypes:
   evidence:
   - reference: PMID:31585109
     reference_title: &#34;De Novo Pathogenic Variants in N-cadherin Cause a Syndromic Neurodevelopmental Disorder with Corpus Collosum, Axon, Cardiac, Ocular, and Genital Defects.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;cardiac, and genital anomalies. All seven missense variants (c.1057G&gt;A&#34;
     explanation: &gt;-
@@ -10995,7 +11904,7 @@ phenotypes:
   evidence:
   - reference: PMID:31585109
     reference_title: &#34;De Novo Pathogenic Variants in N-cadherin Cause a Syndromic Neurodevelopmental Disorder with Corpus Collosum, Axon, Cardiac, Ocular, and Genital Defects.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;cardiac, and genital anomalies. All seven missense variants (c.1057G&gt;A&#34;
     explanation: &gt;-
@@ -11015,7 +11924,7 @@ phenotypes:
   evidence:
   - reference: PMID:31585109
     reference_title: &#34;De Novo Pathogenic Variants in N-cadherin Cause a Syndromic Neurodevelopmental Disorder with Corpus Collosum, Axon, Cardiac, Ocular, and Genital Defects.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;cardiac, and genital anomalies. All seven missense variants (c.1057G&gt;A&#34;
     explanation: &gt;-
@@ -11036,7 +11945,7 @@ phenotypes:
   evidence:
   - reference: PMID:31585109
     reference_title: &#34;De Novo Pathogenic Variants in N-cadherin Cause a Syndromic Neurodevelopmental Disorder with Corpus Collosum, Axon, Cardiac, Ocular, and Genital Defects.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;cardiac, and genital anomalies. All seven missense variants (c.1057G&gt;A&#34;
     explanation: &gt;-
@@ -11105,7 +12014,7 @@ phenotypes:
   evidence:
   - reference: PMID:41997214
     reference_title: &#34;Phenotypic discordance in monozygotic twins with a CDH2 variant.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;with one presenting with hypoplastic left heart syndrome and the other with ventricular septal defect and pulmonary hypertension&#34;
     explanation: &gt;-
@@ -11217,7 +12126,7 @@ phenotypes:
   evidence:
   - reference: PMID:31585109
     reference_title: &#34;De Novo Pathogenic Variants in N-cadherin Cause a Syndromic Neurodevelopmental Disorder with Corpus Collosum, Axon, Cardiac, Ocular, and Genital Defects.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;variants (seven missense, two frameshift) in CDH2 in nine individuals with a&#34;
     explanation: &gt;-
@@ -11440,7 +12349,7 @@ discussions:
   evidence:
   - reference: PMID:35708058
     reference_title: &#34;A Novel nonsense variant in the CDH2 gene associated with ACOGS: A case report.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;reported the fifteenth patient with ACOGS, having a novel de novo nonsense&#34;
     explanation: &gt;-
@@ -11544,7 +12453,7 @@ discussions:
   evidence:
   - reference: PMID:9015265
     reference_title: &#34;Developmental defects in mouse embryos lacking N-cadherin.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;mutant embryos. Homozygous mutant embryos die by Day 10 of gestation. The&#34;
     explanation: &gt;-
@@ -11553,7 +12462,7 @@ discussions:
       mechanism.
   - reference: PMID:34702855
     reference_title: &#34;CDH2 mutation affecting N-cadherin function causes attention-deficit hyperactivity disorder in humans and mice.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;caused by a missense mutation in CDH2, which encodes the adhesion protein&#34;
     explanation: &gt;-
@@ -12170,6 +13079,92 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Add deep-research artifact and curate PMID:31650526 Peters anomaly cohort</strong> · 2026-08-03T00:54:26Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/CDH2-Related_ACOG_Syndrome/2026-08-03T005426Z-claude-code-b95d52.yaml">View source</a></p>
+                        <p class="research-review-text">Ran the deep-research pipeline promised in the PR description, closing the
+reviewer&#39;s outstanding finding on the missing research/ artifact:
+
+  just research-disorder claude_code CDH2-Related_ACOG_Syndrome
+
+Unlike the other entries in this batch, reconciliation of the sweep against
+the entry surfaced a genuine gap, which was curated rather than merely
+reported.
+
+PMID:31650526 (Reis et al., Clin Genet 2020;97(3):502-508, &#34;Novel variants in
+CDH2 are associated with a new syndrome including Peters anomaly&#34;) was absent
+from the entry. It is a second, independently ascertained CDH2 cohort: 145
+probands with developmental ocular conditions plus one syndromic-PA trio were
+exome sequenced, identifying a de novo splicing variant and three novel
+missense variants in four individuals with Peters anomaly, three of whom
+carried ACOGS-defining cardiac and callosal features. The ascertainment runs
+opposite to the founding report (PMID:31585109), which makes it independent
+confirmation of the CDH2-Peters association rather than a restatement.
+
+Fetched with just fetch-reference PMID:31650526; all snippets quoted verbatim
+from the resulting cache file.
+
+Changes:
+- phenotypes / Peters anomaly: added two SUPPORT evidence items from
+  PMID:31650526. The pre-existing evidence was PARTIAL against a snippet whose
+  own explanation conceded it &#34;does not name Peters anomaly&#34;, leaving the term
+  resting on the HPO annotation set alone. That explanation was updated rather
+  than deleted, and the PARTIAL item retained, since it still carries the
+  2-of-9 frequency fraction. Description now records the second cohort.
+- pathophysiology / &#34;Adhesion Failure in Ocular and Genital Primordia&#34;: added
+  a MODEL_ORGANISM PARTIAL evidence item for the mouse embryonic eye
+  immunostaining that localises N-cadherin to the lens stalk at the moment of
+  separation from the future cornea. mechanism_confidence deliberately left at
+  HYPOTHETICAL: this is wild-type expression localisation, not a functional
+  test and not a model of the human alleles, so every absence the node
+  enumerates survives. The node description was rewritten to state both the
+  new support and precisely why it does not raise the confidence.
+- references: added PMID:31650526.
+
+Validation: just validate PASS (schema &#34;No issues found&#34;, terms
+&#34;Validation passed&#34;, references 88/88 snippets verified, up from 85).
+check_snippets_verbatim.py 88 verified / 0 failed. check_folded_hyphens.py
+--check OK. check_snippet_length.py --against-ref origin/main OK, no new
+snippets under 5 words. The ~7,600-file references_cache churn (#7507) from
+just validate was reverted with git checkout; only the genuinely new
+PMID_31650526.md cache file is committed.
+
+Note for future runs: check_snippet_length.py reported 219 spurious &#34;new
+findings&#34; until origin/main was fetched - the worktree&#39;s ref was stale, and
+grandfathering is silently unavailable when the ref cannot resolve. Fetching
+origin/main restored the 1497-snippet baseline and the gate passed.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Address PR #7848 review: NCIT diagnosis bindings, GDD frequency band</strong> · 2026-08-02T05:13:07Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/CDH2-Related_ACOG_Syndrome/2026-08-02T051307Z-claude-code-633375.yaml">View source</a></p>
+                        <p class="research-review-text">Post-review pass on PR #7848 (reviewer comment 5155377455).
+
+IMPORTANT-2 (diagnosis section carried no NCIT bindings) - fixed. All four diagnosis entries now carry diagnosis_term:
+- Exome or genome sequencing -&gt; NCIT:C101293 Next Generation Sequencing, with a has-participant (RO:0000057) qualifier for hgnc:1759 CDH2. C101293 was chosen over NCIT:C101295 Whole Exome Sequencing because the entry covers exome OR genome sequencing; runoak confirms C101293 is the common parent of both C101295 and C101294 Whole Genome Sequencing.
+- Brain MRI -&gt; NCIT:C16809 Magnetic Resonance Imaging with a has-participant qualifier for UBERON:0000955 brain. Checked for a finer term: the only brain-specific descendants of C16809 are contrast-qualified (C137874 without contrast, C137913 with and without contrast; runoak descendants -p i on sqlite:obo:ncit, 2026-08-01), and no cached source states whether contrast was given, so the unqualified parent plus a UBERON site qualifier is the accurate binding. This reasoning is recorded inline in the entry&#39;s Brain MRI notes.
+- Echocardiography -&gt; NCIT:C16525 Echocardiography Test. Finer descendants exist (C80404 transthoracic, C80405 transesophageal, C38634 Doppler) but no source specifies the modality.
+- Ophthalmological assessment -&gt; NCIT:C38060 Eye Examination. Searched for an ocular-motility-specific term: runoak search &#34;l~ocular motility&#34; and &#34;l~extraocular movement&#34; return nothing usable, and the descendants of C38060 are individual instruments such as C123467 Snellen Eye Chart rather than whole assessments.
+All four terms were confirmed reachable from NCIT:C25218 with runoak ancestors -p i, and all four were already present in cache/ncit/terms.csv, so no cache rows were added.
+
+SUGGESTION-5 (Global developmental delay banded VERY_FREQUENT at 6/8) - accepted. Band lowered to FREQUENT, which is where 75% falls in the HPO bands (30-79%). The previous entry set VERY_FREQUENT deliberately, on the argument that the founding report makes &#34;developmental delay and/or intellectual disability&#34; a defining criterion; that argument survives in prose but no longer overrides the arithmetic, since no cached source gives a combined delay-or-disability numerator. The old justification also described the HP:0001263 and HP:0001249 annotations as partitioning one cohort, which cannot be right (6/8 + 4/8 = 10 &gt; 8); the description now says only that intellectual disability is annotated separately at 4 of 8.
+
+SUGGESTION-3 (no treatments section) - rejected, using the reviewer&#39;s own escape hatch. Grepped all three human-clinical cached abstracts (PMID:31585109, PMID:35708058, PMID:41997214) for surgery/management/therapy/follow-up terms; the only hits are author affiliations (&#34;Department of Neurology and Neurosurgery, McGill University&#34;). Nothing citable about management exists in the cached sources, so the existing notes justification stands.
+
+SUGGESTION-4 (GeneReviews absence not independently confirmed) - no change. The entry already frames the absence as the result of two named PubMed searches on a named date rather than as a fact about the catalogue, which the reviewer accepted as the right epistemic form.
+
+IMPORTANT-1 (no deep-research artifact) - out of scope for this pass; handled at the batch level.
+
+Validation: just validate (85/85 snippets verified), just validate-terms, scripts/check_snippets_verbatim.py (85 verbatim, 0 failed), scripts/check_folded_hyphens.py --check, scripts/check_snippet_length.py --against-ref origin/main, and tests/test_data.py all pass. references_cache/ churn from just validate (issue #7507) was reverted; cache/*.csv is unchanged.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -12590,7 +13585,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "CDH2-Related ACOG Syndrome", "mondoId": "MONDO:0030065", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "CDH2-Related_ACOG_Syndrome", "yamlRevision": "712557d5c8a6"};
+        const OS_CONFIG = {"diseaseName": "CDH2-Related ACOG Syndrome", "mondoId": "MONDO:0030065", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "CDH2-Related_ACOG_Syndrome", "yamlRevision": "2740dca9e578"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

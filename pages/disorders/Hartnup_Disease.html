@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2954,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2969,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3078,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3091,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3295,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3305,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3341,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3362,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3675,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4077,6 +4170,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4098,6 +4193,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4146,6 +4243,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-slc6a19-b0at1-transporter-loss-of-function" data-dismech-node="SLC6A19 B0AT1 transporter loss of function" data-dismech-type="pathophysiology">
                 <div class="item-name">SLC6A19 B0AT1 transporter loss of function</div>
+
 
                 <div class="item-desc">Pathogenic SLC6A19 variants impair the sodium-dependent neutral amino acid transporter B0AT1. The transporter is normally expressed in intestinal and renal epithelial cells, where it mediates uptake or reabsorption of neutral amino acids.
 </div>
@@ -4496,6 +4594,8 @@ This pathophysiological event occurs in intestinal mucosa (UBERON:0001242). UBER
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4519,6 +4619,8 @@ This pathophysiological event occurs in intestinal mucosa (UBERON:0001242). UBER
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4540,6 +4642,8 @@ This pathophysiological event occurs in intestinal mucosa (UBERON:0001242). UBER
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4566,6 +4670,7 @@ This pathophysiological event occurs in intestinal mucosa (UBERON:0001242). UBER
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cltrn-amino-acid-transport-regulator-involvement" data-dismech-node="CLTRN amino acid transport regulator involvement" data-dismech-type="pathophysiology">
                 <div class="item-name">CLTRN amino acid transport regulator involvement</div>
+
 
                 <div class="item-desc">CLTRN encodes collectrin, an amino-acid transport regulator listed by Orphanet as a disease-causing gene for Hartnup disease. The available cached evidence supports a gene association, while the better-supported disease-defining transporter mechanism remains SLC6A19/B0AT1.
 </div>
@@ -4690,14 +4795,16 @@ This pathophysiological event involves abnormal amino acid transmembrane transpo
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="ORPHA:2116" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="ORPHA:2116" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2116" target="_blank">ORPHA:2116</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4723,6 +4830,8 @@ This pathophysiological event involves abnormal amino acid transmembrane transpo
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4745,6 +4854,7 @@ This pathophysiological event involves abnormal amino acid transmembrane transpo
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-b0at1-endoplasmic-reticulum-retention" data-dismech-node="B0AT1 endoplasmic-reticulum retention" data-dismech-type="pathophysiology">
                 <div class="item-name">B0AT1 endoplasmic-reticulum retention</div>
+
 
                 <div class="item-desc">Several Hartnup disease-causing B0AT1 variants are retained in the endoplasmic reticulum rather than reaching the plasma membrane, providing a variant-level mechanism for loss of transporter function.
 </div>
@@ -4879,6 +4989,8 @@ This pathophysiological event occurs in decreased plasma membrane (GO:0005886). 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4900,6 +5012,8 @@ This pathophysiological event occurs in decreased plasma membrane (GO:0005886). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4924,6 +5038,7 @@ This pathophysiological event occurs in decreased plasma membrane (GO:0005886). 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-renal-and-intestinal-neutral-amino-acid-transport-defect" data-dismech-node="Renal and intestinal neutral amino acid transport defect" data-dismech-type="pathophysiology">
                 <div class="item-name">Renal and intestinal neutral amino acid transport defect</div>
+
 
                 <div class="item-desc">Defective B0AT1-mediated transport causes impaired renal reabsorption and gastrointestinal absorption of neutral amino acids. The resulting biochemical signature is neutral hyperaminoaciduria, often including elevated urinary indican from unabsorbed tryptophan metabolism.
 </div>
@@ -5131,6 +5246,8 @@ This pathophysiological event involves decreased tryptophan transport (GO:001582
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5152,6 +5269,8 @@ This pathophysiological event involves decreased tryptophan transport (GO:001582
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5177,6 +5296,8 @@ This pathophysiological event involves decreased tryptophan transport (GO:001582
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5199,6 +5320,7 @@ This pathophysiological event involves decreased tryptophan transport (GO:001582
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tryptophan-and-nicotinamide-availability-reduction" data-dismech-node="Tryptophan and nicotinamide availability reduction" data-dismech-type="pathophysiology">
                 <div class="item-name">Tryptophan and nicotinamide availability reduction</div>
+
 
                 <div class="item-desc">Tryptophan is a neutral amino acid and a precursor for nicotinamide synthesis. Reduced tryptophan uptake can produce a functional pellagra-like state even when dietary niacin intake is adequate.
 </div>
@@ -5324,6 +5446,8 @@ This pathophysiological event involves decreased nicotinamide metabolic process 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5345,6 +5469,8 @@ This pathophysiological event involves decreased nicotinamide metabolic process 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5369,6 +5495,7 @@ This pathophysiological event involves decreased nicotinamide metabolic process 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pellagra-like-neurocutaneous-manifestations" data-dismech-node="Pellagra-like neurocutaneous manifestations" data-dismech-type="pathophysiology">
                 <div class="item-name">Pellagra-like neurocutaneous manifestations</div>
+
 
                 <div class="item-desc">In susceptible patients, the transport defect manifests as photosensitive pellagra-like dermatitis together with neurologic and psychiatric signs such as ataxia, tremor, hypotonia, emotional lability, hallucinations, anxiety, and psychosis.
 </div>
@@ -5550,6 +5677,8 @@ This pathophysiological event involves decreased nicotinamide metabolic process 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5571,6 +5700,8 @@ This pathophysiological event involves decreased nicotinamide metabolic process 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5639,17 +5770,17 @@ This pathophysiological event involves decreased nicotinamide metabolic process 
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Digestive<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Eye<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Eye<span class="pill-count">(4)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Immune<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Genitourinary<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Integument<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Immune<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Musculoskeletal<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Integument<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Nervous System<span class="pill-count">(9)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Musculoskeletal<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Other<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Nervous System<span class="pill-count">(10)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5692,6 +5823,9 @@ This clinical feature is Malabsorption (HP:0002024). HP:0002024 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5706,6 +5840,8 @@ This clinical feature is Malabsorption (HP:0002024). HP:0002024 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5737,7 +5873,7 @@ This clinical feature is Malabsorption (HP:0002024). HP:0002024 is a phenotype f
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Eye
-                    <span class="cat-count">3</span>
+                    <span class="cat-count">4</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-photophobia" data-dismech-node="Photophobia" data-dismech-type="phenotype">
@@ -5770,6 +5906,9 @@ This clinical feature is Photophobia (HP:0000613). HP:0000613 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5784,6 +5923,8 @@ This clinical feature is Photophobia (HP:0000613). HP:0000613 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5839,6 +5980,9 @@ This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5853,6 +5997,8 @@ This clinical feature is Nystagmus (HP:0000639). HP:0000639 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5908,6 +6054,9 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5922,6 +6071,8 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5947,969 +6098,87 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormality-of-vision" data-dismech-node="Abnormality of vision" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Abnormality of vision
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000504" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000504</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormality of vision (HP:0000504). HP:0000504 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:2116" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:2116" target="_blank">ORPHA:2116</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0000504 | Abnormality of vision | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet records abnormality of vision as frequent.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
 
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Immune
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-skin-rash" data-dismech-node="Skin rash" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Skin rash
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000988" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000988</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Skin rash (HP:0000988). HP:0000988 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:2116" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:2116" target="_blank">ORPHA:2116</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0000988 | Skin rash | Frequent (79-30%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet records skin rash as frequent.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:15286787" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15286787" target="_blank">PMID:15286787</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"pellagra (rashes), cerebellar"</div>
-
-
-                <div class="evidence-explanation">The SLC6A19 discovery paper lists pellagra-like rashes.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Integument
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-cutaneous-photosensitivity" data-dismech-node="Cutaneous photosensitivity" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Cutaneous photosensitivity
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000992" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0000992</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Cutaneous photosensitivity (HP:0000992). HP:0000992 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:2116" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:2116" target="_blank">ORPHA:2116</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0000992 | Cutaneous photosensitivity | Very frequent (99-80%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet records cutaneous photosensitivity as very frequent.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:7955499" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/7955499" target="_blank">PMID:7955499</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"A young woman presented with pellagra."</div>
-
-
-                <div class="evidence-explanation">Adult case report documents a pellagra presentation.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-5">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Musculoskeletal
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hypotonia" data-dismech-node="Hypotonia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hypotonia
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001252</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:2116" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:2116" target="_blank">ORPHA:2116</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0001252 | Hypotonia | Very frequent (99-80%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet records hypotonia as very frequent.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-6">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Nervous System
-                    <span class="cat-count">9</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-ataxia" data-dismech-node="Ataxia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Ataxia
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001251</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:2116" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:2116" target="_blank">ORPHA:2116</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0001251 | Ataxia | Very frequent (99-80%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet records ataxia as very frequent.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:15286787" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15286787" target="_blank">PMID:15286787</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"ataxia and psychosis."</div>
-
-
-                <div class="evidence-explanation">The SLC6A19 discovery paper lists ataxia and psychosis among symptoms.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hallucinations" data-dismech-node="Hallucinations" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hallucinations
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000738" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000738</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hallucinations (HP:0000738). HP:0000738 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:2116" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:2116" target="_blank">ORPHA:2116</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0000738 | Hallucinations | Very frequent (99-80%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet records hallucinations as very frequent.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-anxiety" data-dismech-node="Anxiety" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Anxiety
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000739" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000739</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:2116" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:2116" target="_blank">ORPHA:2116</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0000739 | Anxiety | Very frequent (99-80%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet records anxiety as very frequent.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hyperreflexia" data-dismech-node="Hyperreflexia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hyperreflexia
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001347" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001347</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hyperreflexia (HP:0001347). HP:0001347 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:2116" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:2116" target="_blank">ORPHA:2116</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0001347 | Hyperreflexia | Very frequent (99-80%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet records hyperreflexia as very frequent.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-migraine" data-dismech-node="Migraine" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Migraine
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002076" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0002076</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Migraine (HP:0002076). HP:0002076 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:2116" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:2116" target="_blank">ORPHA:2116</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0002076 | Migraine | Very frequent (99-80%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet records migraine as very frequent.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-eeg-abnormality" data-dismech-node="EEG abnormality" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        EEG abnormality
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002353" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0002353</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is EEG abnormality (HP:0002353). HP:0002353 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:2116" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:2116" target="_blank">ORPHA:2116</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0002353 | EEG abnormality | Very frequent (99-80%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet records EEG abnormality as very frequent.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-tremor" data-dismech-node="Tremor" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Tremor
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001337" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001337</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Tremor (HP:0001337). HP:0001337 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:2116" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:2116" target="_blank">ORPHA:2116</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0001337 | Tremor | Frequent (79-30%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet records tremor as frequent.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-psychosis" data-dismech-node="Psychosis" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Psychosis
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000709" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0000709</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Psychosis (HP:0000709). HP:0000709 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:2116" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:2116" target="_blank">ORPHA:2116</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0000709 | Psychosis | Occasional (29-5%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet records psychosis as occasional.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:15286787" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15286787" target="_blank">PMID:15286787</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"ataxia and psychosis."</div>
-
-
-                <div class="evidence-explanation">The SLC6A19 discovery paper lists psychosis among symptoms.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-seizure" data-dismech-node="Seizure" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Seizure
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0001250</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:2116" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:2116" target="_blank">ORPHA:2116</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0001250 | Seizure | Occasional (29-5%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet records seizures as occasional.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-7">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">5</span>
+                    Genitourinary
+                    <span class="cat-count">3</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-neutral-hyperaminoaciduria" data-dismech-node="Neutral hyperaminoaciduria" data-dismech-type="phenotype">
@@ -6928,15 +6197,18 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008353" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0008353</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008353" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0008353</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Neutral hyperaminoaciduria (HP:0008353). HP:0008353 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6956,6 +6228,8 @@ This clinical feature is Neutral hyperaminoaciduria (HP:0008353). HP:0008353 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6981,6 +6255,8 @@ This clinical feature is Neutral hyperaminoaciduria (HP:0008353). HP:0008353 is 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6989,75 +6265,6 @@ This clinical feature is Neutral hyperaminoaciduria (HP:0008353). HP:0008353 is 
 
 
                 <div class="evidence-explanation">Urinary amino acid chromatography established the biochemical diagnosis in an adult case.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-emotional-lability" data-dismech-node="Emotional lability" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Emotional lability
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000712" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0000712</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Emotional lability (HP:0000712). HP:0000712 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:2116" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:2116" target="_blank">ORPHA:2116</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0000712 | Emotional lability | Very frequent (99-80%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet records emotional lability as very frequent.</div>
 
 
 
@@ -7089,15 +6296,18 @@ This clinical feature is Emotional lability (HP:0000712). HP:0000712 is a phenot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012086" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0012086</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012086" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0012086</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal urinary color (HP:0012086). HP:0012086 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7117,6 +6327,8 @@ This clinical feature is Abnormal urinary color (HP:0012086). HP:0012086 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7158,15 +6370,18 @@ This clinical feature is Abnormal urinary color (HP:0012086). HP:0012086 is a ph
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_6000130" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:6000130</a>
+    <a href="http://purl.obolibrary.org/obo/HP_6000130" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:6000130</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Elevated urinary indican level (HP:6000130). HP:6000130 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7186,6 +6401,8 @@ This clinical feature is Elevated urinary indican level (HP:6000130). HP:6000130
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7211,9 +6428,18 @@ This clinical feature is Elevated urinary indican level (HP:6000130). HP:6000130
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-abnormality-of-vision" data-dismech-node="Abnormality of vision" data-dismech-type="phenotype">
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Immune
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-skin-rash" data-dismech-node="Skin rash" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Abnormality of vision
+                        Skin rash
 
                         <span class="phenotype-freq">FREQUENT</span>
 
@@ -7227,15 +6453,234 @@ This clinical feature is Elevated urinary indican level (HP:6000130). HP:6000130
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000504" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0000504</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000988" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000988</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Abnormality of vision (HP:0000504). HP:0000504 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Skin rash (HP:0000988). HP:0000988 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:2116" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:2116" target="_blank">ORPHA:2116</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0000988 | Skin rash | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet records skin rash as frequent.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:15286787" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15286787" target="_blank">PMID:15286787</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"pellagra (rashes), cerebellar"</div>
+
+
+                <div class="evidence-explanation">The SLC6A19 discovery paper lists pellagra-like rashes.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-5">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Integument
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cutaneous-photosensitivity" data-dismech-node="Cutaneous photosensitivity" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Cutaneous photosensitivity
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000992" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000992</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cutaneous photosensitivity (HP:0000992). HP:0000992 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:2116" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:2116" target="_blank">ORPHA:2116</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0000992 | Cutaneous photosensitivity | Very frequent (99-80%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet records cutaneous photosensitivity as very frequent.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:7955499" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/7955499" target="_blank">PMID:7955499</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A young woman presented with pellagra."</div>
+
+
+                <div class="evidence-explanation">Adult case report documents a pellagra presentation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-6">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Musculoskeletal
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypotonia" data-dismech-node="Hypotonia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hypotonia
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001252</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
 
 
 
@@ -7257,14 +6702,815 @@ This clinical feature is Abnormality of vision (HP:0000504). HP:0000504 is a phe
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
 
-                <div class="evidence-snippet">"HP:0000504 | Abnormality of vision | Frequent (79-30%)"</div>
+                <div class="evidence-snippet">"HP:0001252 | Hypotonia | Very frequent (99-80%)"</div>
 
 
-                <div class="evidence-explanation">Orphanet records abnormality of vision as frequent.</div>
+                <div class="evidence-explanation">Orphanet records hypotonia as very frequent.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-7">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Nervous System
+                    <span class="cat-count">10</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-ataxia" data-dismech-node="Ataxia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Ataxia
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001251" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001251</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ataxia (HP:0001251). HP:0001251 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:2116" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:2116" target="_blank">ORPHA:2116</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0001251 | Ataxia | Very frequent (99-80%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet records ataxia as very frequent.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:15286787" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15286787" target="_blank">PMID:15286787</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"ataxia and psychosis."</div>
+
+
+                <div class="evidence-explanation">The SLC6A19 discovery paper lists ataxia and psychosis among symptoms.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-emotional-lability" data-dismech-node="Emotional lability" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Emotional lability
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000712" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0000712</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Emotional lability (HP:0000712). HP:0000712 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:2116" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:2116" target="_blank">ORPHA:2116</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0000712 | Emotional lability | Very frequent (99-80%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet records emotional lability as very frequent.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hallucinations" data-dismech-node="Hallucinations" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hallucinations
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000738" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0000738</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hallucinations (HP:0000738). HP:0000738 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:2116" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:2116" target="_blank">ORPHA:2116</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0000738 | Hallucinations | Very frequent (99-80%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet records hallucinations as very frequent.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-anxiety" data-dismech-node="Anxiety" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Anxiety
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000739" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0000739</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:2116" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:2116" target="_blank">ORPHA:2116</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0000739 | Anxiety | Very frequent (99-80%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet records anxiety as very frequent.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hyperreflexia" data-dismech-node="Hyperreflexia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hyperreflexia
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001347" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0001347</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hyperreflexia (HP:0001347). HP:0001347 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:2116" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:2116" target="_blank">ORPHA:2116</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0001347 | Hyperreflexia | Very frequent (99-80%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet records hyperreflexia as very frequent.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-migraine" data-dismech-node="Migraine" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Migraine
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002076" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0002076</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Migraine (HP:0002076). HP:0002076 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:2116" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:2116" target="_blank">ORPHA:2116</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0002076 | Migraine | Very frequent (99-80%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet records migraine as very frequent.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-eeg-abnormality" data-dismech-node="EEG abnormality" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        EEG abnormality
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002353" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0002353</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is EEG abnormality (HP:0002353). HP:0002353 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:2116" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:2116" target="_blank">ORPHA:2116</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0002353 | EEG abnormality | Very frequent (99-80%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet records EEG abnormality as very frequent.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-tremor" data-dismech-node="Tremor" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Tremor
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001337" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0001337</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Tremor (HP:0001337). HP:0001337 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:2116" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:2116" target="_blank">ORPHA:2116</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0001337 | Tremor | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet records tremor as frequent.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-psychosis" data-dismech-node="Psychosis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Psychosis
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000709" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0000709</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Psychosis (HP:0000709). HP:0000709 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:2116" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:2116" target="_blank">ORPHA:2116</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0000709 | Psychosis | Occasional (29-5%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet records psychosis as occasional.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:15286787" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15286787" target="_blank">PMID:15286787</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"ataxia and psychosis."</div>
+
+
+                <div class="evidence-explanation">The SLC6A19 discovery paper lists psychosis among symptoms.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-seizure" data-dismech-node="Seizure" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Seizure
+
+                        <span class="phenotype-freq">OCCASIONAL</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0001250</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:2116" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:2116" target="_blank">ORPHA:2116</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0001250 | Seizure | Occasional (29-5%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet records seizures as occasional.</div>
 
 
 
@@ -7354,6 +7600,9 @@ This disease-associated gene is SLC6A19 (hgnc:27960). hgnc:27960 is a gene from 
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive inheritance</span>
@@ -7376,6 +7625,8 @@ This disease-associated gene is SLC6A19 (hgnc:27960). hgnc:27960 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7401,6 +7652,8 @@ This disease-associated gene is SLC6A19 (hgnc:27960). hgnc:27960 is a gene from 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7422,6 +7675,8 @@ This disease-associated gene is SLC6A19 (hgnc:27960). hgnc:27960 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7455,6 +7710,12 @@ This disease-associated gene is SLC6A19 (hgnc:27960). hgnc:27960 is a gene from 
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Reported disease-causing SLC6A19 alleles include compound heterozygous and homozygous variants that reduce B0AT1-mediated neutral amino acid transport or impair trafficking to the plasma membrane.
 </div>
 
@@ -7482,6 +7743,8 @@ This disease-associated gene is SLC6A19 (hgnc:27960). hgnc:27960 is a gene from 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7503,6 +7766,8 @@ This disease-associated gene is SLC6A19 (hgnc:27960). hgnc:27960 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -7568,6 +7833,9 @@ This disease-associated gene is CLTRN (hgnc:29437). hgnc:29437 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7582,6 +7850,8 @@ This disease-associated gene is CLTRN (hgnc:29437). hgnc:29437 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7685,6 +7955,20 @@ This treatment uses nicotinamide (CHEBI:17154). CHEBI:17154 is a therapeutic age
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Oral nicotinamide can resolve pellagra-like symptoms in symptomatic patients by bypassing reduced tryptophan-derived nicotinamide availability.
 </div>
 
@@ -7716,6 +8000,8 @@ This treatment uses nicotinamide (CHEBI:17154). CHEBI:17154 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7758,6 +8044,8 @@ This treatment uses nicotinamide (CHEBI:17154). CHEBI:17154 is a therapeutic age
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7820,6 +8108,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Tryptophan ethyl ester has been reported as an experimental strategy to bypass defective gastrointestinal neutral amino acid transport and normalize tryptophan availability.
 </div>
 
@@ -7851,6 +8153,8 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7893,6 +8197,8 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7956,6 +8262,20 @@ This treatment is sunlight avoidance, annotated with Lifestyle Therapy (NCIT:C15
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Avoidance of sunlight and photoprotection are supportive measures for the photosensitive pellagra-like skin component.
 </div>
 
@@ -7992,14 +8312,16 @@ This treatment targets Cutaneous photosensitivity (HP:0000992). HP:0000992 is a 
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="ORPHA:2116" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="ORPHA:2116" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2116" target="_blank">ORPHA:2116</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8062,6 +8384,20 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Genetic counseling is appropriate because Hartnup disease is inherited as an autosomal recessive disorder caused by germline variants.
 </div>
 
@@ -8093,6 +8429,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8131,14 +8469,16 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="ORPHA:2116" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="ORPHA:2116" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="https://bioregistry.io/ORPHA:2116" target="_blank">ORPHA:2116</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8181,6 +8521,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8279,6 +8621,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8300,6 +8644,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8381,6 +8727,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8489,6 +8837,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8510,6 +8860,452 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
             </div>
 
         </div>
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-urinary-amino-acid-chromatography">
+                <div class="item-name">
+                    Urinary amino acid chromatography
+
+                </div>
+
+                <div class="item-desc">Urine amino acid analysis or chromatography detects neutral hyperaminoaciduria and can establish the biochemical diagnosis.
+</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        disease screening
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15419" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-49">NCIT:C15419</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Excess urinary neutral amino acids support Hartnup disease.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:7955499" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/7955499" target="_blank">PMID:7955499</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Chromatography of urinary amino acids was diagnostic of"</div>
+
+
+                <div class="evidence-explanation">Urinary amino acid chromatography diagnosed Hartnup disease in the adult case.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:2116" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:2116" target="_blank">ORPHA:2116</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0008353 | Neutral hyperaminoaciduria | Very frequent (99-80%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet supports neutral hyperaminoaciduria as the expected biochemical screening result.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-slc6a19-molecular-testing">
+                <div class="item-name">
+                    SLC6A19 molecular testing
+
+                </div>
+
+                <div class="item-desc">Molecular testing for biallelic SLC6A19 pathogenic variants confirms the genetic diagnosis, especially in variable or late-presenting cases.
+</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        genetic testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15709" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-50">NCIT:C15709</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-50">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Biallelic pathogenic SLC6A19 variants support diagnosis.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:15286788" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15286788" target="_blank">PMID:15286788</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"SLC6A19 is the long-sought gene that is mutated in Hartnup disorder"</div>
+
+
+                <div class="evidence-explanation">The SLC6A19 discovery paper supports molecular confirmation.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:15286787" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15286787" target="_blank">PMID:15286787</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"product of SLC6A19, the Hartnup transporter, is expressed primarily in intestine"</div>
+
+
+                <div class="evidence-explanation">The original-family study identifies SLC6A19 as the Hartnup transporter gene.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-episodic-all-age-metabolic-and-neurocutaneous-disorder">
+                <div class="item-name">Episodic all-age metabolic and neurocutaneous disorder</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">Orphanet records all-age onset. Clinical expression is variable, with some patients presenting in childhood and occasional adult presentation during physiologic stress such as lactation and increased activity.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:2116" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:2116" target="_blank">ORPHA:2116</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Age of onset: All ages"</div>
+
+
+                <div class="evidence-explanation">Orphanet records all-age onset.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:15286788" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15286788" target="_blank">PMID:15286788</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"and gastrointestinal neutral amino acid transport noted for its clinical"</div>
+
+
+                <div class="evidence-explanation">The SLC6A19 discovery paper emphasizes clinical variability.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:7955499" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/7955499" target="_blank">PMID:7955499</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A young woman presented with pellagra."</div>
+
+
+                <div class="evidence-explanation">Adult case report supports presentation outside childhood.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-worldwide">
+                <div class="item-name">Worldwide</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Point Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">1.0&ndash;9.0 per 100,000
+                    </span>
+
+                    <span class="tag">1–9 per 100,000</span>
+
+                </div>
+
+                <div class="item-notes">Orphanet reports worldwide point prevalence in the 1-9 per 100,000 range, with several country or population-specific estimates in the same class.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:2116" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:2116" target="_blank">ORPHA:2116</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"1-9 / 100 000 | Worldwide | Point prevalence"</div>
+
+
+                <div class="evidence-explanation">Orphanet provides the worldwide point-prevalence class.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -8576,7 +9372,7 @@ inheritance:
       label: Autosomal recessive inheritance
   evidence:
   - reference: ORPHA:2116
-    reference_title: &#34;Hartnup disease (Orphanet structured-database record)&#34;
+    reference_title: &#34;Hartnup disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Autosomal recessive&#34;
@@ -8599,7 +9395,7 @@ prevalence:
     with several country or population-specific estimates in the same class.
   evidence:
   - reference: ORPHA:2116
-    reference_title: &#34;Hartnup disease (Orphanet structured-database record)&#34;
+    reference_title: &#34;Hartnup disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;1-9 / 100 000 | Worldwide | Point prevalence&#34;
@@ -8612,7 +9408,7 @@ progression:
     physiologic stress such as lactation and increased activity.
   evidence:
   - reference: ORPHA:2116
-    reference_title: &#34;Hartnup disease (Orphanet structured-database record)&#34;
+    reference_title: &#34;Hartnup disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Age of onset: All ages&#34;
@@ -8746,8 +9542,8 @@ pathophysiology:
     modifier: ABNORMAL
   evidence:
   - reference: ORPHA:2116
-    reference_title: &#34;Hartnup disease (Orphanet structured-database record)&#34;
-    supports: PARTIAL
+    reference_title: &#34;Hartnup disease&#34;
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;CLTRN | collectrin, amino acid transport regulator | hgnc:29437 | Disease-causing germline mutation(s) in&#34;
     explanation: Orphanet lists CLTRN as a disease-causing germline amino acid transport regulator for Hartnup disease.
@@ -8765,8 +9561,8 @@ pathophysiology:
     - collectrin-dependent SLC6A19/B0AT1 surface expression in kidney epithelium
     evidence:
     - reference: ORPHA:2116
-      reference_title: &#34;Hartnup disease (Orphanet structured-database record)&#34;
-      supports: PARTIAL
+      reference_title: &#34;Hartnup disease&#34;
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;CLTRN | collectrin, amino acid transport regulator | hgnc:29437 | Disease-causing germline mutation(s) in&#34;
       explanation: The structured source supports CLTRN as an amino acid transport regulator, but stronger mechanistic evidence in this entry remains SLC6A19-centered.
@@ -8868,7 +9664,7 @@ pathophysiology:
     snippet: &#34;resorption of all neutral amino acids.&#34;
     explanation: Review evidence places B0AT1 in renal and intestinal neutral amino acid resorption.
   - reference: ORPHA:2116
-    reference_title: &#34;Hartnup disease (Orphanet structured-database record)&#34;
+    reference_title: &#34;Hartnup disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;abnormal renal and gastrointestinal transport of neutral amino acids&#34;
@@ -8879,7 +9675,7 @@ pathophysiology:
     causal_link_type: DIRECT
     evidence:
     - reference: ORPHA:2116
-      reference_title: &#34;Hartnup disease (Orphanet structured-database record)&#34;
+      reference_title: &#34;Hartnup disease&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0008353 | Neutral hyperaminoaciduria | Very frequent (99-80%)&#34;
@@ -8889,7 +9685,7 @@ pathophysiology:
     causal_link_type: DIRECT
     evidence:
     - reference: ORPHA:2116
-      reference_title: &#34;Hartnup disease (Orphanet structured-database record)&#34;
+      reference_title: &#34;Hartnup disease&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0002024 | Malabsorption | Frequent (79-30%)&#34;
@@ -8921,7 +9717,7 @@ pathophysiology:
     causal_link_type: DIRECT
     evidence:
     - reference: ORPHA:2116
-      reference_title: &#34;Hartnup disease (Orphanet structured-database record)&#34;
+      reference_title: &#34;Hartnup disease&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:6000130 | Elevated urinary indican level | Frequent (79-30%)&#34;
@@ -8931,7 +9727,7 @@ pathophysiology:
     causal_link_type: DIRECT
     evidence:
     - reference: ORPHA:2116
-      reference_title: &#34;Hartnup disease (Orphanet structured-database record)&#34;
+      reference_title: &#34;Hartnup disease&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:6000130 | Elevated urinary indican level | Frequent (79-30%)&#34;
@@ -8941,7 +9737,7 @@ pathophysiology:
     causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
     evidence:
     - reference: ORPHA:2116
-      reference_title: &#34;Hartnup disease (Orphanet structured-database record)&#34;
+      reference_title: &#34;Hartnup disease&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0012086 | Abnormal urinary color | Very frequent (99-80%)&#34;
@@ -9013,7 +9809,7 @@ pathophysiology:
     snippet: &#34;Symptoms include transient manifestations of pellagra (rashes), cerebellar&#34;
     explanation: The SLC6A19 discovery paper summarizes the pellagra-like and cerebellar clinical expression.
   - reference: ORPHA:2116
-    reference_title: &#34;Hartnup disease (Orphanet structured-database record)&#34;
+    reference_title: &#34;Hartnup disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;mainly characterized by skin photosensitivity, ocular and neuropsychiatric features&#34;
@@ -9024,7 +9820,7 @@ pathophysiology:
     causal_link_type: DIRECT
     evidence:
     - reference: ORPHA:2116
-      reference_title: &#34;Hartnup disease (Orphanet structured-database record)&#34;
+      reference_title: &#34;Hartnup disease&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;mainly characterized by skin photosensitivity, ocular and neuropsychiatric features&#34;
@@ -9064,7 +9860,7 @@ pathophysiology:
     causal_link_type: DIRECT
     evidence:
     - reference: ORPHA:2116
-      reference_title: &#34;Hartnup disease (Orphanet structured-database record)&#34;
+      reference_title: &#34;Hartnup disease&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0000712 | Emotional lability | Very frequent (99-80%)&#34;
@@ -9074,7 +9870,7 @@ pathophysiology:
     causal_link_type: DIRECT
     evidence:
     - reference: ORPHA:2116
-      reference_title: &#34;Hartnup disease (Orphanet structured-database record)&#34;
+      reference_title: &#34;Hartnup disease&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0000738 | Hallucinations | Very frequent (99-80%)&#34;
@@ -9084,7 +9880,7 @@ pathophysiology:
     causal_link_type: DIRECT
     evidence:
     - reference: ORPHA:2116
-      reference_title: &#34;Hartnup disease (Orphanet structured-database record)&#34;
+      reference_title: &#34;Hartnup disease&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0000739 | Anxiety | Very frequent (99-80%)&#34;
@@ -9094,7 +9890,7 @@ pathophysiology:
     causal_link_type: DIRECT
     evidence:
     - reference: ORPHA:2116
-      reference_title: &#34;Hartnup disease (Orphanet structured-database record)&#34;
+      reference_title: &#34;Hartnup disease&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0001252 | Hypotonia | Very frequent (99-80%)&#34;
@@ -9104,7 +9900,7 @@ pathophysiology:
     causal_link_type: DIRECT
     evidence:
     - reference: ORPHA:2116
-      reference_title: &#34;Hartnup disease (Orphanet structured-database record)&#34;
+      reference_title: &#34;Hartnup disease&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0001347 | Hyperreflexia | Very frequent (99-80%)&#34;
@@ -9114,7 +9910,7 @@ pathophysiology:
     causal_link_type: DIRECT
     evidence:
     - reference: ORPHA:2116
-      reference_title: &#34;Hartnup disease (Orphanet structured-database record)&#34;
+      reference_title: &#34;Hartnup disease&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0001337 | Tremor | Frequent (79-30%)&#34;
@@ -9124,7 +9920,7 @@ pathophysiology:
     causal_link_type: DIRECT
     evidence:
     - reference: ORPHA:2116
-      reference_title: &#34;Hartnup disease (Orphanet structured-database record)&#34;
+      reference_title: &#34;Hartnup disease&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0002076 | Migraine | Very frequent (99-80%)&#34;
@@ -9134,7 +9930,7 @@ pathophysiology:
     causal_link_type: DIRECT
     evidence:
     - reference: ORPHA:2116
-      reference_title: &#34;Hartnup disease (Orphanet structured-database record)&#34;
+      reference_title: &#34;Hartnup disease&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0002353 | EEG abnormality | Very frequent (99-80%)&#34;
@@ -9144,7 +9940,7 @@ pathophysiology:
     causal_link_type: DIRECT
     evidence:
     - reference: ORPHA:2116
-      reference_title: &#34;Hartnup disease (Orphanet structured-database record)&#34;
+      reference_title: &#34;Hartnup disease&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0001250 | Seizure | Occasional (29-5%)&#34;
@@ -9154,7 +9950,7 @@ pathophysiology:
     causal_link_type: DIRECT
     evidence:
     - reference: ORPHA:2116
-      reference_title: &#34;Hartnup disease (Orphanet structured-database record)&#34;
+      reference_title: &#34;Hartnup disease&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0000613 | Photophobia | Frequent (79-30%)&#34;
@@ -9164,7 +9960,7 @@ pathophysiology:
     causal_link_type: DIRECT
     evidence:
     - reference: ORPHA:2116
-      reference_title: &#34;Hartnup disease (Orphanet structured-database record)&#34;
+      reference_title: &#34;Hartnup disease&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0000639 | Nystagmus | Frequent (79-30%)&#34;
@@ -9174,7 +9970,7 @@ pathophysiology:
     causal_link_type: DIRECT
     evidence:
     - reference: ORPHA:2116
-      reference_title: &#34;Hartnup disease (Orphanet structured-database record)&#34;
+      reference_title: &#34;Hartnup disease&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0000486 | Strabismus | Frequent (79-30%)&#34;
@@ -9184,7 +9980,7 @@ pathophysiology:
     causal_link_type: DIRECT
     evidence:
     - reference: ORPHA:2116
-      reference_title: &#34;Hartnup disease (Orphanet structured-database record)&#34;
+      reference_title: &#34;Hartnup disease&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0000504 | Abnormality of vision | Frequent (79-30%)&#34;
@@ -9202,7 +9998,7 @@ phenotypes:
       label: Neutral hyperaminoaciduria
   evidence:
   - reference: ORPHA:2116
-    reference_title: &#34;Hartnup disease (Orphanet structured-database record)&#34;
+    reference_title: &#34;Hartnup disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0008353 | Neutral hyperaminoaciduria | Very frequent (99-80%)&#34;
@@ -9223,7 +10019,7 @@ phenotypes:
       label: Cutaneous photosensitivity
   evidence:
   - reference: ORPHA:2116
-    reference_title: &#34;Hartnup disease (Orphanet structured-database record)&#34;
+    reference_title: &#34;Hartnup disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0000992 | Cutaneous photosensitivity | Very frequent (99-80%)&#34;
@@ -9244,7 +10040,7 @@ phenotypes:
       label: Ataxia
   evidence:
   - reference: ORPHA:2116
-    reference_title: &#34;Hartnup disease (Orphanet structured-database record)&#34;
+    reference_title: &#34;Hartnup disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001251 | Ataxia | Very frequent (99-80%)&#34;
@@ -9265,7 +10061,7 @@ phenotypes:
       label: Emotional lability
   evidence:
   - reference: ORPHA:2116
-    reference_title: &#34;Hartnup disease (Orphanet structured-database record)&#34;
+    reference_title: &#34;Hartnup disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0000712 | Emotional lability | Very frequent (99-80%)&#34;
@@ -9280,7 +10076,7 @@ phenotypes:
       label: Hallucinations
   evidence:
   - reference: ORPHA:2116
-    reference_title: &#34;Hartnup disease (Orphanet structured-database record)&#34;
+    reference_title: &#34;Hartnup disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0000738 | Hallucinations | Very frequent (99-80%)&#34;
@@ -9295,7 +10091,7 @@ phenotypes:
       label: Anxiety
   evidence:
   - reference: ORPHA:2116
-    reference_title: &#34;Hartnup disease (Orphanet structured-database record)&#34;
+    reference_title: &#34;Hartnup disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0000739 | Anxiety | Very frequent (99-80%)&#34;
@@ -9310,7 +10106,7 @@ phenotypes:
       label: Hypotonia
   evidence:
   - reference: ORPHA:2116
-    reference_title: &#34;Hartnup disease (Orphanet structured-database record)&#34;
+    reference_title: &#34;Hartnup disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001252 | Hypotonia | Very frequent (99-80%)&#34;
@@ -9325,7 +10121,7 @@ phenotypes:
       label: Hyperreflexia
   evidence:
   - reference: ORPHA:2116
-    reference_title: &#34;Hartnup disease (Orphanet structured-database record)&#34;
+    reference_title: &#34;Hartnup disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001347 | Hyperreflexia | Very frequent (99-80%)&#34;
@@ -9340,7 +10136,7 @@ phenotypes:
       label: Migraine
   evidence:
   - reference: ORPHA:2116
-    reference_title: &#34;Hartnup disease (Orphanet structured-database record)&#34;
+    reference_title: &#34;Hartnup disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0002076 | Migraine | Very frequent (99-80%)&#34;
@@ -9357,7 +10153,7 @@ phenotypes:
     electrophysiology_modality: EEG
   evidence:
   - reference: ORPHA:2116
-    reference_title: &#34;Hartnup disease (Orphanet structured-database record)&#34;
+    reference_title: &#34;Hartnup disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0002353 | EEG abnormality | Very frequent (99-80%)&#34;
@@ -9372,7 +10168,7 @@ phenotypes:
       label: Abnormal urinary color
   evidence:
   - reference: ORPHA:2116
-    reference_title: &#34;Hartnup disease (Orphanet structured-database record)&#34;
+    reference_title: &#34;Hartnup disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0012086 | Abnormal urinary color | Very frequent (99-80%)&#34;
@@ -9387,7 +10183,7 @@ phenotypes:
       label: Elevated urinary indican level
   evidence:
   - reference: ORPHA:2116
-    reference_title: &#34;Hartnup disease (Orphanet structured-database record)&#34;
+    reference_title: &#34;Hartnup disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:6000130 | Elevated urinary indican level | Frequent (79-30%)&#34;
@@ -9402,7 +10198,7 @@ phenotypes:
       label: Malabsorption
   evidence:
   - reference: ORPHA:2116
-    reference_title: &#34;Hartnup disease (Orphanet structured-database record)&#34;
+    reference_title: &#34;Hartnup disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0002024 | Malabsorption | Frequent (79-30%)&#34;
@@ -9417,7 +10213,7 @@ phenotypes:
       label: Skin rash
   evidence:
   - reference: ORPHA:2116
-    reference_title: &#34;Hartnup disease (Orphanet structured-database record)&#34;
+    reference_title: &#34;Hartnup disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0000988 | Skin rash | Frequent (79-30%)&#34;
@@ -9438,7 +10234,7 @@ phenotypes:
       label: Photophobia
   evidence:
   - reference: ORPHA:2116
-    reference_title: &#34;Hartnup disease (Orphanet structured-database record)&#34;
+    reference_title: &#34;Hartnup disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0000613 | Photophobia | Frequent (79-30%)&#34;
@@ -9453,7 +10249,7 @@ phenotypes:
       label: Nystagmus
   evidence:
   - reference: ORPHA:2116
-    reference_title: &#34;Hartnup disease (Orphanet structured-database record)&#34;
+    reference_title: &#34;Hartnup disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0000639 | Nystagmus | Frequent (79-30%)&#34;
@@ -9468,7 +10264,7 @@ phenotypes:
       label: Strabismus
   evidence:
   - reference: ORPHA:2116
-    reference_title: &#34;Hartnup disease (Orphanet structured-database record)&#34;
+    reference_title: &#34;Hartnup disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0000486 | Strabismus | Frequent (79-30%)&#34;
@@ -9483,7 +10279,7 @@ phenotypes:
       label: Abnormality of vision
   evidence:
   - reference: ORPHA:2116
-    reference_title: &#34;Hartnup disease (Orphanet structured-database record)&#34;
+    reference_title: &#34;Hartnup disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0000504 | Abnormality of vision | Frequent (79-30%)&#34;
@@ -9498,7 +10294,7 @@ phenotypes:
       label: Tremor
   evidence:
   - reference: ORPHA:2116
-    reference_title: &#34;Hartnup disease (Orphanet structured-database record)&#34;
+    reference_title: &#34;Hartnup disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001337 | Tremor | Frequent (79-30%)&#34;
@@ -9513,7 +10309,7 @@ phenotypes:
       label: Psychosis
   evidence:
   - reference: ORPHA:2116
-    reference_title: &#34;Hartnup disease (Orphanet structured-database record)&#34;
+    reference_title: &#34;Hartnup disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0000709 | Psychosis | Occasional (29-5%)&#34;
@@ -9534,7 +10330,7 @@ phenotypes:
       label: Seizure
   evidence:
   - reference: ORPHA:2116
-    reference_title: &#34;Hartnup disease (Orphanet structured-database record)&#34;
+    reference_title: &#34;Hartnup disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0001250 | Seizure | Occasional (29-5%)&#34;
@@ -9553,7 +10349,7 @@ biochemical:
     interpretation: Excess urinary neutral amino acids report failed renal reabsorption through the Hartnup transport defect.
   evidence:
   - reference: ORPHA:2116
-    reference_title: &#34;Hartnup disease (Orphanet structured-database record)&#34;
+    reference_title: &#34;Hartnup disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0008353 | Neutral hyperaminoaciduria | Very frequent (99-80%)&#34;
@@ -9582,7 +10378,7 @@ biochemical:
     interpretation: Increased urinary indican reflects abnormal tryptophan handling downstream of the neutral amino acid transport defect.
   evidence:
   - reference: ORPHA:2116
-    reference_title: &#34;Hartnup disease (Orphanet structured-database record)&#34;
+    reference_title: &#34;Hartnup disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:6000130 | Elevated urinary indican level | Frequent (79-30%)&#34;
@@ -9634,7 +10430,7 @@ genetic:
         label: Autosomal recessive inheritance
     evidence:
     - reference: ORPHA:2116
-      reference_title: &#34;Hartnup disease (Orphanet structured-database record)&#34;
+      reference_title: &#34;Hartnup disease&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;Autosomal recessive&#34;
@@ -9666,13 +10462,13 @@ genetic:
       explanation: The 2025 functional study tested disease-causing B0AT1 variants.
   evidence:
   - reference: ORPHA:2116
-    reference_title: &#34;Hartnup disease (Orphanet structured-database record)&#34;
+    reference_title: &#34;Hartnup disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;SLC6A19 | solute carrier family 6 member 19 | hgnc:27960 | Disease-causing germline mutation(s) in&#34;
     explanation: Orphanet lists SLC6A19 as a disease-causing germline gene.
   - reference: ORPHA:2116
-    reference_title: &#34;Hartnup disease (Orphanet structured-database record)&#34;
+    reference_title: &#34;Hartnup disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;CLTRN | collectrin, amino acid transport regulator | hgnc:29437 | Disease-causing germline mutation(s) in&#34;
@@ -9699,7 +10495,7 @@ genetic:
     disease-defining transporter mechanism.
   evidence:
   - reference: ORPHA:2116
-    reference_title: &#34;Hartnup disease (Orphanet structured-database record)&#34;
+    reference_title: &#34;Hartnup disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;CLTRN | collectrin, amino acid transport regulator | hgnc:29437 | Disease-causing germline mutation(s) in&#34;
@@ -9781,8 +10577,8 @@ treatments:
       label: Cutaneous photosensitivity
   evidence:
   - reference: ORPHA:2116
-    reference_title: &#34;Hartnup disease (Orphanet structured-database record)&#34;
-    supports: PARTIAL
+    reference_title: &#34;Hartnup disease&#34;
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0000992 | Cutaneous photosensitivity | Very frequent (99-80%)&#34;
     explanation: Orphanet supports the photosensitivity target for photoprotective care.
@@ -9797,7 +10593,7 @@ treatments:
       label: Genetic Counseling
   evidence:
   - reference: ORPHA:2116
-    reference_title: &#34;Hartnup disease (Orphanet structured-database record)&#34;
+    reference_title: &#34;Hartnup disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Autosomal recessive&#34;
@@ -9816,8 +10612,8 @@ treatments:
     description: Genetic counseling also covers the Orphanet-listed CLTRN association when familial variants are identified.
     evidence:
     - reference: ORPHA:2116
-      reference_title: &#34;Hartnup disease (Orphanet structured-database record)&#34;
-      supports: PARTIAL
+      reference_title: &#34;Hartnup disease&#34;
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;CLTRN | collectrin, amino acid transport regulator | hgnc:29437 | Disease-causing germline mutation(s) in&#34;
       explanation: Orphanet lists CLTRN as a disease-causing germline gene, supporting inclusion in counseling discussions.
@@ -9840,7 +10636,7 @@ diagnosis:
     snippet: &#34;Chromatography of urinary amino acids was diagnostic of&#34;
     explanation: Urinary amino acid chromatography diagnosed Hartnup disease in the adult case.
   - reference: ORPHA:2116
-    reference_title: &#34;Hartnup disease (Orphanet structured-database record)&#34;
+    reference_title: &#34;Hartnup disease&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;HP:0008353 | Neutral hyperaminoaciduria | Very frequent (99-80%)&#34;
@@ -10112,6 +10908,8 @@ review_notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -10245,7 +11043,7 @@ available beyond the evidence-backed curation and local audits.</p>
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Hartnup Disease", "mondoId": "MONDO:0009324", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hartnup_Disease", "yamlRevision": "034ba06f4f2b"};
+        const OS_CONFIG = {"diseaseName": "Hartnup Disease", "mondoId": "MONDO:0009324", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hartnup_Disease", "yamlRevision": "851bcc562c1f"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

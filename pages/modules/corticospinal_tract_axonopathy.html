@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -289,6 +290,16 @@
             border: 1px solid var(--teal-light);
         }
 
+        /* Study-area category pills. Colour comes from ModuleCategoryEnum via
+           the renderer, so only the shape is set here. */
+        .badge-study-area {
+            border: 1px solid;
+            font-weight: 600;
+            font-size: 0.8rem;
+            padding: 5px 13px;
+            cursor: help;
+        }
+
         .badge-module {
             background: #e0f2fe;
             color: #0369a1;
@@ -457,6 +468,18 @@
         .tag-component {
             background: #f0fdf4;
             color: #166534;
+        }
+
+        /* Same values as disorder.html.j2 so a treatment chip looks identical
+           whether it is read on a disorder page or on a module page. */
+        .tag-treatment {
+            background: #ede9fe;
+            color: #5b21b6;
+        }
+
+        .tag-gene {
+            background: #dbeafe;
+            color: #1e40af;
         }
 
         .tag-role {
@@ -634,9 +657,7 @@
             font-weight: 600;
         }
         .support-SUPPORT { background: #d1fae5; color: #065f46; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
-        .support-WRONG_STATEMENT { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f3f4f6; color: #4b5563; }
         .hypothesis-notes {
             margin-top: 8px;
@@ -1036,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1051,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1105,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1118,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1276,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1286,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1327,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -1533,6 +1590,9 @@
 
     
     
+
+    
+    
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -1566,9 +1626,14 @@
         <header class="page-header">
             <h1>Corticospinal Tract Axonopathy Module</h1>
             <div class="header-meta">
+                
+                <span class="badge badge-study-area"
+                      title="Nervous-system mechanism across the central, peripheral, and sensory systems: neurodegeneration, synaptic and circuit dysfunction, excitability, neurodevelopmental patterning of the brain, and neural waste clearance."
+                      style="background: hsl(343, 68%, 96%); border-color: hsl(343, 52%, 78%); color: hsl(343, 62%, 26%);">Neuroscience</span>
+                
                 <span class="badge badge-category">Module</span>
                 <span class="badge badge-module">corticospinal_tract_axonopathy</span>
-                <span class="badge badge-count">10 disorders</span>
+                <span class="badge badge-count">13 disorders</span>
                 
                 <a class="badge badge-pathograph" href="#pathograph">Pathograph 5</a>
                 
@@ -1847,10 +1912,12 @@ This mechanism module involves decreased neuron projection maintenance (GO:19905
 
 THIS IS THE CNS COUNTERPART OF peripheral_axonal_degeneration, NOT A DUPLICATE OF IT. Both modules model length-dependent dying-back axonopathy, and the distinction is the compartment and the glial partner. peripheral_axonal_degeneration models the peripheral nerve - a lower motor or sensory neuron whose axon is myelinated by Schwann cells, producing distal weakness, sensory loss, and areflexia. This module models the central compartment - an upper motor neuron whose axon runs in the corticospinal tract and is myelinated by oligodendrocytes, producing spasticity, hyperreflexia, and extensor plantar responses. The signs are opposite at the bedside for the same underlying cell-biological failure. A disorder with both a central and a peripheral axonopathy (as many complicated HSPs have) conforms to both modules at different nodes; do not collapse the two arms onto one node.
 
-Key disorder-specific substitutions for the trigger node follow the functional categories of the SPG proteins: microtubule severing and axonal transport (SPG4/spastin, SPG10/KIF5A, SPG30/KIF1A); endoplasmic reticulum morphology (SPG3A/atlastin-1, SPG31/REEP1, SPG12/reticulon 2); mitochondrial function (SPG7/paraplegin, SPG13/HSPD1); endosomal membrane traffic and vesicle formation (the AP-4 complex disorders SPG47/SPG50/SPG51/SPG52, and SPG48/AP5Z1 of the AP-5 complex); protein folding and the ER stress response (SPG6/NIPA1, SPG8/strumpellin, SPG17/BSCL2); and fatty acid and phospholipid metabolism (SPG28/DDHD1, SPG35/FA2H, SPG54/DDHD2, SPG56/CYP2U1). Two further SPG categories are deliberately NOT modelled here because their primary lesion is elsewhere: myelin formation (SPG2/PLP1, SPG42/GJC2), which belongs to cns_myelin_failure, and corticospinal tract neurodevelopment (SPG1/L1CAM, SPG22/MCT8), which is a failure to build the tract rather than a failure to maintain it. A PLP1 or L1CAM disorder that also shows corticospinal degeneration may still conform at the degeneration node, but not at the trigger.
+Key disorder-specific substitutions for the trigger node follow the functional categories of the SPG proteins: microtubule severing and axonal transport (SPG4/spastin, SPG10/KIF5A, SPG30/KIF1A); endoplasmic reticulum morphology (SPG3A/atlastin-1, SPG31/REEP1, SPG12/reticulon 2); mitochondrial function (SPG7/paraplegin, SPG13/HSPD1); endosomal membrane traffic and vesicle formation (the AP-4 complex disorders SPG47/SPG50/SPG51/SPG52, and SPG48/AP5Z1 of the AP-5 complex); protein folding and the ER stress response (SPG6/NIPA1, SPG8/strumpellin, SPG17/BSCL2); and fatty acid and phospholipid metabolism (SPG28/DDHD1, SPG35/FA2H, SPG54/DDHD2, SPG56/CYP2U1). Two further SPG categories are deliberately NOT modelled here because their primary lesion is elsewhere: myelin formation (SPG2/PLP1, SPG44/GJC2), which belongs to cns_myelin_failure, and corticospinal tract neurodevelopment (SPG1/L1CAM, SPG22/MCT8), which is a failure to build the tract rather than a failure to maintain it. A PLP1 or L1CAM disorder that also shows corticospinal degeneration may still conform at the degeneration node, but not at the trigger.
 
 THE MODULE IS ABOUT MAINTENANCE, NOT DEVELOPMENT. The chain presupposes an anatomically formed corticospinal tract that subsequently degenerates. A disorder in which the tract never decussates or never forms does not conform, however severe its spasticity.</div>
         </div>
+        
+
         
 
         
@@ -1865,7 +1932,7 @@ THE MODULE IS ABOUT MAINTENANCE, NOT DEVELOPMENT. The chain presupposes an anato
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">↗</div>
                 <h2 class="card-title">Used By Disorder Entries</h2>
-                <span class="card-count">10</span>
+                <span class="card-count">13</span>
             </div>
             
             <div class="crosslink-list">
@@ -2011,6 +2078,41 @@ THE MODULE IS ABOUT MAINTENANCE, NOT DEVELOPMENT. The chain presupposes an anato
                 </div>
                 
                 <div class="crosslink-item">
+                    <a href="../disorders/Hereditary_Spastic_Paraplegia_3A.html">Hereditary Spastic Paraplegia 3A</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        ATL1 Variant Impairing the Atlastin-1 GTPase Cycle → Long-Axon Maintenance Machinery Defect
+                        
+                        
+                        , 
+                        
+                        Impaired Axonal ER Distribution, Organelle Transport and Axon Growth → Impaired Axonal Transport and Organelle Distribution
+                        
+                        
+                        , 
+                        
+                        Distal Length-Dependent Corticospinal Axon Degeneration → Distal Length-Dependent Degeneration of Long CNS Axons
+                        
+                        
+                        , 
+                        
+                        Loss of Supraspinal Inhibition of the Spinal Stretch Reflex → Loss of Supraspinal Inhibitory Control of the Stretch Reflex
+                        
+                        
+                        , 
+                        
+                        Progressive Lower-Limb Spasticity and Weakness
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
                     <a href="../disorders/Hereditary_Spastic_Paraplegia_48.html">Hereditary Spastic Paraplegia 48</a>
                     
                     <span class="crosslink-desc">
@@ -2054,6 +2156,46 @@ THE MODULE IS ABOUT MAINTENANCE, NOT DEVELOPMENT. The chain presupposes an anato
                         , 
                         
                         Progressive Spastic Ataxia → Progressive Lower-Limb Spasticity and Weakness
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Mitochondrial_Spastic_Paraplegia.html">Mitochondrial Spastic Paraplegia</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        Length-Dependent Degeneration of Corticospinal Axons → Distal Length-Dependent Degeneration of Long CNS Axons
+                        
+                        
+                    </span>
+                    
+                </div>
+                
+                <div class="crosslink-item">
+                    <a href="../disorders/Spastic_Paraplegia_90A,_Autosomal_Dominant.html">Spastic Paraplegia 90A, Autosomal Dominant</a>
+                    
+                    <span class="crosslink-desc">
+                        via
+                        
+                        
+                        
+                        SPTSSA Activating Missense Variant → Long-Axon Maintenance Machinery Defect
+                        
+                        
+                        , 
+                        
+                        Distal Degeneration of Long Corticospinal Axons → Distal Length-Dependent Degeneration of Long CNS Axons
+                        
+                        
+                        , 
+                        
+                        Loss of Supraspinal Inhibitory Control of the Stretch Reflex
                         
                         
                     </span>
@@ -2114,11 +2256,13 @@ THE MODULE IS ABOUT MAINTENANCE, NOT DEVELOPMENT. The chain presupposes an anato
             
             <div class="item-box anchor-target" id="module-pathophysiology-long-axon-maintenance-machinery-defect" data-dismech-node="Long-Axon Maintenance Machinery Defect" data-dismech-type="pathophysiology">
                 <div class="item-name">Long-Axon Maintenance Machinery Defect</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">A heritable lesion disables one of the cell-biological systems a very long axon depends on to stay supplied: microtubule severing and organisation, the tubular endoplasmic reticulum network that extends the length of the axon, mitochondrial quality control, endolysosomal and vesicular membrane traffic, or the lipid metabolism that maintains axonal membranes. None of these systems is specific to the corticospinal tract, and none is dispensable in shorter neurons; what makes the lesion selective is the downstream length-dependence, not the gene&#39;s expression pattern.</div>
                 
@@ -2288,6 +2432,13 @@ This pathophysiological event involves dysregulated mitochondrion organization (
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Hereditary_Spastic_Paraplegia_3A.html">Hereditary Spastic Paraplegia 3A</a>
+                            
+                            <span class="crosslink-desc">as ATL1 Variant Impairing the Atlastin-1 GTPase Cycle</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Hereditary_Spastic_Paraplegia_48.html">Hereditary Spastic Paraplegia 48</a>
                             
                             <span class="crosslink-desc">as AP5Z1/AP-5 Complex Deficiency</span>
@@ -2298,6 +2449,13 @@ This pathophysiological event involves dysregulated mitochondrion organization (
                             <a href="../disorders/Hereditary_Spastic_Paraplegia_7.html">Hereditary Spastic Paraplegia 7</a>
                             
                             <span class="crosslink-desc">as Paraplegin Loss and m-AAA Protease Deficiency</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Spastic_Paraplegia_90A,_Autosomal_Dominant.html">Spastic Paraplegia 90A, Autosomal Dominant</a>
+                            
+                            <span class="crosslink-desc">as SPTSSA Activating Missense Variant</span>
                             
                         </div>
                         
@@ -2324,11 +2482,13 @@ This pathophysiological event involves dysregulated mitochondrion organization (
             
             <div class="item-box anchor-target" id="module-pathophysiology-impaired-axonal-transport-and-organelle-distribution" data-dismech-node="Impaired Axonal Transport and Organelle Distribution" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Axonal Transport and Organelle Distribution</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">amplifier</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Cargo delivery along the axon fails. Because microtubules are the track on which axonal transport runs, and because the tubular ER and the mitochondrial population are themselves cargo that must be distributed along the axon, all of the trigger lesions converge here. The measurable consequence is reduced anterograde movement of mitochondria and membrane-bound organelles, and the morphological consequence is focal axonal swellings packed with cytoskeletal proteins, mitochondria, and amyloid precursor protein - seen both in mutant mice and in human HSP post-mortem material. The swellings are themselves amplifying: transport distal to a swelling is far worse than transport through an unaffected segment, so the lesion propagates down the axon.</div>
                 
@@ -2456,6 +2616,13 @@ This pathophysiological event involves axon (GO:0030424). GO:0030424 is a cellul
                     <div class="crosslink-list">
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Hereditary_Spastic_Paraplegia_3A.html">Hereditary Spastic Paraplegia 3A</a>
+                            
+                            <span class="crosslink-desc">as Impaired Axonal ER Distribution, Organelle Transport and Axon Growth</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Hereditary_Spastic_Paraplegia_7.html">Hereditary Spastic Paraplegia 7</a>
                             
                             <span class="crosslink-desc">as Impaired Axonal Mitochondrial Transport and Distal Synaptic Failure</span>
@@ -2485,11 +2652,13 @@ This pathophysiological event involves axon (GO:0030424). GO:0030424 is a cellul
             
             <div class="item-box anchor-target" id="module-pathophysiology-distal-length-dependent-degeneration-of-long-cns-axons" data-dismech-node="Distal Length-Dependent Degeneration of Long CNS Axons" data-dismech-type="pathophysiology">
                 <div class="item-name">Distal Length-Dependent Degeneration of Long CNS Axons</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">central effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The rate-limiting, disorder-agnostic convergence point of the module and its key conformance target. The distal ends of the longest central axons degenerate in a dying-back pattern. Post-mortem studies of HSP consistently find degeneration of corticospinal tract axons maximal in the thoracic spinal cord - the furthest point from the motor cortical cell bodies - together with degeneration of fasciculus gracilis fibres maximal in the cervico-medullary region, which is the furthest point from the dorsal root ganglion cell bodies of the ascending sensory arm. The two tracts are affected at opposite ends of the cord for the same reason: distance from the soma. Conforming entries should preserve this length-dependence explicitly rather than describing undifferentiated &#34;corticospinal degeneration&#34;.</div>
                 
@@ -2617,6 +2786,13 @@ This pathophysiological event involves decreased neuron projection maintenance (
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Hereditary_Spastic_Paraplegia_3A.html">Hereditary Spastic Paraplegia 3A</a>
+                            
+                            <span class="crosslink-desc">as Distal Length-Dependent Corticospinal Axon Degeneration</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Hereditary_Spastic_Paraplegia_48.html">Hereditary Spastic Paraplegia 48</a>
                             
                             <span class="crosslink-desc">as Corticospinal Axon Degeneration</span>
@@ -2627,6 +2803,20 @@ This pathophysiological event involves decreased neuron projection maintenance (
                             <a href="../disorders/Hereditary_Spastic_Paraplegia_7.html">Hereditary Spastic Paraplegia 7</a>
                             
                             <span class="crosslink-desc">as Corticospinal and Cerebellar Degeneration</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Mitochondrial_Spastic_Paraplegia.html">Mitochondrial Spastic Paraplegia</a>
+                            
+                            <span class="crosslink-desc">as Length-Dependent Degeneration of Corticospinal Axons</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Spastic_Paraplegia_90A,_Autosomal_Dominant.html">Spastic Paraplegia 90A, Autosomal Dominant</a>
+                            
+                            <span class="crosslink-desc">as Distal Degeneration of Long Corticospinal Axons</span>
                             
                         </div>
                         
@@ -2660,11 +2850,13 @@ This pathophysiological event involves decreased neuron projection maintenance (
             
             <div class="item-box anchor-target" id="module-pathophysiology-loss-of-supraspinal-inhibitory-control-of-the-stretch-reflex" data-dismech-node="Loss of Supraspinal Inhibitory Control of the Stretch Reflex" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Supraspinal Inhibitory Control of the Stretch Reflex</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Degeneration of the descending corticospinal axons disrupts the balance of supraspinal inhibitory and excitatory inputs converging on the spinal cord, leaving the stretch reflex disinhibited and producing the velocity-dependent hypertonia that defines spasticity. The release is not the whole story: plastic changes within the spinal cord - notably progressive reduction of post-activation depression with limb immobilization - and secondary soft tissue changes in the paretic limbs both add non-reflex hypertonia on top of the reflex component. This distinction between reflex-mediated and intrinsic hypertonia is why physiotherapy and limb mobilization are curated as treatments in conforming entries alongside antispastic pharmacotherapy.</div>
                 
@@ -2706,6 +2898,25 @@ This pathophysiological event involves spinal motor neuron, annotated with motor
                 
 
                 
+                <div class="crosslink-block">
+                    <div class="crosslink-title">Used by disorders</div>
+                    <div class="crosslink-list">
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Hereditary_Spastic_Paraplegia_3A.html">Hereditary Spastic Paraplegia 3A</a>
+                            
+                            <span class="crosslink-desc">as Loss of Supraspinal Inhibition of the Spinal Stretch Reflex</span>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
+                            <a href="../disorders/Spastic_Paraplegia_90A,_Autosomal_Dominant.html">Spastic Paraplegia 90A, Autosomal Dominant</a>
+                            
+                        </div>
+                        
+                    </div>
+                </div>
+                
 
                 
                 <div class="crosslink-block">
@@ -2726,11 +2937,13 @@ This pathophysiological event involves spinal motor neuron, annotated with motor
             
             <div class="item-box anchor-target" id="module-pathophysiology-progressive-lower-limb-spasticity-and-weakness" data-dismech-node="Progressive Lower-Limb Spasticity and Weakness" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Lower-Limb Spasticity and Weakness</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The clinical endpoint of the module: a spastic paraparesis in which lower extremity weakness and spasticity predominate. Symptoms may begin at any age, and tempo depends on age at onset - gait impairment beginning after childhood usually worsens very slowly over many years, whereas impairment beginning in infancy and early childhood may not worsen significantly. In pure HSP this is the whole phenotype; in complicated HSP it is accompanied by the additional features the disorder-specific SPG protein produces outside the corticospinal tract, which conforming entries curate on their own nodes rather than here.</div>
                 
@@ -2759,6 +2972,11 @@ This pathophysiological event involves spinal motor neuron, annotated with motor
                         </div>
                         
                         <div class="crosslink-item">
+                            <a href="../disorders/Hereditary_Spastic_Paraplegia_3A.html">Hereditary Spastic Paraplegia 3A</a>
+                            
+                        </div>
+                        
+                        <div class="crosslink-item">
                             <a href="../disorders/Hereditary_Spastic_Paraplegia_7.html">Hereditary Spastic Paraplegia 7</a>
                             
                             <span class="crosslink-desc">as Progressive Spastic Ataxia</span>
@@ -2773,6 +2991,9 @@ This pathophysiological event involves spinal motor neuron, annotated with motor
             </div>
             
         </div>
+        
+
+        
         
 
         <footer class="page-footer">

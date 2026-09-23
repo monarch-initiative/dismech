@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2954,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2969,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3078,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3091,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3295,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3305,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3341,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3362,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3675,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4088,6 +4181,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4111,6 +4206,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4132,6 +4229,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4240,6 +4339,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4324,6 +4425,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4460,6 +4563,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-germline-sdhx-first-hit-inactivation" data-dismech-node="Germline SDHx First-Hit Inactivation" data-dismech-type="pathophysiology">
                 <div class="item-name">Germline SDHx First-Hit Inactivation</div>
 
+
                 <div class="item-desc">A heterozygous loss-of-function variant in a succinate dehydrogenase subunit gene is present constitutionally. SDHC and SDHD encode the membrane anchors that hold the SDHA/SDHB catalytic core in the inner mitochondrial membrane, so loss of any of the four subunits compromises the same enzyme. The identification of these genes extended tumor predisposition beyond the previously known VHL, NF1 and RET loci to the mitochondrion itself.</div>
 
 
@@ -4557,6 +4661,8 @@ This genetic context concerns SDHB (hgnc:10681). hgnc:10681 is a gene from the H
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4575,6 +4681,9 @@ This genetic context concerns SDHB (hgnc:10681). hgnc:10681 is a gene from the H
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Constitutional heterozygous inactivating variant in a succinate dehydrogenase subunit gene; SDHB is given as the exemplar because it carries the highest metastatic risk, but SDHA, SDHC, SDHD and SDHAF2 variants act through the same enzyme.</div>
 
@@ -4623,6 +4732,8 @@ This genetic context concerns SDHB (hgnc:10681). hgnc:10681 is a gene from the H
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4644,6 +4755,8 @@ This genetic context concerns SDHB (hgnc:10681). hgnc:10681 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4669,6 +4782,8 @@ This genetic context concerns SDHB (hgnc:10681). hgnc:10681 is a gene from the H
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4691,6 +4806,7 @@ This genetic context concerns SDHB (hgnc:10681). hgnc:10681 is a gene from the H
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-sdhx-loss-and-succinate-dehydrogenase-deficiency" data-dismech-node="Biallelic SDHx Loss and Succinate Dehydrogenase Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic SDHx Loss and Succinate Dehydrogenase Deficiency</div>
+
 
                 <div class="item-desc">In a chromaffin or paraganglionic cell that has inactivated the retained wild-type allele, succinate dehydrogenase activity is lost. This is the handover point from the inherited-predisposition mechanism to the oncometabolite mechanism: the heterozygous carrier cell is not succinate-loaded, and only the biallelic cell reaches the concentrations at which succinate acts as a signalling molecule.</div>
 
@@ -4744,6 +4860,8 @@ This genetic context concerns SDHB (hgnc:10681). hgnc:10681 is a gene from the H
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE_AND_SOMATIC</span>
 
 
@@ -4760,6 +4878,9 @@ This genetic context concerns SDHB (hgnc:10681). hgnc:10681 is a gene from the H
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Combined inherited and acquired inactivation leaving the tumor cell without functional succinate dehydrogenase.</div>
 
@@ -4846,6 +4967,8 @@ This pathophysiological event involves succinate dehydrogenase (quinone) activit
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4867,6 +4990,8 @@ This pathophysiological event involves succinate dehydrogenase (quinone) activit
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4892,6 +5017,8 @@ This pathophysiological event involves succinate dehydrogenase (quinone) activit
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4914,6 +5041,7 @@ This pathophysiological event involves succinate dehydrogenase (quinone) activit
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-succinate-accumulation" data-dismech-node="Succinate Accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Succinate Accumulation</div>
+
 
                 <div class="item-desc">Succinate builds up as a direct result of succinate dehydrogenase inhibition and moves from the mitochondrion to the cytosol, where it is available to act on 2-oxoglutarate-dependent enzymes. This mitochondrion-to-cytosol step is what converts a metabolic lesion into a signalling lesion.</div>
 
@@ -5004,6 +5132,8 @@ This pathophysiological event involves decreased tricarboxylic acid cycle (GO:00
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5026,6 +5156,7 @@ This pathophysiological event involves decreased tricarboxylic acid cycle (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-succinate-mediated-dioxygenase-inhibition" data-dismech-node="Succinate-Mediated Dioxygenase Inhibition" data-dismech-type="pathophysiology">
                 <div class="item-name">Succinate-Mediated Dioxygenase Inhibition</div>
+
 
                 <div class="item-desc">Accumulated succinate inhibits 2-oxoglutarate-dependent dioxygenases, including the HIF prolyl hydroxylases and the histone and DNA demethylases. Because inhibition is at the shared cofactor site it is not selective for one target, which is why a single enzyme deficiency produces simultaneous pseudohypoxic and epigenetic phenotypes in these tumors.</div>
 
@@ -5164,6 +5295,8 @@ This pathophysiological event involves decreased 2-oxoglutarate-dependent dioxyg
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5186,6 +5319,7 @@ This pathophysiological event involves decreased 2-oxoglutarate-dependent dioxyg
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pseudohypoxic-hif-stabilization-in-sdh-deficient-cells" data-dismech-node="Pseudohypoxic HIF Stabilization in SDH-Deficient Cells" data-dismech-type="pathophysiology">
                 <div class="item-name">Pseudohypoxic HIF Stabilization in SDH-Deficient Cells</div>
+
 
                 <div class="item-desc">HIF-alpha escapes VHL-dependent degradation and drives the hypoxia transcriptional programme despite adequate oxygen. This is the mechanistic explanation for the striking vascularity of paraganglioma and pheochromocytoma arising without any VHL mutation, and the point at which SDHx disease converges phenotypically on von Hippel-Lindau disease from the opposite direction.</div>
 
@@ -5276,6 +5410,8 @@ This pathophysiological event involves increased cellular response to decreased 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5298,6 +5434,7 @@ This pathophysiological event involves increased cellular response to decreased 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hypermethylator-phenotype-and-neuroendocrine-differentiation-block" data-dismech-node="Hypermethylator Phenotype and Neuroendocrine Differentiation Block" data-dismech-type="pathophysiology">
                 <div class="item-name">Hypermethylator Phenotype and Neuroendocrine Differentiation Block</div>
+
 
                 <div class="item-desc">Methylome analysis of a large paraganglioma cohort resolves three stable clusters, and SDHx-mutated tumors form a distinct hypermethylator group in which the genes specifying neuroendocrine differentiation are downregulated. The severity of silencing is genotype-dependent and clinically consequential: it is most marked in SDHB-mutated tumors, which are also the most malignant, which is the strongest available argument that the epigenetic branch — not the pseudohypoxic one — is what determines behaviour.</div>
 
@@ -5422,6 +5559,8 @@ This pathophysiological event involves decreased demethylation (GO:0070988). GO:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5443,6 +5582,8 @@ This pathophysiological event involves decreased demethylation (GO:0070988). GO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5467,6 +5608,7 @@ This pathophysiological event involves decreased demethylation (GO:0070988). GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-paraganglioma-and-pheochromocytoma-development" data-dismech-node="Paraganglioma and Pheochromocytoma Development" data-dismech-type="pathophysiology">
                 <div class="item-name">Paraganglioma and Pheochromocytoma Development</div>
+
 
                 <div class="item-desc">The clinical output: parasympathetic paragangliomas of the head and neck — most characteristically of the carotid body, an oxygen-sensing chemoreceptive organ whose normal physiology also depends on the affected complex — and sympathetic paraganglioma and adrenal pheochromocytoma with catecholamine excess. Tumors are frequently multiple and may be bilateral, and present earlier than their sporadic counterparts. Anatomical distribution and metastatic risk are genotype-dependent, with SDHB carrying the highest risk of malignant behaviour.</div>
 
@@ -5504,6 +5646,8 @@ This pathophysiological event involves decreased demethylation (GO:0070988). GO:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5525,6 +5669,8 @@ This pathophysiological event involves decreased demethylation (GO:0070988). GO:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5593,9 +5739,9 @@ This pathophysiological event involves decreased demethylation (GO:0070988). GO:
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Endocrine<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Endocrine<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Other<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Neoplasm<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5636,6 +5782,9 @@ This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5650,6 +5799,8 @@ This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5673,6 +5824,8 @@ This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5704,7 +5857,7 @@ This clinical feature is Hypertension (HP:0000822). HP:0000822 is a phenotype fr
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Endocrine
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-pheochromocytoma" data-dismech-node="Pheochromocytoma" data-dismech-type="phenotype">
@@ -5735,6 +5888,9 @@ This clinical feature is Pheochromocytoma (HP:0002666). HP:0002666 is a phenotyp
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5749,6 +5905,8 @@ This clinical feature is Pheochromocytoma (HP:0002666). HP:0002666 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5773,15 +5931,6 @@ This clinical feature is Pheochromocytoma (HP:0002666). HP:0002666 is a phenotyp
 
 
                 </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-3">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">3</span>
-                </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-paraganglioma" data-dismech-node="Paraganglioma" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -5811,6 +5960,9 @@ This clinical feature is Paraganglioma (HP:0002668). HP:0002668 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5825,6 +5977,8 @@ This clinical feature is Paraganglioma (HP:0002668). HP:0002668 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5848,6 +6002,8 @@ This clinical feature is Paraganglioma (HP:0002668). HP:0002668 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5903,6 +6059,9 @@ This clinical feature is Paraganglioma of head and neck (HP:0002864). HP:0002864
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5917,6 +6076,8 @@ This clinical feature is Paraganglioma of head and neck (HP:0002864). HP:0002864
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5942,6 +6103,8 @@ This clinical feature is Paraganglioma of head and neck (HP:0002864). HP:0002864
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5964,6 +6127,15 @@ This clinical feature is Paraganglioma of head and neck (HP:0002864). HP:0002864
 
 
                 </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Neoplasm
+                    <span class="cat-count">1</span>
+                </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-additional-tumor-spectrum" data-dismech-node="Additional Tumor Spectrum" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -5995,6 +6167,9 @@ This clinical feature is Neoplasm by anatomical site (HP:0011793). HP:0011793 is
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6009,6 +6184,8 @@ This clinical feature is Neoplasm by anatomical site (HP:0011793). HP:0011793 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6106,6 +6283,9 @@ This disease-associated gene is SDHD (hgnc:10683). hgnc:10683 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6120,6 +6300,8 @@ This disease-associated gene is SDHD (hgnc:10683). hgnc:10683 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6176,6 +6358,9 @@ This disease-associated gene is SDHB (hgnc:10681). hgnc:10681 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6190,6 +6375,8 @@ This disease-associated gene is SDHB (hgnc:10681). hgnc:10681 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6246,6 +6433,9 @@ This disease-associated gene is SDHC (hgnc:10682). hgnc:10682 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6260,6 +6450,8 @@ This disease-associated gene is SDHC (hgnc:10682). hgnc:10682 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6316,6 +6508,9 @@ This disease-associated gene is SDHA (hgnc:10680). hgnc:10680 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6330,6 +6525,8 @@ This disease-associated gene is SDHA (hgnc:10680). hgnc:10680 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6386,6 +6583,9 @@ This disease-associated gene is SDHAF2 (hgnc:26034). hgnc:26034 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6400,6 +6600,8 @@ This disease-associated gene is SDHAF2 (hgnc:26034). hgnc:26034 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6456,6 +6658,9 @@ This disease-associated gene is MAX (hgnc:6913). hgnc:6913 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6470,6 +6675,8 @@ This disease-associated gene is MAX (hgnc:6913). hgnc:6913 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6526,6 +6733,9 @@ This disease-associated gene is TMEM127 (hgnc:26038). hgnc:26038 is a gene from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6540,6 +6750,8 @@ This disease-associated gene is TMEM127 (hgnc:26038). hgnc:26038 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6621,6 +6833,31 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">The sequencing here is the safety-critical part of managing a secretory lesion: alpha-adrenergic receptor blockade precedes surgery, because operating on an unblocked catecholamine-secreting tumor risks intraoperative hypertensive crisis. GeneReviews also requires that every head and neck paraganglioma be assessed for catecholamine excess before resection even though ~95% are nonsecretory — a positive result signals a second, secretory primary elsewhere.</div>
 
 
@@ -6662,6 +6899,8 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6683,6 +6922,8 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6745,6 +6986,31 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Management is stratified by gene rather than uniform. SDHB-related tumors go to resection because of their metastatic risk, while most head and neck paragangliomas — typically nonsecretory and indolent — may reasonably be observed or irradiated instead. This is the clinical expression of the genotype-severity gradient this entry curates on the epigenetic branch.</div>
 
 
@@ -6786,6 +7052,8 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6807,6 +7075,8 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6869,6 +7139,31 @@ This treatment is Magnetic Resonance Imaging (NCIT:C16809). NCIT:C16809 is a cli
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Device</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Because independent second hits keep occurring across paraganglial tissue, surveillance is lifelong and combines biochemistry with whole-body imaging. The starting age is gene-dependent, which is why cascade testing precedes surveillance planning.</div>
 
 
@@ -6910,6 +7205,8 @@ This treatment is Magnetic Resonance Imaging (NCIT:C16809). NCIT:C16809 is a cli
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6931,6 +7228,8 @@ This treatment is Magnetic Resonance Imaging (NCIT:C16809). NCIT:C16809 is a cli
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6993,6 +7292,31 @@ This treatment is Behavioral Counseling (NCIT:C181743). NCIT:C181743 is a clinic
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">An agents-and-circumstances-to-avoid recommendation with a mechanistic rationale specific to this syndrome: the tumors arise through a pseudohypoxic lesion, so genuine hypoxia is a plausible accelerant. GeneReviews is explicit that the supporting data are extremely limited, and this entry does not curate it as established.</div>
 
 
@@ -7014,6 +7338,8 @@ This treatment is Behavioral Counseling (NCIT:C181743). NCIT:C181743 is a clinic
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7043,6 +7369,452 @@ This treatment is Behavioral Counseling (NCIT:C181743). NCIT:C181743 is a clinic
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">4</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-clinical-features-prompting-hereditary-pgl-pcc-evaluation">
+                <div class="item-name">
+                    Clinical Features Prompting Hereditary PGL/PCC Evaluation
+
+                </div>
+
+                <div class="item-desc">The features that raise suspicion are precisely those the two-hit mechanism predicts — multiplicity, multifocality, recurrence and early onset — plus family history. A single late-onset sporadic-looking tumor is the situation in which the syndrome is missed.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        Clinical Evaluation
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C124351" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-26">NCIT:C124351</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-26">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Multiple, multifocal, recurrent or early-onset disease, or a positive family history, should trigger germline testing.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301715" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301715" target="_blank">PMID:20301715</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A diagnosis of a hereditary PGL/PCC syndrome is strongly suspected in an individual with multiple, multifocal, recurrent, or early-onset paraganglioma or pheochromocytoma and/or a family history of paraganglioma or pheochromocytoma."</div>
+
+
+                <div class="evidence-explanation">GeneReviews Diagnosis/Testing section, giving the clinical selection criteria — which are the clinical signature of the germline two-hit mechanism this entry conforms to.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-germline-molecular-genetic-testing-of-the-pgl-pcc-gene-panel">
+                <div class="item-name">
+                    Germline Molecular Genetic Testing of the PGL/PCC Gene Panel
+
+                </div>
+
+                <div class="item-desc">The diagnosis is established by a germline heterozygous pathogenic variant in one of seven genes. Panel rather than single-gene testing is the norm because the genes are clinically overlapping but differ in metastatic risk, surveillance start age and parent-of-origin behaviour.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        Genetic Testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15709" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-27">NCIT:C15709</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-27">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> A germline heterozygous pathogenic variant in MAX, SDHA, SDHAF2, SDHB, SDHC, SDHD or TMEM127 establishes the diagnosis and sets the gene-specific surveillance plan.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301715" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301715" target="_blank">PMID:20301715</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The diagnosis is established in a proband with a personal or family history of paraganglioma or pheochromocytoma and a germline heterozygous pathogenic variant in MAX, SDHA, SDHAF2, SDHB, SDHC, SDHD, or TMEM127 identified by molecular genetic testing."</div>
+
+
+                <div class="evidence-explanation">GeneReviews Diagnosis/Testing section, naming the confirmatory test and the full gene set that establishes the diagnosis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-predictive-testing-of-first-degree-relatives">
+                <div class="item-name">
+                    Predictive Testing of First-Degree Relatives
+
+                </div>
+
+                <div class="item-desc">Cascade testing both identifies relatives who need lifelong surveillance and releases those who do not from it — a meaningful de-escalation given that surveillance here means biennial whole-body MRI for life.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        Genetic Testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15709" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-28">NCIT:C15709</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-28">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Clarifies which first-degree relatives require gene-specific surveillance.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301715" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301715" target="_blank">PMID:20301715</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"First-degree relatives of an individual with a hereditary PGL/PCC syndrome and a known MAX, SDHA, SDHAF2, SDHB, SDHC, SDHD, or TMEM127 pathogenic variant should be offered molecular genetic testing to clarify their genetic status to improve diagnostic certainty and reduce the need for costly..."</div>
+
+
+                <div class="evidence-explanation">GeneReviews Evaluation of Relatives at Risk, giving both purposes of cascade testing.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-sdhb-immunohistochemistry-as-a-triage-test-for-germline-sdhx-testing">
+                <div class="item-name">
+                    SDHB Immunohistochemistry as a Triage Test for Germline SDHx Testing
+
+                </div>
+
+                <div class="item-desc">SDHB protein is destabilized when any complex II subunit is lost, so loss of SDHB staining reports the whole SDHx arm rather than SDHB alone. Because the second hit removes the wild-type allele in tumor tissue, the tumor itself reports the germline state, and a negative or weak-diffuse stain triages which patients need panel sequencing. It does not replace germline testing.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        Immunohistochemistry Staining Method
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C23020" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-29">NCIT:C23020</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Absent or weak-diffuse cytoplasmic SDHB staining, read against an internal positive control, selects tumors for germline SDHx sequencing; granular cytoplasmic positivity argues against an SDHx cause.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20236688" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20236688" target="_blank">PMID:20236688</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"All 12 SDH mutated tumors (6 SDHB, 5 SDHD, and 1 SDHC) showed weak diffuse or negative staining."</div>
+
+
+                <div class="evidence-explanation">Establishes that loss of SDHB staining detects germline variants in SDHB, SDHC and SDHD alike, which is what makes one stain a triage test for the whole arm rather than a test for one gene.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20236688" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20236688" target="_blank">PMID:20236688</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"As SDH mutations are virtually always germline, we conclude that approximately 15% of all pheochromocytomas or paragangliomas are associated with germline SDH mutation and that immunohistochemistry can be used to triage genetic testing."</div>
+
+
+                <div class="evidence-explanation">States the triage conclusion and its premise — that an SDHx lesion found in tumor tissue is effectively always constitutional, which is the first-hit architecture this entry curates.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20236688" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20236688" target="_blank">PMID:20236688</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Completely absent staining is more commonly found with SDHB mutation, whereas weak diffuse staining often occurs with SDHD mutation."</div>
+
+
+                <div class="evidence-explanation">A genotype-staining tendency, not a rule: it is curated as PARTIAL because the study reports it as a trend across 12 mutated tumors and it cannot be used to assign a gene without sequencing.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -7085,11 +7857,11 @@ This treatment is Behavioral Counseling (NCIT:C181743). NCIT:C181743 is a clinic
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002668" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002668</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002668" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0002668</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets Paraganglioma (HP:0002668). HP:0002668 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7102,11 +7874,11 @@ This clinical trial targets Paraganglioma (HP:0002668). HP:0002668 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002666" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0002666</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002666" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0002666</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets Pheochromocytoma (HP:0002666). HP:0002666 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7129,6 +7901,8 @@ This clinical trial targets Pheochromocytoma (HP:0002666). HP:0002666 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8278,7 +9052,7 @@ diagnosis:
       first-hit architecture this entry curates.
   - reference: PMID:20236688
     reference_title: Immunohistochemistry for SDHB triages genetic testing of SDHB, SDHC, and SDHD in paraganglioma-pheochromocytoma syndromes.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Completely absent staining is more commonly found with SDHB mutation,
@@ -8355,7 +9129,7 @@ clinical_trials:
       label: Pheochromocytoma
   evidence:
   - reference: clinicaltrials:NCT00188019
-    reference_title: Evaluation of screening methods for hereditary paraganglioma in genetically predisposed subjects
+    reference_title: &#34;Evaluation Des méthodes de dépistage du Paragangliome héréditaire Chez Les Sujets prédisposés génétiquement&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -8457,7 +9231,7 @@ clinical_trials:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Hereditary Pheochromocytoma-Paraganglioma Syndrome", "mondoId": "MONDO:0017366", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hereditary_Pheochromocytoma-Paraganglioma_Syndrome", "yamlRevision": "6f0f9febf754"};
+        const OS_CONFIG = {"diseaseName": "Hereditary Pheochromocytoma-Paraganglioma Syndrome", "mondoId": "MONDO:0017366", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Hereditary_Pheochromocytoma-Paraganglioma_Syndrome", "yamlRevision": "03176cdeccd0"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

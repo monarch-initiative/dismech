@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2954,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2969,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3078,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3091,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3295,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3305,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3341,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3362,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3675,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4070,6 +4163,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"Chemotherapy-induced nausea and vomiting (CINV) are classified as acute, occurring within the first 24h, or delayed, occurring after the first 24h."</div>
@@ -4127,6 +4222,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4188,6 +4285,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"The different types of CINV (ie, acute, delayed, anticipatory, breakthrough, and refractory) are controlled through various pathways and neurotransmitters, so the pharmacologic approach to prevention and treatment varies based on the type of CINV."</div>
@@ -4230,6 +4329,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-serotonin-release-from-enterochromaffin-cells" data-dismech-node="Serotonin Release from Enterochromaffin Cells" data-dismech-type="pathophysiology">
                 <div class="item-name">Serotonin Release from Enterochromaffin Cells</div>
+
 
                 <div class="item-desc">Chemotherapy induces the release of serotonin (5-HT) from enterochromaffin cells in the small intestinal mucosa. This serotonin activates 5-HT3 receptors on vagal afferent neurons innervating the gastrointestinal tract, initiating the emetic reflex. This is the primary mechanism driving acute CINV.</div>
 
@@ -4354,6 +4454,8 @@ This pathophysiological event involves increased Serotonin secretion (GO:0001820
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"Evidence suggests that chemotherapy induces the release of 5-HT from enterochromaffin cells in the small intestine."</div>
@@ -4373,6 +4475,8 @@ This pathophysiological event involves increased Serotonin secretion (GO:0001820
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4395,6 +4499,7 @@ This pathophysiological event involves increased Serotonin secretion (GO:0001820
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-vagal-afferent-5-ht3-receptor-activation" data-dismech-node="Vagal Afferent 5-HT3 Receptor Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Vagal Afferent 5-HT3 Receptor Activation</div>
+
 
                 <div class="item-desc">Serotonin released by enterochromaffin cells activates 5-HT3 receptors on vagal afferent neurons innervating the gastrointestinal tract. Signals are relayed via the vagus nerve to the central vomiting system, initiating the emetic reflex.</div>
 
@@ -4515,6 +4620,8 @@ This pathophysiological event involves Chemical synaptic transmission (GO:000726
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"Ondansetron, a potent and highly selective 5-HT3 receptor antagonist, prevents emesis following chemotherapy by antagonising the action of 5-hydroxytryptamine (5-HT) at 5-HT3 receptors on vagal afferent neurons that innervate the gastrointestinal tract and 5-HT3 receptors in the central vomiting system."</div>
@@ -4535,6 +4642,7 @@ This pathophysiological event involves Chemical synaptic transmission (GO:000726
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-central-emetic-signaling-via-area-postrema" data-dismech-node="Central Emetic Signaling via Area Postrema" data-dismech-type="pathophysiology">
                 <div class="item-name">Central Emetic Signaling via Area Postrema</div>
+
 
                 <div class="item-desc">The area postrema (chemoreceptor trigger zone) in the hindbrain contains 5-HT3 receptors, providing a second central site for emetic activation. This area lies outside the blood-brain barrier and integrates peripheral and central emetic inputs.</div>
 
@@ -4621,6 +4729,8 @@ This pathophysiological event involves Signal transduction (GO:0007165). GO:0007
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"5-HT3 receptors are also found in the hind-brain vomiting system including the area postrema (the site of the chemoreceptor trigger zone for emesis). Therefore, following chemotherapy, 5-HT activates 5-HT3 receptors at 2 sites to induce emesis."</div>
@@ -4641,6 +4751,7 @@ This pathophysiological event involves Signal transduction (GO:0007165). GO:0007
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-substance-p-nk1-receptor-signaling" data-dismech-node="Substance P/NK1 Receptor Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Substance P/NK1 Receptor Signaling</div>
+
 
                 <div class="item-desc">Substance P acting on neurokinin-1 (NK1) receptors contributes to the emetic response, particularly in delayed CINV. This pathway is distinct from the serotonin-mediated acute phase and is targeted by NK1 receptor antagonists such as aprepitant.</div>
 
@@ -4678,6 +4789,8 @@ This pathophysiological event involves Signal transduction (GO:0007165). GO:0007
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"The development of acute emesis is known to depend on serotonin. The pathophysiology of delayed emesis is less well understood, and multiple mechanisms may contribute, including substance P."</div>
@@ -4697,6 +4810,8 @@ This pathophysiological event involves Signal transduction (GO:0007165). GO:0007
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4806,6 +4921,9 @@ This clinical feature is Nausea (HP:0002018). HP:0002018 is a phenotype from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4820,6 +4938,8 @@ This clinical feature is Nausea (HP:0002018). HP:0002018 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4873,6 +4993,9 @@ This clinical feature is Vomiting (HP:0002013). HP:0002013 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4887,6 +5010,8 @@ This clinical feature is Vomiting (HP:0002013). HP:0002013 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4944,6 +5069,9 @@ This clinical feature is Poor appetite (HP:0004396). HP:0004396 is a phenotype f
 
 
 
+
+
+
                 </div>
 
             </details>
@@ -4980,6 +5108,9 @@ This clinical feature is Dehydration (HP:0001944). HP:0001944 is a phenotype fro
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5080,6 +5211,20 @@ This treatment is 5-HT3 receptor antagonist therapy, annotated with Pharmacother
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">First-line antiemetics (ondansetron, granisetron, palonosetron) that block serotonin action at 5-HT3 receptors on vagal afferents and in the area postrema. Highly effective for acute CINV prevention, typically co-administered with dexamethasone and NK1 antagonists for highly emetogenic chemotherapy.</div>
 
 
@@ -5103,6 +5248,8 @@ This treatment is 5-HT3 receptor antagonist therapy, annotated with Pharmacother
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"Ondansetron, a potent and highly selective 5-HT3 receptor antagonist, prevents emesis following chemotherapy by antagonising the action of 5-hydroxytryptamine (5-HT) at 5-HT3 receptors on vagal afferent neurons that innervate the gastrointestinal tract and 5-HT3 receptors in the central vomiting system."</div>
@@ -5122,6 +5269,8 @@ This treatment is 5-HT3 receptor antagonist therapy, annotated with Pharmacother
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5183,6 +5332,20 @@ This treatment is NK1 receptor antagonist therapy, annotated with Pharmacotherap
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Aprepitant, fosaprepitant, and netupitant block substance P binding to neurokinin-1 receptors, providing benefit particularly for delayed CINV. Used in combination with 5-HT3 antagonists and corticosteroids.</div>
 
 
@@ -5206,6 +5369,8 @@ This treatment is NK1 receptor antagonist therapy, annotated with Pharmacotherap
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"Despite seemingly numerous options, such as antimuscarinic anticholinergics, antihistamines, 5-HT3 receptor antagonists, dopamine receptor antagonists, and neurokinin-1 receptor antagonists, preventative therapies are often inadequately effective, particularly for &#34;delayed CINV&#34;-leaving an..."</div>
@@ -5225,6 +5390,8 @@ This treatment is NK1 receptor antagonist therapy, annotated with Pharmacotherap
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5286,6 +5453,20 @@ This treatment is corticosteroid therapy, annotated with Systemic Corticosteroid
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Dexamethasone is a key component of antiemetic regimens, providing synergistic benefit when combined with 5-HT3 and NK1 antagonists. Effective for both acute and delayed CINV.</div>
 
 
@@ -5307,6 +5488,8 @@ This treatment is corticosteroid therapy, annotated with Systemic Corticosteroid
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5368,6 +5551,20 @@ This treatment is cannabinoid antiemetic therapy, annotated with Pharmacotherapy
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Synthetic cannabinoid receptor agonists (nabilone, dronabinol) are approved for treatment of CINV. Nabilone is superior to placebo and prochlorperazine but does not add benefit beyond 5-HT3 receptor antagonists. These agents offer a useful additional option particularly when standard antiemetics are inadequate, though side effects including euphoria, drowsiness, and dizziness are more frequent than with conventional antiemetics.</div>
 
 
@@ -5391,6 +5588,8 @@ This treatment is cannabinoid antiemetic therapy, annotated with Pharmacotherapy
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"Cannabinoid receptor agonists, by virtue of their unique mechanism of action and efficacy and safety data reported in clinical trials, appear to offer a useful additional option."</div>
@@ -5412,6 +5611,8 @@ This treatment is cannabinoid antiemetic therapy, annotated with Pharmacotherapy
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"The mechanistic value of cannabinoids has been well known for many years, but these agents may have been underutilized in the past because of the notoriety and legal status of marijuana."</div>
@@ -5431,6 +5632,8 @@ This treatment is cannabinoid antiemetic therapy, annotated with Pharmacotherapy
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5460,6 +5663,33 @@ This treatment is cannabinoid antiemetic therapy, annotated with Pharmacotherapy
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -6099,6 +6329,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6167,6 +6399,8 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6239,6 +6473,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6307,6 +6543,8 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6379,6 +6617,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6447,6 +6687,8 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6519,6 +6761,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6589,6 +6833,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6623,6 +6869,8 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

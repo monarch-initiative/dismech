@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2954,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2969,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3078,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3091,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3295,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3305,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3341,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3362,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3675,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4216,6 +4309,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4237,6 +4332,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4643,6 +4740,13 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dpm-synthase-complex-destabilization" data-dismech-node="DPM Synthase Complex Destabilization" data-dismech-type="pathophysiology">
                 <div class="item-name">DPM Synthase Complex Destabilization</div>
 
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
+
                 <div class="item-desc">DPM synthase is a heterotrimer of DPM1 (the catalytic subunit), DPM2 (a regulatory subunit that stabilizes DPM1 and enhances dolichol-phosphate binding) and DPM3 (which tethers DPM1 to the ER membrane). Biallelic DPM2 variants — missense alleles in either transmembrane region, a nonsense allele, or a canonical splice-acceptor allele — reduce or functionally impair DPM2, destabilizing the complex. In patient fibroblasts carrying a nonsense/missense genotype, DPM2 fell to roughly 60% of control and DPM1 protein became undetectable, showing that loss of the regulatory subunit also collapses the catalytic subunit.</div>
 
 
@@ -4849,6 +4953,8 @@ This pathophysiological event occurs in endoplasmic reticulum membrane (GO:00057
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4870,6 +4976,8 @@ This pathophysiological event occurs in endoplasmic reticulum membrane (GO:00057
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4895,6 +5003,8 @@ This pathophysiological event occurs in endoplasmic reticulum membrane (GO:00057
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4917,6 +5027,13 @@ This pathophysiological event occurs in endoplasmic reticulum membrane (GO:00057
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dolichol-phosphate-mannose-depletion" data-dismech-node="Dolichol-Phosphate-Mannose Depletion" data-dismech-type="pathophysiology">
                 <div class="item-name">Dolichol-Phosphate-Mannose Depletion</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The destabilized complex synthesizes less dolichol-phosphate-mannose from GDP-mannose and dolichol phosphate. Dol-P-Man is flipped to the luminal face of the endoplasmic reticulum, where it serves as the sole mannosyl donor for four glycosylation pathways: lipid-linked oligosaccharide (N-glycan precursor) mannosylation, protein O-mannosylation, protein C-mannosylation, and GPI-anchor mannosylation. Depletion of this single shared donor is therefore the branch point that produces the disorder&#39;s combined CDG-plus-dystroglycanopathy phenotype.</div>
 
@@ -5000,6 +5117,8 @@ This pathophysiological event occurs in endoplasmic reticulum membrane (GO:00057
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5021,6 +5140,8 @@ This pathophysiological event occurs in endoplasmic reticulum membrane (GO:00057
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5046,6 +5167,8 @@ This pathophysiological event occurs in endoplasmic reticulum membrane (GO:00057
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5068,6 +5191,13 @@ This pathophysiological event occurs in endoplasmic reticulum membrane (GO:00057
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-er-lipid-linked-oligosaccharide-assembly-arrest" data-dismech-node="ER Lipid-Linked Oligosaccharide Assembly Arrest" data-dismech-type="pathophysiology">
                 <div class="item-name">ER Lipid-Linked Oligosaccharide Assembly Arrest</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Without sufficient Dol-P-Man, the luminal mannosylation steps of lipid-linked oligosaccharide assembly stall. Patient fibroblasts accumulate the truncated intermediate Dol-PP-GlcNAc2-Man5 — precisely the species expected when the biosynthetic block lies at the first Dol-P-Man-dependent mannosyltransferase step — and truncated precursors are transferred to nascent protein, producing the type I CDG biochemical pattern on serum transferrin isoelectric focusing.</div>
 
@@ -5224,6 +5354,8 @@ This pathophysiological event involves decreased protein N-linked glycosylation 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5245,6 +5377,8 @@ This pathophysiological event involves decreased protein N-linked glycosylation 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5269,6 +5403,13 @@ This pathophysiological event involves decreased protein N-linked glycosylation 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-alpha-dystroglycan-hypo-o-mannosylation" data-dismech-node="Alpha-Dystroglycan Hypo-O-Mannosylation" data-dismech-type="pathophysiology">
                 <div class="item-name">Alpha-Dystroglycan Hypo-O-Mannosylation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The POMT1/POMT2 O-mannosyltransferases use Dol-P-Man to initiate the O-mannosyl glycan on alpha-dystroglycan. Dol-P-Man depletion therefore truncates this glycan, so alpha-dystroglycan cannot be extended into its laminin-binding matriglycan. Muscle immunohistochemistry in DPM2-CDG patients showed deficient O-mannosylation, making DPM2-CDG a secondary dystroglycanopathy — the same arm demonstrated directly in the sister disorder DPM3-CDG.</div>
 
@@ -5391,6 +5532,8 @@ This pathophysiological event involves decreased protein O-linked glycosylation 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5412,6 +5555,8 @@ This pathophysiological event involves decreased protein O-linked glycosylation 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5437,6 +5582,8 @@ This pathophysiological event involves decreased protein O-linked glycosylation 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5459,6 +5606,13 @@ This pathophysiological event involves decreased protein O-linked glycosylation 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-gpi-anchor-biosynthesis-impairment" data-dismech-node="GPI-Anchor Biosynthesis Impairment" data-dismech-type="pathophysiology">
                 <div class="item-name">GPI-Anchor Biosynthesis Impairment</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Provisional</span>
+
+                </div>
+
 
                 <div class="item-desc">GPI-anchor assembly requires Dol-P-Man-dependent mannosylation steps, so Dol-P-Man depletion is expected to impair GPI-anchor biosynthesis in DPM2-CDG. This arm is inferred from DPM synthase biochemistry rather than demonstrated with patient GPI-anchored-protein data; the supporting patient observations are indirect (a lipidomic shift in patient fibroblasts, and congenital heart defects of a type seen across GPI-anchor disorders). It is recorded as provisional for that reason.</div>
 
@@ -5571,14 +5725,16 @@ This pathophysiological event involves decreased GPI anchor biosynthetic process
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:33129689" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:33129689" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33129689" target="_blank">PMID:33129689</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5594,14 +5750,16 @@ This pathophysiological event involves decreased GPI anchor biosynthetic process
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:33129689" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:33129689" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33129689" target="_blank">PMID:33129689</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5627,6 +5785,8 @@ This pathophysiological event involves decreased GPI anchor biosynthetic process
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5649,6 +5809,13 @@ This pathophysiological event involves decreased GPI anchor biosynthetic process
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-protein-hypoglycosylation" data-dismech-node="Protein Hypoglycosylation" data-dismech-type="pathophysiology">
                 <div class="item-name">Protein Hypoglycosylation</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Transfer of truncated precursors leaves many secreted and membrane client glycoproteins under-glycosylated. In DPM2-CDG this is detected clinically as a CDG type I transferrin isoelectric focusing pattern, and experimentally as reduced ICAM1, a general hypoglycosylation reporter, in cells expressing a pathogenic DPM2 allele.</div>
 
@@ -5801,6 +5968,8 @@ This pathophysiological event involves decreased protein N-linked glycosylation 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5823,6 +5992,13 @@ This pathophysiological event involves decreased protein N-linked glycosylation 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sarcolemmal-laminin-anchorage-failure" data-dismech-node="Sarcolemmal Laminin Anchorage Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Sarcolemmal Laminin Anchorage Failure</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Hypoglycosylated alpha-dystroglycan loses its laminin-binding capacity, so the dystrophin-glycoprotein complex can no longer transmit force between the myofibre cytoskeleton and the basal lamina. The sarcolemma becomes mechanically fragile, myofibres degenerate with each contraction cycle, and creatine kinase leaks into serum — the congenital muscular dystrophy component of the disorder.</div>
 
@@ -5907,6 +6083,8 @@ This pathophysiological event involves Skeletal muscle fiber (CL:0008002). CL:00
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5928,6 +6106,8 @@ This pathophysiological event involves Skeletal muscle fiber (CL:0008002). CL:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5952,6 +6132,13 @@ This pathophysiological event involves Skeletal muscle fiber (CL:0008002). CL:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-multisystem-glycoprotein-dysfunction" data-dismech-node="Multisystem Glycoprotein Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Multisystem Glycoprotein Dysfunction</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Combined N-glycan, O-mannosyl and (inferred) GPI-anchor defects converge on a multisystem disease. In the severe form this is a neonatal neuromuscular-plus-epileptic encephalopathy with hypotonia, absent psychomotor development, intractable seizures, progressive microcephaly, liver involvement and coagulation abnormality, fatal between 7 months and 3 years. In the milder form the same lesion yields intellectual disability, myopathy with hyperCKemia, congenital heart defects and peripheral nerve involvement compatible with survival into adulthood.</div>
 
@@ -6083,6 +6270,8 @@ This pathophysiological event involves Hepatocyte (CL:0000182). CL:0000182 is a 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6104,6 +6293,8 @@ This pathophysiological event involves Hepatocyte (CL:0000182). CL:0000182 is a 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6151,7 +6342,7 @@ This pathophysiological event involves Hepatocyte (CL:0000182). CL:0000182 is a 
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Achilles Tendon Contracture\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive equinus/tiptoe gait requiring Achilles tendon lengthening surgery in the younger Chinese sibling.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001771\"}}, {\"id\": \"Alpha-Dystroglycan Hypo-O-Mannosylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The POMT1/POMT2 O-mannosyltransferases use Dol-P-Man to initiate the O-mannosyl glycan on alpha-dystroglycan. Dol-P-Man depletion therefore truncates this glycan, so alpha-dystroglycan cannot be extended into its laminin-binding matriglycan. Muscle immunohistochemistry in DPM2-CDG patients showed deficient O-mannosylation, making DPM2-CDG a secondary dystroglycanopathy \\u2014 the same arm demonstrated directly in the sister disorder DPM3-CDG.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Skeletal muscle fiber\"], \"biological_processes\": [\"protein O-linked glycosylation via mannose\"]}}, {\"id\": \"Antiseizure Pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Seizures in the severe form are intractable. In the pooled CDG early-onset epileptic encephalopathy series that included DPM2-CDG patients, seizures became recurrent and drug-resistant despite antiepileptic treatment.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"DPM Synthase Complex Destabilization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"DPM synthase is a heterotrimer of DPM1 (the catalytic subunit), DPM2 (a regulatory subunit that stabilizes DPM1 and enhances dolichol-phosphate binding) and DPM3 (which tethers DPM1 to the ER membrane). Biallelic DPM2 variants \\u2014 missense alleles in either transmembrane region, a nonsense allele, or a canonical splice-acceptor allele \\u2014 reduce or functionally impair DPM2, destabilizing the complex. In patient fibroblasts carrying a nonsense/missense genotype, DPM2 fell to roughly 60% of control and DPM1 protein became undetectable, showing that loss of the regulatory subunit also collapses the catalytic subunit.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Fibroblast\"], \"molecular_functions\": [\"dolichyl-phosphate beta-D-mannosyltransferase activity\"], \"genes\": [\"DPM2\"], \"gene_terms\": [{\"label\": \"DPM2\", \"id\": \"hgnc:3006\"}], \"role\": \"trigger\", \"locations\": [\"endoplasmic reticulum membrane\"]}}, {\"id\": \"DPM2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"DPM2\"], \"gene_terms\": [{\"label\": \"DPM2\", \"id\": \"hgnc:3006\"}], \"frequency\": \"All reported patients (biallelic in every case)\", \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 5}}, {\"id\": \"Dolichol-Phosphate-Mannose Depletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The destabilized complex synthesizes less dolichol-phosphate-mannose from GDP-mannose and dolichol phosphate. Dol-P-Man is flipped to the luminal face of the endoplasmic reticulum, where it serves as the sole mannosyl donor for four glycosylation pathways: lipid-linked oligosaccharide (N-glycan precursor) mannosylation, protein O-mannosylation, protein C-mannosylation, and GPI-anchor mannosylation. Depletion of this single shared donor is therefore the branch point that produces the disorder\u0027s combined CDG-plus-dystroglycanopathy phenotype.\", \"meta\": {\"evidence_count\": 3, \"locations\": [\"endoplasmic reticulum membrane\"]}}, {\"id\": \"ER Lipid-Linked Oligosaccharide Assembly Arrest\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Without sufficient Dol-P-Man, the luminal mannosylation steps of lipid-linked oligosaccharide assembly stall. Patient fibroblasts accumulate the truncated intermediate Dol-PP-GlcNAc2-Man5 \\u2014 precisely the species expected when the biosynthetic block lies at the first Dol-P-Man-dependent mannosyltransferase step \\u2014 and truncated precursors are transferred to nascent protein, producing the type I CDG biochemical pattern on serum transferrin isoelectric focusing.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Fibroblast\"], \"biological_processes\": [\"dolichol-linked oligosaccharide biosynthetic process\", \"protein N-linked glycosylation\"]}}, {\"id\": \"GPI-Anchor Biosynthesis Impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GPI-anchor assembly requires Dol-P-Man-dependent mannosylation steps, so Dol-P-Man depletion is expected to impair GPI-anchor biosynthesis in DPM2-CDG. This arm is inferred from DPM synthase biochemistry rather than demonstrated with patient GPI-anchored-protein data; the supporting patient observations are indirect (a lipidomic shift in patient fibroblasts, and congenital heart defects of a type seen across GPI-anchor disorders). It is recorded as provisional for that reason.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Fibroblast\"], \"biological_processes\": [\"GPI anchor biosynthetic process\"]}}, {\"id\": \"Intractable Epilepsy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Drug-resistant seizures are the defining neurological feature of the severe form and give the disorder its Orphanet name. Onset is early; semiology in the CDG early-onset epileptic encephalopathy series included myoclonic, clonic and focal seizures at onset, evolving to tonic-clonic seizures, infantile spasms and myoclonic seizures.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001250\"}}, {\"id\": \"Multisystem Glycoprotein Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Combined N-glycan, O-mannosyl and (inferred) GPI-anchor defects converge on a multisystem disease. In the severe form this is a neonatal neuromuscular-plus-epileptic encephalopathy with hypotonia, absent psychomotor development, intractable seizures, progressive microcephaly, liver involvement and coagulation abnormality, fatal between 7 months and 3 years. In the milder form the same lesion yields intellectual disability, myopathy with hyperCKemia, congenital heart defects and peripheral nerve involvement compatible with survival into adulthood.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Neuron\", \"Skeletal muscle fiber\", \"Hepatocyte\"]}}, {\"id\": \"NM_003863.4:c.139C\u003eT (p.Arg47Ter)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Nonsense allele carried in trans with p.Gly58Asp in the adult (fourth-reported) patient. Neither allele had been reported previously; patient fibroblasts showed DPM2 expression at about 60% of control with no quantifiable DPM1 protein, so the pair behaves as a hypomorphic rather than a complete-null genotype - consistent with that patient\u0027s milder-than-infantile course.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"DPM2\"], \"gene_terms\": [{\"label\": \"DPM2\", \"id\": \"hgnc:3006\"}], \"variant_type\": \"NONSENSE_VARIANT\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"NM_003863.4:c.173G\u003eA (p.Gly58Asp)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Missense allele in trans with the p.Arg47Ter nonsense allele in the adult (fourth-reported) patient, predicted deleterious by multiple in-silico algorithms.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"DPM2\"], \"gene_terms\": [{\"label\": \"DPM2\", \"id\": \"hgnc:3006\"}], \"variant_type\": \"MISSENSE_VARIANT\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"NM_003863.4:c.197G\u003eA (p.Gly66Glu)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Homozygous missense allele in the second domain region, found in two Chinese siblings with the mild phenotype. Functional testing showed increased DPM2 protein but reduced ICAM1 glycosylation, indicating impaired function rather than reduced abundance.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"DPM2\"], \"gene_terms\": [{\"label\": \"DPM2\", \"id\": \"hgnc:3006\"}], \"variant_type\": \"MISSENSE_VARIANT\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"NM_003863.4:c.4-1G\u003eC\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Canonical splice-acceptor variant found in compound heterozygosity with p.Tyr23Cys in the first reported family.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"DPM2\"], \"gene_terms\": [{\"label\": \"DPM2\", \"id\": \"hgnc:3006\"}], \"variant_type\": \"SPLICE_SITE_VARIANT\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"NM_003863.4:c.68A\u003eG (p.Tyr23Cys)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Recurrent missense allele in the first transmembrane region, found homozygously in one Italian family and in compound heterozygosity with the c.4-1G\u003eC splice allele in another. Associated with the severe, infantile-lethal phenotype.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"DPM2\"], \"gene_terms\": [{\"label\": \"DPM2\", \"id\": \"hgnc:3006\"}], \"variant_type\": \"MISSENSE_VARIANT\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Orthopedic Surgical Correction\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Achilles tendon lengthening was performed for equinus contracture in one patient, after which walking posture improved.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Protein Hypoglycosylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Transfer of truncated precursors leaves many secreted and membrane client glycoproteins under-glycosylated. In DPM2-CDG this is detected clinically as a CDG type I transferrin isoelectric focusing pattern, and experimentally as reduced ICAM1, a general hypoglycosylation reporter, in cells expressing a pathogenic DPM2 allele.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Hepatocyte\", \"Fibroblast\"], \"biological_processes\": [\"protein N-linked glycosylation\"]}}, {\"id\": \"Sarcolemmal Laminin Anchorage Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hypoglycosylated alpha-dystroglycan loses its laminin-binding capacity, so the dystrophin-glycoprotein complex can no longer transmit force between the myofibre cytoskeleton and the basal lamina. The sarcolemma becomes mechanically fragile, myofibres degenerate with each contraction cycle, and creatine kinase leaks into serum \\u2014 the congenital muscular dystrophy component of the disorder.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Skeletal muscle fiber\"]}}], \"edges\": [{\"source\": \"DPM Synthase Complex Destabilization\", \"target\": \"Dolichol-Phosphate-Mannose Depletion\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dolichol-Phosphate-Mannose Depletion\", \"target\": \"ER Lipid-Linked Oligosaccharide Assembly Arrest\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dolichol-Phosphate-Mannose Depletion\", \"target\": \"Alpha-Dystroglycan Hypo-O-Mannosylation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dolichol-Phosphate-Mannose Depletion\", \"target\": \"GPI-Anchor Biosynthesis Impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"ER Lipid-Linked Oligosaccharide Assembly Arrest\", \"target\": \"Protein Hypoglycosylation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Alpha-Dystroglycan Hypo-O-Mannosylation\", \"target\": \"Sarcolemmal Laminin Anchorage Failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"GPI-Anchor Biosynthesis Impairment\", \"target\": \"Multisystem Glycoprotein Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Protein Hypoglycosylation\", \"target\": \"Multisystem Glycoprotein Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Sarcolemmal Laminin Anchorage Failure\", \"target\": \"Multisystem Glycoprotein Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Antiseizure Pharmacotherapy\", \"target\": \"Intractable Epilepsy\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Orthopedic Surgical Correction\", \"target\": \"Achilles Tendon Contracture\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"DPM2\", \"target\": \"DPM Synthase Complex Destabilization\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NM_003863.4:c.68A\u003eG (p.Tyr23Cys)\", \"target\": \"DPM2\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"NM_003863.4:c.4-1G\u003eC\", \"target\": \"DPM2\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"NM_003863.4:c.197G\u003eA (p.Gly66Glu)\", \"target\": \"DPM2\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"NM_003863.4:c.139C\u003eT (p.Arg47Ter)\", \"target\": \"DPM2\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"NM_003863.4:c.173G\u003eA (p.Gly58Asp)\", \"target\": \"DPM2\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Achilles Tendon Contracture\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive equinus/tiptoe gait requiring Achilles tendon lengthening surgery in the younger Chinese sibling.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0001771\"}}, {\"id\": \"Alpha-Dystroglycan Hypo-O-Mannosylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The POMT1/POMT2 O-mannosyltransferases use Dol-P-Man to initiate the O-mannosyl glycan on alpha-dystroglycan. Dol-P-Man depletion therefore truncates this glycan, so alpha-dystroglycan cannot be extended into its laminin-binding matriglycan. Muscle immunohistochemistry in DPM2-CDG patients showed deficient O-mannosylation, making DPM2-CDG a secondary dystroglycanopathy \\u2014 the same arm demonstrated directly in the sister disorder DPM3-CDG.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Skeletal muscle fiber\"], \"biological_processes\": [\"protein O-linked glycosylation via mannose\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Antiseizure Pharmacotherapy\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Seizures in the severe form are intractable. In the pooled CDG early-onset epileptic encephalopathy series that included DPM2-CDG patients, seizures became recurrent and drug-resistant despite antiepileptic treatment.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"DPM Synthase Complex Destabilization\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"DPM synthase is a heterotrimer of DPM1 (the catalytic subunit), DPM2 (a regulatory subunit that stabilizes DPM1 and enhances dolichol-phosphate binding) and DPM3 (which tethers DPM1 to the ER membrane). Biallelic DPM2 variants \\u2014 missense alleles in either transmembrane region, a nonsense allele, or a canonical splice-acceptor allele \\u2014 reduce or functionally impair DPM2, destabilizing the complex. In patient fibroblasts carrying a nonsense/missense genotype, DPM2 fell to roughly 60% of control and DPM1 protein became undetectable, showing that loss of the regulatory subunit also collapses the catalytic subunit.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Fibroblast\"], \"molecular_functions\": [\"dolichyl-phosphate beta-D-mannosyltransferase activity\"], \"genes\": [\"DPM2\"], \"gene_terms\": [{\"label\": \"DPM2\", \"id\": \"hgnc:3006\"}], \"role\": \"trigger\", \"locations\": [\"endoplasmic reticulum membrane\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"DPM2\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"DPM2\"], \"gene_terms\": [{\"label\": \"DPM2\", \"id\": \"hgnc:3006\"}], \"frequency\": \"All reported patients (biallelic in every case)\", \"presence\": \"PRESENT\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\", \"variant_count\": 5}}, {\"id\": \"Dolichol-Phosphate-Mannose Depletion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The destabilized complex synthesizes less dolichol-phosphate-mannose from GDP-mannose and dolichol phosphate. Dol-P-Man is flipped to the luminal face of the endoplasmic reticulum, where it serves as the sole mannosyl donor for four glycosylation pathways: lipid-linked oligosaccharide (N-glycan precursor) mannosylation, protein O-mannosylation, protein C-mannosylation, and GPI-anchor mannosylation. Depletion of this single shared donor is therefore the branch point that produces the disorder\u0027s combined CDG-plus-dystroglycanopathy phenotype.\", \"meta\": {\"evidence_count\": 3, \"locations\": [\"endoplasmic reticulum membrane\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"ER Lipid-Linked Oligosaccharide Assembly Arrest\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Without sufficient Dol-P-Man, the luminal mannosylation steps of lipid-linked oligosaccharide assembly stall. Patient fibroblasts accumulate the truncated intermediate Dol-PP-GlcNAc2-Man5 \\u2014 precisely the species expected when the biosynthetic block lies at the first Dol-P-Man-dependent mannosyltransferase step \\u2014 and truncated precursors are transferred to nascent protein, producing the type I CDG biochemical pattern on serum transferrin isoelectric focusing.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Fibroblast\"], \"biological_processes\": [\"dolichol-linked oligosaccharide biosynthetic process\", \"protein N-linked glycosylation\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"GPI-Anchor Biosynthesis Impairment\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"GPI-anchor assembly requires Dol-P-Man-dependent mannosylation steps, so Dol-P-Man depletion is expected to impair GPI-anchor biosynthesis in DPM2-CDG. This arm is inferred from DPM synthase biochemistry rather than demonstrated with patient GPI-anchored-protein data; the supporting patient observations are indirect (a lipidomic shift in patient fibroblasts, and congenital heart defects of a type seen across GPI-anchor disorders). It is recorded as provisional for that reason.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Fibroblast\"], \"biological_processes\": [\"GPI anchor biosynthetic process\"], \"mechanism_confidence\": \"PROVISIONAL\"}}, {\"id\": \"Intractable Epilepsy\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Drug-resistant seizures are the defining neurological feature of the severe form and give the disorder its Orphanet name. Onset is early; semiology in the CDG early-onset epileptic encephalopathy series included myoclonic, clonic and focal seizures at onset, evolving to tonic-clonic seizures, infantile spasms and myoclonic seizures.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0001250\"}}, {\"id\": \"Multisystem Glycoprotein Dysfunction\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Combined N-glycan, O-mannosyl and (inferred) GPI-anchor defects converge on a multisystem disease. In the severe form this is a neonatal neuromuscular-plus-epileptic encephalopathy with hypotonia, absent psychomotor development, intractable seizures, progressive microcephaly, liver involvement and coagulation abnormality, fatal between 7 months and 3 years. In the milder form the same lesion yields intellectual disability, myopathy with hyperCKemia, congenital heart defects and peripheral nerve involvement compatible with survival into adulthood.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Neuron\", \"Skeletal muscle fiber\", \"Hepatocyte\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"NM_003863.4:c.139C\u003eT (p.Arg47Ter)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Nonsense allele carried in trans with p.Gly58Asp in the adult (fourth-reported) patient. Neither allele had been reported previously; patient fibroblasts showed DPM2 expression at about 60% of control with no quantifiable DPM1 protein, so the pair behaves as a hypomorphic rather than a complete-null genotype - consistent with that patient\u0027s milder-than-infantile course.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"DPM2\"], \"gene_terms\": [{\"label\": \"DPM2\", \"id\": \"hgnc:3006\"}], \"variant_type\": \"NONSENSE_VARIANT\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"NM_003863.4:c.173G\u003eA (p.Gly58Asp)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Missense allele in trans with the p.Arg47Ter nonsense allele in the adult (fourth-reported) patient, predicted deleterious by multiple in-silico algorithms.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"DPM2\"], \"gene_terms\": [{\"label\": \"DPM2\", \"id\": \"hgnc:3006\"}], \"variant_type\": \"MISSENSE_VARIANT\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"NM_003863.4:c.197G\u003eA (p.Gly66Glu)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Homozygous missense allele in the second domain region, found in two Chinese siblings with the mild phenotype. Functional testing showed increased DPM2 protein but reduced ICAM1 glycosylation, indicating impaired function rather than reduced abundance.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"DPM2\"], \"gene_terms\": [{\"label\": \"DPM2\", \"id\": \"hgnc:3006\"}], \"variant_type\": \"MISSENSE_VARIANT\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"NM_003863.4:c.4-1G\u003eC\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Canonical splice-acceptor variant found in compound heterozygosity with p.Tyr23Cys in the first reported family.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"DPM2\"], \"gene_terms\": [{\"label\": \"DPM2\", \"id\": \"hgnc:3006\"}], \"variant_type\": \"SPLICE_SITE_VARIANT\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"NM_003863.4:c.68A\u003eG (p.Tyr23Cys)\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Recurrent missense allele in the first transmembrane region, found homozygously in one Italian family and in compound heterozygosity with the c.4-1G\u003eC splice allele in another. Associated with the severe, infantile-lethal phenotype.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"DPM2\"], \"gene_terms\": [{\"label\": \"DPM2\", \"id\": \"hgnc:3006\"}], \"variant_type\": \"MISSENSE_VARIANT\", \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Orthopedic Surgical Correction\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Achilles tendon lengthening was performed for equinus contracture in one patient, after which walking posture improved.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Protein Hypoglycosylation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Transfer of truncated precursors leaves many secreted and membrane client glycoproteins under-glycosylated. In DPM2-CDG this is detected clinically as a CDG type I transferrin isoelectric focusing pattern, and experimentally as reduced ICAM1, a general hypoglycosylation reporter, in cells expressing a pathogenic DPM2 allele.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Hepatocyte\", \"Fibroblast\"], \"biological_processes\": [\"protein N-linked glycosylation\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Sarcolemmal Laminin Anchorage Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hypoglycosylated alpha-dystroglycan loses its laminin-binding capacity, so the dystrophin-glycoprotein complex can no longer transmit force between the myofibre cytoskeleton and the basal lamina. The sarcolemma becomes mechanically fragile, myofibres degenerate with each contraction cycle, and creatine kinase leaks into serum \\u2014 the congenital muscular dystrophy component of the disorder.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"Skeletal muscle fiber\"], \"mechanism_confidence\": \"ESTABLISHED\"}}], \"edges\": [{\"source\": \"DPM Synthase Complex Destabilization\", \"target\": \"Dolichol-Phosphate-Mannose Depletion\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dolichol-Phosphate-Mannose Depletion\", \"target\": \"ER Lipid-Linked Oligosaccharide Assembly Arrest\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dolichol-Phosphate-Mannose Depletion\", \"target\": \"Alpha-Dystroglycan Hypo-O-Mannosylation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Dolichol-Phosphate-Mannose Depletion\", \"target\": \"GPI-Anchor Biosynthesis Impairment\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"ER Lipid-Linked Oligosaccharide Assembly Arrest\", \"target\": \"Protein Hypoglycosylation\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Alpha-Dystroglycan Hypo-O-Mannosylation\", \"target\": \"Sarcolemmal Laminin Anchorage Failure\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"GPI-Anchor Biosynthesis Impairment\", \"target\": \"Multisystem Glycoprotein Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Protein Hypoglycosylation\", \"target\": \"Multisystem Glycoprotein Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Sarcolemmal Laminin Anchorage Failure\", \"target\": \"Multisystem Glycoprotein Dysfunction\", \"predicate\": \"causes\", \"is_orphan\": false}, {\"source\": \"Antiseizure Pharmacotherapy\", \"target\": \"Intractable Epilepsy\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Orthopedic Surgical Correction\", \"target\": \"Achilles Tendon Contracture\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"DPM2\", \"target\": \"DPM Synthase Complex Destabilization\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"NM_003863.4:c.68A\u003eG (p.Tyr23Cys)\", \"target\": \"DPM2\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"NM_003863.4:c.4-1G\u003eC\", \"target\": \"DPM2\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"NM_003863.4:c.197G\u003eA (p.Gly66Glu)\", \"target\": \"DPM2\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"NM_003863.4:c.139C\u003eT (p.Arg47Ter)\", \"target\": \"DPM2\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"NM_003863.4:c.173G\u003eA (p.Gly58Asp)\", \"target\": \"DPM2\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6174,23 +6365,23 @@ This pathophysiological event involves Hepatocyte (CL:0000182). CL:0000182 is a 
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Cardiovascular<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Digestive<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Digestive<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Eye<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Eye<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Head and Neck<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Head and Neck<span class="pill-count">(2)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-6">Immune<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Metabolism<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-7">Limbs<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Musculoskeletal<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-8">Metabolism<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Nervous System<span class="pill-count">(10)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-9">Musculoskeletal<span class="pill-count">(6)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-10">Constitutional<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-10">Nervous System<span class="pill-count">(10)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-11">Other<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-11">Constitutional<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6233,6 +6424,9 @@ This clinical feature is Abnormality of coagulation (HP:0001928). HP:0001928 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6247,6 +6441,8 @@ This clinical feature is Abnormality of coagulation (HP:0001928). HP:0001928 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6309,6 +6505,9 @@ This clinical feature is Bicuspid aortic valve (HP:0001647). HP:0001647 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6323,6 +6522,8 @@ This clinical feature is Bicuspid aortic valve (HP:0001647). HP:0001647 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6346,6 +6547,8 @@ This clinical feature is Bicuspid aortic valve (HP:0001647). HP:0001647 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6399,6 +6602,9 @@ This clinical feature is Aortic valve stenosis (HP:0001650). HP:0001650 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6413,6 +6619,8 @@ This clinical feature is Aortic valve stenosis (HP:0001650). HP:0001650 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6444,8 +6652,82 @@ This clinical feature is Aortic valve stenosis (HP:0001650). HP:0001650 is a phe
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Digestive
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-liver-involvement" data-dismech-node="Liver Involvement" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Liver Involvement
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Abnormality of the liver</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001392" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001392</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Abnormality of the liver (HP:0001392). HP:0001392 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33129689" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33129689" target="_blank">PMID:33129689</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"All three patients included in the report had a severe clinical presentation characterized by hypotonia, progressive muscle weakness and wasting, absent psychomotor development, intractable seizures, liver involvement, abnormal coagulation factors and early mortality (between 7 months and 3..."</div>
+
+
+                <div class="evidence-explanation">Liver involvement in the severe cohort.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-hepatomegaly" data-dismech-node="Hepatomegaly" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -6461,15 +6743,18 @@ This clinical feature is Aortic valve stenosis (HP:0001650). HP:0001650 is a phe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002240" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002240</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002240" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0002240</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6489,6 +6774,8 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6528,15 +6815,18 @@ This clinical feature is Hepatomegaly (HP:0002240). HP:0002240 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0011968</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011968" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0011968</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6556,6 +6846,8 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6587,7 +6879,7 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Eye
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-strabismus" data-dismech-node="Strabismus" data-dismech-type="phenotype">
@@ -6604,15 +6896,18 @@ This clinical feature is Feeding difficulties (HP:0011968). HP:0011968 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000486" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000486</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000486" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000486</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6632,6 +6927,8 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6671,15 +6968,18 @@ This clinical feature is Strabismus (HP:0000486). HP:0000486 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000648" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000648</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000648" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000648</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6699,6 +6999,8 @@ This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6724,14 +7026,178 @@ This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype f
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-absent-visual-tracking" data-dismech-node="Absent Visual Tracking" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Absent Visual Tracking
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Absent smooth pursuit</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007179" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0007179</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Absent visual tracking, annotated with Absent smooth pursuit (HP:0007179). HP:0007179 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37152991" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37152991" target="_blank">PMID:37152991</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Ophthalmological Strabismus No Optic atrophy No visual tracking and strabismus No visual tracking"</div>
+
+
+                <div class="evidence-explanation">Table 1 ophthalmological row; the P4 and P5 columns both record no visual tracking. No frequency band is asserted for the same reason as the optic atrophy item.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
 
             <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-progressive-microcephaly" data-dismech-node="Progressive Microcephaly" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Progressive Microcephaly
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000253" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0000253</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Progressive microcephaly (HP:0000253), qualified as course progressive. HP:0000253 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Course: PROGRESSIVE</span>
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23109149" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23109149" target="_blank">PMID:23109149</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We searched for the primary defect in 3 children from 2 families with a severe neurological phenotype, including profound developmental delay, intractable epilepsy, progressive microcephaly, severe hypotonia with elevated blood creatine kinase levels, and early fatal outcome."</div>
+
+
+                <div class="evidence-explanation">Progressive microcephaly is explicitly part of the index phenotype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-dysmorphic-features" data-dismech-node="Dysmorphic Features" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -6751,15 +7217,18 @@ This clinical feature is Optic atrophy (HP:0000648). HP:0000648 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001999</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0001999</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6779,6 +7248,8 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6804,6 +7275,8 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6817,14 +7290,16 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:33129689" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:33129689" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33129689" target="_blank">PMID:33129689</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6873,10 +7348,10 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002719" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0002719</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002719" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0002719</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Recurrent infections (HP:0002719), qualified as temporality recurrent. HP:0002719 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6905,6 +7380,9 @@ This clinical feature is Recurrent infections (HP:0002719), qualified as tempora
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6919,6 +7397,8 @@ This clinical feature is Recurrent infections (HP:0002719), qualified as tempora
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6949,6 +7429,87 @@ This clinical feature is Recurrent infections (HP:0002719), qualified as tempora
             <details class="phenotype-category-group" id="pheno-cat-7">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Limbs
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-achilles-tendon-contracture" data-dismech-node="Achilles Tendon Contracture" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Achilles Tendon Contracture
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001771" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001771</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Achilles tendon contracture (HP:0001771). HP:0001771 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37152991" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37152991" target="_blank">PMID:37152991</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"She had undergone Achilles tendon lengthening procedure."</div>
+
+
+                <div class="evidence-explanation">Documents the contracture requiring orthopedic surgical correction.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-8">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Metabolism
                     <span class="cat-count">2</span>
                 </summary>
@@ -6966,20 +7527,23 @@ This clinical feature is Recurrent infections (HP:0002719), qualified as tempora
 
                     <span class="phenotype-id">
 
-                        <span class="phenotype-term-label">Elevated circulating creatine kinase concentration</span>
+                        <span class="phenotype-term-label">Elevated circulating creatine kinase activity</span>
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003236" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0003236</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003236" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0003236</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Elevated circulating creatine kinase concentration (HP:0003236). HP:0003236 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Elevated circulating creatine kinase activity (HP:0003236). HP:0003236 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6999,6 +7563,8 @@ This clinical feature is Elevated circulating creatine kinase concentration (HP:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7022,6 +7588,8 @@ This clinical feature is Elevated circulating creatine kinase concentration (HP:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7063,15 +7631,18 @@ This clinical feature is Elevated circulating creatine kinase concentration (HP:
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002910" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0002910</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002910" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0002910</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Elevated circulating hepatic transaminase concentration (HP:0002910). HP:0002910 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7091,6 +7662,8 @@ This clinical feature is Elevated circulating hepatic transaminase concentration
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7118,11 +7691,11 @@ This clinical feature is Elevated circulating hepatic transaminase concentration
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-8">
+            <details class="phenotype-category-group" id="pheno-cat-9">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Musculoskeletal
-                    <span class="cat-count">5</span>
+                    <span class="cat-count">6</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-congenital-muscular-dystrophy" data-dismech-node="Congenital Muscular Dystrophy" data-dismech-type="phenotype">
@@ -7139,15 +7712,18 @@ This clinical feature is Elevated circulating hepatic transaminase concentration
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003560" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0003560</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003560" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0003560</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Muscular dystrophy (HP:0003560). HP:0003560 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7167,6 +7743,8 @@ This clinical feature is Muscular dystrophy (HP:0003560). HP:0003560 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7206,15 +7784,18 @@ This clinical feature is Muscular dystrophy (HP:0003560). HP:0003560 is a phenot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001290" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001290</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001290" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0001290</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Generalized hypotonia (HP:0001290). HP:0001290 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7234,6 +7815,8 @@ This clinical feature is Generalized hypotonia (HP:0001290). HP:0001290 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7273,15 +7856,18 @@ This clinical feature is Generalized hypotonia (HP:0001290). HP:0001290 is a phe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001276" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0001276</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001276" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0001276</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypertonia (HP:0001276). HP:0001276 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7301,6 +7887,8 @@ This clinical feature is Hypertonia (HP:0001276). HP:0001276 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7324,6 +7912,8 @@ This clinical feature is Hypertonia (HP:0001276). HP:0001276 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7363,15 +7953,18 @@ This clinical feature is Hypertonia (HP:0001276). HP:0001276 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003202" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0003202</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003202" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0003202</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Skeletal muscle atrophy (HP:0003202). HP:0003202 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7393,6 +7986,8 @@ This clinical feature is Skeletal muscle atrophy (HP:0003202). HP:0003202 is a p
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7401,6 +7996,80 @@ This clinical feature is Skeletal muscle atrophy (HP:0003202). HP:0003202 is a p
 
 
                 <div class="evidence-explanation">Generalized muscle wasting in the adult DPM2-CDG patient.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-congenital-joint-contractures" data-dismech-node="Congenital Joint Contractures" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Congenital Joint Contractures
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Congenital contracture</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002803" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0002803</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Congenital contracture (HP:0002803). HP:0002803 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37152991" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37152991" target="_blank">PMID:37152991</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Congenital contractures of the joints and scoliosis"</div>
+
+
+                <div class="evidence-explanation">Table 1 skeletal row for the two severe-form patients (P4, P5).</div>
 
 
 
@@ -7430,15 +8099,18 @@ This clinical feature is Skeletal muscle atrophy (HP:0003202). HP:0003202 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0002650</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002650" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0002650</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7458,6 +8130,8 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7485,7 +8159,7 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-9">
+            <details class="phenotype-category-group" id="pheno-cat-10">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
@@ -7508,10 +8182,10 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0001250</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Seizure (HP:0001250), qualified as temporality recurrent. HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -7540,6 +8214,9 @@ This clinical feature is Seizure (HP:0001250), qualified as temporality recurren
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7554,6 +8231,8 @@ This clinical feature is Seizure (HP:0001250), qualified as temporality recurren
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7577,6 +8256,8 @@ This clinical feature is Seizure (HP:0001250), qualified as temporality recurren
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7616,15 +8297,18 @@ This clinical feature is Seizure (HP:0001250), qualified as temporality recurren
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011097" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0011097</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011097" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0011097</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Epileptic spasm (HP:0011097). HP:0011097 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7636,14 +8320,16 @@ This clinical feature is Epileptic spasm (HP:0011097). HP:0011097 is a phenotype
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:26453362" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:26453362" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26453362" target="_blank">PMID:26453362</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7685,15 +8371,18 @@ This clinical feature is Epileptic spasm (HP:0011097). HP:0011097 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002353" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-39">HP:0002353</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002353" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0002353</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-39">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is EEG abnormality (HP:0002353). HP:0002353 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7705,14 +8394,16 @@ This clinical feature is EEG abnormality (HP:0002353). HP:0002353 is a phenotype
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:26453362" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:26453362" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26453362" target="_blank">PMID:26453362</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7736,6 +8427,8 @@ This clinical feature is EEG abnormality (HP:0002353). HP:0002353 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7775,15 +8468,18 @@ This clinical feature is EEG abnormality (HP:0002353). HP:0002353 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011344" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-40">HP:0011344</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011344" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0011344</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-40">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Severe global developmental delay (HP:0011344). HP:0011344 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7803,6 +8499,8 @@ This clinical feature is Severe global developmental delay (HP:0011344). HP:0011
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7826,6 +8524,8 @@ This clinical feature is Severe global developmental delay (HP:0011344). HP:0011
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7865,15 +8565,18 @@ This clinical feature is Severe global developmental delay (HP:0011344). HP:0011
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-41">HP:0001249</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0001249</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-41">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7893,6 +8596,8 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7916,6 +8621,8 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7955,15 +8662,18 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0009830" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0009830</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0009830" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0009830</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7983,6 +8693,8 @@ This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8024,15 +8736,18 @@ This clinical feature is Peripheral neuropathy (HP:0009830). HP:0009830 is a phe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002500" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-43">HP:0002500</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002500" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0002500</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-43">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal cerebral white matter morphology (HP:0002500). HP:0002500 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8052,6 +8767,8 @@ This clinical feature is Abnormal cerebral white matter morphology (HP:0002500).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8091,15 +8808,18 @@ This clinical feature is Abnormal cerebral white matter morphology (HP:0002500).
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001270" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-44">HP:0001270</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001270" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0001270</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-44">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8119,6 +8839,8 @@ This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8158,15 +8880,18 @@ This clinical feature is Motor delay (HP:0001270). HP:0001270 is a phenotype fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-45">HP:0000750</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0000750</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-45">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Delayed speech and language development (HP:0000750). HP:0000750 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8186,6 +8911,8 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8225,15 +8952,18 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001320" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-46">HP:0001320</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001320" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0001320</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-46">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cerebellar vermis hypoplasia (HP:0001320). HP:0001320 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -8253,6 +8983,8 @@ This clinical feature is Cerebellar vermis hypoplasia (HP:0001320). HP:0001320 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8280,7 +9012,7 @@ This clinical feature is Cerebellar vermis hypoplasia (HP:0001320). HP:0001320 i
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-10">
+            <details class="phenotype-category-group" id="pheno-cat-11">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Constitutional
@@ -8301,10 +9033,10 @@ This clinical feature is Cerebellar vermis hypoplasia (HP:0001320). HP:0001320 i
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003546" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-47">HP:0003546</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003546" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0003546</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-47">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Exercise intolerance (HP:0003546). HP:0003546 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8315,6 +9047,9 @@ This clinical feature is Exercise intolerance (HP:0003546). HP:0003546 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8329,6 +9064,8 @@ This clinical feature is Exercise intolerance (HP:0003546). HP:0003546 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8339,374 +9076,6 @@ This clinical feature is Exercise intolerance (HP:0003546). HP:0003546 is a phen
 
 
                 <div class="evidence-explanation">Exercise intolerance in the elder sibling.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-11">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">5</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-progressive-microcephaly" data-dismech-node="Progressive Microcephaly" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Progressive Microcephaly
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000253" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-48">HP:0000253</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-48">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Progressive microcephaly (HP:0000253), qualified as course progressive. HP:0000253 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">Course: PROGRESSIVE</span>
-
-
-
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:23109149" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23109149" target="_blank">PMID:23109149</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"We searched for the primary defect in 3 children from 2 families with a severe neurological phenotype, including profound developmental delay, intractable epilepsy, progressive microcephaly, severe hypotonia with elevated blood creatine kinase levels, and early fatal outcome."</div>
-
-
-                <div class="evidence-explanation">Progressive microcephaly is explicitly part of the index phenotype.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-achilles-tendon-contracture" data-dismech-node="Achilles Tendon Contracture" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Achilles Tendon Contracture
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001771" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0001771</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Achilles tendon contracture (HP:0001771). HP:0001771 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:37152991" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37152991" target="_blank">PMID:37152991</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"She had undergone Achilles tendon lengthening procedure."</div>
-
-
-                <div class="evidence-explanation">Documents the contracture requiring orthopedic surgical correction.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-liver-involvement" data-dismech-node="Liver Involvement" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Liver Involvement
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Abnormality of the liver</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001392" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0001392</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Abnormality of the liver (HP:0001392). HP:0001392 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:33129689" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33129689" target="_blank">PMID:33129689</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"All three patients included in the report had a severe clinical presentation characterized by hypotonia, progressive muscle weakness and wasting, absent psychomotor development, intractable seizures, liver involvement, abnormal coagulation factors and early mortality (between 7 months and 3..."</div>
-
-
-                <div class="evidence-explanation">Liver involvement in the severe cohort.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-absent-visual-tracking" data-dismech-node="Absent Visual Tracking" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Absent Visual Tracking
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Absent smooth pursuit</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007179" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0007179</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Absent visual tracking, annotated with Absent smooth pursuit (HP:0007179). HP:0007179 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:37152991" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37152991" target="_blank">PMID:37152991</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Ophthalmological Strabismus No Optic atrophy No visual tracking and strabismus No visual tracking"</div>
-
-
-                <div class="evidence-explanation">Table 1 ophthalmological row; the P4 and P5 columns both record no visual tracking. No frequency band is asserted for the same reason as the optic atrophy item.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-congenital-joint-contractures" data-dismech-node="Congenital Joint Contractures" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Congenital Joint Contractures
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Congenital contracture</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002803" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0002803</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Congenital contracture (HP:0002803). HP:0002803 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:37152991" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37152991" target="_blank">PMID:37152991</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Congenital contractures of the joints and scoliosis"</div>
-
-
-                <div class="evidence-explanation">Table 1 skeletal row for the two severe-form patients (P4, P5).</div>
 
 
 
@@ -8796,6 +9165,9 @@ This disease-associated gene is DPM2 (hgnc:3006). hgnc:3006 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8812,6 +9184,8 @@ This disease-associated gene is DPM2 (hgnc:3006). hgnc:3006 is a gene from the H
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8825,14 +9199,16 @@ This disease-associated gene is DPM2 (hgnc:3006). hgnc:3006 is a gene from the H
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:37152991" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:37152991" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37152991" target="_blank">PMID:37152991</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8867,6 +9243,7 @@ This disease-associated gene is DPM2 (hgnc:3006). hgnc:3006 is a gene from the H
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8886,11 +9263,17 @@ This variant is in DPM2 (hgnc:3006). hgnc:3006 is a gene from the HUGO Gene Nome
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">MISSENSE VARIANT</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Recurrent missense allele in the first transmembrane region, found homozygously in one Italian family and in compound heterozygosity with the c.4-1G&gt;C splice allele in another. Associated with the severe, infantile-lethal phenotype.</div>
@@ -8917,6 +9300,8 @@ This variant is in DPM2 (hgnc:3006). hgnc:3006 is a gene from the HUGO Gene Nome
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8951,6 +9336,7 @@ This variant is in DPM2 (hgnc:3006). hgnc:3006 is a gene from the HUGO Gene Nome
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -8970,11 +9356,17 @@ This variant is in DPM2 (hgnc:3006). hgnc:3006 is a gene from the HUGO Gene Nome
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">SPLICE SITE VARIANT</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Canonical splice-acceptor variant found in compound heterozygosity with p.Tyr23Cys in the first reported family.</div>
@@ -9001,6 +9393,8 @@ This variant is in DPM2 (hgnc:3006). hgnc:3006 is a gene from the HUGO Gene Nome
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9035,6 +9429,7 @@ This variant is in DPM2 (hgnc:3006). hgnc:3006 is a gene from the HUGO Gene Nome
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -9054,11 +9449,17 @@ This variant is in DPM2 (hgnc:3006). hgnc:3006 is a gene from the HUGO Gene Nome
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">MISSENSE VARIANT</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Homozygous missense allele in the second domain region, found in two Chinese siblings with the mild phenotype. Functional testing showed increased DPM2 protein but reduced ICAM1 glycosylation, indicating impaired function rather than reduced abundance.</div>
@@ -9085,6 +9486,8 @@ This variant is in DPM2 (hgnc:3006). hgnc:3006 is a gene from the HUGO Gene Nome
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9119,6 +9522,7 @@ This variant is in DPM2 (hgnc:3006). hgnc:3006 is a gene from the HUGO Gene Nome
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -9138,11 +9542,17 @@ This variant is in DPM2 (hgnc:3006). hgnc:3006 is a gene from the HUGO Gene Nome
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">NONSENSE VARIANT</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Nonsense allele carried in trans with p.Gly58Asp in the adult (fourth-reported) patient. Neither allele had been reported previously; patient fibroblasts showed DPM2 expression at about 60% of control with no quantifiable DPM1 protein, so the pair behaves as a hypomorphic rather than a complete-null genotype - consistent with that patient&#39;s milder-than-infantile course.</div>
@@ -9169,6 +9579,8 @@ This variant is in DPM2 (hgnc:3006). hgnc:3006 is a gene from the HUGO Gene Nome
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9203,6 +9615,7 @@ This variant is in DPM2 (hgnc:3006). hgnc:3006 is a gene from the HUGO Gene Nome
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -9222,11 +9635,17 @@ This variant is in DPM2 (hgnc:3006). hgnc:3006 is a gene from the HUGO Gene Nome
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">MISSENSE VARIANT</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Missense allele in trans with the p.Arg47Ter nonsense allele in the adult (fourth-reported) patient, predicted deleterious by multiple in-silico algorithms.</div>
@@ -9253,6 +9672,8 @@ This variant is in DPM2 (hgnc:3006). hgnc:3006 is a gene from the HUGO Gene Nome
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9341,6 +9762,31 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">No disease-modifying therapy exists for DPM2-CDG. Unlike PMM2-CDG or MPI-CDG, the lesion is in Dol-P-Man synthesis itself rather than in substrate availability, so simple mannose supplementation would not be expected to bypass the block and none has been reported. Management is symptom-directed and multidisciplinary: seizure control, orthopedic and rehabilitative care, cardiac surveillance, and nutritional support.</div>
 
 
@@ -9354,14 +9800,16 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:40902550" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:40902550" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40902550" target="_blank">PMID:40902550</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9426,6 +9874,31 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Seizures in the severe form are intractable. In the pooled CDG early-onset epileptic encephalopathy series that included DPM2-CDG patients, seizures became recurrent and drug-resistant despite antiepileptic treatment.</div>
 
 
@@ -9461,14 +9934,16 @@ This treatment targets Seizure (HP:0001250). HP:0001250 is a phenotype from the 
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:26453362" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:26453362" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/26453362" target="_blank">PMID:26453362</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9533,6 +10008,31 @@ This treatment is Orthopedic Surgical Procedure (NCIT:C16186). NCIT:C16186 is a 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Achilles tendon lengthening was performed for equinus contracture in one patient, after which walking posture improved.</div>
 
 
@@ -9576,6 +10076,8 @@ This treatment targets Achilles tendon contracture (HP:0001771). HP:0001771 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9640,6 +10142,31 @@ This treatment is Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Affected children present to rehabilitation services for motor delay, abnormal tone and gait abnormality; physical therapy is a mainstay of supportive management.</div>
 
 
@@ -9653,14 +10180,16 @@ This treatment is Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:37152991" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:37152991" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37152991" target="_blank">PMID:37152991</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9725,6 +10254,31 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Autosomal recessive inheritance carries a 25% recurrence risk per pregnancy for carrier couples. Once the familial DPM2 alleles are known, carrier testing and prenatal or preimplantation diagnosis become available.</div>
 
 
@@ -9738,14 +10292,16 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:37152991" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:37152991" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37152991" target="_blank">PMID:37152991</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9811,6 +10367,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -9824,14 +10382,16 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:33129689" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:33129689" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33129689" target="_blank">PMID:33129689</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -9882,6 +10442,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -9930,6 +10492,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -9951,6 +10515,416 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
             </div>
 
         </div>
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-dpm2-molecular-genetic-testing">
+                <div class="item-name">
+                    DPM2 Molecular Genetic Testing
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(PRESENT)</span>
+
+                </div>
+
+                <div class="item-desc">Definitive diagnosis requires demonstration of biallelic DPM2 variants. Because the phenotype overlaps both the CDG and the dystroglycanopathies, exome sequencing or a combined CDG/dystroglycanopathy gene panel is the practical first-tier test; in the reported patients after the index family the diagnosis was made by whole exome sequencing.</div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37152991" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37152991" target="_blank">PMID:37152991</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"A homozygous mutation, c.197G&gt;A (p.Gly66Glu) in exon 4 of DPM2 (NM_003863) was identified by whole exome sequencing (WES)."</div>
+
+
+                <div class="evidence-explanation">Exome sequencing established the molecular diagnosis in this family.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-serum-transferrin-isoelectric-focusing-screening">
+                <div class="item-name">
+                    Serum Transferrin Isoelectric Focusing Screening
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(PRESENT)</span>
+
+                </div>
+
+                <div class="item-desc">Transferrin isoelectric focusing (or capillary zone electrophoresis) is the recommended first-line screening test in early-onset epilepsy of unknown cause, which is the presentation route for the severe DPM2-CDG phenotype. A type I pattern directs testing toward the ER N-glycosylation disorders.</div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26453362" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26453362" target="_blank">PMID:26453362</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We propose a diagnostic flowchart for the early diagnosis of CDG in patients presenting with EOEE and suggest to perform serum transferrin IEF (or capillary zone electrophoresis) as a first-line screening in early-onset epilepsy."</div>
+
+
+                <div class="evidence-explanation">Establishes transferrin isoelectric focusing as the recommended screening test for the clinical presentation in which DPM2-CDG is found.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-muscle-biopsy-alpha-dystroglycan-immunohistochemistry">
+                <div class="item-name">
+                    Muscle Biopsy Alpha-Dystroglycan Immunohistochemistry
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(PRESENT)</span>
+
+                </div>
+
+                <div class="item-desc">Muscle biopsy immunohistochemistry showing deficient alpha-dystroglycan O-mannosylation confirms the dystroglycanopathy component and, combined with a CDG type I transferrin pattern, points specifically at the DPM synthase complex rather than at an isolated dystroglycanopathy gene.</div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23109149" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23109149" target="_blank">PMID:23109149</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"There was clinical evidence of a muscular dystrophy-dystroglycanopathy syndrome, supported by deficient O-mannosylation by muscle immunohistochemistry."</div>
+
+
+                <div class="evidence-explanation">Muscle immunohistochemistry provided the tissue-level confirmation in the index patients.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-severe-infantile-lethal-course">
+                <div class="item-name">Severe infantile-lethal course</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Birth to 3 years</span>
+
+
+
+                </div>
+
+                <div class="item-notes">The severe, first-domain-variant form presents at birth and is fatal between 7 months and 3 years of age, with death attributed to severe epilepsy, muscular dystrophy and acute respiratory infections.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33129689" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33129689" target="_blank">PMID:33129689</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"All three patients included in the report had a severe clinical presentation characterized by hypotonia, progressive muscle weakness and wasting, absent psychomotor development, intractable seizures, liver involvement, abnormal coagulation factors and early mortality (between 7 months and 3..."</div>
+
+
+                <div class="evidence-explanation">Documents the age range of early mortality in the severe form.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37152991" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37152991" target="_blank">PMID:37152991</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Until now, only four cases from three families have been reported, and three of them with the variant c.68A&gt;G (p.Tyr23Cys) died before 3 years old due to severe epilepsy, muscular dystrophy, and acute respiratory infections"</div>
+
+
+                <div class="evidence-explanation">States the causes and timing of death in the severe genotype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-mild-adult-viable-course">
+                <div class="item-name">Mild adult-viable course</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Childhood into the third decade</span>
+
+
+
+                </div>
+
+                <div class="item-notes">The milder form presents in early childhood with developmental delay and is compatible with survival into adulthood; reported patients were alive at 11, 20 and 23 years with stable intellectual disability, myopathy and hyperCKemia.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33129689" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33129689" target="_blank">PMID:33129689</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"His clinical presentation was much less severe than that of the three previously described patients."</div>
+
+
+                <div class="evidence-explanation">Establishes the milder, adult-viable end of the natural-history spectrum.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-worldwide-published-case-reports">
+                <div class="item-name">Worldwide (published case reports)</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Cases In Literature</span>
+
+
+
+                    <span class="tag">Ultra Rare</span>
+
+                </div>
+
+                <div class="item-notes">Six patients from four families had been reported by 2023 — three severe-form patients from two Italian families (2012), one adult male (2021), and two Chinese siblings (2023). No population prevalence or incidence rate has been established.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37152991" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37152991" target="_blank">PMID:37152991</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"DPM2 is one subunit of a heterotrimeric complex for dolichol-phosphatemannose synthase (DPMS), a key enzyme in glycosylation, and only four patients with DPM2-CDG have been reported."</div>
+
+
+                <div class="evidence-explanation">Confirms that only four patients were on record before this report added two more, establishing ultra-rare status.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -10008,6 +10982,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10075,6 +11051,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -10138,6 +11116,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10205,6 +11185,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10226,6 +11208,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -10692,7 +11676,7 @@ pathophysiology:
   evidence:
   - reference: PMID:33129689
     reference_title: &#34;Expanding the clinical and metabolic phenotype of DPM2 deficient congenital disorders of glycosylation.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &gt;-
       Given the implication of DPMS in GPI anchor synthesis, we performed
@@ -10703,7 +11687,7 @@ pathophysiology:
       display, so this supports the arm only indirectly.
   - reference: PMID:33129689
     reference_title: &#34;Expanding the clinical and metabolic phenotype of DPM2 deficient congenital disorders of glycosylation.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &gt;-
       We observed significant differences in lysophospholipids especially
@@ -10911,7 +11895,7 @@ phenotypes:
   evidence:
   - reference: PMID:26453362
     reference_title: &#34;Electroclinical Features of Early-Onset Epileptic Encephalopathies in Congenital Disorders of Glycosylation (CDGs).&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       With time, patients developed recurrent and intractable seizures
@@ -10937,7 +11921,7 @@ phenotypes:
   evidence:
   - reference: PMID:26453362
     reference_title: &#34;Electroclinical Features of Early-Onset Epileptic Encephalopathies in Congenital Disorders of Glycosylation (CDGs).&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Electrophysiological correlates included focal and multifocal epileptic
@@ -11172,10 +12156,10 @@ phenotypes:
     reflecting the dystroglycanopathy component. Values around 2000 U/L
     (reference 20-250 U/L) were recorded in the mildly affected siblings.
   phenotype_term:
-    preferred_term: Elevated circulating creatine kinase concentration
+    preferred_term: Elevated circulating creatine kinase activity
     term:
       id: HP:0003236
-      label: Elevated circulating creatine kinase concentration
+      label: Elevated circulating creatine kinase activity
   frequency: VERY_FREQUENT
   diagnostic: true
   evidence:
@@ -11607,7 +12591,7 @@ phenotypes:
       patients (83%), which is the basis for the VERY_FREQUENT band (80-99%).
   - reference: PMID:33129689
     reference_title: &#34;Expanding the clinical and metabolic phenotype of DPM2 deficient congenital disorders of glycosylation.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       No dysmorphic facial features were observed.
@@ -11743,7 +12727,7 @@ biochemical:
       Establishes the CDG type I biochemical pattern in DPM2-CDG.
   - reference: PMID:33129689
     reference_title: &#34;Expanding the clinical and metabolic phenotype of DPM2 deficient congenital disorders of glycosylation.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Laboratory studies which included POLG sequencing and whole genome
@@ -11832,7 +12816,7 @@ genetic:
       alleles.
   - reference: PMID:37152991
     reference_title: &#34;Identification and characterization of a new variation in DPM2 gene in two Chinese siblings with mild intellectual impairment.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       We also reviewed the 4 previously reported patients carrying homozygous or
@@ -12060,7 +13044,7 @@ treatments:
   evidence:
   - reference: PMID:40902550
     reference_title: &#34;Genetic disorders of dolichol synthesis and utilization.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
       Finally, we discuss the existing biomarkers for diagnosis of these disorders
@@ -12092,7 +13076,7 @@ treatments:
   evidence:
   - reference: PMID:26453362
     reference_title: &#34;Electroclinical Features of Early-Onset Epileptic Encephalopathies in Congenital Disorders of Glycosylation (CDGs).&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       With time, patients developed recurrent and intractable seizures principally
@@ -12143,7 +13127,7 @@ treatments:
   evidence:
   - reference: PMID:37152991
     reference_title: &#34;Identification and characterization of a new variation in DPM2 gene in two Chinese siblings with mild intellectual impairment.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       The patient was admitted to the Rehabilitation Department in Wuhan
@@ -12167,7 +13151,7 @@ treatments:
   evidence:
   - reference: PMID:37152991
     reference_title: &#34;Identification and characterization of a new variation in DPM2 gene in two Chinese siblings with mild intellectual impairment.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Sanger sequencing was used to validate the variants identified in the
@@ -12469,6 +13453,19 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: DPM2-congenital disorder of glycosylation (DPM2-CDG)</strong> · 2026-08-01T00:25:46Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/DPM2-congenital_disorder_of_glycosylation/2026-08-01T002546Z-claude-code-6b9546.yaml">View source</a></p>
+                        <p class="research-review-text">De-novo curation of DPM2-CDG (MONDO:0014023, OMIM:615042, Orphanet:329178, gene DPM2/hgnc:3006), requested under its Orphanet clinical label &#39;congenital muscular dystrophy with intellectual disability and severe epilepsy&#39;. Deep research: falcon was attempted first per the default but the Edison API returned 402 Payment Required (account out of credit), and openscientist failed with a TLS/PEM error in this environment; the claude_code provider completed successfully (research/DPM2-congenital_disorder_of_glycosylation-deep-research-claude_code.md; 20 web searches, 27 turns). Because the requested disease name is generic-sounding and high-NEC-risk, an explicit Named Entity Confusion preflight was run against the MONDO record: the report gene (DPM2), OMIM (615042) and Orphanet (329178) all matched MONDO:0014023, so the report was accepted. Curated an eight-node pathograph from DPM2 loss through DPM synthase complex destabilization and Dol-P-Man depletion, branching into the ER lipid-linked-oligosaccharide arm, the alpha-dystroglycan O-mannosylation arm and a PROVISIONAL GPI-anchor arm, converging on protein hypoglycosylation and multisystem glycoprotein dysfunction; three nodes declare conforms_to against the congenital_disorder_of_glycosylation module. Added 21 HPO-bound phenotypes spanning the severe infantile-lethal and mild adult-viable ends, three biochemical markers, the DPM2 gene record with three curated variants, prevalence (CASES_IN_LITERATURE / ULTRA_RARE, six published patients), two progression phases, three diagnostic modalities, five treatments, four differential diagnoses, and three discussions (KNOWLEDGE_GAP on the unproven GPI arm, HUMAN_MODEL_MISMATCH on the absence of a faithful animal model, OPEN_QUESTION on the domain-position severity correlation). No GeneReviews chapter exists for DPM2-CDG; only the retired N-linked glycosylation overview (PMID:20301507) was found, so no GeneReviews baseline was applied and this is documented in notes. Validation: just validate passes (schema clean, term validation passes, 75/75 evidence snippets verified against cached references); compliance 89.0 percent global / 89.4 percent weighted.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -12753,7 +13750,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "DPM2-congenital disorder of glycosylation", "mondoId": "MONDO:0014023", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "DPM2-congenital_disorder_of_glycosylation", "yamlRevision": "caaa41f351b3"};
+        const OS_CONFIG = {"diseaseName": "DPM2-congenital disorder of glycosylation", "mondoId": "MONDO:0014023", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "DPM2-congenital_disorder_of_glycosylation", "yamlRevision": "272059952b76"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

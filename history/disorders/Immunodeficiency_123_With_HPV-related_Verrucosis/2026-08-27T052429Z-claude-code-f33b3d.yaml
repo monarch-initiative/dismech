@@ -1,0 +1,98 @@
+history_version: 1
+target:
+  kind: disorder
+  slug: Immunodeficiency_123_With_HPV-related_Verrucosis
+  path: kb/disorders/Immunodeficiency_123_With_HPV-related_Verrucosis.yaml
+session:
+  id: 2026-08-27T052429Z-claude-code-f33b3d
+  timestamp: '2026-08-27T05:24:29Z'
+  actors:
+  - type: ai_agent
+    name: claude-code
+    model: claude-opus-5
+    agent_tool: claude-code
+links:
+  issues:
+  - https://github.com/monarch-initiative/dismech/issues/9576
+  prs:
+  - https://github.com/monarch-initiative/dismech/pull/9596
+  urls: []
+events:
+- type: REVIEW
+  outcome: changed
+  sections:
+  - pathophysiology
+  - diagnosis
+  - notes
+  summary: 'Review round 2: narrow an over-general GO term to the arm that actually
+    failed'
+  details: |
+    Review round 2 on PR #9596. The single blocking finding addressed, plus a sweep
+    for the same shape elsewhere in the entry.
+
+    IMPORTANT - the Failed HPV-Reactive CD4+ T Cell Response node carried
+    GO:0002250 adaptive immune response with modifier DECREASED, while its own
+    description says the humoral arm is intact ("The corresponding antibody responses
+    are nonetheless present in vivo, so this is a specific hole in the cellular arm
+    rather than a global failure to see the virus"). Antibody responses are adaptive
+    immunity, so the annotation asserted what the prose denied, and it flattened the
+    cellular/humoral dissociation that is the point of the node. The reviewer's
+    argument for why this is more than tidiness is the one that matters: the
+    structured annotation is what is lifted into the graph and KGX exports and the
+    qualifying description is not, so a downstream consumer sees the global claim
+    with none of the prose that narrows it - the same class as a
+    motivation-as-causation edge. Replaced with GO:0002456 T cell mediated immunity,
+    which names the arm that failed and stays silent about the arm that did not, is a
+    descendant of adaptive immune response so validates on the same path, and does
+    not collide with the upstream node's GO:0031295 T cell costimulation. Label
+    verified with OAK before writing; both terms were already in cache/go/terms.csv
+    and the biologicalprocessterm enum cache, so the change produced zero cache churn
+    as expected.
+
+    Sweep for the same shape across the entry, as requested:
+    - GO:0031295 with modifier LOSS_OF_FUNCTION on Loss of CD28 Co-stimulatory
+      Signaling was checked and kept. The node description says patient T cells
+      respond to CD3 and CD2 but not CD28, i.e. the process is abolished rather than
+      reduced, so the qualitative value matches the prose. It trades PATO grounding
+      for accuracy, which CLAUDE.md asks be done deliberately; recording that it was.
+    - HP:0011840 Abnormal T cell physiology was checked and kept. It is a functional
+      term and the node description explicitly says counts and development are
+      normal, so the binding claims no more than the prose.
+    - The two viremia phenotypes DO over-claim slightly: HP:0020072 and HP:0032247
+      assert persistence, while the quoted sentence says only that the patients show
+      increased blood levels. HPO has no virus-specific term without the persistence
+      qualifier, and the alternatives drop the virus identity, which loses more than
+      it gains. Terms kept, and the residual over-claim is now recorded in the entry
+      notes rather than only in a review thread.
+
+    Suggestions taken:
+    - biological_scale on the two lesion branches was inconsistent (ORGANISM on the
+      HPV-4 wart node, TISSUE on the tree-man node) for two lesions arising from the
+      same upstream node. Both are now TISSUE, and the HPV-4 node also gained the
+      keratinocyte cell type its sibling already carried.
+    - diagnosis_term added to the exome entry: NCIT:C101295 Whole Exome Sequencing,
+      already used as a diagnosis_term in 53 places in the KB. The second diagnosis
+      entry is a clinical-suspicion heuristic rather than a bindable procedure and is
+      left unbound.
+    - The notes block now flags that MedGen's HP:0000403 recurrent otitis media sits
+      in tension with this entry's "otherwise healthy" framing, so the next reader who
+      finds the OMIM synopsis knows it was seen and why it is absent.
+
+    Suggestion not taken: target_mechanisms on the treatments. HSCT plausibly targets
+    Absence of Surface CD28 on T Cells, but the only evidence is a class-level
+    observation about T-cell-deficient patients transplanted for a malignancy, graded
+    PARTIAL; asserting a mechanism link on that basis would put a claim in the graph
+    that the evidence does not support for this disease. Reasoning given in the PR
+    comment.
+
+    Validation actually run and read after the changes:
+      just validate <file>                                -> passed, "Snippets checked: 45/45 verified against cached references"
+      just check-duplicate-keys <file>                    -> OK
+      just check-title-snippets                           -> OK
+      scripts/check_snippet_length.py --against-ref origin/main -> OK
+      scripts/check_folded_hyphens.py --check             -> OK
+      just check-cache-order                              -> OK
+      just check-term-cache-integrity                     -> OK
+    Pathograph re-measured: 9 nodes, 8 edges, one root, no unreachable node, all
+    model and discussion foreign keys resolve. Cache diff empty - every term used was
+    already committed.

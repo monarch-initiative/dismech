@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2954,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2969,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3078,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3091,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3295,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3305,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3341,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3362,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3675,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4096,6 +4189,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4156,6 +4251,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4220,6 +4317,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4264,6 +4363,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-adsl-molecular-function-deficiency" data-dismech-node="ADSL molecular function deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">ADSL molecular function deficiency</div>
+
 
                 <div class="item-desc">Biallelic pathogenic ADSL variants reduce adenylosuccinate lyase enzymatic activity. ADSL is a homotetrameric bifunctional enzyme acting in de novo purine synthesis and purine nucleotide recycling, and lower residual enzyme activity is associated with more severe clinical phenotypes.
 </div>
@@ -4494,6 +4594,8 @@ This pathophysiological event involves decreased adenylosuccinate lyase activity
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4515,6 +4617,8 @@ This pathophysiological event involves decreased adenylosuccinate lyase activity
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4540,6 +4644,8 @@ This pathophysiological event involves decreased adenylosuccinate lyase activity
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4562,6 +4668,7 @@ This pathophysiological event involves decreased adenylosuccinate lyase activity
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-purine-biosynthesis-and-nucleotide-cycle-disruption" data-dismech-node="Purine biosynthesis and nucleotide-cycle disruption" data-dismech-type="pathophysiology">
                 <div class="item-name">Purine biosynthesis and nucleotide-cycle disruption</div>
+
 
                 <div class="item-desc">ADSL catalyzes the conversion of SAICAR to AICAR in de novo purine synthesis and the conversion of adenylosuccinate to AMP in the purine nucleotide cycle. Impaired flux through these reactions is hypothesized to affect purine availability and cellular energy balance in vulnerable tissues.
 </div>
@@ -4716,6 +4823,8 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4729,14 +4838,16 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:25112391" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:25112391" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25112391" target="_blank">PMID:25112391</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4752,14 +4863,16 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:25112391" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:25112391" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25112391" target="_blank">PMID:25112391</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4784,6 +4897,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-secondary-mitochondrial-dysfunction" data-dismech-node="Secondary mitochondrial dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Secondary mitochondrial dysfunction</div>
+
 
                 <div class="item-desc">ADSL deficiency is associated with secondary mitochondrial dysfunction, including increased mitochondrial fragmentation, impaired respiration, and reduced ATP production. The severity of mitochondrial impairment correlates with ADSL deficiency pathology, especially in mitochondria-dependent tissues, and mitochondrial dynamics or transport defects are linked to ERK2 and AKT signaling suppression.
 </div>
@@ -4983,6 +5097,8 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5004,6 +5120,8 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5028,6 +5146,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-succinylpurine-accumulation-and-neurotoxicity" data-dismech-node="Succinylpurine accumulation and neurotoxicity" data-dismech-type="pathophysiology">
                 <div class="item-name">Succinylpurine accumulation and neurotoxicity</div>
+
 
                 <div class="item-desc">Reduced ADSL activity causes intracellular accumulation of ADSL substrates and extracellular accumulation of their dephosphorylated forms, SAICAr and S-Ado. Accumulating succinylpurines, particularly SAICAr, are hypothesized to contribute to neuronopathic disease; however, human neurotoxicity evidence remains indirect. Model-organism work also supports wider metabolic perturbations downstream of adsl loss, including disrupted tyrosine and tyramine signaling.
 </div>
@@ -5144,6 +5263,8 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5157,14 +5278,16 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:25112391" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:25112391" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25112391" target="_blank">PMID:25112391</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5188,6 +5311,8 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5214,6 +5339,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neurodevelopmental-and-epileptic-encephalopathy" data-dismech-node="Neurodevelopmental and epileptic encephalopathy" data-dismech-type="pathophysiology">
                 <div class="item-name">Neurodevelopmental and epileptic encephalopathy</div>
+
 
                 <div class="item-desc">ADSL deficiency primarily presents as a neurologic and neurobehavioral disorder with developmental delay or regression, intellectual disability, seizures, hypotonia, impaired speech, and autistic features.
 </div>
@@ -5362,6 +5488,8 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5383,6 +5511,8 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5407,6 +5537,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-brain-structure-and-white-matter-abnormalities" data-dismech-node="Brain structure and white matter abnormalities" data-dismech-type="pathophysiology">
                 <div class="item-name">Brain structure and white matter abnormalities</div>
+
 
                 <div class="item-desc">Neuroimaging in ADSL deficiency can show cerebral atrophy, cerebellar atrophy, and abnormal cerebral white matter signal or myelination.
 </div>
@@ -5539,6 +5670,8 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5561,6 +5694,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-craniofacial-dysmorphology" data-dismech-node="Craniofacial dysmorphology" data-dismech-type="pathophysiology">
                 <div class="item-name">Craniofacial dysmorphology</div>
+
 
                 <div class="item-desc">ADSL deficiency has reported subtle craniofacial dysmorphisms, including microcephaly-related head shape findings and characteristic facial features cataloged by Orphanet.
 </div>
@@ -5686,6 +5820,8 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5752,13 +5888,11 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Ear<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Head and Neck<span class="pill-count">(6)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Head and Neck<span class="pill-count">(10)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Musculoskeletal<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Nervous System<span class="pill-count">(7)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Other<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Nervous System<span class="pill-count">(8)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5801,6 +5935,9 @@ This clinical feature is Low-set ears (HP:0000369). HP:0000369 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5815,6 +5952,8 @@ This clinical feature is Low-set ears (HP:0000369). HP:0000369 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5844,7 +5983,7 @@ This clinical feature is Low-set ears (HP:0000369). HP:0000369 is a phenotype fr
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
-                    <span class="cat-count">6</span>
+                    <span class="cat-count">10</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-microcephaly" data-dismech-node="Microcephaly" data-dismech-type="phenotype">
@@ -5877,6 +6016,9 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5893,12 +6035,86 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"HP:0000252 | Microcephaly | Very frequent (99-80%)"</div>
 
 
                 <div class="evidence-explanation">Orphanet reports microcephaly as very frequent.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-thin-upper-lip-vermilion" data-dismech-node="Thin upper lip vermilion" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Thin upper lip vermilion
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000219" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000219</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Thin upper lip vermilion (HP:0000219). HP:0000219 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:46" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:46" target="_blank">ORPHA:46</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0000219 | Thin upper lip vermilion | Very frequent (99-80%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet reports thin upper lip vermilion as very frequent.</div>
 
 
 
@@ -5930,15 +6146,18 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000248" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000248</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000248" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000248</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Brachycephaly (HP:0000248). HP:0000248 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5960,12 +6179,86 @@ This clinical feature is Brachycephaly (HP:0000248). HP:0000248 is a phenotype f
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"HP:0000248 | Brachycephaly | Very frequent (99-80%)"</div>
 
 
                 <div class="evidence-explanation">Orphanet reports brachycephaly as very frequent.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-smooth-philtrum" data-dismech-node="Smooth philtrum" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Smooth philtrum
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000319" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000319</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Smooth philtrum (HP:0000319). HP:0000319 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:46" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:46" target="_blank">ORPHA:46</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0000319 | Smooth philtrum | Very frequent (99-80%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet reports smooth philtrum as very frequent.</div>
 
 
 
@@ -5997,15 +6290,18 @@ This clinical feature is Brachycephaly (HP:0000248). HP:0000248 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000343" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000343</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000343" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000343</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Long philtrum (HP:0000343). HP:0000343 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6025,6 +6321,8 @@ This clinical feature is Long philtrum (HP:0000343). HP:0000343 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -6064,15 +6362,18 @@ This clinical feature is Long philtrum (HP:0000343). HP:0000343 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000463" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000463</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000463" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0000463</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Anteverted nares (HP:0000463). HP:0000463 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6092,6 +6393,8 @@ This clinical feature is Anteverted nares (HP:0000463). HP:0000463 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -6131,15 +6434,18 @@ This clinical feature is Anteverted nares (HP:0000463). HP:0000463 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001999</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001999</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6159,6 +6465,8 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -6198,15 +6506,18 @@ This clinical feature is Abnormal facial shape (HP:0001999). HP:0001999 is a phe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003196" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0003196</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003196" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0003196</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Short nose (HP:0003196). HP:0003196 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6228,12 +6539,158 @@ This clinical feature is Short nose (HP:0003196). HP:0003196 is a phenotype from
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"HP:0003196 | Short nose | Very frequent (99-80%)"</div>
 
 
                 <div class="evidence-explanation">Orphanet reports short nose as very frequent.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-flat-occiput" data-dismech-node="Flat occiput" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Flat occiput
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005469" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0005469</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Flat occiput (HP:0005469). HP:0005469 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:46" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:46" target="_blank">ORPHA:46</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0005469 | Flat occiput | Very frequent (99-80%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet reports flat occiput as very frequent.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-prominent-metopic-ridge" data-dismech-node="Prominent metopic ridge" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Prominent metopic ridge
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0005487" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0005487</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Prominent metopic ridge (HP:0005487). HP:0005487 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:46" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:46" target="_blank">ORPHA:46</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0005487 | Prominent metopic ridge | Very frequent (99-80%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet reports prominent metopic ridge as very frequent.</div>
 
 
 
@@ -6274,15 +6731,18 @@ This clinical feature is Short nose (HP:0003196). HP:0003196 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001290" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0001290</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001290" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001290</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Generalized hypotonia (HP:0001290). HP:0001290 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6304,6 +6764,8 @@ This clinical feature is Generalized hypotonia (HP:0001290). HP:0001290 is a phe
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"HP:0001290 | Generalized hypotonia | Very frequent (99-80%)"</div>
@@ -6323,6 +6785,8 @@ This clinical feature is Generalized hypotonia (HP:0001290). HP:0001290 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6354,7 +6818,7 @@ This clinical feature is Generalized hypotonia (HP:0001290). HP:0001290 is a phe
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
-                    <span class="cat-count">7</span>
+                    <span class="cat-count">8</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-severe-global-developmental-delay" data-dismech-node="Severe global developmental delay" data-dismech-type="phenotype">
@@ -6373,15 +6837,18 @@ This clinical feature is Generalized hypotonia (HP:0001290). HP:0001290 is a phe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011344" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0011344</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011344" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0011344</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Severe global developmental delay (HP:0011344). HP:0011344 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6401,6 +6868,8 @@ This clinical feature is Severe global developmental delay (HP:0011344). HP:0011
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -6440,15 +6909,18 @@ This clinical feature is Severe global developmental delay (HP:0011344). HP:0011
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001249</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001249</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6470,6 +6942,8 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"HP:0001249 | Intellectual disability | Very frequent (99-80%)"</div>
@@ -6489,6 +6963,8 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6530,15 +7006,18 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001250</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6558,6 +7037,8 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -6581,6 +7062,8 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6602,6 +7085,8 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6643,15 +7128,18 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001344" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001344</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001344" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0001344</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Absent speech (HP:0001344). HP:0001344 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6673,6 +7161,8 @@ This clinical feature is Absent speech (HP:0001344). HP:0001344 is a phenotype f
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"HP:0001344 | Absent speech | Very frequent (99-80%)"</div>
@@ -6692,6 +7182,8 @@ This clinical feature is Absent speech (HP:0001344). HP:0001344 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6731,15 +7223,18 @@ This clinical feature is Absent speech (HP:0001344). HP:0001344 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000729" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0000729</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000729" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0000729</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6759,6 +7254,8 @@ This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -6782,6 +7279,8 @@ This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenoty
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6790,6 +7289,128 @@ This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenoty
 
 
                 <div class="evidence-explanation">Case report abstract supports autistic features as part of the phenotype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hypointensity-of-cerebral-white-matter-on-mri" data-dismech-node="Hypointensity of cerebral white matter on MRI" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hypointensity of cerebral white matter on MRI
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007103" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0007103</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hypointensity of cerebral white matter on MRI (HP:0007103). HP:0007103 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:46" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:46" target="_blank">ORPHA:46</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0007103 | Hypointensity of cerebral white matter on MRI | Very frequent (99-80%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet reports cerebral white matter MRI hypointensity as very frequent.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25112391" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25112391" target="_blank">PMID:25112391</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Reported findings on brain MRI in ADSL deficiency include atrophy"</div>
+
+
+                <div class="evidence-explanation">Review evidence supports structural brain MRI abnormalities in ADSL deficiency.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1002/epi4.12837" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1002/epi4.12837" target="_blank">DOI:10.1002/epi4.12837</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"white matter abnormalities among the three types."</div>
+
+
+                <div class="evidence-explanation">Recent long-term follow-up and literature appraisal supports white matter abnormalities across clinical types.</div>
 
 
 
@@ -6821,15 +7442,18 @@ This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002059" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0002059</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002059" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0002059</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cerebral atrophy (HP:0002059). HP:0002059 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6849,6 +7473,8 @@ This clinical feature is Cerebral atrophy (HP:0002059). HP:0002059 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6890,10 +7516,10 @@ This clinical feature is Cerebral atrophy (HP:0002059). HP:0002059 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001272" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-33">HP:0001272</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001272" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0001272</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-33">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cerebellar atrophy (HP:0001272). HP:0001272 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6904,6 +7530,9 @@ This clinical feature is Cerebellar atrophy (HP:0001272). HP:0001272 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6918,6 +7547,8 @@ This clinical feature is Cerebellar atrophy (HP:0001272). HP:0001272 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6928,396 +7559,6 @@ This clinical feature is Cerebellar atrophy (HP:0001272). HP:0001272 is a phenot
 
 
                 <div class="evidence-explanation">Literature appraisal reports cerebellar atrophy as a consistent imaging finding across the three ADSL deficiency types.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-5">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">5</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-thin-upper-lip-vermilion" data-dismech-node="Thin upper lip vermilion" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Thin upper lip vermilion
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000219" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-34">HP:0000219</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-34">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Thin upper lip vermilion (HP:0000219). HP:0000219 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:46" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:46" target="_blank">ORPHA:46</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0000219 | Thin upper lip vermilion | Very frequent (99-80%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet reports thin upper lip vermilion as very frequent.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-smooth-philtrum" data-dismech-node="Smooth philtrum" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Smooth philtrum
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000319" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-35">HP:0000319</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-35">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Smooth philtrum (HP:0000319). HP:0000319 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:46" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:46" target="_blank">ORPHA:46</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0000319 | Smooth philtrum | Very frequent (99-80%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet reports smooth philtrum as very frequent.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-flat-occiput" data-dismech-node="Flat occiput" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Flat occiput
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0005469" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-36">HP:0005469</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-36">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Flat occiput (HP:0005469). HP:0005469 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:46" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:46" target="_blank">ORPHA:46</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0005469 | Flat occiput | Very frequent (99-80%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet reports flat occiput as very frequent.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-prominent-metopic-ridge" data-dismech-node="Prominent metopic ridge" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Prominent metopic ridge
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0005487" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-37">HP:0005487</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-37">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Prominent metopic ridge (HP:0005487). HP:0005487 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:46" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:46" target="_blank">ORPHA:46</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0005487 | Prominent metopic ridge | Very frequent (99-80%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet reports prominent metopic ridge as very frequent.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hypointensity-of-cerebral-white-matter-on-mri" data-dismech-node="Hypointensity of cerebral white matter on MRI" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hypointensity of cerebral white matter on MRI
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007103" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-38">HP:0007103</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-38">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hypointensity of cerebral white matter on MRI (HP:0007103). HP:0007103 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (3 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:46" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:46" target="_blank">ORPHA:46</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0007103 | Hypointensity of cerebral white matter on MRI | Very frequent (99-80%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet reports cerebral white matter MRI hypointensity as very frequent.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:25112391" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25112391" target="_blank">PMID:25112391</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Reported findings on brain MRI in ADSL deficiency include atrophy"</div>
-
-
-                <div class="evidence-explanation">Review evidence supports structural brain MRI abnormalities in ADSL deficiency.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="DOI:10.1002/epi4.12837" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/DOI:10.1002/epi4.12837" target="_blank">DOI:10.1002/epi4.12837</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"white matter abnormalities among the three types."</div>
-
-
-                <div class="evidence-explanation">Recent long-term follow-up and literature appraisal supports white matter abnormalities across clinical types.</div>
 
 
 
@@ -7401,6 +7642,9 @@ This disease-associated gene is ADSL (hgnc:291). hgnc:291 is a gene from the HUG
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive</span>
@@ -7425,6 +7669,8 @@ This disease-associated gene is ADSL (hgnc:291). hgnc:291 is a gene from the HUG
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"ADSL | adenylosuccinate lyase | hgnc:291 | Disease-causing germline mutation(s) in"</div>
@@ -7446,6 +7692,8 @@ This disease-associated gene is ADSL (hgnc:291). hgnc:291 is a gene from the HUG
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"MONDO:0007068 | Exact"</div>
@@ -7465,6 +7713,8 @@ This disease-associated gene is ADSL (hgnc:291). hgnc:291 is a gene from the HUG
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7498,6 +7748,12 @@ This disease-associated gene is ADSL (hgnc:291). hgnc:291 is a gene from the HUG
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">Pathogenic ADSL variants impair enzyme activity, homotetramerization, or catalytic function. Most reported pathogenic variants are missense, with residual enzymatic activity contributing to clinical severity.
 </div>
 
@@ -7525,6 +7781,8 @@ This disease-associated gene is ADSL (hgnc:291). hgnc:291 is a gene from the HUG
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7546,6 +7804,8 @@ This disease-associated gene is ADSL (hgnc:291). hgnc:291 is a gene from the HUG
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7633,6 +7893,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">There is no established disease-specific corrective therapy for ADSL deficiency. Management is supportive, with seizure-directed pharmacotherapy and consideration of ketogenic diet in selected patients with refractory epilepsy.
 </div>
 
@@ -7675,6 +7949,8 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7698,6 +7974,8 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7711,14 +7989,16 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:25112391" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:25112391" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25112391" target="_blank">PMID:25112391</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7803,6 +8083,20 @@ This treatment uses allopurinol (CHEBI:40279). CHEBI:40279 is a therapeutic agen
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Allopurinol has phase II prospective evidence in ADSL deficiency. Over 12 months, younger and less cognitively impaired participants showed adaptive, cognitive, behavioral, and urinary SAICAr biomarker improvements, whereas epilepsy did not improve. This supports allopurinol as an emerging specialist-directed option rather than a proven corrective therapy.
 </div>
 
@@ -7845,6 +8139,8 @@ This treatment uses allopurinol (CHEBI:40279). CHEBI:40279 is a therapeutic agen
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7868,6 +8164,8 @@ This treatment uses allopurinol (CHEBI:40279). CHEBI:40279 is a therapeutic agen
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7889,6 +8187,8 @@ This treatment uses allopurinol (CHEBI:40279). CHEBI:40279 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7989,6 +8289,8 @@ This treatment uses allopurinol (CHEBI:40279). CHEBI:40279 is a therapeutic agen
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -8010,6 +8312,8 @@ This treatment uses allopurinol (CHEBI:40279). CHEBI:40279 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8118,6 +8422,8 @@ This treatment uses allopurinol (CHEBI:40279). CHEBI:40279 is a therapeutic agen
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8141,6 +8447,8 @@ This treatment uses allopurinol (CHEBI:40279). CHEBI:40279 is a therapeutic agen
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8162,6 +8470,8 @@ This treatment uses allopurinol (CHEBI:40279). CHEBI:40279 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8270,6 +8580,8 @@ This treatment uses allopurinol (CHEBI:40279). CHEBI:40279 is a therapeutic agen
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8293,6 +8605,8 @@ This treatment uses allopurinol (CHEBI:40279). CHEBI:40279 is a therapeutic agen
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -8314,6 +8628,207 @@ This treatment uses allopurinol (CHEBI:40279). CHEBI:40279 is a therapeutic agen
             </div>
 
         </div>
+
+
+        <!-- Diagnosis -->
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-neonatal-to-childhood-onset-neurologic-disease">
+                <div class="item-name">Neonatal to childhood-onset neurologic disease</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">ADSL deficiency has a continuum of severity. The fatal neonatal form presents from birth with severe encephalopathy, respiratory failure, and intractable seizures. More common severe childhood presentations begin in early infancy with severe psychomotor retardation, microcephaly, seizures, hypotonia, and autistic features; milder forms can present later in the first years of life.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (6 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:46" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:46" target="_blank">ORPHA:46</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"Age of onset: Infancy"</div>
+
+
+                <div class="evidence-explanation">Orphanet records infancy as one age of onset.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:46" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:46" target="_blank">ORPHA:46</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"Age of onset: Neonatal"</div>
+
+
+                <div class="evidence-explanation">Orphanet records neonatal onset for part of the clinical spectrum.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25112391" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25112391" target="_blank">PMID:25112391</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"fatal neonatal form has onset from birth and presents with fatal neonatal"</div>
+
+
+                <div class="evidence-explanation">Review evidence supports a fatal neonatal presentation.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 3 more references</div>
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-worldwide">
+                <div class="item-name">Worldwide</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Point Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">&le;0.1 per 100,000
+                    </span>
+
+                    <span class="tag">&lt;1 in 1,000,000</span>
+
+                </div>
+
+                <div class="item-notes">Orphanet reports worldwide point prevalence below one per million and describes the evidence base as cases and families.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:46" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:46" target="_blank">ORPHA:46</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"&lt;1 / 1 000 000 | Worldwide | Point prevalence | ORPHANET"</div>
+
+
+                <div class="evidence-explanation">Orphanet reports worldwide point prevalence below one per million.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -8383,7 +8898,7 @@ prevalence:
     describes the evidence base as cases and families.
   evidence:
   - reference: ORPHA:46
-    reference_title: &#34;Adenylosuccinate lyase deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;Adenylosuccinate lyase deficiency&#34;
     supports: SUPPORT
     snippet: &#34;&lt;1 / 1 000 000 | Worldwide | Point prevalence | ORPHANET&#34;
     explanation: Orphanet reports worldwide point prevalence below one per million.
@@ -8398,12 +8913,12 @@ progression:
     first years of life.
   evidence:
   - reference: ORPHA:46
-    reference_title: &#34;Adenylosuccinate lyase deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;Adenylosuccinate lyase deficiency&#34;
     supports: SUPPORT
     snippet: &#34;Age of onset: Infancy&#34;
     explanation: Orphanet records infancy as one age of onset.
   - reference: ORPHA:46
-    reference_title: &#34;Adenylosuccinate lyase deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;Adenylosuccinate lyase deficiency&#34;
     supports: SUPPORT
     snippet: &#34;Age of onset: Neonatal&#34;
     explanation: Orphanet records neonatal onset for part of the clinical spectrum.
@@ -8591,13 +9106,13 @@ pathophysiology:
     explanation: Review evidence describes the two ADSL-dependent purine-pathway reactions.
   - reference: PMID:25112391
     reference_title: &#34;Adenylosuccinate lyase deficiency.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;Deficient synthesis of purine nucleotides caused by ADSL deficiency&#34;
     explanation: Review evidence describes deficient purine nucleotide synthesis as a plausible contributor while noting incomplete mechanistic certainty.
   - reference: PMID:25112391
     reference_title: &#34;Adenylosuccinate lyase deficiency.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;ADSL also participates in the purine nucleotide cycle&#34;
     explanation: Review evidence supports purine nucleotide-cycle impairment as another proposed mechanism.
@@ -8697,7 +9212,7 @@ pathophysiology:
     explanation: Review evidence identifies SAICAr and S-Ado as abnormal compounds formed from the enzyme substrates.
   - reference: PMID:25112391
     reference_title: &#34;Adenylosuccinate lyase deficiency.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;toxic effects of accumulating succinylpurines&#34;
     explanation: Review evidence presents succinylpurine toxicity as a leading but incompletely proven pathogenesis hypothesis.
@@ -8709,7 +9224,7 @@ pathophysiology:
     explanation: Biochemical study supports SAICAr and S-Ado as dephosphorylated ADSL substrate derivatives.
   - reference: DOI:10.1371/journal.pgen.1010974
     reference_title: &#34;Adenylosuccinate lyase deficiency affects neurobehavior via perturbations to tyramine signaling in Caenorhabditis elegans&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;perturbation in tyrosine metabolism and show that a lack of tyramine&#34;
     explanation: C. elegans model evidence supports wider metabolic perturbation downstream of adsl deficiency.
@@ -8736,7 +9251,7 @@ pathophysiology:
     evidence:
     - reference: PMID:25112391
       reference_title: &#34;Adenylosuccinate lyase deficiency.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;The main pathogenic effect has been attributed to the toxic effects of accumulating succinylpurines&#34;
       explanation: Review evidence supports succinylpurine neurotoxicity as the leading hypothesis while noting incomplete proof in humans.
@@ -8757,7 +9272,7 @@ pathophysiology:
       label: brain
   evidence:
   - reference: ORPHA:46
-    reference_title: &#34;Adenylosuccinate lyase deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;Adenylosuccinate lyase deficiency&#34;
     supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;A disorder of purine metabolism characterized by intellectual disability, psychomotor delay and/or regression, seizures, and autistic features.&#34;
@@ -8774,7 +9289,7 @@ pathophysiology:
     causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
     evidence:
     - reference: ORPHA:46
-      reference_title: &#34;Adenylosuccinate lyase deficiency (Orphanet structured-database record)&#34;
+      reference_title: &#34;Adenylosuccinate lyase deficiency&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0011344 | Severe global developmental delay | Very frequent (99-80%)&#34;
@@ -8909,7 +9424,7 @@ pathophysiology:
     causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
     evidence:
     - reference: ORPHA:46
-      reference_title: &#34;Adenylosuccinate lyase deficiency (Orphanet structured-database record)&#34;
+      reference_title: &#34;Adenylosuccinate lyase deficiency&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0000219 | Thin upper lip vermilion | Very frequent (99-80%)&#34;
@@ -8919,7 +9434,7 @@ pathophysiology:
     causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
     evidence:
     - reference: ORPHA:46
-      reference_title: &#34;Adenylosuccinate lyase deficiency (Orphanet structured-database record)&#34;
+      reference_title: &#34;Adenylosuccinate lyase deficiency&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0000248 | Brachycephaly | Very frequent (99-80%)&#34;
@@ -8929,7 +9444,7 @@ pathophysiology:
     causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
     evidence:
     - reference: ORPHA:46
-      reference_title: &#34;Adenylosuccinate lyase deficiency (Orphanet structured-database record)&#34;
+      reference_title: &#34;Adenylosuccinate lyase deficiency&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0000319 | Smooth philtrum | Very frequent (99-80%)&#34;
@@ -8939,7 +9454,7 @@ pathophysiology:
     causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
     evidence:
     - reference: ORPHA:46
-      reference_title: &#34;Adenylosuccinate lyase deficiency (Orphanet structured-database record)&#34;
+      reference_title: &#34;Adenylosuccinate lyase deficiency&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0000343 | Long philtrum | Very frequent (99-80%)&#34;
@@ -8949,7 +9464,7 @@ pathophysiology:
     causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
     evidence:
     - reference: ORPHA:46
-      reference_title: &#34;Adenylosuccinate lyase deficiency (Orphanet structured-database record)&#34;
+      reference_title: &#34;Adenylosuccinate lyase deficiency&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0000369 | Low-set ears | Very frequent (99-80%)&#34;
@@ -8959,7 +9474,7 @@ pathophysiology:
     causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
     evidence:
     - reference: ORPHA:46
-      reference_title: &#34;Adenylosuccinate lyase deficiency (Orphanet structured-database record)&#34;
+      reference_title: &#34;Adenylosuccinate lyase deficiency&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0000463 | Anteverted nares | Very frequent (99-80%)&#34;
@@ -8969,7 +9484,7 @@ pathophysiology:
     causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
     evidence:
     - reference: ORPHA:46
-      reference_title: &#34;Adenylosuccinate lyase deficiency (Orphanet structured-database record)&#34;
+      reference_title: &#34;Adenylosuccinate lyase deficiency&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0001999 | Abnormal facial shape | Very frequent (99-80%)&#34;
@@ -8979,7 +9494,7 @@ pathophysiology:
     causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
     evidence:
     - reference: ORPHA:46
-      reference_title: &#34;Adenylosuccinate lyase deficiency (Orphanet structured-database record)&#34;
+      reference_title: &#34;Adenylosuccinate lyase deficiency&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0003196 | Short nose | Very frequent (99-80%)&#34;
@@ -8989,7 +9504,7 @@ pathophysiology:
     causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
     evidence:
     - reference: ORPHA:46
-      reference_title: &#34;Adenylosuccinate lyase deficiency (Orphanet structured-database record)&#34;
+      reference_title: &#34;Adenylosuccinate lyase deficiency&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0005469 | Flat occiput | Very frequent (99-80%)&#34;
@@ -8999,7 +9514,7 @@ pathophysiology:
     causal_link_type: INDIRECT_UNKNOWN_INTERMEDIATES
     evidence:
     - reference: ORPHA:46
-      reference_title: &#34;Adenylosuccinate lyase deficiency (Orphanet structured-database record)&#34;
+      reference_title: &#34;Adenylosuccinate lyase deficiency&#34;
       supports: SUPPORT
       evidence_source: OTHER
       snippet: &#34;HP:0005487 | Prominent metopic ridge | Very frequent (99-80%)&#34;
@@ -9015,7 +9530,7 @@ phenotypes:
       label: Severe global developmental delay
   evidence:
   - reference: ORPHA:46
-    reference_title: &#34;Adenylosuccinate lyase deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;Adenylosuccinate lyase deficiency&#34;
     supports: SUPPORT
     snippet: &#34;HP:0011344 | Severe global developmental delay | Very frequent (99-80%)&#34;
     explanation: Orphanet reports severe global developmental delay as very frequent.
@@ -9029,7 +9544,7 @@ phenotypes:
       label: Intellectual disability
   evidence:
   - reference: ORPHA:46
-    reference_title: &#34;Adenylosuccinate lyase deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;Adenylosuccinate lyase deficiency&#34;
     supports: SUPPORT
     snippet: &#34;HP:0001249 | Intellectual disability | Very frequent (99-80%)&#34;
     explanation: Orphanet reports intellectual disability as very frequent.
@@ -9049,7 +9564,7 @@ phenotypes:
       label: Seizure
   evidence:
   - reference: ORPHA:46
-    reference_title: &#34;Adenylosuccinate lyase deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;Adenylosuccinate lyase deficiency&#34;
     supports: SUPPORT
     snippet: &#34;HP:0001250 | Seizure | Very frequent (99-80%)&#34;
     explanation: Orphanet reports seizure as very frequent.
@@ -9075,7 +9590,7 @@ phenotypes:
       label: Generalized hypotonia
   evidence:
   - reference: ORPHA:46
-    reference_title: &#34;Adenylosuccinate lyase deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;Adenylosuccinate lyase deficiency&#34;
     supports: SUPPORT
     snippet: &#34;HP:0001290 | Generalized hypotonia | Very frequent (99-80%)&#34;
     explanation: Orphanet reports generalized hypotonia as very frequent.
@@ -9095,7 +9610,7 @@ phenotypes:
       label: Absent speech
   evidence:
   - reference: ORPHA:46
-    reference_title: &#34;Adenylosuccinate lyase deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;Adenylosuccinate lyase deficiency&#34;
     supports: SUPPORT
     snippet: &#34;HP:0001344 | Absent speech | Very frequent (99-80%)&#34;
     explanation: Orphanet reports absent speech as very frequent.
@@ -9114,7 +9629,7 @@ phenotypes:
       label: Autistic behavior
   evidence:
   - reference: ORPHA:46
-    reference_title: &#34;Adenylosuccinate lyase deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;Adenylosuccinate lyase deficiency&#34;
     supports: SUPPORT
     snippet: &#34;seizures, and autistic features.&#34;
     explanation: Orphanet includes autistic features in the disorder definition.
@@ -9134,7 +9649,7 @@ phenotypes:
       label: Microcephaly
   evidence:
   - reference: ORPHA:46
-    reference_title: &#34;Adenylosuccinate lyase deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;Adenylosuccinate lyase deficiency&#34;
     supports: SUPPORT
     snippet: &#34;HP:0000252 | Microcephaly | Very frequent (99-80%)&#34;
     explanation: Orphanet reports microcephaly as very frequent.
@@ -9148,7 +9663,7 @@ phenotypes:
       label: Thin upper lip vermilion
   evidence:
   - reference: ORPHA:46
-    reference_title: &#34;Adenylosuccinate lyase deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;Adenylosuccinate lyase deficiency&#34;
     supports: SUPPORT
     snippet: &#34;HP:0000219 | Thin upper lip vermilion | Very frequent (99-80%)&#34;
     explanation: Orphanet reports thin upper lip vermilion as very frequent.
@@ -9162,7 +9677,7 @@ phenotypes:
       label: Brachycephaly
   evidence:
   - reference: ORPHA:46
-    reference_title: &#34;Adenylosuccinate lyase deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;Adenylosuccinate lyase deficiency&#34;
     supports: SUPPORT
     snippet: &#34;HP:0000248 | Brachycephaly | Very frequent (99-80%)&#34;
     explanation: Orphanet reports brachycephaly as very frequent.
@@ -9176,7 +9691,7 @@ phenotypes:
       label: Smooth philtrum
   evidence:
   - reference: ORPHA:46
-    reference_title: &#34;Adenylosuccinate lyase deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;Adenylosuccinate lyase deficiency&#34;
     supports: SUPPORT
     snippet: &#34;HP:0000319 | Smooth philtrum | Very frequent (99-80%)&#34;
     explanation: Orphanet reports smooth philtrum as very frequent.
@@ -9190,7 +9705,7 @@ phenotypes:
       label: Long philtrum
   evidence:
   - reference: ORPHA:46
-    reference_title: &#34;Adenylosuccinate lyase deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;Adenylosuccinate lyase deficiency&#34;
     supports: SUPPORT
     snippet: &#34;HP:0000343 | Long philtrum | Very frequent (99-80%)&#34;
     explanation: Orphanet reports long philtrum as very frequent.
@@ -9204,7 +9719,7 @@ phenotypes:
       label: Low-set ears
   evidence:
   - reference: ORPHA:46
-    reference_title: &#34;Adenylosuccinate lyase deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;Adenylosuccinate lyase deficiency&#34;
     supports: SUPPORT
     snippet: &#34;HP:0000369 | Low-set ears | Very frequent (99-80%)&#34;
     explanation: Orphanet reports low-set ears as very frequent.
@@ -9218,7 +9733,7 @@ phenotypes:
       label: Anteverted nares
   evidence:
   - reference: ORPHA:46
-    reference_title: &#34;Adenylosuccinate lyase deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;Adenylosuccinate lyase deficiency&#34;
     supports: SUPPORT
     snippet: &#34;HP:0000463 | Anteverted nares | Very frequent (99-80%)&#34;
     explanation: Orphanet reports anteverted nares as very frequent.
@@ -9232,7 +9747,7 @@ phenotypes:
       label: Abnormal facial shape
   evidence:
   - reference: ORPHA:46
-    reference_title: &#34;Adenylosuccinate lyase deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;Adenylosuccinate lyase deficiency&#34;
     supports: SUPPORT
     snippet: &#34;HP:0001999 | Abnormal facial shape | Very frequent (99-80%)&#34;
     explanation: Orphanet reports abnormal facial shape as very frequent.
@@ -9246,7 +9761,7 @@ phenotypes:
       label: Short nose
   evidence:
   - reference: ORPHA:46
-    reference_title: &#34;Adenylosuccinate lyase deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;Adenylosuccinate lyase deficiency&#34;
     supports: SUPPORT
     snippet: &#34;HP:0003196 | Short nose | Very frequent (99-80%)&#34;
     explanation: Orphanet reports short nose as very frequent.
@@ -9260,7 +9775,7 @@ phenotypes:
       label: Flat occiput
   evidence:
   - reference: ORPHA:46
-    reference_title: &#34;Adenylosuccinate lyase deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;Adenylosuccinate lyase deficiency&#34;
     supports: SUPPORT
     snippet: &#34;HP:0005469 | Flat occiput | Very frequent (99-80%)&#34;
     explanation: Orphanet reports flat occiput as very frequent.
@@ -9274,7 +9789,7 @@ phenotypes:
       label: Prominent metopic ridge
   evidence:
   - reference: ORPHA:46
-    reference_title: &#34;Adenylosuccinate lyase deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;Adenylosuccinate lyase deficiency&#34;
     supports: SUPPORT
     snippet: &#34;HP:0005487 | Prominent metopic ridge | Very frequent (99-80%)&#34;
     explanation: Orphanet reports prominent metopic ridge as very frequent.
@@ -9288,7 +9803,7 @@ phenotypes:
       label: Hypointensity of cerebral white matter on MRI
   evidence:
   - reference: ORPHA:46
-    reference_title: &#34;Adenylosuccinate lyase deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;Adenylosuccinate lyase deficiency&#34;
     supports: SUPPORT
     snippet: &#34;HP:0007103 | Hypointensity of cerebral white matter on MRI | Very frequent (99-80%)&#34;
     explanation: Orphanet reports cerebral white matter MRI hypointensity as very frequent.
@@ -9440,7 +9955,7 @@ genetic:
   - name: Autosomal recessive
     evidence:
     - reference: ORPHA:46
-      reference_title: &#34;Adenylosuccinate lyase deficiency (Orphanet structured-database record)&#34;
+      reference_title: &#34;Adenylosuccinate lyase deficiency&#34;
       supports: SUPPORT
       snippet: &#34;Autosomal recessive&#34;
       explanation: Orphanet reports autosomal recessive inheritance.
@@ -9475,12 +9990,12 @@ genetic:
     cross-reference for adenylosuccinate lyase deficiency.
   evidence:
   - reference: ORPHA:46
-    reference_title: &#34;Adenylosuccinate lyase deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;Adenylosuccinate lyase deficiency&#34;
     supports: SUPPORT
     snippet: &#34;ADSL | adenylosuccinate lyase | hgnc:291 | Disease-causing germline mutation(s) in&#34;
     explanation: Orphanet lists ADSL as the disease-causing gene.
   - reference: ORPHA:46
-    reference_title: &#34;Adenylosuccinate lyase deficiency (Orphanet structured-database record)&#34;
+    reference_title: &#34;Adenylosuccinate lyase deficiency&#34;
     supports: SUPPORT
     snippet: &#34;MONDO:0007068 | Exact&#34;
     explanation: Orphanet provides a direct exact mapping to MONDO:0007068.
@@ -9521,7 +10036,7 @@ treatments:
     explanation: Review evidence supports seizure-directed pharmacotherapy.
   - reference: PMID:25112391
     reference_title: &#34;Adenylosuccinate lyase deficiency.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &#34;A ketogenic diet could be considered a valid therapeutic option&#34;
     explanation: Review evidence supports ketogenic diet consideration for refractory seizures, with monitoring.
@@ -9567,19 +10082,19 @@ treatments:
     explanation: The phase II report supports a biomarker response consistent with the proposed succinylpurine mechanism.
   - reference: PMID:41053929
     reference_title: &#34;Allopurinol Treatment Improves Cognitive Skills, Adaptive Behavior, and Biochemical Markers in Young Patients With Adenylosuccinate Lyase Deficiency.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Allopurinol had no effect on epilepsy but was well&#34;
     explanation: The phase II report limits the treatment claim by showing no epilepsy response while supporting tolerability.
   - reference: clinicaltrials:NCT03776656
     reference_title: &#34;Evaluation of a Treatment With Allopurinol on Autistic Disorders and Epilepsy in Adenylosuccinate Lyase Deficiency (ADSL)&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;evaluate the effectiveness of allopurinol treatment at 12 months&#34;
     explanation: ClinicalTrials.gov registry supports allopurinol as an investigational therapy.
   - reference: clinicaltrials:NCT03776656
     reference_title: &#34;Evaluation of a Treatment With Allopurinol on Autistic Disorders and Epilepsy in Adenylosuccinate Lyase Deficiency (ADSL)&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The decrease in the concentration of SAICAR and S-Ado metabolites&#34;
     explanation: The trial registry lists succinylpurine biomarkers as measured endpoints.
@@ -9951,6 +10466,8 @@ references:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -10019,6 +10536,8 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -10422,6 +10941,8 @@ references:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -10941,6 +11462,18 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Cross-provider assessment</strong> · <a href="../research/Adenylosuccinate_Lyase_Deficiency-synthesis.html">Read assessment</a></p>
+
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -12720,7 +13253,7 @@ Two Concurrent Biochemical Consequences:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Adenylosuccinate Lyase Deficiency", "mondoId": "MONDO:0007068", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Adenylosuccinate_Lyase_Deficiency", "yamlRevision": "95d37e999ec3"};
+        const OS_CONFIG = {"diseaseName": "Adenylosuccinate Lyase Deficiency", "mondoId": "MONDO:0007068", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Adenylosuccinate_Lyase_Deficiency", "yamlRevision": "a7d2edc514e0"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

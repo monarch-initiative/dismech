@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2954,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2969,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3078,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3091,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3295,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3305,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3341,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3362,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3675,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4062,6 +4155,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4108,6 +4203,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lemd3-man1-loss-of-function-and-dysregulated-tgf-beta-bmp-signaling" data-dismech-node="LEMD3/MAN1 Loss-of-Function and Dysregulated TGF-beta/BMP Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">LEMD3/MAN1 Loss-of-Function and Dysregulated TGF-beta/BMP Signaling</div>
+
 
                 <div class="item-desc">Osteopoikilosis is caused by heterozygous loss-of-function mutations in LEMD3 (also called MAN1), which encodes an inner nuclear membrane protein. The C-terminal domain of LEMD3 binds receptor-activated SMADs and antagonizes both BMP and TGF-beta/activin signaling pathways. Loss of this antagonism leads to excessive SMAD-mediated signaling, perturbing bone formation and remodeling and producing focal osteosclerotic lesions.
 </div>
@@ -4389,14 +4485,16 @@ This pathophysiological event involves endochondral ossification (GO:0001958). G
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:15489854" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:15489854" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15489854" target="_blank">PMID:15489854</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4422,6 +4520,8 @@ This pathophysiological event involves endochondral ossification (GO:0001958). G
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4435,14 +4535,16 @@ This pathophysiological event involves endochondral ossification (GO:0001958). G
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:17087626" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:17087626" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17087626" target="_blank">PMID:17087626</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4467,6 +4569,7 @@ This pathophysiological event involves endochondral ossification (GO:0001958). G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-focal-osteosclerosis-osteopoikilosis" data-dismech-node="Focal Osteosclerosis (Osteopoikilosis)" data-dismech-type="pathophysiology">
                 <div class="item-name">Focal Osteosclerosis (Osteopoikilosis)</div>
+
 
                 <div class="item-desc">Multiple small, discrete, symmetric periarticular osteosclerotic bone lesions (2-10mm diameter) distributed in the epiphyses and metaphyses of long bones, carpal and tarsal bones, and pelvis. These lesions represent areas of focal defective endochondral bone maturation with osteosclerotic trabeculae.
 </div>
@@ -4667,6 +4770,8 @@ This pathophysiological event occurs in bone element (UBERON:0001474). UBERON:00
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4688,6 +4793,8 @@ This pathophysiological event occurs in bone element (UBERON:0001474). UBERON:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4712,6 +4819,7 @@ This pathophysiological event occurs in bone element (UBERON:0001474). UBERON:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lacrimal-canal-stenosis" data-dismech-node="Lacrimal Canal Stenosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Lacrimal Canal Stenosis</div>
+
 
                 <div class="item-desc">Stenosis of the lacrimal sac or nasolacrimal canal leads to impaired tear drainage and chronic dacryocystitis. The stenosis is hypothesized to arise from fibroproliferative connective tissue changes related to the underlying LEMD3-associated connective tissue disorder, analogous to stenosing lesions seen at other sites in the osteopoikilosis spectrum.
 </div>
@@ -4838,6 +4946,8 @@ This pathophysiological event occurs in nasolacrimal duct (UBERON:0002392). UBER
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4957,20 +5067,25 @@ This clinical feature is Epiphora (HP:0009926). HP:0009926 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:34986808" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:34986808" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34986808" target="_blank">PMID:34986808</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5033,6 +5148,9 @@ This clinical feature is Dacryocystitis (HP:0000620). HP:0000620 is a phenotype 
 
 
 
+
+
+
                     <div class="item-meta">
                         <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
 
@@ -5056,6 +5174,8 @@ This clinical feature is Dacryocystitis (HP:0000620). HP:0000620 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5109,6 +5229,9 @@ This clinical feature is Lacrimal duct stenosis (HP:0007678). HP:0007678 is a ph
 
 
 
+
+
+
                     <div class="item-meta">
                         <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
 
@@ -5134,6 +5257,8 @@ This clinical feature is Lacrimal duct stenosis (HP:0007678). HP:0007678 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5198,6 +5323,9 @@ This clinical feature is Keloids (HP:0010562). HP:0010562 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5212,6 +5340,8 @@ This clinical feature is Keloids (HP:0010562). HP:0010562 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5276,6 +5406,9 @@ This clinical feature is Dupuytren contracture (HP:0005679). HP:0005679 is a phe
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5290,6 +5423,8 @@ This clinical feature is Dupuytren contracture (HP:0005679). HP:0005679 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5354,6 +5489,9 @@ This clinical feature is Joint swelling (HP:0001386). HP:0001386 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5368,6 +5506,8 @@ This clinical feature is Joint swelling (HP:0001386). HP:0001386 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5430,6 +5570,9 @@ This clinical feature is Osteopoikilosis (HP:0010739). HP:0010739 is a phenotype
 
 
 
+
+
+
                     <div class="item-meta">
                         <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
 
@@ -5457,6 +5600,8 @@ This clinical feature is Osteopoikilosis (HP:0010739). HP:0010739 is a phenotype
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5478,6 +5623,8 @@ This clinical feature is Osteopoikilosis (HP:0010739). HP:0010739 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5533,6 +5680,9 @@ This clinical feature is Increased bone mineral density (HP:0011001). HP:0011001
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5547,6 +5697,8 @@ This clinical feature is Increased bone mineral density (HP:0011001). HP:0011001
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5602,6 +5754,9 @@ This clinical feature is Digital flexor tenosynovitis (HP:0012276). HP:0012276 i
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5616,6 +5771,8 @@ This clinical feature is Digital flexor tenosynovitis (HP:0012276). HP:0012276 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5680,6 +5837,9 @@ This clinical feature is Arthralgia (HP:0002829). HP:0002829 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5694,6 +5854,8 @@ This clinical feature is Arthralgia (HP:0002829). HP:0002829 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5791,20 +5953,25 @@ This disease-associated gene is LEMD3 (hgnc:28887). hgnc:28887 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:15489854" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:15489854" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15489854" target="_blank">PMID:15489854</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5820,14 +5987,16 @@ This disease-associated gene is LEMD3 (hgnc:28887). hgnc:28887 is a gene from th
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:17087626" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:17087626" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/17087626" target="_blank">PMID:17087626</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5910,6 +6079,20 @@ This treatment is dacryocystorhinostomy, annotated with Ophthalmologic Surgical 
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Surgical procedure to create a new drainage pathway from the lacrimal sac directly into the nasal cavity, bypassing the obstructed nasolacrimal duct. May be necessary in cases of chronic or recurrent dacryocystitis that do not respond to conservative management.
 </div>
 
@@ -5957,6 +6140,20 @@ This treatment is antibiotic pharmacotherapy, annotated with Antibiotic Therapy 
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -6014,6 +6211,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Osteopoikilosis itself is typically benign and asymptomatic, requiring no specific treatment in most cases. Affected individuals should be reassured of the non-progressive and non-malignant nature of the bone lesions. Clinical monitoring without intervention is appropriate for asymptomatic cases.
 </div>
 
@@ -6036,6 +6247,8 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6120,6 +6333,20 @@ This treatment uses analgesic agent (NCIT:C241). NCIT:C241 is a therapeutic agen
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">For the minority of patients who develop joint pain (arthralgia) or joint effusion associated with periarticular osteosclerotic lesions, symptomatic management with analgesics or anti-inflammatory agents is appropriate. No disease-specific treatment is required for osteopoikilosis-associated arthralgia.
 </div>
 
@@ -6134,14 +6361,16 @@ This treatment uses analgesic agent (NCIT:C241). NCIT:C241 is a therapeutic agen
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:25352085" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:25352085" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25352085" target="_blank">PMID:25352085</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6171,6 +6400,333 @@ This treatment uses analgesic agent (NCIT:C241). NCIT:C241 is a therapeutic agen
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-clinical-radiographic-and-molecular-diagnosis">
+                <div class="item-name">
+                    Clinical, Radiographic, and Molecular Diagnosis
+
+                </div>
+
+                <div class="item-desc">Dacryocystitis-osteopoikilosis syndrome is diagnosed from the combination of recurrent dacryocystitis and the characteristic radiographic osteopoikilosis (symmetric small sclerotic foci in the epiphyses and metaphyses), inherited in an autosomal dominant manner, and is confirmed by identification of a heterozygous loss-of-function LEMD3 variant on molecular genetic testing. Lacrimal lavage or dacryocystography confirms nasolacrimal duct stenosis in patients with dacryocystitis. Note that LEMD3 molecular testing has not been reported in the original dacryocystitis-osteopoikilosis pedigree; confirmation in affected families is an unmet need.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        molecular genetic testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C19770" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-30">NCIT:C19770</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:8261652" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/8261652" target="_blank">PMID:8261652</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We report five members of a family with dacryocystitis associated with osteopoikilosis. The inheritance is autosomal dominant."</div>
+
+
+                <div class="evidence-explanation">Establishes the clinical association and autosomal dominant inheritance that define the syndrome.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:15489854" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15489854" target="_blank">PMID:15489854</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"All the affected individuals that we investigated were heterozygous with respect to a loss-of-function mutation in LEMD3 (also called MAN1), which encodes an inner nuclear membrane protein."</div>
+
+
+                <div class="evidence-explanation">Supports heterozygous loss-of-function LEMD3 molecular testing for confirmation of osteopoikilosis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-radiographic-diagnosis-and-differential">
+                <div class="item-name">
+                    Radiographic Diagnosis and Differential
+
+                </div>
+
+                <div class="item-desc">Plain radiographs are the primary modality for diagnosing osteopoikilosis, revealing the characteristic multiple, small, well-defined, symmetric periarticular sclerotic foci. A clinically important pitfall is confusion with osteoblastic bone metastases; bone scintigraphy is normal in OPK (unlike metastatic disease) and is the key discriminating investigation. Diagnosis is often incidental. When multiple symmetric sclerotic foci are identified, OPK should be included in the differential before alarming the patient with a cancer diagnosis.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        radiograph imaging procedure
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C38101" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-31">NCIT:C38101</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25352085" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25352085" target="_blank">PMID:25352085</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"OPK must be in differential diagnosis when multiple, small, well-defined, symmetric bone lesions are identified on plain radiograph to avoid alarming the patient with more serious disease and misdiagnosis."</div>
+
+
+                <div class="evidence-explanation">Establishes plain radiograph as the primary diagnostic modality and highlights the clinically important differential diagnosis from osteoblastic metastases.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25352085" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25352085" target="_blank">PMID:25352085</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Bone scintigraphy is normal and useful for differential diagnosis."</div>
+
+
+                <div class="evidence-explanation">Normal bone scintigraphy in OPK distinguishes it from metastatic bone disease, where scintigraphic uptake would be expected.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-published-family-reports">
+                <div class="item-name">Published family reports</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Cases In Literature</span>
+
+
+
+                    <span class="tag">5 affected members in a single reported family</span>
+
+                    <span class="tag">Ultra Rare</span>
+
+                </div>
+
+                <div class="item-notes">No population-based prevalence estimate was identified. The original syndrome report described five affected members in one family and noted no prior published association, indicating an exceptionally rare condition.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:8261652" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/8261652" target="_blank">PMID:8261652</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We report five members of a family with dacryocystitis associated with osteopoikilosis. The inheritance is autosomal dominant. Review of the literature revealed no other report of this kind of association."</div>
+
+
+                <div class="evidence-explanation">The original syndrome-defining report documents only one affected family and explicitly notes no prior literature reports.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -6316,7 +6872,7 @@ pathophysiology:
   evidence:
   - reference: PMID:15489854
     reference_title: &#34;Loss-of-function mutations in LEMD3 result in osteopoikilosis, Buschke-Ollendorff syndrome and melorheostosis.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;All the affected individuals that we investigated were heterozygous with respect to a loss-of-function mutation in LEMD3 (also called MAN1), which encodes an inner nuclear membrane protein.&#34;
     explanation: Landmark genetic study confirming LEMD3 loss-of-function mutations in osteopoikilosis/Buschke-Ollendorff syndrome families; mechanism inferred to apply to the dacryocystitis-osteopoikilosis pedigree, which was not directly molecularly tested.
@@ -6328,7 +6884,7 @@ pathophysiology:
     explanation: Demonstrates the molecular mechanism by which LEMD3 antagonizes BMP and TGF-beta signaling; applies directly to the pathogenic mechanism regardless of which specific pedigree is studied.
   - reference: PMID:17087626
     reference_title: &#34;Deactivating germline mutations in LEMD3 cause osteopoikilosis and Buschke-Ollendorff syndrome, but not sporadic melorheostosis.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;In 2004, others discovered that heterozygous, loss-of-function, germline mutations in the LEMD3 gene (LEMD3 or MAN1) cause both osteopoikilosis (OPK) and Buschke-Ollendorff syndrome (BOS).&#34;
     explanation: Confirms LEMD3 loss-of-function mutations in additional OPK/BOS families; these pedigrees do not include patients with the combined dacryocystitis-osteopoikilosis phenotype, so this is an inference from adjacent disorders.
@@ -6546,7 +7102,7 @@ phenotypes:
   evidence:
   - reference: PMID:34986808
     reference_title: &#34;Acquired nasolacrimal duct obstruction: clinical and histological findings of 275 cases.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Epiphora with continuous purulent discharge was the most common clinical sign reported by 144 (52.4%) patients&#34;
     explanation: Large clinical series confirms epiphora as the most common presenting symptom in acquired nasolacrimal duct obstruction with dacryocystitis.
@@ -6665,13 +7221,13 @@ genetic:
   evidence:
   - reference: PMID:15489854
     reference_title: &#34;Loss-of-function mutations in LEMD3 result in osteopoikilosis, Buschke-Ollendorff syndrome and melorheostosis.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;All the affected individuals that we investigated were heterozygous with respect to a loss-of-function mutation in LEMD3 (also called MAN1), which encodes an inner nuclear membrane protein.&#34;
     explanation: Identifies LEMD3 as the causative gene for osteopoikilosis in multiple families; LEMD3 is inferred (not directly tested) as the causative gene in the dacryocystitis-osteopoikilosis pedigree.
   - reference: PMID:17087626
     reference_title: &#34;Deactivating germline mutations in LEMD3 cause osteopoikilosis and Buschke-Ollendorff syndrome, but not sporadic melorheostosis.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;We confirm that OPK and BOS individuals, including those with MEL-like lesions, have heterozygous, deactivating, germline LEMD3 mutations.&#34;
     explanation: Confirms deactivating LEMD3 mutations in additional OPK/BOS families; these families did not have the combined dacryocystitis phenotype, so this supports the inference but is not direct evidence for the combined syndrome.
@@ -6685,8 +7241,8 @@ diagnosis:
     by identification of a heterozygous loss-of-function LEMD3 variant on
     molecular genetic testing. Lacrimal lavage or dacryocystography confirms
     nasolacrimal duct stenosis in patients with dacryocystitis. Note that LEMD3
-    molecular testing has not been reported in the original dacryocystitis-
-    osteopoikilosis pedigree; confirmation in affected families is an unmet need.
+    molecular testing has not been reported in the original dacryocystitis-osteopoikilosis
+    pedigree; confirmation in affected families is an unmet need.
   diagnosis_term:
     preferred_term: molecular genetic testing
     term:
@@ -6798,7 +7354,7 @@ treatments:
   evidence:
   - reference: PMID:25352085
     reference_title: &#34;Osteopoikilosis: report of a familial case and review of the literature.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Although it is usually asymptomatic, effusion and joint pain can be found in 15-20 % of patients.&#34;
     explanation: Documents that a minority of osteopoikilosis patients experience joint symptoms warranting symptomatic pain management; specific analgesic regimens are not detailed in this report.
@@ -6833,6 +7389,78 @@ notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Review: Dacryocystitis-Osteopoikilosis Syndrome (Changes required / human-curator attention recommended)</strong> · 2026-05-30T02:34:48Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Dacryocystitis-Osteopoikilosis_Syndrome/2026-05-30T023448Z-github-review-3389.yaml">View source</a></p>
+                        <p class="research-review-text">GitHub review issue: https://github.com/monarch-initiative/dismech/issues/3389
+Issue state: OPEN
+Issue created: 2026-05-30T02:34:48Z
+Issue updated: 2026-05-30T02:44:15Z
+Issue closed: not closed
+Review decision: Changes required / human-curator attention recommended
+Labels: curation, medium_effort, review
+
+## Completed curation review
+
+- Disease: **Dacryocystitis-Osteopoikilosis Syndrome**
+- Entry: `kb/disorders/Dacryocystitis-Osteopoikilosis_Syndrome.yaml`
+- Selection basis: #3 of 50 least-recently edited Mendelian entries
+- Review decision: **Changes required / human-curator attention recommended**
+- Validation stance: this review assumes schema, ontology-term, and reference validation pass; findings below are biological/clinical/content issues.
+
+## Findings
+
+1. **The entry overstates the molecular certainty for the combined syndrome.** The YAML presents a single LEMD3/MAN1 loss-of-function -&gt; TGF-beta/BMP-SMAD -&gt; osteopoikilosis/lacrimal stenosis/fibroproliferation pathograph. That is well supported for osteopoikilosis / Buschke-Ollendorff spectrum, but the syndrome-defining dacryocystitis + osteopoikilosis report was a small family report and the research artifact explicitly notes that direct mechanistic studies in dacryocystitis-osteopoikilosis syndrome are sparse. The lacrimal component should be marked as a hypothesis or indirect inference, not presented at the same certainty level as LEMD3-caused osteopoikilosis.
+
+2. **The LEMD3 gene-disease claim needs scope control.** Current `genetic:` content cites LEMD3 evidence from osteopoikilosis/BOS studies. That supports the osteopoikilosis component, but it does not directly prove that LEMD3 causes the named combined lacrimal-bone syndrome in the original family unless that family was molecularly tested. The issue for a curator is not the validity of LEMD3 in osteopoikilosis; it is whether the dismech entry should state LEMD3 as the causal gene for `dacryocystitis-osteopoikilosis syndrome` without a qualifying note.
+
+3. **Frequency labels for associated fibroproliferative findings may exceed the disease-specific evidence.** Dacryocystitis and osteopoikilosis as diagnostic/obligate features are supported by the original five-person family. Dupuytren contracture, keloids, and digital flexor tenosynovitis are supported by adjacent osteopoikilosis/fibroproliferative-spectrum literature, not clearly by the named syndrome. These should be scoped as related-spectrum manifestations or removed from this disease entry unless direct disease-specific evidence exists.
+
+4. **The lacrimal duct stenosis claim is mechanistically plausible but evidence-light.** The original report supports dacryocystitis with osteopoikilosis and proposed stenosis of the lacrimal sac/canal as the prerequisite. The current YAML&#39;s downstream statement that excessive TGF-beta signaling in fibroblasts drives nasolacrimal fibroproliferative stenosis goes beyond direct tissue evidence. It should be phrased as a proposed mechanism, with the evidence explanation explicitly distinguishing direct clinical observation from inferred mechanism.
+
+5. **Diagnostics and management should emphasize avoiding misclassification and treating complications.** The entry lists dacryocystorhinostomy and antibiotic therapy, but has no diagnosis section. For this rare entity, practical curation should include confirmation of chronic dacryocystitis/nasolacrimal obstruction, radiographic osteopoikilosis, consideration of LEMD3-spectrum/BOS differential diagnosis, and the common osteopoikilosis pitfall of mistaking sclerotic bone islands for metastatic disease.
+
+## Research-artifact cross-check
+
+Checked:
+- `research/Dacryocystitis-Osteopoikilosis_Syndrome-deep-research-falcon.md`
+- `research/Dacryocystitis-Osteopoikilosis_Syndrome-deep-research-falcon.md.citations.md`
+
+The Falcon artifact is unusually important here because it highlights the evidence boundary: the named syndrome comes from the original small family report; the molecular mechanism comes from LEMD3 osteopoikilosis/BOS literature; and direct lacrimal-tissue mechanistic validation was not found. The current YAML uses most of the artifact&#39;s proposed model but does not sufficiently mark the lacrimal mechanism and LEMD3-to-named-syndrome mapping as indirect.
+
+## Content-completeness checklist
+
+- **Phenotypes:** Core dacryocystitis and osteopoikilosis are covered. Adjacent fibroproliferative findings need scope qualifiers or direct disease-specific support.
+- **Subtype / lumping-splitting:** Needs curator judgment. This may be a very small named syndrome within the broader LEMD3/osteopoikilosis/BOS spectrum; the entry should make that boundary explicit.
+- **Pathophysiology:** Osteopoikilosis mechanism is adequate. Lacrimal/fibroproliferative mechanism is overconfident and should be downgraded to proposed/indirect unless stronger evidence is found.
+- **Treatments / management:** Partial. Dacryocystorhinostomy/antibiotics address lacrimal disease, but the entry should distinguish syndrome-specific evidence from standard dacryocystitis care and include diagnostic/radiographic management considerations.
+- **Genetics:** Needs qualification. LEMD3 is strong for osteopoikilosis/BOS but direct genetic confirmation for the named combined syndrome is not established in the reviewed artifact.
+- **Diagnostics / biomarkers:** Missing. Add radiographic osteopoikilosis confirmation, lacrimal drainage evaluation, and differential diagnosis / metastatic-mimic caution.
+- **References:** High-value references are present, but evidence explanations need to state when a citation supports only an adjacent-spectrum inference.
+- **Overall consumption:** The YAML consumed the mechanistic proposal but not the artifact&#39;s caution about evidence strength; that is the central review issue.
+
+## Suggested remediation
+
+Revise the entry so that LEMD3/BMP/TGF-beta mechanisms support osteopoikilosis directly, while nasolacrimal stenosis and the combined syndrome are represented as clinical/proposed links. Add diagnostic content and re-scope associated fibroproliferative phenotypes to avoid implying they are established features of the named syndrome.
+
+## Sources used for this review
+
+- PMID:8261652: https://pubmed.ncbi.nlm.nih.gov/8261652/
+- PMID:15489854: https://pubmed.ncbi.nlm.nih.gov/15489854/
+- PMID:17087626: https://pubmed.ncbi.nlm.nih.gov/17087626/
+- DOI for original syndrome report: https://doi.org/10.1111/j.1399-0004.1993.tb03882.x
+
+No YAML files or `references_cache/*.md` files were edited for this review.
+
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -7255,7 +7883,7 @@ Focus on the molecular and cellular mechanisms underlying disease progression.</
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Dacryocystitis-Osteopoikilosis Syndrome", "mondoId": "MONDO:0008158", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Dacryocystitis-Osteopoikilosis_Syndrome", "yamlRevision": "9596e028a766"};
+        const OS_CONFIG = {"diseaseName": "Dacryocystitis-Osteopoikilosis Syndrome", "mondoId": "MONDO:0008158", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Dacryocystitis-Osteopoikilosis_Syndrome", "yamlRevision": "9a50d798cc05"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

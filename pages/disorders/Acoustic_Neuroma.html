@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2954,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2969,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3078,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3091,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3295,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3305,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3341,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3362,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3675,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4090,6 +4183,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4182,6 +4277,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4241,6 +4338,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4489,6 +4588,8 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4510,6 +4611,8 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4590,6 +4693,8 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4679,6 +4784,8 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4700,6 +4807,8 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4736,6 +4845,7 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-biallelic-nf2-inactivation-and-merlin-loss" data-dismech-node="Biallelic NF2 Inactivation and Merlin Loss" data-dismech-type="pathophysiology">
                 <div class="item-name">Biallelic NF2 Inactivation and Merlin Loss</div>
+
 
                 <div class="item-desc">In the predominant sporadic form, pathogenic NF2 alterations and/or loss of the second NF2 allele occur in tumor tissue and eliminate merlin tumor-suppressor activity. Germline NF2 predisposition followed by a somatic second hit produces the analogous lesion in NF2-related tumors.</div>
 
@@ -4873,6 +4983,8 @@ This pathophysiological event involves NF2 (hgnc:7773). hgnc:7773 is a gene from
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4894,6 +5006,8 @@ This pathophysiological event involves NF2 (hgnc:7773). hgnc:7773 is a gene from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4919,6 +5033,8 @@ This pathophysiological event involves NF2 (hgnc:7773). hgnc:7773 is a gene from
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4941,6 +5057,7 @@ This pathophysiological event involves NF2 (hgnc:7773). hgnc:7773 is a gene from
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-merlin-dependent-contact-inhibition-and-receptor-control" data-dismech-node="Loss of Merlin-Dependent Contact Inhibition and Receptor Control" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Merlin-Dependent Contact Inhibition and Receptor Control</div>
+
 
                 <div class="item-desc">Merlin normally limits delivery of growth-factor receptors to the Schwann-cell surface at cell-cell contact and restrains downstream AKT and MAPK signaling. Merlin loss weakens contact inhibition and permits excess mitogenic receptor signaling.</div>
 
@@ -5065,6 +5182,8 @@ This pathophysiological event involves decreased contact inhibition (GO:0060242)
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5087,6 +5206,7 @@ This pathophysiological event involves decreased contact inhibition (GO:0060242)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-yap-taz-tead-dependent-mitogenic-signaling" data-dismech-node="YAP/TAZ-TEAD-Dependent Mitogenic Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">YAP/TAZ-TEAD-Dependent Mitogenic Signaling</div>
+
 
                 <div class="item-desc">NF2-null schwannoma cells depend on YAP/TAZ-driven TEAD transcriptional activity. Genetic YAP/TAZ ablation or pharmacologic TEAD inhibition blocks and can regress schwannoma growth in primary-cell and mouse models, making this a preclinical rather than approved clinical target.</div>
 
@@ -5228,6 +5348,8 @@ This pathophysiological event involves increased positive regulation of Schwann 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5249,6 +5371,8 @@ This pathophysiological event involves increased positive regulation of Schwann 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5273,6 +5397,7 @@ This pathophysiological event involves increased positive regulation of Schwann 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-vestibular-schwannoma-formation-and-tumor-growth" data-dismech-node="Vestibular Schwannoma Formation and Tumor Growth" data-dismech-type="pathophysiology">
                 <div class="item-name">Vestibular Schwannoma Formation and Tumor Growth</div>
+
 
                 <div class="item-desc">Proliferating neoplastic Schwann cells form a benign tumor on a vestibular division of cranial nerve VIII. Tumors may remain intrameatal or extend into the cerebellopontine angle; growth rate and clinical effects vary widely.</div>
 
@@ -5451,6 +5576,8 @@ This pathophysiological event occurs in internal acoustic meatus (UBERON:0011859
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5473,6 +5600,7 @@ This pathophysiological event occurs in internal acoustic meatus (UBERON:0011859
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-vestibular-schwannoma-secretome-and-cochlear-injury" data-dismech-node="Vestibular Schwannoma Secretome and Cochlear Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Vestibular Schwannoma Secretome and Cochlear Injury</div>
+
 
                 <div class="item-desc">Soluble factors released by vestibular schwannomas can injure cochlear hair cells and neuronal fibers. Human temporal-bone pathology corroborates ipsilateral cochlear degeneration, although the relative contributions of secreted factors and retrocochlear injury remain uncertain.</div>
 
@@ -5563,6 +5691,8 @@ This pathophysiological event occurs in cochlea (UBERON:0001844). UBERON:0001844
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5584,6 +5714,8 @@ This pathophysiological event occurs in cochlea (UBERON:0001844). UBERON:0001844
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5608,6 +5740,7 @@ This pathophysiological event occurs in cochlea (UBERON:0001844). UBERON:0001844
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-eighth-nerve-auditory-and-vestibular-dysfunction" data-dismech-node="Eighth-Nerve Auditory and Vestibular Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Eighth-Nerve Auditory and Vestibular Dysfunction</div>
+
 
                 <div class="item-desc">Vestibular schwannoma disrupts cranial-nerve VIII function, producing auditory symptoms and objective dysfunction of superior and inferior vestibular divisions. Central compensation helps explain why objective vestibular deficits and perceived vertigo do not always align.</div>
 
@@ -5697,6 +5830,8 @@ This pathophysiological event occurs in vestibulocochlear nerve (UBERON:0001648)
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5719,6 +5854,7 @@ This pathophysiological event occurs in vestibulocochlear nerve (UBERON:0001648)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cerebellopontine-angle-expansion-and-advanced-mass-effect" data-dismech-node="Cerebellopontine-Angle Expansion and Advanced Mass Effect" data-dismech-type="pathophysiology">
                 <div class="item-name">Cerebellopontine-Angle Expansion and Advanced Mass Effect</div>
+
 
                 <div class="item-desc">Larger extrameatal tumors can compress the brainstem and adjacent cranial nerves in the cerebellopontine angle. Trigeminal manifestations are a conditional advanced-tumor effect, not a universal feature.</div>
 
@@ -5782,14 +5918,16 @@ This pathophysiological event occurs in cerebellopontine angle (UBERON:0014908).
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:8971818" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:8971818" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/8971818" target="_blank">PMID:8971818</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5856,9 +5994,9 @@ This pathophysiological event occurs in cerebellopontine angle (UBERON:0014908).
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Ear<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Ear<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Other<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Other<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5868,7 +6006,7 @@ This pathophysiological event occurs in cerebellopontine angle (UBERON:0014908).
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Ear
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-sensorineural-hearing-impairment" data-dismech-node="Sensorineural Hearing Impairment" data-dismech-type="phenotype">
@@ -5899,6 +6037,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5913,6 +6054,8 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5966,6 +6109,9 @@ This clinical feature is Tinnitus (HP:0000360). HP:0000360 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5980,6 +6126,8 @@ This clinical feature is Tinnitus (HP:0000360). HP:0000360 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6004,15 +6152,6 @@ This clinical feature is Tinnitus (HP:0000360). HP:0000360 is a phenotype from t
 
 
                 </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-2">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">2</span>
-                </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-abnormal-vestibular-function" data-dismech-node="Abnormal Vestibular Function" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -6042,6 +6181,9 @@ This clinical feature is Abnormal vestibular function (HP:0001751). HP:0001751 i
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6056,6 +6198,8 @@ This clinical feature is Abnormal vestibular function (HP:0001751). HP:0001751 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6081,12 +6225,24 @@ This clinical feature is Abnormal vestibular function (HP:0001751). HP:0001751 i
 
                 </div>
 
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Other
+                    <span class="cat-count">1</span>
+                </summary>
+
                 <div class="item-box phenotype-box anchor-target" id="phenotype-trigeminal-sensory-disturbance" data-dismech-node="Trigeminal Sensory Disturbance" data-dismech-type="phenotype">
                     <div class="item-name">
                         Trigeminal Sensory Disturbance
 
 
                     </div>
+
+
+
 
 
 
@@ -6106,6 +6262,8 @@ This clinical feature is Abnormal vestibular function (HP:0001751). HP:0001751 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6207,6 +6365,9 @@ This disease-associated gene is NF2 (hgnc:7773). hgnc:7773 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -6221,6 +6382,8 @@ This disease-associated gene is NF2 (hgnc:7773). hgnc:7773 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6246,6 +6409,8 @@ This disease-associated gene is NF2 (hgnc:7773). hgnc:7773 is a gene from the HU
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6267,6 +6432,8 @@ This disease-associated gene is NF2 (hgnc:7773). hgnc:7773 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6327,6 +6494,9 @@ This disease-associated gene is NF2 (hgnc:7773). hgnc:7773 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6341,6 +6511,8 @@ This disease-associated gene is NF2 (hgnc:7773). hgnc:7773 is a gene from the HU
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6425,6 +6597,20 @@ This treatment is observation, annotated with Observation Activity (NCIT:C25598)
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Observation is appropriate for selected patients based on tumor size, symptoms, hearing, documented growth, age, comorbidity, and preference. Limited initial growth does not invariably require immediate intervention.</div>
 
 
@@ -6448,6 +6634,8 @@ This treatment is observation, annotated with Observation Activity (NCIT:C25598)
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6469,6 +6657,8 @@ This treatment is observation, annotated with Observation Activity (NCIT:C25598)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6534,6 +6724,31 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Microsurgery removes or decompresses tumor when size, mass effect, progression, symptoms, hearing goals, or patient factors favor operative treatment. Approach and extent must balance tumor control against hearing and facial-nerve morbidity.</div>
 
 
@@ -6564,6 +6779,8 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6606,6 +6823,8 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6671,6 +6890,31 @@ This treatment is radiation therapy (NCIT:C15313). NCIT:C15313 is a clinical int
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Radiotherapy</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Radiation-based local therapy is selected according to tumor size, location, symptoms, prior treatment, and patient factors. Comparative estimates are dominated by nonrandomized studies and should not be read as universal superiority over observation or surgery.</div>
 
 
@@ -6693,14 +6937,16 @@ This treatment is radiation therapy (NCIT:C15313). NCIT:C15313 is a clinical int
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:39627752" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:39627752" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39627752" target="_blank">PMID:39627752</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6743,6 +6989,8 @@ This treatment is radiation therapy (NCIT:C15313). NCIT:C15313 is a clinical int
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6829,6 +7077,31 @@ This treatment uses bevacizumab (NCIT:C2039). NCIT:C2039 is a therapeutic agent 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Monoclonal antibody</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Bevacizumab is a systemic anti-VEGF option for selected patients with progressive NF2-related vestibular schwannomas, particularly when standard local treatments are unsuitable. Responses are variable, and this evidence should not be generalized to routine sporadic unilateral disease.</div>
 
 
@@ -6859,6 +7132,8 @@ This treatment uses bevacizumab (NCIT:C2039). NCIT:C2039 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6903,6 +7178,8 @@ This treatment uses bevacizumab (NCIT:C2039). NCIT:C2039 is a therapeutic agent 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6930,6 +7207,666 @@ This treatment uses bevacizumab (NCIT:C2039). NCIT:C2039 is a therapeutic agent 
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-magnetic-resonance-imaging">
+                <div class="item-name">
+                    Magnetic resonance imaging
+
+                </div>
+
+                <div class="item-desc">MRI establishes the radiologic diagnosis, characterizes intrameatal and cerebellopontine-angle extent, and provides the baseline for subsequent growth surveillance. Histologic verification is not always required.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        magnetic resonance imaging procedure
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C16809" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-26">NCIT:C16809</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-26">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> MRI demonstrates a lesion compatible with vestibular schwannoma on cranial nerve VIII.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31504802" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31504802" target="_blank">PMID:31504802</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The radiological diagnosis of vestibular schwannoma is made by magnetic resonance imaging. Histological verification of the diagnosis is not always required."</div>
+
+
+                <div class="evidence-explanation">The guideline directly supports MRI-based diagnosis without mandatory tissue confirmation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-audiologic-assessment">
+                <div class="item-name">
+                    Audiologic assessment
+
+                </div>
+
+                <div class="item-desc">Pure-tone and speech audiometry characterize asymmetric hearing loss and provide a functional baseline. Audiologic symptoms prompt MRI screening but are not specific for vestibular schwannoma.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        hearing examination
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C38036" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-27">NCIT:C38036</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-27">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Quantifies hearing thresholds and speech discrimination and identifies asymmetric or unilateral sensorineural hearing loss.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40470968" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40470968" target="_blank">PMID:40470968</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We aim to assess the diagnostic yield of MRI in the detection of VS in patients presenting with asymmetric sensorineural hearing loss (SNHL), unilateral tinnitus, and sudden SNHL."</div>
+
+
+                <div class="evidence-explanation">The current CNS guideline connects audiologic presentations to diagnostic MRI screening for vestibular schwannoma.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19587327" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19587327" target="_blank">PMID:19587327</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Hearing response was monitored with the use of serial audiologic evaluations, including determination of pure-tone thresholds and word-recognition scores"</div>
+
+
+                <div class="evidence-explanation">A vestibular-schwannoma clinical study directly documents the pure-tone and word-recognition measures named in this assessment.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+        <div class="card" id="imaging-findings">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ede9fe; color: #6d28d9;">🩻</div>
+                <h2 class="card-title">Imaging Findings</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="imaging-finding-vestibular-schwannoma-visible-on-mri">
+                <div class="item-name">
+                    Vestibular schwannoma visible on MRI
+
+                </div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mri</span>
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">Diagnostic</span>
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-bio">
+
+        Vestibular schwannoma
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0009588" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0009588</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-anatomy">
+
+        vestibulocochlear nerve
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0001648" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-29">UBERON:0001648</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-29">Uberon multi-species anatomy ontology (UBERON)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-phenotype">
+
+        Vestibular schwannoma
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0009588" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0009588</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-notes">MRI defines the radiologic diagnosis. The lesion arises on a vestibular division of cranial nerve VIII and may extend from the internal acoustic meatus into the cerebellopontine angle.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31504802" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31504802" target="_blank">PMID:31504802</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The radiological diagnosis of vestibular schwannoma is made by magnetic resonance imaging."</div>
+
+
+                <div class="evidence-explanation">The EANO guideline identifies MRI as the radiologic diagnostic method.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28710469" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28710469" target="_blank">PMID:28710469</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Vestibular schwannomas (VSs) are benign tumours that originate from myelin-forming schwann cells that surround the vestibular branches of the 8th (auditory) cranial nerve."</div>
+
+
+                <div class="evidence-explanation">Human tumor data supply the anatomic origin represented by the imaging finding.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-variable-growth-during-imaging-observation">
+                <div class="item-name">Variable growth during imaging observation</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-subtype">Sporadic Unilateral</span>
+
+
+
+
+                </div>
+
+                <div class="item-notes">Growth is not uniform. In a prospective national cohort, most detected growth occurred in the first five years, and extrameatal tumors grew more often than intrameatal tumors. Continued observation can remain reasonable in selected patients, even after limited initial growth.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33068429" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33068429" target="_blank">PMID:33068429</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"5 years after diagnosis, 21% of the intrameatal tumors exhibited growth during observation, whereas 37% of extrameatal tumors had grown, increasing to 25% intrameatal and 42% extrameatal after 10 years."</div>
+
+
+                <div class="evidence-explanation">Prospective national data quantify the variable natural history by tumor location.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34121081" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34121081" target="_blank">PMID:34121081</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Growth detected during observation does not necessarily portend future growth, especially for slowly growing tumors."</div>
+
+
+                <div class="evidence-explanation">This multi-institutional cohort supports individualized surveillance rather than assuming continuous growth.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-modern-population-based-studies-in-denmark-the-netherlands-taiwan-and-the-united-states">
+                <div class="item-name">Modern population-based studies in Denmark, the Netherlands, Taiwan, and the United States</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Annual Incidence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">3.0&ndash;5.2 per 100,000
+                    </span>
+
+                    <span class="tag">1–9 per 100,000 per year</span>
+
+                    <span class="tag tag-subtype">Sporadic Unilateral</span>
+
+                </div>
+
+                <div class="item-notes">Range of recent all-age incidence estimates for sporadic vestibular schwannoma.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34464224" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34464224" target="_blank">PMID:34464224</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Most recent incidence rates of among all ages ranged between 3.0 and 5.2 per 100,000 person-years."</div>
+
+
+                <div class="evidence-explanation">The systematic review reports a modern international annual-incidence range.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-olmsted-county-minnesota-residents-on-january-1-2017">
+                <div class="item-name">Olmsted County, Minnesota residents on January 1, 2017</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Point Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        42.0 per 100,000
+                    </span>
+
+
+                    <span class="tag">1–9 per 10,000</span>
+
+                    <span class="tag tag-subtype">Sporadic Unilateral</span>
+
+                </div>
+
+                <div class="item-notes">Point prevalence of confirmed sporadic vestibular schwannoma in a population-linked medical-record cohort.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30688755" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30688755" target="_blank">PMID:30688755</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Sixty-seven persons from a population of nearly 160,000 were living with VS on January 1, 2017, resulting in a point prevalence of 42.0 per 100,000 persons."</div>
+
+
+                <div class="evidence-explanation">The population-based cohort supplies the date-specific point-prevalence estimate.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -6981,11 +7918,11 @@ This treatment uses bevacizumab (NCIT:C2039). NCIT:C2039 is a therapeutic agent 
                         Schwann cell
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0002573" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-26">CL:0002573</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0002573" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-31">CL:0002573</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Cell Ontology (CL)
 Relation: this experimental model uses this cell type
 This experimental model uses Schwann cell (CL:0002573). CL:0002573 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -7004,11 +7941,11 @@ This experimental model uses Schwann cell (CL:0002573). CL:0002573 is a cell typ
                             human
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-27">NCBITaxon:9606</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_9606" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-32">NCBITaxon:9606</a>
 
 
 
-                            <span class="pill-tip" role="tooltip" id="pill-tip-27">NCBI Taxonomy (NCBITaxon)
+                            <span class="pill-tip" role="tooltip" id="pill-tip-32">NCBI Taxonomy (NCBITaxon)
 Relation: this experimental model is built in this organism
 This experimental model is built in human, annotated with Homo sapiens (NCBITaxon:9606). NCBITaxon:9606 is an organism from the NCBI Taxonomy.</span>
                         </div>
@@ -7056,6 +7993,8 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -7112,6 +8051,8 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7152,6 +8093,8 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -7205,11 +8148,11 @@ This experimental model is built in human, annotated with Homo sapiens (NCBITaxo
                             house mouse
 
 
-    <a href="http://purl.obolibrary.org/obo/NCBITaxon_10090" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-28">NCBITaxon:10090</a>
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_10090" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-33">NCBITaxon:10090</a>
 
 
 
-                            <span class="pill-tip" role="tooltip" id="pill-tip-28">NCBI Taxonomy (NCBITaxon)
+                            <span class="pill-tip" role="tooltip" id="pill-tip-33">NCBI Taxonomy (NCBITaxon)
 Relation: this experimental model is built in this organism
 This experimental model is built in house mouse, annotated with Mus musculus (NCBITaxon:10090). NCBITaxon:10090 is an organism from the NCBI Taxonomy.</span>
                         </div>
@@ -7257,6 +8200,8 @@ This experimental model is built in house mouse, annotated with Mus musculus (NC
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -7313,6 +8258,8 @@ This experimental model is built in house mouse, annotated with Mus musculus (NC
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7353,6 +8300,8 @@ This experimental model is built in house mouse, annotated with Mus musculus (NC
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -7443,11 +8392,11 @@ This experimental model is built in house mouse, annotated with Mus musculus (NC
         NF2
 
 
-    <a href="https://bioregistry.io/hgnc:7773" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-29">hgnc:7773</a>
+    <a href="https://bioregistry.io/hgnc:7773" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-34">hgnc:7773</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-29">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-34">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this experimental model concerns this gene
 This experimental model concerns NF2 (hgnc:7773). hgnc:7773 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -7496,6 +8445,8 @@ This experimental model concerns NF2 (hgnc:7773). hgnc:7773 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7756,7 +8707,7 @@ pathophysiology:
     evidence:
     - reference: PMID:36148553
       reference_title: Inhibition of YAP/TAZ-driven TEAD activity prevents growth of NF2-null schwannoma and meningioma.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: IN_VITRO
       snippet: &#34;driven by the TAZ protein in human and mouse NF2-null schwannoma cells&#34;
       explanation: TAZ activity in NF2-null schwannoma cells supports the downstream relationship, while the intervening merlin-to-Hippo steps are not represented in this graph.
@@ -7794,13 +8745,13 @@ pathophysiology:
     evidence:
     - reference: PMID:19029950
       reference_title: Merlin regulates transmembrane receptor accumulation and signaling at the plasma membrane in primary mouse Schwann cells and in human schwannomas.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: MODEL_ORGANISM
       snippet: &#34;We also observed accumulation of growth factor receptors such as ErbB2 and 3, insulin-like growth factor 1 receptor and platelet-derived growth factor receptor in peripheral nerves of Nf2-mutant mice&#34;
       explanation: Nf2-mutant mouse nerves show receptor accumulation, supporting this candidate route without isolating the intervening mitogenic steps.
     - reference: PMID:19029950
       reference_title: Merlin regulates transmembrane receptor accumulation and signaling at the plasma membrane in primary mouse Schwann cells and in human schwannomas.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: IN_VITRO
       snippet: &#34;in human NF2 schwannomas, suggesting that this mechanism could play an important role in tumorigenesis.&#34;
       explanation: Human NF2 schwannomas provide corroborating tumor evidence, while the source explicitly frames the mechanistic interpretation as suggestive.
@@ -7896,7 +8847,7 @@ pathophysiology:
     evidence:
     - reference: PMID:25794859
       reference_title: Prevalence of vestibular dysfunction in patients with vestibular schwannoma using video head-impulses and vestibular-evoked potentials.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;The sensitivity of the 5-item battery increased with tumour size and all patients with medium to large (&gt;14 mm) schwannoma had at least two abnormal vestibular test result.&#34;
       explanation: Objective vestibular abnormalities increase with tumor size, supporting a clinical tumor-to-nerve dysfunction link without proving a single molecular intermediary.
@@ -7906,7 +8857,7 @@ pathophysiology:
     evidence:
     - reference: PMID:8971818
       reference_title: &#34;Management of 1000 vestibular schwannomas (acoustic neuromas): clinical presentation.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Key symptoms of various tumor extension classes precipitated the diagnosis, such as trigeminal disturbances in large tumors with brain stem compression or tinnitus in small neuromas.&#34;
       explanation: The large clinical series links advanced tumor extension and brainstem compression to adjacent-nerve symptoms.
@@ -7972,7 +8923,7 @@ pathophysiology:
     evidence:
     - reference: PMID:22377650
       reference_title: &#34;Dysfunction of the cochlea contributing to hearing loss in acoustic neuromas: an underappreciated entity.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Clinical and histologic observations have suggested that the hearing loss may be caused by both retrocochlear and cochlear mechanisms.&#34;
       explanation: Human observations suggest a retrocochlear contribution in parallel with cochlear injury but do not isolate a single nerve-to-hearing-loss route.
@@ -7982,7 +8933,7 @@ pathophysiology:
     evidence:
     - reference: PMID:8971818
       reference_title: &#34;Management of 1000 vestibular schwannomas (acoustic neuromas): clinical presentation.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Key symptoms of various tumor extension classes precipitated the diagnosis, such as trigeminal disturbances in large tumors with brain stem compression or tinnitus in small neuromas.&#34;
       explanation: The clinical series links tinnitus to small vestibular schwannomas but does not establish a single causal pathway.
@@ -8010,7 +8961,7 @@ pathophysiology:
   evidence:
   - reference: PMID:8971818
     reference_title: &#34;Management of 1000 vestibular schwannomas (acoustic neuromas): clinical presentation.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Key symptoms of various tumor extension classes precipitated the diagnosis, such as trigeminal disturbances in large tumors with brain stem compression or tinnitus in small neuromas.&#34;
     explanation: A 1,000-patient clinical series associates large tumors and brainstem compression with trigeminal symptoms without proving every local mass-effect step.
@@ -8023,7 +8974,7 @@ pathophysiology:
     evidence:
     - reference: PMID:8971818
       reference_title: &#34;Management of 1000 vestibular schwannomas (acoustic neuromas): clinical presentation.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Key symptoms of various tumor extension classes precipitated the diagnosis, such as trigeminal disturbances in large tumors with brain stem compression or tinnitus in small neuromas.&#34;
       explanation: The clinical series specifically links trigeminal disturbance to large tumors with brainstem compression.
@@ -8295,7 +9246,7 @@ treatments:
     evidence:
     - reference: PMID:39627752
       reference_title: &#34;Treatment options for unilateral vestibular schwannoma: a network meta-analysis.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;We found the MS, and different SRS all had better tumor local control rates.&#34;
       explanation: The network meta-analysis supports local tumor control, with partial support because almost all included studies were nonrandomized.
@@ -8872,6 +9823,8 @@ discussions:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -9388,7 +10341,7 @@ discussions:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Acoustic Neuroma", "mondoId": "MONDO:0001569", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Acoustic_Neuroma", "yamlRevision": "cae47f6af27e"};
+        const OS_CONFIG = {"diseaseName": "Acoustic Neuroma", "mondoId": "MONDO:0001569", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Acoustic_Neuroma", "yamlRevision": "e7abd1c79b68"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

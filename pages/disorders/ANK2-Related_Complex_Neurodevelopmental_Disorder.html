@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2954,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2969,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3078,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3091,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3295,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3305,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3341,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3362,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3675,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4068,6 +4161,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4081,14 +4176,16 @@
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:39962910" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:39962910" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39962910" target="_blank">PMID:39962910</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4104,14 +4201,16 @@
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:39978592" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:39978592" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39978592" target="_blank">PMID:39978592</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4339,6 +4438,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4375,7 +4476,7 @@
                 <div class="hypothesis-evidence-balance">
                     <span class="hypothesis-evidence-balance-label">Evidence balance</span>
 
-                    <span class="evidence-support support-PARTIAL">1 partial</span>
+                    <span class="evidence-support support-SUPPORT">1 support</span>
 
                 </div>
 
@@ -4451,14 +4552,16 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:31285321" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:31285321" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31285321" target="_blank">PMID:31285321</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4581,6 +4684,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4722,6 +4827,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4759,6 +4866,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ank2-haploinsufficiency-in-neurons" data-dismech-node="ANK2 Haploinsufficiency in Neurons" data-dismech-type="pathophysiology">
                 <div class="item-name">ANK2 Haploinsufficiency in Neurons</div>
+
 
                 <div class="item-desc">Heterozygous ANK2 loss of function reduces ankyrin-B expression in neurons and initiates the general haploinsufficiency mechanism.</div>
 
@@ -5011,6 +5119,8 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5033,6 +5143,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-somatodendritic-complexity" data-dismech-node="Increased Somatodendritic Complexity" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased Somatodendritic Complexity</div>
+
 
                 <div class="item-desc">ANK2-deficient human neurons have increased somatodendritic complexity.</div>
 
@@ -5200,6 +5311,8 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5222,6 +5335,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-ais-structural-plasticity" data-dismech-node="Impaired AIS Structural Plasticity" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired AIS Structural Plasticity</div>
+
 
                 <div class="item-desc">ANK2-deficient human neurons have altered axon-initial-segment structure and impaired activity-dependent plasticity.</div>
 
@@ -5351,6 +5465,8 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5373,6 +5489,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hyperactive-and-desynchronized-neuronal-networks" data-dismech-node="Hyperactive and Desynchronized Neuronal Networks" data-dismech-type="pathophysiology">
                 <div class="item-name">Hyperactive and Desynchronized Neuronal Networks</div>
+
 
                 <div class="item-desc">Heterozygous ANK2 loss of function produces a hyperactive yet desynchronized network phenotype in human induced-pluripotent-stem-cell-derived neurons.</div>
 
@@ -5502,6 +5619,8 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5524,6 +5643,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-developmental-forebrain-ank2-loss" data-dismech-node="Developmental Forebrain Ank2 Loss" data-dismech-type="pathophysiology">
                 <div class="item-name">Developmental Forebrain Ank2 Loss</div>
+
 
                 <div class="item-desc">Conditional mouse models restrict Ank2 loss to developing forebrain cells, including prenatal cortical excitatory neurons and oligodendrocytes or cortical and hippocampal excitatory neurons.</div>
 
@@ -5704,6 +5824,8 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5725,6 +5847,8 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5749,6 +5873,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-ais-kv7-2-and-kv7-3-channel-function" data-dismech-node="Reduced AIS Kv7.2 and Kv7.3 Channel Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced AIS Kv7.2 and Kv7.3 Channel Function</div>
+
 
                 <div class="item-desc">Ank2-mutant mouse cortical neurons have reduced Kv7.2/KCNQ2 and Kv7.3/KCNQ3 channel abundance, function, and density at the axon initial segment.</div>
 
@@ -5878,6 +6003,8 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5900,6 +6027,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mouse-cortical-hyperexcitability-and-hypersynchrony" data-dismech-node="Mouse Cortical Hyperexcitability and Hypersynchrony" data-dismech-type="pathophysiology">
                 <div class="item-name">Mouse Cortical Hyperexcitability and Hypersynchrony</div>
+
 
                 <div class="item-desc">Conditional Ank2 loss produces increased excitability and firing in mouse cortical neurons and hyperexcitable, hypersynchronous cortical networks. This model-organism node is distinct from the desynchronized network phenotype observed in human induced-pluripotent-stem-cell-derived neurons.</div>
 
@@ -6029,6 +6157,8 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6050,6 +6180,8 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -6074,6 +6206,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-dendritic-nav1-2-scaffolding" data-dismech-node="Reduced Dendritic NaV1.2 Scaffolding" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Dendritic NaV1.2 Scaffolding</div>
+
 
                 <div class="item-desc">Ankyrin-B is required to scaffold NaV1.2 at the dendritic membrane of mouse neocortical pyramidal neurons; Ank2 haploinsufficiency disrupts this function.</div>
 
@@ -6203,6 +6336,8 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6225,6 +6360,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-dendritic-excitability-and-synaptic-function" data-dismech-node="Impaired Dendritic Excitability and Synaptic Function" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Dendritic Excitability and Synaptic Function</div>
+
 
                 <div class="item-desc">Ank2 haploinsufficiency impairs intrinsic dendritic excitability and synaptic function in mouse neocortical pyramidal neurons.</div>
 
@@ -6373,6 +6509,8 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6395,6 +6533,7 @@ This pathophysiological event occurs in cerebral cortex (UBERON:0000956). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-giant-ankyrin-b-axonal-membrane-microtubule-coupling-failure" data-dismech-node="Giant Ankyrin-B Axonal Membrane-Microtubule Coupling Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Giant Ankyrin-B Axonal Membrane-Microtubule Coupling Failure</div>
+
 
                 <div class="item-desc">Giant ankyrin-B normally localizes through L1CAM-containing axonal membrane domains, couples microtubules to the plasma membrane, and prevents microtubule entry into nascent branches.</div>
 
@@ -6605,6 +6744,8 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -6627,6 +6768,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ectopic-axon-branching" data-dismech-node="Ectopic Axon Branching" data-dismech-type="pathophysiology">
                 <div class="item-name">Ectopic Axon Branching</div>
+
 
                 <div class="item-desc">Giant-ankyrin-B disruption produces excess axonal branching in a mouse model.</div>
 
@@ -6794,6 +6936,8 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6816,6 +6960,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ectopic-cns-connectivity" data-dismech-node="Ectopic CNS Connectivity" data-dismech-type="pathophysiology">
                 <div class="item-name">Ectopic CNS Connectivity</div>
+
 
                 <div class="item-desc">The giant-ankyrin-B mouse model shows ectopic CNS axon connectivity. Human behavioral relevance remains candidate rather than proven.</div>
 
@@ -6945,6 +7090,8 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7052,6 +7199,9 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7066,6 +7216,8 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7128,6 +7280,9 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7142,6 +7297,8 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7195,6 +7352,9 @@ This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7211,6 +7371,8 @@ This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenoty
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7224,14 +7386,16 @@ This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenoty
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:39978592" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:39978592" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39978592" target="_blank">PMID:39978592</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7287,6 +7451,9 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -7301,6 +7468,8 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7324,6 +7493,8 @@ This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7377,6 +7548,9 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7391,6 +7565,8 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7444,6 +7620,9 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7458,6 +7637,8 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7511,6 +7692,9 @@ This clinical feature is Attention deficit hyperactivity disorder (HP:0007018). 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7525,6 +7709,8 @@ This clinical feature is Attention deficit hyperactivity disorder (HP:0007018). 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7578,6 +7764,9 @@ This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -7592,6 +7781,8 @@ This clinical feature is Anxiety (HP:0000739). HP:0000739 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7691,6 +7882,9 @@ This disease-associated gene is ANK2 (hgnc:493). hgnc:493 is a gene from the HUG
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -7705,6 +7899,8 @@ This disease-associated gene is ANK2 (hgnc:493). hgnc:493 is a gene from the HUG
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7730,6 +7926,8 @@ This disease-associated gene is ANK2 (hgnc:493). hgnc:493 is a gene from the HUG
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7751,6 +7949,8 @@ This disease-associated gene is ANK2 (hgnc:493). hgnc:493 is a gene from the HUG
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7871,6 +8071,8 @@ This disease-associated gene is ANK2 (hgnc:493). hgnc:493 is a gene from the HUG
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7945,6 +8147,31 @@ This treatment is anticonvulsant agent therapy, annotated with Anticonvulsant Th
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Antiseizure medications provided seizure control in the reported family with young-onset self-limited focal epilepsy. Drug choice should be based on seizure type and individualized clinical assessment; this report does not establish a preferred ANK2-specific regimen.</div>
 
 
@@ -7966,6 +8193,8 @@ This treatment is anticonvulsant agent therapy, annotated with Anticonvulsant Th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8050,6 +8279,31 @@ This treatment uses ezogabine (CHEBI:68584). CHEBI:68584 is a therapeutic agent 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Retigabine (ezogabine) rescued neuronal excitability and partially improved seizure-related survival and acute hyperactivity in an Ank2 conditional knockout mouse model. This is preclinical mechanism evidence, not evidence of efficacy or a treatment recommendation for people with ANK2-related neurodevelopmental disorder. The commercial product was discontinued globally in 2017 and is not an available clinical option.</div>
 
 
@@ -8080,6 +8334,8 @@ This treatment uses ezogabine (CHEBI:68584). CHEBI:68584 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -8122,6 +8378,8 @@ This treatment uses ezogabine (CHEBI:68584). CHEBI:68584 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -8206,6 +8464,31 @@ This treatment uses perampanel (CHEBI:71013). CHEBI:71013 is a therapeutic agent
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Perampanel restored cortical neuronal activity and partially rescued survival in a prenatal forebrain Ank2-deletion mouse model. This is preclinical evidence and does not establish efficacy or a treatment recommendation in affected humans.</div>
 
 
@@ -8236,6 +8519,8 @@ This treatment uses perampanel (CHEBI:71013). CHEBI:71013 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -8280,6 +8565,8 @@ This treatment uses perampanel (CHEBI:71013). CHEBI:71013 is a therapeutic agent
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8307,6 +8594,247 @@ This treatment uses perampanel (CHEBI:71013). CHEBI:71013 is a therapeutic agent
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-exome-or-genome-sequencing-for-ank2-related-neurodevelopmental-disorder">
+                <div class="item-name">
+                    Exome or genome sequencing for ANK2-related neurodevelopmental disorder
+
+                </div>
+
+                <div class="item-desc">Exome or genome sequencing is appropriate early in the evaluation of a child with developmental delay or intellectual disability. A heterozygous pathogenic or likely pathogenic ANK2 loss-of-function variant, interpreted with inheritance and phenotype, supports the molecular diagnosis.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        clinical whole-exome sequencing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C101295" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-44">NCIT:C101295</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-44">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Identification of a heterozygous pathogenic or likely pathogenic ANK2 loss-of-function variant consistent with the neurodevelopmental phenotype.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34211152" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34211152" target="_blank">PMID:34211152</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We strongly recommend that ES/GS be considered as a first- or second-tier test for patients with CA/DD/ID."</div>
+
+
+                <div class="evidence-explanation">The ACMG guideline supports early exome or genome sequencing in the relevant pediatric neurodevelopmental population.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37195288" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37195288" target="_blank">PMID:37195288</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We collected clinical and molecular data of 12 individuals with heterozygous de novo LoF variants in ANK2."</div>
+
+
+                <div class="evidence-explanation">Establishes the molecular class identified in affected individuals.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-electroencephalography-for-seizure-evaluation">
+                <div class="item-name">
+                    Electroencephalography for Seizure Evaluation
+
+                </div>
+
+                <div class="item-desc">EEG is appropriate for evaluating suspected seizures and documenting electrophysiologic abnormalities in the ANK2-related spectrum. Published cases establish that abnormal EEG is common in the selected literature cohort but do not define a single ANK2-specific EEG signature.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        electroencephalography
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C38054" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-45">NCIT:C38054</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-45">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> An abnormal EEG supports seizure phenotyping but is not specific for an ANK2 molecular diagnosis.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40035441" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40035441" target="_blank">PMID:40035441</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The patient cohort included 16 patients with a complex array of neurological disabilities: ASD (9 patients); EP (10 patients); ASD with EP (4 patients); intellectual disability and developmental delay (5 patients); poor language communication (11 patients); language and learning impairment (11..."</div>
+
+
+                <div class="evidence-explanation">Directly supports abnormal EEG as a recurrent finding while not asserting a disease-specific electrophysiologic pattern.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -8417,7 +8945,7 @@ inheritance:
       cohort.
   - reference: PMID:39962910
     reference_title: &#34;Self-limited familial focal epilepsy caused by ANK2 variants: A potentially under-recognized condition.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Hereby, we reported a Taiwanese family with the ANK2 pathogenic variant
@@ -8429,7 +8957,7 @@ inheritance:
       neurodevelopmental disorder.
   - reference: PMID:39978592
     reference_title: &#34;Variability in autism spectrum phenotypes linked to heterozygous missense familial ANK2 mutation.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Our patient was diagnosed with high-functioning ASD while her father
@@ -8475,7 +9003,7 @@ mechanistic_hypotheses:
   evidence:
   - reference: PMID:31285321
     reference_title: &#34;ANK2 autism mutation targeting giant ankyrin-B promotes axon branching and ectopic connectivity.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &gt;-
       Thus, gain of axon branching due to giant ankB-deficiency/mutation is a
@@ -8645,7 +9173,7 @@ pathophysiology:
     evidence:
     - reference: &#34;CGGV:assertion_097e646b-467f-4c08-95d6-958ed324562b-2020-10-21T100000.000Z&#34;
       reference_title: ANK2 / complex neurodevelopmental disorder (Definitive)
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: OTHER
       snippet: &gt;-
         Individuals with variants in this gene have presented with
@@ -8662,7 +9190,7 @@ pathophysiology:
     evidence:
     - reference: PMID:40035441
       reference_title: &#34;A Mutation in the ANK2 Gene Causing ASD and a Review of the Literature.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         The patient cohort included 16 patients with a complex array of
@@ -8711,7 +9239,7 @@ pathophysiology:
     evidence:
     - reference: PMID:37195288
       reference_title: &#34;ANK2 loss-of-function variants are associated with epilepsy, and lead to impaired axon initial segment plasticity and hyperactive network activity in hiPSC-derived neuronal networks.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         We found a broad neurodevelopmental disorder (NDD), comprising
@@ -8730,7 +9258,7 @@ pathophysiology:
     evidence:
     - reference: PMID:40035441
       reference_title: &#34;A Mutation in the ANK2 Gene Causing ASD and a Review of the Literature.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         The patient cohort included 16 patients with a complex array of
@@ -8749,7 +9277,7 @@ pathophysiology:
     evidence:
     - reference: PMID:40035441
       reference_title: &#34;A Mutation in the ANK2 Gene Causing ASD and a Review of the Literature.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         He mainly presents with language delay, intellectual disability,
@@ -8796,7 +9324,7 @@ pathophysiology:
     evidence:
     - reference: PMID:37195288
       reference_title: &#34;ANK2 loss-of-function variants are associated with epilepsy, and lead to impaired axon initial segment plasticity and hyperactive network activity in hiPSC-derived neuronal networks.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         Phenotypic characterization of patients with de novo ANK2 LoF variants
@@ -8840,7 +9368,7 @@ pathophysiology:
     evidence:
     - reference: PMID:37195288
       reference_title: &#34;ANK2 loss-of-function variants are associated with epilepsy, and lead to impaired axon initial segment plasticity and hyperactive network activity in hiPSC-derived neuronal networks.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         We found a broad neurodevelopmental disorder (NDD), comprising
@@ -9028,7 +9556,7 @@ pathophysiology:
     evidence:
     - reference: PMID:37428632
       reference_title: &#34;Early developmental deletion of forebrain Ank2 causes seizure-related phenotypes by reshaping the synaptic proteome.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: MODEL_ORGANISM
       snippet: &gt;-
         We find that mice with prenatal deletion in cortical excitatory neurons
@@ -9123,7 +9651,7 @@ pathophysiology:
     evidence:
     - reference: PMID:38290518
       reference_title: &#34;Physical and functional convergence of the autism risk genes Scn2a and Ank2 in neocortical pyramidal cell dendrites.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: MODEL_ORGANISM
       snippet: &gt;-
         These results establish a direct, convergent link between two major ASD
@@ -9143,7 +9671,7 @@ pathophysiology:
     evidence:
     - reference: PMID:40035441
       reference_title: &#34;A Mutation in the ANK2 Gene Causing ASD and a Review of the Literature.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &gt;-
         The patient cohort included 16 patients with a complex array of
@@ -9307,7 +9835,7 @@ pathophysiology:
     evidence:
     - reference: PMID:31285321
       reference_title: &#34;ANK2 autism mutation targeting giant ankyrin-B promotes axon branching and ectopic connectivity.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: MODEL_ORGANISM
       snippet: &gt;-
         Thus, gain of axon branching due to giant ankB-deficiency/mutation is a
@@ -9363,7 +9891,7 @@ phenotypes:
       Directly includes autism spectrum disorders in the human phenotype.
   - reference: PMID:39978592
     reference_title: &#34;Variability in autism spectrum phenotypes linked to heterozygous missense familial ANK2 mutation.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Our patient was diagnosed with high-functioning ASD while her father
@@ -9567,7 +10095,7 @@ genetic:
       ClinGen explicitly supports loss of function as the disease mechanism.
   - reference: &#34;CGGV:assertion_097e646b-467f-4c08-95d6-958ed324562b-2020-10-21T100000.000Z&#34;
     reference_title: ANK2 / complex neurodevelopmental disorder (Definitive)
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
       at least six de novo missense variants of unknown significance (PMIDs:
@@ -10046,7 +10574,7 @@ datasets: []
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "ANK2-Related Complex Neurodevelopmental Disorder", "mondoId": "MONDO:0100038", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "ANK2-Related_Complex_Neurodevelopmental_Disorder", "yamlRevision": "84bbf2e2ec8c"};
+        const OS_CONFIG = {"diseaseName": "ANK2-Related Complex Neurodevelopmental Disorder", "mondoId": "MONDO:0100038", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "ANK2-Related_Complex_Neurodevelopmental_Disorder", "yamlRevision": "8665114beac1"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

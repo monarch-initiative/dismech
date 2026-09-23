@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2954,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2969,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3078,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3091,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3295,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3305,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3341,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3362,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3675,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4068,6 +4161,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"Most patients had primary bubonic (63%), pneumonic (21%), or septicemic (5%) plague, with associated case fatality rates of 17%, 27%, and 38%, respectively."</div>
@@ -4126,6 +4221,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4188,6 +4285,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"the rapid onset of death in the absence of antibiotic treatment (less than a week for bubonic plague and &lt;48 h for pneumonic plague)"</div>
@@ -4230,6 +4329,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-flea-mediated-transmission" data-dismech-node="Flea-Mediated Transmission" data-dismech-type="pathophysiology">
                 <div class="item-name">Flea-Mediated Transmission</div>
+
 
                 <div class="item-desc">Y. pestis is transmitted to humans through the bite of an infected flea. The bacterium colonizes the flea midgut and forms a biofilm that blocks the proventriculus, causing the flea to regurgitate bacteria into the bite wound during feeding attempts.
 </div>
@@ -4305,6 +4405,8 @@ This pathophysiological event occurs in Skin, annotated with skin of body (UBERO
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"Plague is a vector-borne disease caused by Yersinia pestis. Transmitted by fleas from rodent reservoirs, Y. pestis emerged &lt;6000 years ago from an enteric bacterial ancestor through events of gene gain and genome reduction."</div>
@@ -4325,6 +4427,7 @@ This pathophysiological event occurs in Skin, annotated with skin of body (UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-type-iii-secretion-system-deployment" data-dismech-node="Type III Secretion System Deployment" data-dismech-type="pathophysiology">
                 <div class="item-name">Type III Secretion System Deployment</div>
+
 
                 <div class="item-desc">Upon contact with host immune cells, Y. pestis deploys a type III secretion system (T3SS) encoded on the pYV/pCD1 virulence plasmid. The T3SS forms a needle-like injectisome that directly delivers Yop effector proteins into the cytoplasm of target immune cells.
 </div>
@@ -4473,6 +4576,8 @@ This pathophysiological event involves Dendritic Cell (CL:0000451). CL:0000451 i
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"Within the host cell, the Yop effector proteins function to inhibit bacterial phagocytosis and to suppress the production of pro-inflammatory cytokines."</div>
@@ -4492,6 +4597,8 @@ This pathophysiological event involves Dendritic Cell (CL:0000451). CL:0000451 i
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4514,6 +4621,7 @@ This pathophysiological event involves Dendritic Cell (CL:0000451). CL:0000451 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-yop-effector-injection-and-immune-subversion" data-dismech-node="Yop Effector Injection and Immune Subversion" data-dismech-type="pathophysiology">
                 <div class="item-name">Yop Effector Injection and Immune Subversion</div>
+
 
                 <div class="item-desc">Individual Yop effector proteins target distinct immune cell functions. YopH dephosphorylates focal adhesion proteins to block phagocytosis. YopE and YopT inactivate Rho GTPases controlling cytoskeleton dynamics. YopJ/YopP prevents NF-kappaB activation, suppressing pro-inflammatory cytokine production.
 </div>
@@ -4640,6 +4748,8 @@ This pathophysiological event involves decreased Innate immune response (GO:0045
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4662,6 +4772,7 @@ This pathophysiological event involves decreased Innate immune response (GO:0045
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-phagocytosis-inhibition-and-bacterial-replication" data-dismech-node="Phagocytosis Inhibition and Bacterial Replication" data-dismech-type="pathophysiology">
                 <div class="item-name">Phagocytosis Inhibition and Bacterial Replication</div>
+
 
                 <div class="item-desc">The combined effect of Yop-mediated immune subversion is that macrophages and neutrophils cannot effectively engulf and kill Y. pestis. This allows unrestricted extracellular bacterial replication at the inoculation site, enabling dissemination to draining lymph nodes.
 </div>
@@ -4743,6 +4854,7 @@ This pathophysiological event involves decreased Defense response to Gram-negati
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lymph-node-colonization-and-bubo-formation" data-dismech-node="Lymph Node Colonization and Bubo Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Lymph Node Colonization and Bubo Formation</div>
+
 
                 <div class="item-desc">After immune evasion at the inoculation site, Y. pestis disseminates to draining lymph nodes where it replicates massively, causing the characteristic painful swollen lymph nodes (buboes) that define bubonic plague.
 </div>
@@ -4916,6 +5028,8 @@ This pathophysiological event occurs in Lymph node (UBERON:0000029). UBERON:0000
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"allowing unrestricted bacterial replication in lymph nodes (bubonic plague) and in lungs (pneumonic plague)"</div>
@@ -4935,6 +5049,8 @@ This pathophysiological event occurs in Lymph node (UBERON:0000029). UBERON:0000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4957,6 +5073,7 @@ This pathophysiological event occurs in Lymph node (UBERON:0000029). UBERON:0000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-systemic-spread-and-septicemic-plague" data-dismech-node="Systemic Spread and Septicemic Plague" data-dismech-type="pathophysiology">
                 <div class="item-name">Systemic Spread and Septicemic Plague</div>
+
 
                 <div class="item-desc">When Y. pestis enters the bloodstream from infected lymph nodes or directly, it causes septicemia with disseminated intravascular coagulation, purpura (historically giving the disease its &#39;Black Death&#39; name), and multi-organ failure.
 </div>
@@ -5117,6 +5234,8 @@ This pathophysiological event involves increased Apoptotic process (GO:0006915).
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5140,6 +5259,8 @@ This pathophysiological event involves increased Apoptotic process (GO:0006915).
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"Bubonic disease, pneumonic plague, and septicemic plague are seen in addition to a number of other less common manifestations."</div>
@@ -5160,6 +5281,7 @@ This pathophysiological event involves increased Apoptotic process (GO:0006915).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pneumonic-plague" data-dismech-node="Pneumonic Plague" data-dismech-type="pathophysiology">
                 <div class="item-name">Pneumonic Plague</div>
+
 
                 <div class="item-desc">Lung infection with Y. pestis, arising either from hematogenous spread (secondary) or direct inhalation of infectious respiratory droplets (primary). Pneumonic plague is characterized by fulminant pneumonia, hemoptysis, and respiratory failure. It is the only form transmissible person-to-person and is nearly 100% fatal without early antibiotic treatment.
 </div>
@@ -5355,6 +5477,8 @@ This pathophysiological event occurs in Lung (UBERON:0002048). UBERON:0002048 is
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"the rapid onset of death in the absence of antibiotic treatment (less than a week for bubonic plague and &lt;48 h for pneumonic plague)"</div>
@@ -5374,6 +5498,8 @@ This pathophysiological event occurs in Lung (UBERON:0002048). UBERON:0002048 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5396,6 +5522,7 @@ This pathophysiological event occurs in Lung (UBERON:0002048). UBERON:0002048 is
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-erap2-evolutionary-selection" data-dismech-node="ERAP2 Evolutionary Selection" data-dismech-type="pathophysiology">
                 <div class="item-name">ERAP2 Evolutionary Selection</div>
+
 
                 <div class="item-desc">The Black Death pandemic of 1346-1353 exerted powerful selective pressure on the human genome, particularly at immune loci. The rs2549794 variant in ERAP2 was strongly selected, as the allele producing a full-length ERAP2 transcript conferred improved ability to control intracellular Y. pestis in macrophages. This same protective allele is now associated with increased susceptibility to autoimmune diseases, representing a classic case of antagonistic pleiotropy shaped by past pandemic selection.
 </div>
@@ -5498,6 +5625,8 @@ This pathophysiological event involves Proteolysis (GO:0006508). GO:0006508 is a
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5519,6 +5648,8 @@ This pathophysiological event involves Proteolysis (GO:0006508). GO:0006508 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5640,6 +5771,9 @@ This clinical feature is Purpura (HP:0000979). HP:0000979 is a phenotype from th
 
 
 
+
+
+
                 </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-disseminated-intravascular-coagulation" data-dismech-node="Disseminated Intravascular Coagulation" data-dismech-type="phenotype">
@@ -5665,6 +5799,9 @@ This clinical feature is Disseminated intravascular coagulation (HP:0005521). HP
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5710,6 +5847,9 @@ This clinical feature is Bubo (swollen lymph node), annotated with Lymphadenopat
                     </div>
 
 
+
+
+
                     <div class="item-desc">Painful swollen lymph nodes (buboes) are the defining feature of bubonic plague; cited abstracts mention &#34;bubonic disease&#34; by name but do not describe the lymphadenopathy in their text.
 </div>
 
@@ -5745,6 +5885,9 @@ This clinical feature is Splenomegaly (HP:0001744). HP:0001744 is a phenotype fr
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5793,6 +5936,9 @@ This clinical feature is Pneumonia (HP:0002090). HP:0002090 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5807,6 +5953,8 @@ This clinical feature is Pneumonia (HP:0002090). HP:0002090 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5862,6 +6010,9 @@ This clinical feature is Sepsis (HP:0100806). HP:0100806 is a phenotype from the
 
 
 
+
+
+
                 </div>
 
             </details>
@@ -5896,6 +6047,9 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
                     </span>
 
                     </div>
+
+
+
 
 
                     <div class="item-desc">Fever is a cardinal presenting feature of all forms of plague; cited abstracts do not explicitly name it in their text.
@@ -5951,6 +6105,9 @@ This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from th
 
 
 
+
+
+
                 </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-cough" data-dismech-node="Cough" data-dismech-type="phenotype">
@@ -5976,6 +6133,9 @@ This clinical feature is Cough (HP:0012735). HP:0012735 is a phenotype from the 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6019,6 +6179,9 @@ This clinical feature is Chest pain (HP:0100749). HP:0100749 is a phenotype from
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6102,6 +6265,9 @@ This disease-associated gene is ERAP2 (hgnc:29499). hgnc:29499 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6116,6 +6282,8 @@ This disease-associated gene is ERAP2 (hgnc:29499). hgnc:29499 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -6198,6 +6366,20 @@ This treatment is aminoglycoside antibiotic therapy, annotated with Antibiotic T
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Streptomycin and gentamicin are first-line treatments for plague. Aminoglycosides have the longest track record of efficacy against Y. pestis infection.
 </div>
 
@@ -6222,6 +6404,8 @@ This treatment is aminoglycoside antibiotic therapy, annotated with Antibiotic T
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"Treatment with aminoglycosides such as streptomycin or gentamicin is effective when initiated early in illness but can have serious side effects."</div>
@@ -6241,6 +6425,8 @@ This treatment is aminoglycoside antibiotic therapy, annotated with Antibiotic T
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -6302,6 +6488,20 @@ This treatment is tetracycline antibiotic therapy, annotated with Antibiotic The
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Doxycycline and other tetracyclines are effective alternatives for plague treatment and prophylaxis. Used when aminoglycosides are contraindicated.
 </div>
 
@@ -6324,6 +6524,8 @@ This treatment is tetracycline antibiotic therapy, annotated with Antibiotic The
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -6384,6 +6586,20 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Intensive supportive care including fluid resuscitation, vasopressor support, and management of DIC complications for severe septicemic and pneumonic plague.
 </div>
 
@@ -6402,6 +6618,395 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-onset">
+                <div class="item-name">Onset</div>
+                <div class="item-meta">
+
+
+
+
+                    <span class="tag">Incubation: 1-7 days</span>
+
+                </div>
+
+                <div class="item-notes">Incubation period is typically 1-7 days for bubonic plague (usually 2-6 days) and 1-3 days for pneumonic plague. Onset is acute with sudden fever, chills, and malaise.
+</div>
+
+
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-acute">
+                <div class="item-name">Acute</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">Rapid progression to bubo formation (bubonic), septicemia, or pneumonia depending on clinical form. Without treatment, pneumonic plague is fatal within 48 hours and bubonic plague within a week.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30940874" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30940874" target="_blank">PMID:30940874</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"the rapid onset of death in the absence of antibiotic treatment (less than a week for bubonic plague and &lt;48 h for pneumonic plague)"</div>
+
+
+                <div class="evidence-explanation">Confirms the timeline of untreated plague progression.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-resolution-or-death">
+                <div class="item-name">Resolution or Death</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">With prompt antibiotic treatment, most patients recover. Without treatment, case fatality approaches 100% for pneumonic and septicemic forms. Even with treatment, overall case fatality is approximately 20%.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32435802" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32435802" target="_blank">PMID:32435802</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"The case fatality rate was 20% overall."</div>
+
+
+                <div class="evidence-explanation">Confirms 20% overall case fatality even with treatment.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-global">
+                <div class="item-name">Global</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Annual Incidence</span>
+
+
+
+                    <span class="tag">&lt;1 in 1,000,000 per year</span>
+
+                </div>
+
+                <div class="item-notes">Approximately 2,000 cases reported annually to the WHO worldwide (a global annual case count, not a point prevalence; ~0.25 cases per million people). Endemic foci in Africa, Asia, and the Americas concentrate the burden well above the global rate. Madagascar, Democratic Republic of Congo, and Peru report the majority of modern cases.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:12951845" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12951845" target="_blank">PMID:12951845</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"Approximately 2,000 cases of plague are reported each year to the World Health Organization, and concern has been raised about the possible use of Y pestis as an agent of bioterrorism."</div>
+
+
+                <div class="evidence-explanation">Confirms approximately 2,000 annual cases reported globally.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+        <div class="card" id="infectious-agent">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fee2e2; color: #b91c1c;">🦠</div>
+                <h2 class="card-title">Infectious Agent</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="infectious-agent-yersinia-pestis">
+                <div class="item-name">Yersinia pestis</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-bio">
+
+        Yersinia pestis
+
+
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_632" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-36">NCBITaxon:632</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-36">NCBI Taxonomy (NCBITaxon)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:12951845" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/12951845" target="_blank">PMID:12951845</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"Yersinia pestis is the cause of plague, an illness that may manifest in bubonic, pneumonic, or septicemic form."</div>
+
+
+                <div class="evidence-explanation">Establishes Y. pestis as the causative agent of all forms of plague.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Transmission -->
+
+        <div class="card" id="transmission">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fee2e2; color: #b91c1c;">↔️</div>
+                <h2 class="card-title">Transmission</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="transmission-flea-borne-transmission">
+                <div class="item-name">Flea-borne Transmission</div>
+
+                <div class="item-desc">Primary route of plague transmission. Infected fleas (primarily Xenopsylla cheopis, the Oriental rat flea) transmit Y. pestis to humans during blood meals. The bacterium forms a biofilm in the flea&#39;s proventriculus, which is regurgitated during feeding.
+</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30940874" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30940874" target="_blank">PMID:30940874</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"Plague is a vector-borne disease caused by Yersinia pestis. Transmitted by fleas from rodent reservoirs"</div>
+
+
+                <div class="evidence-explanation">Confirms the flea-borne vector transmission route from rodent reservoirs.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="transmission-respiratory-droplet-transmission">
+                <div class="item-name">Respiratory Droplet Transmission</div>
+
+                <div class="item-desc">Person-to-person transmission occurs via respiratory droplets from patients with pneumonic plague. This is the only form of plague that can spread directly between humans.
+</div>
+
+
+
+                <div class="item-notes">Person-to-person respiratory droplet transmission is a defining feature of pneumonic plague; this is textbook knowledge not directly quoted in the abstract cache of cited references.
+</div>
+
+
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="transmission-direct-contact">
+                <div class="item-name">Direct Contact</div>
+
+                <div class="item-desc">Handling infected animals or tissues, particularly during skinning or butchering of infected rodents or other mammals.
+</div>
+
+
+
+
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->

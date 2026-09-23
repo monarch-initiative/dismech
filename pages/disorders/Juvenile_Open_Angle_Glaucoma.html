@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2954,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2969,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3078,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3091,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3295,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3305,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3341,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3362,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3675,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4253,6 +4346,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-trabecular-meshwork-immaturity-and-outflow-obstruction" data-dismech-node="Trabecular Meshwork Immaturity and Outflow Obstruction" data-dismech-type="pathophysiology">
                 <div class="item-name">Trabecular Meshwork Immaturity and Outflow Obstruction</div>
 
+
                 <div class="item-desc">The core lesion in JOAG is immaturity/dysgenesis of the conventional (trabecular) aqueous outflow pathway. Unlike acquired age-related trabecular dysfunction in adult POAG, the juvenile outflow apparatus is developmentally underdeveloped, producing high outflow resistance and markedly elevated intraocular pressure despite a grossly open and normal drainage angle.
 </div>
 
@@ -4413,6 +4507,8 @@ This pathophysiological event occurs in Iridocorneal Angle (UBERON:0006206). UBE
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4435,6 +4531,8 @@ This pathophysiological event occurs in Iridocorneal Angle (UBERON:0006206). UBE
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4460,6 +4558,7 @@ This pathophysiological event occurs in Iridocorneal Angle (UBERON:0006206). UBE
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mutant-myocilin-misfolding-and-trabecular-cell-stress" data-dismech-node="Mutant Myocilin Misfolding and Trabecular Cell Stress" data-dismech-type="pathophysiology">
                 <div class="item-name">Mutant Myocilin Misfolding and Trabecular Cell Stress</div>
+
 
                 <div class="item-desc">In MYOC-related JOAG, mutations (predominantly in the olfactomedin domain) cause a gain of toxic function: mutant myocilin aggregates intracellularly in trabecular meshwork cells instead of being secreted. The resulting ER stress and unfolded-protein response causes an early, accelerated timeline of TM cell death, elevated IOP, and downstream glaucomatous optic neuropathy. The early-onset, severe phenotype of JOAG reflects the high-penetrance, toxic gain-of-function nature of these alleles.
 </div>
@@ -4672,6 +4771,8 @@ This pathophysiological event occurs in Eye Trabecular Meshwork (UBERON:0005969)
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4694,6 +4795,8 @@ This pathophysiological event occurs in Eye Trabecular Meshwork (UBERON:0005969)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4719,6 +4822,7 @@ This pathophysiological event occurs in Eye Trabecular Meshwork (UBERON:0005969)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-anterior-segment-trabecular-dysgenesis-in-cyp1b1-related-disease" data-dismech-node="Anterior-Segment / Trabecular Dysgenesis in CYP1B1-related Disease" data-dismech-type="pathophysiology">
                 <div class="item-name">Anterior-Segment / Trabecular Dysgenesis in CYP1B1-related Disease</div>
+
 
                 <div class="item-desc">In CYP1B1-related JOAG, recessive variants in cytochrome P450 1B1 (GLC3A) impair normal development of the eye&#39;s aqueous outflow system, producing trabeculodysgenesis and anterior-chamber angle developmental abnormalities that obstruct aqueous outflow and elevate IOP. CYP1B1 is the classic primary congenital glaucoma gene, and its involvement in JOAG links juvenile-onset disease to a developmental, dysgenetic mechanism rather than purely degenerative outflow failure.
 </div>
@@ -4880,6 +4984,8 @@ This pathophysiological event occurs in Anterior Chamber of Eyeball (UBERON:0001
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4894,14 +5000,16 @@ This pathophysiological event occurs in Anterior Chamber of Eyeball (UBERON:0001
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:32421983" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:32421983" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32421983" target="_blank">PMID:32421983</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4927,6 +5035,7 @@ This pathophysiological event occurs in Anterior Chamber of Eyeball (UBERON:0001
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pressure-induced-glaucomatous-optic-neuropathy" data-dismech-node="Pressure-Induced Glaucomatous Optic Neuropathy" data-dismech-type="pathophysiology">
                 <div class="item-name">Pressure-Induced Glaucomatous Optic Neuropathy</div>
+
 
                 <div class="item-desc">Sustained, markedly elevated IOP in JOAG causes mechanical and ischemic stress on the optic nerve head, producing retinal ganglion cell loss and characteristic large discs with deep, steep cupping. Because the disease affects young patients, the cumulative lifetime burden of optic nerve damage and projected disability is higher than in adult-onset glaucoma.
 </div>
@@ -5075,6 +5184,8 @@ This pathophysiological event occurs in Retina (UBERON:0000966). UBERON:0000966 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5097,6 +5208,8 @@ This pathophysiological event occurs in Retina (UBERON:0000966). UBERON:0000966 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5162,50 +5275,256 @@ This pathophysiological event occurs in Retina (UBERON:0000966). UBERON:0000966 
             </div>
 
 
-            <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Eye<span class="pill-count">(2)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Other<span class="pill-count">(3)</span></button>
-
-                <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
-            </div>
+            <div class="item-box phenotype-box anchor-target" id="phenotype-open-angle-glaucoma" data-dismech-node="Open-Angle Glaucoma" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Open-Angle Glaucoma
 
 
-            <details class="phenotype-category-group" id="pheno-cat-1">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Eye
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-visual-field-loss" data-dismech-node="Visual Field Loss" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Visual Field Loss
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
+                    <span class="phenotype-category">Ophthalmological</span>
 
 
 
 
                     <span class="phenotype-id">
 
-                        <span class="phenotype-term-label">Visual field defect</span>
 
 
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001123" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001123</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012108" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0012108</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
+This clinical feature is Open angle glaucoma (HP:0012108). HP:0012108 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34536459" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34536459" target="_blank">PMID:34536459</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Juvenile-onset open-angle glaucoma (JOAG) is a subset of primary open-angle glaucoma that is diagnosed before 40 years of age."</div>
+
+
+                <div class="evidence-explanation">Establishes JOAG as an open-angle glaucoma diagnosed before 40 years of age.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-markedly-elevated-intraocular-pressure" data-dismech-node="Markedly Elevated Intraocular Pressure" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Markedly Elevated Intraocular Pressure
+
+                    <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+                    <span class="phenotype-category">Ophthalmological</span>
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0007906" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0007906</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Ocular hypertension (HP:0007906). HP:0007906 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34536459" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34536459" target="_blank">PMID:34536459</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"JOAG is characterized by high intraocular pressures (IOP), with many patients needing surgery."</div>
+
+
+                <div class="evidence-explanation">Identifies high IOP as a defining feature of JOAG, distinct from the more modest pressures often seen in adult POAG, and links it to the surgical management imperative.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-optic-nerve-cupping" data-dismech-node="Optic Nerve Cupping" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Optic Nerve Cupping
+
+                    <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+                    <span class="phenotype-category">Ophthalmological</span>
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0012796" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0012796</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Optic disc cupping, annotated with Increased cup-to-disc ratio (HP:0012796). HP:0012796 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34536459" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34536459" target="_blank">PMID:34536459</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The unique optic nerve head features include large discs with deep, steep cupping associated with high IOP-induced damage."</div>
+
+
+                <div class="evidence-explanation">Documents the characteristic deep, steep optic disc cupping of JOAG.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-visual-field-loss" data-dismech-node="Visual Field Loss" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Visual Field Loss
+
+                    <span class="phenotype-freq">FREQUENT</span>
+
+
+                    <span class="phenotype-category">Ophthalmological</span>
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001123" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001123</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
 This clinical feature is Visual field defect (HP:0001123). HP:0001123 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -5225,6 +5544,8 @@ This clinical feature is Visual field defect (HP:0001123). HP:0001123 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5249,15 +5570,16 @@ This clinical feature is Visual field defect (HP:0001123). HP:0001123 is a pheno
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-myopia" data-dismech-node="Myopia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Myopia
+            <div class="item-box phenotype-box anchor-target" id="phenotype-myopia" data-dismech-node="Myopia" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Myopia
 
-                        <span class="phenotype-freq">FREQUENT</span>
+                    <span class="phenotype-freq">FREQUENT</span>
 
 
+                    <span class="phenotype-category">Ophthalmological</span>
 
 
 
@@ -5266,16 +5588,18 @@ This clinical feature is Visual field defect (HP:0001123). HP:0001123 is a pheno
 
 
 
+    <a href="http://purl.obolibrary.org/obo/HP_0000545" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000545</a>
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000545" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000545</a>
 
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Myopia (HP:0000545). HP:0000545 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -5295,6 +5619,8 @@ This clinical feature is Myopia (HP:0000545). HP:0000545 is a phenotype from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5320,6 +5646,8 @@ This clinical feature is Myopia (HP:0000545). HP:0000545 is a phenotype from the
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5341,253 +5669,8 @@ This clinical feature is Myopia (HP:0000545). HP:0000545 is a phenotype from the
 
 
 
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-2">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">3</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-open-angle-glaucoma" data-dismech-node="Open-Angle Glaucoma" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Open-Angle Glaucoma
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012108" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0012108</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Open angle glaucoma (HP:0012108). HP:0012108 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:34536459" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34536459" target="_blank">PMID:34536459</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Juvenile-onset open-angle glaucoma (JOAG) is a subset of primary open-angle glaucoma that is diagnosed before 40 years of age."</div>
-
-
-                <div class="evidence-explanation">Establishes JOAG as an open-angle glaucoma diagnosed before 40 years of age.</div>
-
-
-
             </div>
 
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-markedly-elevated-intraocular-pressure" data-dismech-node="Markedly Elevated Intraocular Pressure" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Markedly Elevated Intraocular Pressure
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Ocular hypertension</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0007906" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0007906</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Ocular hypertension (HP:0007906). HP:0007906 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:34536459" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34536459" target="_blank">PMID:34536459</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"JOAG is characterized by high intraocular pressures (IOP), with many patients needing surgery."</div>
-
-
-                <div class="evidence-explanation">Identifies high IOP as a defining feature of JOAG, distinct from the more modest pressures often seen in adult POAG, and links it to the surgical management imperative.
-</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-optic-nerve-cupping" data-dismech-node="Optic Nerve Cupping" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Optic Nerve Cupping
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Increased cup-to-disc ratio</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012796" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0012796</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Optic disc cupping, annotated with Increased cup-to-disc ratio (HP:0012796). HP:0012796 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:34536459" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34536459" target="_blank">PMID:34536459</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The unique optic nerve head features include large discs with deep, steep cupping associated with high IOP-induced damage."</div>
-
-
-                <div class="evidence-explanation">Documents the characteristic deep, steep optic disc cupping of JOAG.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <script>
-            (function() {
-                // TOC pill click: expand target group and scroll to it
-                document.querySelectorAll('.pheno-toc-pill').forEach(function(pill) {
-                    pill.addEventListener('click', function() {
-                        var target = document.getElementById(pill.dataset.target);
-                        if (target) {
-                            target.open = true;
-                            target.scrollIntoView({behavior: 'smooth', block: 'start'});
-                        }
-                    });
-                });
-                // Expand/collapse all toggle
-                var btn = document.getElementById('phenoToggleAll');
-                if (btn) {
-                    btn.addEventListener('click', function() {
-                        var groups = document.querySelectorAll('.phenotype-category-group');
-                        var anyOpen = Array.from(groups).some(function(g) { return g.open; });
-                        groups.forEach(function(g) { g.open = !anyOpen; });
-                        btn.textContent = anyOpen ? 'Expand all' : 'Collapse all';
-                    });
-                }
-            })();
-            </script>
 
         </div>
 
@@ -5636,6 +5719,9 @@ This disease-associated gene is MYOC (hgnc:7610). hgnc:7610 is a gene from the H
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal Dominant</span>
@@ -5658,6 +5744,8 @@ This disease-associated gene is MYOC (hgnc:7610). hgnc:7610 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5684,6 +5772,8 @@ This disease-associated gene is MYOC (hgnc:7610). hgnc:7610 is a gene from the H
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5706,6 +5796,8 @@ This disease-associated gene is MYOC (hgnc:7610). hgnc:7610 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5765,6 +5857,9 @@ This disease-associated gene is CYP1B1 (hgnc:2597). hgnc:2597 is a gene from the
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal Recessive</span>
@@ -5789,6 +5884,8 @@ This disease-associated gene is CYP1B1 (hgnc:2597). hgnc:2597 is a gene from the
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5803,14 +5900,16 @@ This disease-associated gene is CYP1B1 (hgnc:2597). hgnc:2597 is a gene from the
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:32421983" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:32421983" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/32421983" target="_blank">PMID:32421983</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5893,6 +5992,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Topical pressure-lowering drops (e.g., prostaglandin analogs, beta-blockers) are typically first attempted, but in JOAG medical therapy alone is often insufficient to control the characteristically high IOP, and many patients progress to surgery.
 </div>
 
@@ -5907,14 +6020,16 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:34536459" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:34536459" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/34536459" target="_blank">PMID:34536459</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5978,6 +6093,20 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Genetic counseling is recommended for JOAG patients and at-risk family members, given autosomal dominant MYOC inheritance with high penetrance, documented de novo variants, and the importance of early detection through family screening irrespective of family history.
 </div>
 
@@ -6000,6 +6129,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6064,6 +6195,20 @@ This treatment is trabeculectomy, annotated with Surgical Construction of Filtra
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Incisional filtration surgery (commonly trabeculectomy augmented with mitomycin-C) is the most common primary surgery for JOAG, reflecting the surgery-first management imperative driven by high IOP poorly controlled medically. A substantial fraction of patients require additional surgery over long-term follow-up.
 </div>
 
@@ -6088,6 +6233,8 @@ This treatment is trabeculectomy, annotated with Surgical Construction of Filtra
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6110,6 +6257,8 @@ This treatment is trabeculectomy, annotated with Surgical Construction of Filtra
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6173,6 +6322,31 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Filtration shunt procedures (e.g., EX-PRESS mini glaucoma shunt with mitomycin-C) are alternative incisional options for early-onset glaucoma and may offer good IOP control in pediatric and juvenile glaucoma.
 </div>
 
@@ -6195,6 +6369,8 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6263,6 +6439,8 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6284,6 +6462,222 @@ This treatment is Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical in
             </div>
 
         </div>
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-tonometry-intraocular-pressure-measurement">
+                <div class="item-name">
+                    Tonometry (Intraocular Pressure Measurement)
+
+                </div>
+
+                <div class="item-desc">Measurement of intraocular pressure is central to JOAG diagnosis and monitoring; affected patients characteristically show markedly elevated IOP.
+</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        tonometry
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C120543" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-29">NCIT:C120543</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34536459" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34536459" target="_blank">PMID:34536459</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"JOAG is characterized by high intraocular pressures (IOP), with many patients needing surgery."</div>
+
+
+                <div class="evidence-explanation">High intraocular pressure is the measurable hallmark of JOAG, making tonometry a core diagnostic and monitoring modality.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-gonioscopy-and-anterior-segment-optical-coherence-tomography">
+                <div class="item-name">
+                    Gonioscopy and Anterior Segment Optical Coherence Tomography
+
+                </div>
+
+                <div class="item-desc">Gonioscopy confirms an open, grossly normal drainage angle (distinguishing JOAG from angle-closure and overt anterior-segment dysgenesis), and anterior segment OCT can reveal immaturity of the conventional outflow pathway.
+</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        gonioscopy
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C93195" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-30">NCIT:C93195</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34536459" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34536459" target="_blank">PMID:34536459</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The pathophysiology underlying the disease is immaturity of the conventional outflow pathways, which may or may not be observed on gonioscopy and anterior segment optical coherence tomography."</div>
+
+
+                <div class="evidence-explanation">Establishes gonioscopy and anterior segment OCT as the diagnostic modalities used to assess the conventional outflow pathway in JOAG.
+</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -6519,7 +6913,7 @@ pathophysiology:
       dysgenesis as a distinct JOAG subtype mechanism.
   - reference: PMID:32421983
     reference_title: &#34;An Insight into Primary Congenital Glaucoma.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;It is caused by genetic structural defects in the trabecular meshwork and makes its appearence in newborns and children no older than three years.&#34;
     explanation: &gt;
@@ -6756,7 +7150,7 @@ genetic:
       over MYOC in specific populations.
   - reference: PMID:32421983
     reference_title: &#34;An Insight into Primary Congenital Glaucoma.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;PCG is classified as an autosomal recessive disorder involving four loci. The main culprit is CYP1B1, at locus GLC3A.&#34;
     explanation: &gt;
@@ -6778,7 +7172,7 @@ treatments:
   evidence:
   - reference: PMID:34536459
     reference_title: &#34;Juvenile-onset open-angle glaucoma - A clinical and genetic update.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;JOAG is characterized by high intraocular pressures (IOP), with many patients needing surgery.&#34;
     explanation: &gt;
@@ -6966,6 +7360,8 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -7362,7 +7758,7 @@ JOAG is frequently associated with myopia and family history in clinic-based coh
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Juvenile Open Angle Glaucoma", "mondoId": "MONDO:0020367", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Juvenile_Open_Angle_Glaucoma", "yamlRevision": "9fec58a1f29e"};
+        const OS_CONFIG = {"diseaseName": "Juvenile Open Angle Glaucoma", "mondoId": "MONDO:0020367", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Juvenile_Open_Angle_Glaucoma", "yamlRevision": "57167030d428"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

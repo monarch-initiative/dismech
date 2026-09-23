@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2954,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2969,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3078,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3091,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3295,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3305,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3341,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3362,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3740,6 +3817,22 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3780,7 +3873,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 13</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 14</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Endometrial%20Endometrioid%20Adenocarcinoma"
@@ -3972,7 +4065,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">13</div>
+                <div class="stat-value">14</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4250,6 +4343,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4350,6 +4445,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4409,6 +4506,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4472,6 +4571,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4533,6 +4634,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4577,6 +4680,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-unopposed-estrogen-signaling" data-dismech-node="Unopposed Estrogen Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">Unopposed Estrogen Signaling</div>
+
 
                 <div class="item-desc">Hyperestrogenic states promote mitogenic estrogen receptor signaling in endometrial glandular epithelium when progesterone counter-regulation is insufficient, increasing the proliferative substrate for endometrioid malignant transformation.</div>
 
@@ -4722,6 +4826,8 @@ This pathophysiological event occurs in endometrium (UBERON:0001295). UBERON:000
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4744,6 +4850,7 @@ This pathophysiological event occurs in endometrium (UBERON:0001295). UBERON:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-endometrial-hyperplasia-precursor" data-dismech-node="Endometrial Hyperplasia Precursor" data-dismech-type="pathophysiology">
                 <div class="item-name">Endometrial Hyperplasia Precursor</div>
+
 
                 <div class="item-desc">Progesterone deficiency and sustained estrogen-driven epithelial expansion can produce endometrial hyperplasia, which is a precursor context for endometrioid carcinoma.</div>
 
@@ -4889,6 +4996,8 @@ This pathophysiological event occurs in endometrium (UBERON:0001295). UBERON:000
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4911,6 +5020,7 @@ This pathophysiological event occurs in endometrium (UBERON:0001295). UBERON:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pten-pi3k-pathway-dysregulation" data-dismech-node="PTEN PI3K Pathway Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">PTEN PI3K Pathway Dysregulation</div>
+
 
                 <div class="item-desc">Endometrioid tumors commonly acquire PTEN, PIK3CA, and cooperating pathway alterations that support survival and growth through PI3K/AKT signaling.</div>
 
@@ -5117,6 +5227,8 @@ This pathophysiological event involves increased phosphatidylinositol 3-kinase/p
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5137,8 +5249,9 @@ This pathophysiological event involves increased phosphatidylinositol 3-kinase/p
 
 	            </div>
 
-            <div class="item-box pathophys-box anchor-target" id="pathophysiology-wnt-beta-catenin-pathway-dysregulation" data-dismech-node="WNT Beta-Catenin Pathway Dysregulation" data-dismech-type="pathophysiology">
-                <div class="item-name">WNT Beta-Catenin Pathway Dysregulation</div>
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-ctnnb1-wnt-pathway-activation" data-dismech-node="CTNNB1 WNT Pathway Activation" data-dismech-type="pathophysiology">
+                <div class="item-name">CTNNB1 WNT Pathway Activation</div>
+
 
                 <div class="item-desc">CTNNB1-mutant WNT pathway activation is a recurrent molecular feature of endometrioid tumors and contributes to altered transcriptional control and tumor progression.</div>
 
@@ -5272,6 +5385,8 @@ This pathophysiological event involves dysregulated Wnt signaling pathway (GO:00
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5294,6 +5409,7 @@ This pathophysiological event involves dysregulated Wnt signaling pathway (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mismatch-repair-deficiency" data-dismech-node="Mismatch Repair Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Mismatch Repair Deficiency</div>
+
 
                 <div class="item-desc">Loss of DNA mismatch repair creates microsatellite-instability and hypermutated tumor biology, commonly detected by loss of MMR protein expression by immunohistochemistry.</div>
 
@@ -5516,7 +5632,7 @@ This pathophysiological event involves decreased mismatch repair (GO:0006298). G
 	                    <div class="crosslink-list">
 
 	                        <div class="crosslink-item">
-	                            <span class="crosslink-meta">Immune Checkpoint Vulnerability</span>
+	                            <span class="crosslink-meta">Adaptive Immune Resistance</span>
 
 	                            <span class="crosslink-desc">Hypermutated tumors create immunotherapy-relevant tumor antigenicity.</span>
 
@@ -5544,6 +5660,8 @@ This pathophysiological event involves decreased mismatch repair (GO:0006298). G
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5564,8 +5682,9 @@ This pathophysiological event involves decreased mismatch repair (GO:0006298). G
 
 	            </div>
 
-            <div class="item-box pathophys-box anchor-target" id="pathophysiology-pole-ultramutation" data-dismech-node="POLE Ultramutation" data-dismech-type="pathophysiology">
-                <div class="item-name">POLE Ultramutation</div>
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-pole-proofreading-defect-and-ultramutation" data-dismech-node="POLE Proofreading Defect and Ultramutation" data-dismech-type="pathophysiology">
+                <div class="item-name">POLE Proofreading Defect and Ultramutation</div>
+
 
                 <div class="item-desc">Pathogenic POLE exonuclease-domain mutation produces an ultramutated endometrioid tumor subset with distinctive prognosis and staging implications.</div>
 
@@ -5671,7 +5790,7 @@ This pathophysiological event involves decreased DNA replication proofreading (G
 	                    <div class="crosslink-list">
 
 	                        <div class="crosslink-item">
-	                            <span class="crosslink-meta">Immune Checkpoint Vulnerability</span>
+	                            <span class="crosslink-meta">Adaptive Immune Resistance</span>
 
 	                            <span class="crosslink-desc">High mutational burden can create immunogenic tumor features.</span>
 
@@ -5699,6 +5818,8 @@ This pathophysiological event involves decreased DNA replication proofreading (G
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5719,8 +5840,9 @@ This pathophysiological event involves decreased DNA replication proofreading (G
 
 	            </div>
 
-            <div class="item-box pathophys-box anchor-target" id="pathophysiology-immune-checkpoint-vulnerability" data-dismech-node="Immune Checkpoint Vulnerability" data-dismech-type="pathophysiology">
-                <div class="item-name">Immune Checkpoint Vulnerability</div>
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-adaptive-immune-resistance" data-dismech-node="Adaptive Immune Resistance" data-dismech-type="pathophysiology">
+                <div class="item-name">Adaptive Immune Resistance</div>
+
 
                 <div class="item-desc">Hypermutated MMRd/MSI-H and POLE-mutated tumors are clinically important immunotherapy-sensitive contexts in advanced or recurrent endometrial cancer.</div>
 
@@ -5796,6 +5918,8 @@ This pathophysiological event involves increased immune response (GO:0006955). G
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5818,6 +5942,7 @@ This pathophysiological event involves increased immune response (GO:0006955). G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-endometrioid-glandular-neoplasia" data-dismech-node="Endometrioid Glandular Neoplasia" data-dismech-type="pathophysiology">
                 <div class="item-name">Endometrioid Glandular Neoplasia</div>
+
 
                 <div class="item-desc">Malignant endometrial epithelial cells form endometrioid glandular architecture, with tumor grade reflecting the amount of solid growth and loss of gland formation.</div>
 
@@ -5935,6 +6060,8 @@ This pathophysiological event occurs in endometrium (UBERON:0001295). UBERON:000
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5981,6 +6108,8 @@ This pathophysiological event occurs in endometrium (UBERON:0001295). UBERON:000
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6023,7 +6152,7 @@ This pathophysiological event occurs in endometrium (UBERON:0001295). UBERON:000
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"CTNNB1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CTNNB1\"], \"gene_terms\": [{\"label\": \"CTNNB1\", \"id\": \"hgnc:2514\"}], \"association\": \"Recurrent somatic WNT pathway driver alteration\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"Dostarlimab Plus Carboplatin-Paclitaxel\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Dostarlimab combined with carboplatin-paclitaxel improves progression-free survival in primary advanced or recurrent endometrial cancer, with a substantial benefit in dMMR-MSI-H tumors.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"dostarlimab\", \"carboplatin\", \"paclitaxel\"]}}, {\"id\": \"Endometrial Hyperplasia Precursor\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progesterone deficiency and sustained estrogen-driven epithelial expansion can produce endometrial hyperplasia, which is a precursor context for endometrioid carcinoma.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"endometrial epithelial cell\"], \"biological_processes\": [\"cell population proliferation\"], \"locations\": [\"endometrium\"]}}, {\"id\": \"Endometrioid Glandular Neoplasia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Malignant endometrial epithelial cells form endometrioid glandular architecture, with tumor grade reflecting the amount of solid growth and loss of gland formation.\", \"meta\": {\"cell_types\": [\"endometrial epithelial cell\"], \"locations\": [\"endometrium\"]}}, {\"id\": \"Immune Checkpoint Vulnerability\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hypermutated MMRd/MSI-H and POLE-mutated tumors are clinically important immunotherapy-sensitive contexts in advanced or recurrent endometrial cancer.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"immune response\"]}}, {\"id\": \"Mismatch Repair Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of DNA mismatch repair creates microsatellite-instability and hypermutated tumor biology, commonly detected by loss of MMR protein expression by immunohistochemistry.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"mismatch repair\"], \"genes\": [\"MLH1\", \"MSH2\", \"MSH6\", \"PMS2\"], \"gene_terms\": [{\"label\": \"MLH1\", \"id\": \"hgnc:7127\"}, {\"label\": \"MSH2\", \"id\": \"hgnc:7325\"}, {\"label\": \"MSH6\", \"id\": \"hgnc:7329\"}, {\"label\": \"PMS2\", \"id\": \"hgnc:9122\"}]}}, {\"id\": \"PIK3CA\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PIK3CA\"], \"gene_terms\": [{\"label\": \"PIK3CA\", \"id\": \"hgnc:8975\"}], \"association\": \"Recurrent somatic PI3K-pathway driver alteration\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"POLE Ultramutation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic POLE exonuclease-domain mutation produces an ultramutated endometrioid tumor subset with distinctive prognosis and staging implications.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"DNA replication proofreading\"], \"genes\": [\"POLE\"], \"gene_terms\": [{\"label\": \"POLE\", \"id\": \"hgnc:9177\"}]}}, {\"id\": \"PTEN\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PTEN\"], \"gene_terms\": [{\"label\": \"PTEN\", \"id\": \"hgnc:9588\"}], \"association\": \"Recurrent somatic driver alteration\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"PTEN PI3K Pathway Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Endometrioid tumors commonly acquire PTEN, PIK3CA, and cooperating pathway alterations that support survival and growth through PI3K/AKT signaling.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"endometrial epithelial cell\"], \"biological_processes\": [\"phosphatidylinositol 3-kinase/protein kinase B signal transduction\"], \"genes\": [\"PTEN\", \"PIK3CA\"], \"gene_terms\": [{\"label\": \"PTEN\", \"id\": \"hgnc:9588\"}, {\"label\": \"PIK3CA\", \"id\": \"hgnc:8975\"}]}}, {\"id\": \"Pembrolizumab Plus Carboplatin-Paclitaxel\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"PD-1 blockade with pembrolizumab plus carboplatin-paclitaxel improves progression-free survival in advanced or recurrent endometrial cancer, with strong relevance for dMMR tumors.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"pembrolizumab\", \"carboplatin\", \"paclitaxel\"]}}, {\"id\": \"Unopposed Estrogen Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hyperestrogenic states promote mitogenic estrogen receptor signaling in endometrial glandular epithelium when progesterone counter-regulation is insufficient, increasing the proliferative substrate for endometrioid malignant transformation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"endometrial epithelial cell\"], \"biological_processes\": [\"estrogen receptor signaling pathway\"], \"locations\": [\"endometrium\"]}}, {\"id\": \"WNT Beta-Catenin Pathway Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CTNNB1-mutant WNT pathway activation is a recurrent molecular feature of endometrioid tumors and contributes to altered transcriptional control and tumor progression.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Wnt signaling pathway\"], \"genes\": [\"CTNNB1\"], \"gene_terms\": [{\"label\": \"CTNNB1\", \"id\": \"hgnc:2514\"}]}}], \"edges\": [{\"source\": \"Unopposed Estrogen Signaling\", \"target\": \"Endometrial Hyperplasia Precursor\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Estrogen-driven proliferation increases risk of hyperplasia and malignant progression.\"}, {\"source\": \"Endometrial Hyperplasia Precursor\", \"target\": \"PTEN PI3K Pathway Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Proliferative precursor epithelium provides a substrate for somatic driver selection.\"}, {\"source\": \"PTEN PI3K Pathway Dysregulation\", \"target\": \"Endometrioid Glandular Neoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Somatic pathway lesions support malignant outgrowth of endometrioid gland-forming epithelium.\"}, {\"source\": \"WNT Beta-Catenin Pathway Dysregulation\", \"target\": \"Endometrioid Glandular Neoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Aberrant beta-catenin signaling contributes to malignant endometrioid epithelial behavior.\"}, {\"source\": \"Mismatch Repair Deficiency\", \"target\": \"Immune Checkpoint Vulnerability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypermutated tumors create immunotherapy-relevant tumor antigenicity.\"}, {\"source\": \"POLE Ultramutation\", \"target\": \"Immune Checkpoint Vulnerability\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"High mutational burden can create immunogenic tumor features.\"}, {\"source\": \"Pembrolizumab Plus Carboplatin-Paclitaxel\", \"target\": \"Immune Checkpoint Vulnerability\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Dostarlimab Plus Carboplatin-Paclitaxel\", \"target\": \"Immune Checkpoint Vulnerability\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"PTEN\", \"target\": \"PTEN PI3K Pathway Dysregulation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PIK3CA\", \"target\": \"PTEN PI3K Pathway Dysregulation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CTNNB1\", \"target\": \"WNT Beta-Catenin Pathway Dysregulation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Adaptive Immune Resistance\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hypermutated MMRd/MSI-H and POLE-mutated tumors are clinically important immunotherapy-sensitive contexts in advanced or recurrent endometrial cancer.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"immune response\"]}}, {\"id\": \"CTNNB1\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"CTNNB1\"], \"gene_terms\": [{\"label\": \"CTNNB1\", \"id\": \"hgnc:2514\"}], \"association\": \"Recurrent somatic WNT pathway driver alteration\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"CTNNB1 WNT Pathway Activation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"CTNNB1-mutant WNT pathway activation is a recurrent molecular feature of endometrioid tumors and contributes to altered transcriptional control and tumor progression.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Wnt signaling pathway\"], \"genes\": [\"CTNNB1\"], \"gene_terms\": [{\"label\": \"CTNNB1\", \"id\": \"hgnc:2514\"}]}}, {\"id\": \"Dostarlimab Plus Carboplatin-Paclitaxel\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Dostarlimab combined with carboplatin-paclitaxel improves progression-free survival in primary advanced or recurrent endometrial cancer, with a substantial benefit in dMMR-MSI-H tumors.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"dostarlimab\", \"carboplatin\", \"paclitaxel\"]}}, {\"id\": \"Endometrial Hyperplasia Precursor\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Progesterone deficiency and sustained estrogen-driven epithelial expansion can produce endometrial hyperplasia, which is a precursor context for endometrioid carcinoma.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"endometrial epithelial cell\"], \"biological_processes\": [\"cell population proliferation\"], \"locations\": [\"endometrium\"]}}, {\"id\": \"Endometrioid Glandular Neoplasia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Malignant endometrial epithelial cells form endometrioid glandular architecture, with tumor grade reflecting the amount of solid growth and loss of gland formation.\", \"meta\": {\"cell_types\": [\"endometrial epithelial cell\"], \"locations\": [\"endometrium\"]}}, {\"id\": \"Mismatch Repair Deficiency\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Loss of DNA mismatch repair creates microsatellite-instability and hypermutated tumor biology, commonly detected by loss of MMR protein expression by immunohistochemistry.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"mismatch repair\"], \"genes\": [\"MLH1\", \"MSH2\", \"MSH6\", \"PMS2\"], \"gene_terms\": [{\"label\": \"MLH1\", \"id\": \"hgnc:7127\"}, {\"label\": \"MSH2\", \"id\": \"hgnc:7325\"}, {\"label\": \"MSH6\", \"id\": \"hgnc:7329\"}, {\"label\": \"PMS2\", \"id\": \"hgnc:9122\"}]}}, {\"id\": \"PIK3CA\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PIK3CA\"], \"gene_terms\": [{\"label\": \"PIK3CA\", \"id\": \"hgnc:8975\"}], \"association\": \"Recurrent somatic PI3K-pathway driver alteration\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"POLE Proofreading Defect and Ultramutation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic POLE exonuclease-domain mutation produces an ultramutated endometrioid tumor subset with distinctive prognosis and staging implications.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"DNA replication proofreading\"], \"genes\": [\"POLE\"], \"gene_terms\": [{\"label\": \"POLE\", \"id\": \"hgnc:9177\"}]}}, {\"id\": \"PTEN\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PTEN\"], \"gene_terms\": [{\"label\": \"PTEN\", \"id\": \"hgnc:9588\"}], \"association\": \"Recurrent somatic driver alteration\", \"variant_origin\": \"SOMATIC\"}}, {\"id\": \"PTEN PI3K Pathway Dysregulation\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Endometrioid tumors commonly acquire PTEN, PIK3CA, and cooperating pathway alterations that support survival and growth through PI3K/AKT signaling.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"endometrial epithelial cell\"], \"biological_processes\": [\"phosphatidylinositol 3-kinase/protein kinase B signal transduction\"], \"genes\": [\"PTEN\", \"PIK3CA\"], \"gene_terms\": [{\"label\": \"PTEN\", \"id\": \"hgnc:9588\"}, {\"label\": \"PIK3CA\", \"id\": \"hgnc:8975\"}]}}, {\"id\": \"Pembrolizumab Plus Carboplatin-Paclitaxel\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"PD-1 blockade with pembrolizumab plus carboplatin-paclitaxel improves progression-free survival in advanced or recurrent endometrial cancer, with strong relevance for dMMR tumors.\", \"meta\": {\"evidence_count\": 1, \"therapeutic_agents\": [\"pembrolizumab\", \"carboplatin\", \"paclitaxel\"]}}, {\"id\": \"Tamoxifen Therapy for Breast Cancer\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Adjuvant tamoxifen for oestrogen-receptor-positive breast cancer raises endometrial carcinoma risk, and endometrioid histology predominates among the resulting tumours. The same exposure produces benign endometrial polyps, hyperplasia and increased sonographic thickness, so most endometrial change detected during tamoxifen therapy is not neoplastic.\", \"meta\": {\"evidence_count\": 2}}, {\"id\": \"Unopposed Estrogen Signaling\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Hyperestrogenic states promote mitogenic estrogen receptor signaling in endometrial glandular epithelium when progesterone counter-regulation is insufficient, increasing the proliferative substrate for endometrioid malignant transformation.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"endometrial epithelial cell\"], \"biological_processes\": [\"estrogen receptor signaling pathway\"], \"locations\": [\"endometrium\"]}}], \"edges\": [{\"source\": \"Unopposed Estrogen Signaling\", \"target\": \"Endometrial Hyperplasia Precursor\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Estrogen-driven proliferation increases risk of hyperplasia and malignant progression.\"}, {\"source\": \"Endometrial Hyperplasia Precursor\", \"target\": \"PTEN PI3K Pathway Dysregulation\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Proliferative precursor epithelium provides a substrate for somatic driver selection.\"}, {\"source\": \"PTEN PI3K Pathway Dysregulation\", \"target\": \"Endometrioid Glandular Neoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Somatic pathway lesions support malignant outgrowth of endometrioid gland-forming epithelium.\"}, {\"source\": \"CTNNB1 WNT Pathway Activation\", \"target\": \"Endometrioid Glandular Neoplasia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Aberrant beta-catenin signaling contributes to malignant endometrioid epithelial behavior.\"}, {\"source\": \"Mismatch Repair Deficiency\", \"target\": \"Adaptive Immune Resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hypermutated tumors create immunotherapy-relevant tumor antigenicity.\"}, {\"source\": \"POLE Proofreading Defect and Ultramutation\", \"target\": \"Adaptive Immune Resistance\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"High mutational burden can create immunogenic tumor features.\"}, {\"source\": \"Tamoxifen Therapy for Breast Cancer\", \"target\": \"Unopposed Estrogen Signaling\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Tamoxifen antagonises the oestrogen receptor in breast tissue while acting as a partial agonist at the endometrial receptor, so adjuvant therapy drives this node without progestin opposition. Local progestin delivery largely prevents the resulting endometrial pathology, which supports an opposable oestrogenic route rather than a separate genotoxic drug effect.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Pembrolizumab Plus Carboplatin-Paclitaxel\", \"target\": \"Adaptive Immune Resistance\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Dostarlimab Plus Carboplatin-Paclitaxel\", \"target\": \"Adaptive Immune Resistance\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"PTEN\", \"target\": \"PTEN PI3K Pathway Dysregulation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PIK3CA\", \"target\": \"PTEN PI3K Pathway Dysregulation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"CTNNB1\", \"target\": \"CTNNB1 WNT Pathway Activation\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6044,9 +6173,9 @@ This pathophysiological event occurs in endometrium (UBERON:0001295). UBERON:000
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Blood<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Constitutional<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Genitourinary<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Other<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Constitutional<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6091,11 +6220,95 @@ This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the
 
 
 
+
+
+
                 </div>
 
             </details>
 
             <details class="phenotype-category-group" id="pheno-cat-2">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Genitourinary
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-postmenopausal-bleeding" data-dismech-node="Postmenopausal Bleeding" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Postmenopausal Bleeding
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0033840" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0033840</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Postmenopausal bleeding (HP:0033840). HP:0033840 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26354523" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26354523" target="_blank">PMID:26354523</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Patients are often diagnosed when the disease is still confined to the uterus."</div>
+
+
+                <div class="evidence-explanation">This does not name bleeding directly, but supports the early clinical detection context typical of endometrial carcinoma; frequency is omitted.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Constitutional
@@ -6116,10 +6329,10 @@ This clinical feature is Anemia (HP:0001903). HP:0001903 is a phenotype from the
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0034267" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0034267</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0034267" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0034267</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Pelvic pain (HP:0034267). HP:0034267 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6132,79 +6345,6 @@ This clinical feature is Pelvic pain (HP:0034267). HP:0034267 is a phenotype fro
 
 
 
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-3">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-postmenopausal-bleeding" data-dismech-node="Postmenopausal Bleeding" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Postmenopausal Bleeding
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0033840" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0033840</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Postmenopausal bleeding (HP:0033840). HP:0033840 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:26354523" data-dismech-supports="PARTIAL">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26354523" target="_blank">PMID:26354523</a>
-                    </span>
-
-
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Patients are often diagnosed when the disease is still confined to the uterus."</div>
-
-
-                <div class="evidence-explanation">This does not name bleeding directly, but supports the early clinical detection context typical of endometrial carcinoma; frequency is omitted.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
 
 
 
@@ -6286,6 +6426,9 @@ This disease-associated gene is PTEN (hgnc:9588). hgnc:9588 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6300,6 +6443,8 @@ This disease-associated gene is PTEN (hgnc:9588). hgnc:9588 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6358,6 +6503,9 @@ This disease-associated gene is PIK3CA (hgnc:8975). hgnc:8975 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6372,6 +6520,8 @@ This disease-associated gene is PIK3CA (hgnc:8975). hgnc:8975 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6430,6 +6580,9 @@ This disease-associated gene is CTNNB1 (hgnc:2514). hgnc:2514 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6444,6 +6597,8 @@ This disease-associated gene is CTNNB1 (hgnc:2514). hgnc:2514 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6502,6 +6657,9 @@ This disease-associated gene is ARID1A (hgnc:11110). hgnc:11110 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6516,6 +6674,8 @@ This disease-associated gene is ARID1A (hgnc:11110). hgnc:11110 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6574,6 +6734,9 @@ This disease-associated gene is KRAS (hgnc:6407). hgnc:6407 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6588,6 +6751,8 @@ This disease-associated gene is KRAS (hgnc:6407). hgnc:6407 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6646,6 +6811,9 @@ This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6660,6 +6828,8 @@ This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6702,6 +6872,9 @@ This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6716,6 +6889,8 @@ This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6798,6 +6973,31 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Primary hysterectomy with bilateral salpingo-oophorectomy is standard local treatment for many patients, with staging and nodal assessment tailored by histology, grade, LVSI, stage, patient factors, and guidelines.</div>
 
 
@@ -6819,6 +7019,8 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6882,6 +7084,31 @@ This treatment is radiation therapy (NCIT:C15313). NCIT:C15313 is a clinical int
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Radiotherapy</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Adjuvant radiation or chemoradiation is selected according to integrated recurrence risk, including stage, histology, grade, LVSI, and molecular class.</div>
 
 
@@ -6903,6 +7130,8 @@ This treatment is radiation therapy (NCIT:C15313). NCIT:C15313 is a clinical int
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7005,6 +7234,20 @@ This treatment uses paclitaxel (CHEBI:45863). CHEBI:45863 is a therapeutic agent
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Carboplatin plus paclitaxel is the standard chemotherapy backbone used in advanced or recurrent endometrial cancer trials and combined with immune-checkpoint inhibitors in current phase 3 evidence.</div>
 
 
@@ -7026,6 +7269,8 @@ This treatment uses paclitaxel (CHEBI:45863). CHEBI:45863 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7144,6 +7389,20 @@ This treatment uses paclitaxel (CHEBI:45863). CHEBI:45863 is a therapeutic agent
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">PD-1 blockade with pembrolizumab plus carboplatin-paclitaxel improves progression-free survival in advanced or recurrent endometrial cancer, with strong relevance for dMMR tumors.</div>
 
 
@@ -7154,7 +7413,7 @@ This treatment uses paclitaxel (CHEBI:45863). CHEBI:45863 is a therapeutic agent
                         <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
                             INHIBITS
                         </span>
-                        <strong style="color: #5b21b6;">Immune Checkpoint Vulnerability</strong>
+                        <strong style="color: #5b21b6;">Adaptive Immune Resistance</strong>
 
                         <span style="color: #7c3aed;"> &mdash; PD-1 blockade is intended to counter tumor immune checkpoint signaling.</span>
 
@@ -7183,6 +7442,8 @@ This treatment uses paclitaxel (CHEBI:45863). CHEBI:45863 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7301,6 +7562,20 @@ This treatment uses paclitaxel (CHEBI:45863). CHEBI:45863 is a therapeutic agent
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Dostarlimab combined with carboplatin-paclitaxel improves progression-free survival in primary advanced or recurrent endometrial cancer, with a substantial benefit in dMMR-MSI-H tumors.</div>
 
 
@@ -7311,7 +7586,7 @@ This treatment uses paclitaxel (CHEBI:45863). CHEBI:45863 is a therapeutic agent
                         <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
                             INHIBITS
                         </span>
-                        <strong style="color: #5b21b6;">Immune Checkpoint Vulnerability</strong>
+                        <strong style="color: #5b21b6;">Adaptive Immune Resistance</strong>
 
                         <span style="color: #7c3aed;"> &mdash; PD-1 blockade is intended to counter tumor immune checkpoint signaling.</span>
 
@@ -7340,6 +7615,8 @@ This treatment uses paclitaxel (CHEBI:45863). CHEBI:45863 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7371,7 +7648,7 @@ This treatment uses paclitaxel (CHEBI:45863). CHEBI:45863 is a therapeutic agent
             <div class="card-header">
                 <div class="card-icon" style="background: #ccfbf1; color: #0d9488;">🌍</div>
                 <h2 class="card-title">Environmental Factors</h2>
-                <span class="card-count">1</span>
+                <span class="card-count">2</span>
             </div>
 
             <div class="item-box environmental-box anchor-target" id="environmental-obesity-and-metabolic-dysfunction" data-dismech-node="Obesity and Metabolic Dysfunction" data-dismech-type="environmental">
@@ -7403,6 +7680,8 @@ This treatment uses paclitaxel (CHEBI:45863). CHEBI:45863 is a therapeutic agent
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7421,6 +7700,140 @@ This treatment uses paclitaxel (CHEBI:45863). CHEBI:45863 is a therapeutic agent
     </details>
 
 
+
+            </div>
+
+            <div class="item-box environmental-box anchor-target" id="environmental-tamoxifen-therapy-for-breast-cancer" data-dismech-node="Tamoxifen Therapy for Breast Cancer" data-dismech-type="environmental">
+                <div class="item-name">Tamoxifen Therapy for Breast Cancer</div>
+
+
+
+
+
+
+                <div class="item-desc">exposure_term is deliberately left unbound. The ECTO release pinned for this repository carries no tamoxifen exposure term - both ECTO:9002223 (exposure to tamoxifen) and ECTO:0900485 (exposure to tamoxifen via ingestion) resolve on OLS but are absent from the configured sqlite:obo:ecto build. The nearest available term, ECTO:2000006 (exposure to estrogen modification therapy), is a child of ECTO:2000005 (exposure to hormone replacement therapy) and would misclassify adjuvant anti-oestrogen cancer therapy as hormone replacement, so it was rejected. Revisit when the ECTO build is refreshed.</div>
+
+
+                <div class="item-desc">Adjuvant tamoxifen for oestrogen-receptor-positive breast cancer raises endometrial carcinoma risk, and endometrioid histology predominates among the resulting tumours. The same exposure produces benign endometrial polyps, hyperplasia and increased sonographic thickness, so most endometrial change detected during tamoxifen therapy is not neoplastic.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31479143" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31479143" target="_blank">PMID:31479143</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Tamoxifen was associated with higher risk of endometrial cancer and cataracts compared with placebo."</div>
+
+
+                <div class="evidence-explanation">Placebo-controlled trial evidence pooled for the USPSTF establishes excess endometrial cancer under tamoxifen.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33348436" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33348436" target="_blank">PMID:33348436</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Tamoxifen also increases the risk of postmenopausal bleeding, endometrial polyps, hyperplasia, and endometrial cancer."</div>
+
+
+                <div class="evidence-explanation">Gives the full range of tamoxifen-associated endometrial outcomes, from the benign lesions through to carcinoma, supporting curation of the exposure against the shared oestrogenic node.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #0f766e;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+
+                        <span class="tag" style="background: #ccfbf1; color: #115e59; font-size: 0.8rem;">
+                            TRIGGERS
+                        </span>
+
+                        <strong style="color: #115e59;">Unopposed Estrogen Signaling</strong>
+
+                        <span style="color: #0d9488;"> &mdash; Tamoxifen antagonises the oestrogen receptor in breast tissue while acting as a partial agonist at the endometrial receptor, so adjuvant therapy drives this node without progestin opposition. Local progestin delivery largely prevents the resulting endometrial pathology, which supports an opposable oestrogenic route rather than a separate genotoxic drug effect.</span>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25423691" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25423691" target="_blank">PMID:25423691</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The use of LNG-IUS reduced the incidence of endometrial hyperplasia (OR = 0.13, 95% CI 0.03-0.58, p = 0.007)."</div>
+
+
+                <div class="evidence-explanation">Progestin opposition largely abolishes tamoxifen-induced endometrial hyperplasia, supporting an opposable oestrogen-receptor route to this node.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+                    </div>
+
+                </div>
 
             </div>
 
@@ -7460,6 +7873,8 @@ This treatment uses paclitaxel (CHEBI:45863). CHEBI:45863 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7508,6 +7923,8 @@ This treatment uses paclitaxel (CHEBI:45863). CHEBI:45863 is a therapeutic agent
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7554,6 +7971,8 @@ This treatment uses paclitaxel (CHEBI:45863). CHEBI:45863 is a therapeutic agent
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7575,6 +7994,276 @@ This treatment uses paclitaxel (CHEBI:45863). CHEBI:45863 is a therapeutic agent
             </div>
 
         </div>
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-endometrial-sampling-with-histopathology">
+                <div class="item-name">
+                    Endometrial Sampling With Histopathology
+
+                </div>
+
+                <div class="item-desc">Endometrial biopsy, curettage, or hysterectomy pathology establishes the endometrioid carcinoma diagnosis and supports grading and staging.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        diagnostic procedure
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C18020" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-45">NCIT:C18020</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-45">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:26354523" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/26354523" target="_blank">PMID:26354523</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Lymph node surgical strategy is contingent on histological factors (subtype, tumour grade, involvement of lymphovascular space), disease stage (including myometrial invasion), patients&#39; characteristics (age and comorbidities), and national and international guidelines."</div>
+
+
+                <div class="evidence-explanation">This supports use of histologic subtype, grade, LVSI, stage, and patient factors in surgical staging decisions.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-complete-molecular-classification">
+                <div class="item-name">
+                    Complete Molecular Classification
+
+                </div>
+
+                <div class="item-desc">Integrated classification uses POLE mutation testing and MMR and p53 immunohistochemistry to assign POLEmut, MMRd, NSMP, or p53abn status.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        diagnostic procedure
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C18020" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-46">NCIT:C18020</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-46">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1002/ijgo.14923" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1002/ijgo.14923" target="_blank">DOI:10.1002/ijgo.14923</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The performance of complete molecular classification (POLEmut, MMRd, NSMP, p53abn) is encouraged in all endometrial cancers."</div>
+
+
+                <div class="evidence-explanation">FIGO 2023 supports complete molecular classification for endometrial cancers.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+        <div class="card" id="stages">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">🪜</div>
+                <h2 class="card-title">Stages</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="stage-figo-2023-stage-i-ii-molecular-modification">
+                <div class="item-name">FIGO 2023 Stage I-II Molecular Modification</div>
+
+                <div class="item-desc">FIGO 2023 records molecular subtype in the stage when known and can downstage POLE-mutated early disease or upstage p53-abnormal early disease.</div>
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.1002/ijgo.14923" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.1002/ijgo.14923" target="_blank">DOI:10.1002/ijgo.14923</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"When molecular classification reveals p53abn or POLEmut status in Stages I and II, this results in upstaging or downstaging of the disease (IICmp53abn or IAmPOLEmut)."</div>
+
+
+                <div class="evidence-explanation">FIGO 2023 explicitly modifies early-stage endometrial cancer by p53abn and POLEmut molecular status.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -7724,7 +8413,7 @@ stages:
     POLE-mutated early disease or upstage p53-abnormal early disease.
   evidence:
   - reference: DOI:10.1002/ijgo.14923
-    reference_title: &#34;FIGO staging of endometrial cancer: 2023&#34;
+    reference_title: &#34;&lt;scp&gt;FIGO&lt;/scp&gt; staging of endometrial cancer: 2023&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;When molecular classification reveals p53abn or POLEmut status in Stages I and II, this results in upstaging or downstaging of the disease (IICmp53abn or IAmPOLEmut).&#34;
@@ -7733,6 +8422,7 @@ stages:
       POLEmut molecular status.
 pathophysiology:
 - name: Unopposed Estrogen Signaling
+  conforms_to: &#34;sex_steroid_driven_proliferation#Nuclear Steroid Receptor Hyperactivation&#34;
   description: &gt;-
     Hyperestrogenic states promote mitogenic estrogen receptor signaling in
     endometrial glandular epithelium when progesterone counter-regulation is
@@ -7767,6 +8457,7 @@ pathophysiology:
   - target: Endometrial Hyperplasia Precursor
     description: Estrogen-driven proliferation increases risk of hyperplasia and malignant progression.
 - name: Endometrial Hyperplasia Precursor
+  conforms_to: &#34;sex_steroid_driven_proliferation#Benign Hormone-Dependent Proliferative Lesion&#34;
   description: &gt;-
     Progesterone deficiency and sustained estrogen-driven epithelial expansion
     can produce endometrial hyperplasia, which is a precursor context for
@@ -7835,7 +8526,7 @@ pathophysiology:
   downstream:
   - target: Endometrioid Glandular Neoplasia
     description: Somatic pathway lesions support malignant outgrowth of endometrioid gland-forming epithelium.
-- name: WNT Beta-Catenin Pathway Dysregulation
+- name: CTNNB1 WNT Pathway Activation
   description: &gt;-
     CTNNB1-mutant WNT pathway activation is a recurrent molecular feature of
     endometrioid tumors and contributes to altered transcriptional control and
@@ -7901,9 +8592,9 @@ pathophysiology:
       id: GO:0006298
       label: mismatch repair
   downstream:
-  - target: Immune Checkpoint Vulnerability
+  - target: Adaptive Immune Resistance
     description: Hypermutated tumors create immunotherapy-relevant tumor antigenicity.
-- name: POLE Ultramutation
+- name: POLE Proofreading Defect and Ultramutation
   description: &gt;-
     Pathogenic POLE exonuclease-domain mutation produces an ultramutated
     endometrioid tumor subset with distinctive prognosis and staging implications.
@@ -7928,9 +8619,9 @@ pathophysiology:
       id: GO:0045004
       label: DNA replication proofreading
   downstream:
-  - target: Immune Checkpoint Vulnerability
+  - target: Adaptive Immune Resistance
     description: High mutational burden can create immunogenic tumor features.
-- name: Immune Checkpoint Vulnerability
+- name: Adaptive Immune Resistance
   conforms_to: &#34;immune_checkpoint_blockade#Adaptive Immune Resistance&#34;
   description: &gt;-
     Hypermutated MMRd/MSI-H and POLE-mutated tumors are clinically important
@@ -8020,7 +8711,7 @@ phenotypes:
   evidence:
   - reference: PMID:26354523
     reference_title: &#34;Endometrial cancer.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Patients are often diagnosed when the disease is still confined to the uterus.&#34;
     explanation: &gt;-
@@ -8079,7 +8770,7 @@ biochemical:
     staging in early-stage disease.
   evidence:
   - reference: DOI:10.1002/ijgo.14923
-    reference_title: &#34;FIGO staging of endometrial cancer: 2023&#34;
+    reference_title: &#34;&lt;scp&gt;FIGO&lt;/scp&gt; staging of endometrial cancer: 2023&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The performance of complete molecular classification (POLEmut, MMRd, NSMP, p53abn) is encouraged in all endometrial cancers.&#34;
@@ -8206,6 +8897,61 @@ environmental:
     explanation: &gt;-
       This recent systematic review directly connects obesity, adipocyte-derived
       estrogen, and risk of estrogen-dependent endometrioid carcinoma.
+- name: Tamoxifen Therapy for Breast Cancer
+  chemicals:
+  - tamoxifen
+  notes: &gt;-
+    exposure_term is deliberately left unbound. The ECTO release pinned for this
+    repository carries no tamoxifen exposure term - both ECTO:9002223 (exposure to
+    tamoxifen) and ECTO:0900485 (exposure to tamoxifen via ingestion) resolve on
+    OLS but are absent from the configured sqlite:obo:ecto build. The nearest
+    available term, ECTO:2000006 (exposure to estrogen modification therapy), is
+    a child of ECTO:2000005 (exposure to hormone replacement therapy) and would
+    misclassify adjuvant anti-oestrogen cancer therapy as hormone replacement, so
+    it was rejected. Revisit when the ECTO build is refreshed.
+  influences_mechanisms:
+  - target: Unopposed Estrogen Signaling
+    environmental_effect: TRIGGERS
+    causal_link_type: DIRECT
+    description: &gt;-
+      Tamoxifen antagonises the oestrogen receptor in breast tissue while acting
+      as a partial agonist at the endometrial receptor, so adjuvant therapy drives
+      this node without progestin opposition. Local progestin delivery largely
+      prevents the resulting endometrial pathology, which supports an opposable
+      oestrogenic route rather than a separate genotoxic drug effect.
+    evidence:
+    - reference: PMID:25423691
+      reference_title: &#34;The role of levonorgestrel-releasing intrauterine system for endometrial protection in women with breast cancer taking tamoxifen.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;The use of LNG-IUS reduced the incidence of endometrial hyperplasia (OR = 0.13, 95% CI 0.03-0.58, p = 0.007).&#34;
+      explanation: &gt;-
+        Progestin opposition largely abolishes tamoxifen-induced endometrial
+        hyperplasia, supporting an opposable oestrogen-receptor route to this node.
+  description: &gt;-
+    Adjuvant tamoxifen for oestrogen-receptor-positive breast cancer raises
+    endometrial carcinoma risk, and endometrioid histology predominates among the
+    resulting tumours. The same exposure produces benign endometrial polyps,
+    hyperplasia and increased sonographic thickness, so most endometrial change
+    detected during tamoxifen therapy is not neoplastic.
+  evidence:
+  - reference: PMID:31479143
+    reference_title: &#34;Medication Use for the Risk Reduction of Primary Breast Cancer in Women: Updated Evidence Report and Systematic Review for the US Preventive Services Task Force.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Tamoxifen was associated with higher risk of endometrial cancer and cataracts compared with placebo.&#34;
+    explanation: &gt;-
+      Placebo-controlled trial evidence pooled for the USPSTF establishes excess
+      endometrial cancer under tamoxifen.
+  - reference: PMID:33348436
+    reference_title: &#34;Levonorgestrel intrauterine system for endometrial protection in women with breast cancer on adjuvant tamoxifen.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Tamoxifen also increases the risk of postmenopausal bleeding, endometrial polyps, hyperplasia, and endometrial cancer.&#34;
+    explanation: &gt;-
+      Gives the full range of tamoxifen-associated endometrial outcomes, from the
+      benign lesions through to carcinoma, supporting curation of the exposure
+      against the shared oestrogenic node.
 diagnosis:
 - name: Endometrial Sampling With Histopathology
   description: &gt;-
@@ -8236,7 +8982,7 @@ diagnosis:
       label: Diagnostic Procedure
   evidence:
   - reference: DOI:10.1002/ijgo.14923
-    reference_title: &#34;FIGO staging of endometrial cancer: 2023&#34;
+    reference_title: &#34;&lt;scp&gt;FIGO&lt;/scp&gt; staging of endometrial cancer: 2023&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;The performance of complete molecular classification (POLEmut, MMRd, NSMP, p53abn) is encouraged in all endometrial cancers.&#34;
@@ -8337,7 +9083,7 @@ treatments:
         id: CHEBI:45863
         label: paclitaxel
   target_mechanisms:
-  - target: Immune Checkpoint Vulnerability
+  - target: Adaptive Immune Resistance
     treatment_effect: INHIBITS
     description: PD-1 blockade is intended to counter tumor immune checkpoint signaling.
   evidence:
@@ -8373,7 +9119,7 @@ treatments:
         id: CHEBI:45863
         label: paclitaxel
   target_mechanisms:
-  - target: Immune Checkpoint Vulnerability
+  - target: Adaptive Immune Resistance
     treatment_effect: INHIBITS
     description: PD-1 blockade is intended to counter tumor immune checkpoint signaling.
   evidence:
@@ -8392,7 +9138,18 @@ notes: &gt;-
   fetched snippets. Falcon also surfaced weight loss and bariatric surgery as
   prevention-relevant risk reduction evidence; this is kept as notes rather than
   a top-level section because the current schema does not expose a prevention
-  slot on Disease.
+  slot on Disease. Pathophysiology node names for the mechanisms this entry
+  shares with Endometrial_Carcinoma (Unopposed Estrogen Signaling, Endometrial
+  Hyperplasia Precursor, PTEN PI3K Pathway Dysregulation, CTNNB1 WNT Pathway
+  Activation, POLE Proofreading Defect and Ultramutation, Adaptive Immune
+  Resistance) are deliberately kept identical to the parent entry&#39;s, so the
+  shared mechanism is greppable across both files and any future module
+  conformance can be applied mechanically. Content is still fully duplicated
+  rather than inherited, per the non-DRY convention for disorder entries.
+  Mismatch Repair Deficiency and Endometrioid Glandular Neoplasia are specific to
+  this entry; TP53 Mutation and Copy-Number High State and Uncontrolled
+  Endometrial Cell Proliferation belong to the parent entry&#39;s serous-like class
+  and are correctly absent here.
 mappings:
   mondo_mappings:
   - term:
@@ -8426,6 +9183,8 @@ mappings:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -9346,7 +10105,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Endometrial Endometrioid Adenocarcinoma", "mondoId": "MONDO:0006192", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Endometrial_Endometrioid_Adenocarcinoma", "yamlRevision": "76bf4fcef7ed"};
+        const OS_CONFIG = {"diseaseName": "Endometrial Endometrioid Adenocarcinoma", "mondoId": "MONDO:0006192", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Endometrial_Endometrioid_Adenocarcinoma", "yamlRevision": "0b33bb05cb61"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

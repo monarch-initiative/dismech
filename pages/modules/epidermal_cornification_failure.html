@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -289,6 +290,16 @@
             border: 1px solid var(--teal-light);
         }
 
+        /* Study-area category pills. Colour comes from ModuleCategoryEnum via
+           the renderer, so only the shape is set here. */
+        .badge-study-area {
+            border: 1px solid;
+            font-weight: 600;
+            font-size: 0.8rem;
+            padding: 5px 13px;
+            cursor: help;
+        }
+
         .badge-module {
             background: #e0f2fe;
             color: #0369a1;
@@ -457,6 +468,18 @@
         .tag-component {
             background: #f0fdf4;
             color: #166534;
+        }
+
+        /* Same values as disorder.html.j2 so a treatment chip looks identical
+           whether it is read on a disorder page or on a module page. */
+        .tag-treatment {
+            background: #ede9fe;
+            color: #5b21b6;
+        }
+
+        .tag-gene {
+            background: #dbeafe;
+            color: #1e40af;
         }
 
         .tag-role {
@@ -634,9 +657,7 @@
             font-weight: 600;
         }
         .support-SUPPORT { background: #d1fae5; color: #065f46; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
-        .support-WRONG_STATEMENT { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f3f4f6; color: #4b5563; }
         .hypothesis-notes {
             margin-top: 8px;
@@ -1036,7 +1057,7 @@
         if (!container || !svgEl || !tooltipEl || !legendEl) return;
         if (!data || !data.nodes || !data.nodes.length) return;
 
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -1051,8 +1072,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -1105,8 +1127,8 @@
             .attr("fill", "#4f46e5");
 
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -1118,7 +1140,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -1276,8 +1299,9 @@
         function showTooltip(event, n) {
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -1286,12 +1310,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -1327,7 +1376,15 @@
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
             if (meta.frequency) metaParts.push('<span>Frequency: ' + escapeHtml(meta.frequency) + '</span>');
@@ -1533,6 +1590,9 @@
 
     
     
+
+    
+    
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -1566,6 +1626,7 @@
         <header class="page-header">
             <h1>Epidermal Cornification Failure Module</h1>
             <div class="header-meta">
+                
                 <span class="badge badge-category">Module</span>
                 <span class="badge badge-module">epidermal_cornification_failure</span>
                 <span class="badge badge-count">7 disorders</span>
@@ -1915,6 +1976,8 @@ Barrier failure is the intended conformance target because it is the node every 
 
         
 
+        
+
         <div class="card">
             <div class="card-header">
                 <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">↗</div>
@@ -2103,11 +2166,13 @@ Barrier failure is the intended conformance target because it is the node every 
             
             <div class="item-box anchor-target" id="module-pathophysiology-cornification-program-component-deficiency" data-dismech-node="Cornification Program Component Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Cornification Program Component Deficiency</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">trigger</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">A structural, enzymatic, or lipid-transport component required for terminal keratinocyte differentiation is deficient or absent. The affected component differs by disorder, but each is required for the orderly conversion of a granular-layer keratinocyte into a corneocyte.</div>
                 
@@ -2257,11 +2322,13 @@ This pathophysiological event involves decreased transglutaminase-mediated pepti
             
             <div class="item-box anchor-target" id="module-pathophysiology-defective-cornified-envelope-assembly-and-lamellar-lipid-delivery" data-dismech-node="Defective Cornified Envelope Assembly and Lamellar Lipid Delivery" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective Cornified Envelope Assembly and Lamellar Lipid Delivery</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">amplifier</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The two structural arms of cornification fail. The insoluble, transglutaminase cross-linked protein envelope beneath the corneocyte plasma membrane is incompletely assembled, and/or lamellar bodies fail to deliver glucosylceramides and other lipid precursors to the extracellular space, so the intercellular lipid lamellar membrane of the stratum corneum is not formed. Either arm alone is sufficient to compromise the barrier; most disorders show some degree of both.</div>
                 
@@ -2465,11 +2532,13 @@ This pathophysiological event involves epidermal lamellar body (GO:0097209). GO:
             
             <div class="item-box anchor-target" id="module-pathophysiology-stratum-corneum-permeability-barrier-failure" data-dismech-node="Stratum Corneum Permeability Barrier Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Stratum Corneum Permeability Barrier Failure</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">central effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The stratum corneum fails as a permeability barrier: transepidermal water loss rises and the epidermis is more permeable to the external environment. This is the rate-limiting, disorder-agnostic node of the module - every upstream route converges here, and it is the node topical barrier-repair therapy targets.</div>
                 
@@ -2605,11 +2674,13 @@ This pathophysiological event involves decreased establishment of skin barrier (
             
             <div class="item-box anchor-target" id="module-pathophysiology-compensatory-epidermal-hyperproliferation-and-retention-hyperkeratosis" data-dismech-node="Compensatory Epidermal Hyperproliferation and Retention Hyperkeratosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Compensatory Epidermal Hyperproliferation and Retention Hyperkeratosis</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">effector</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">Two processes thicken the stratum corneum. First, barrier disruption stimulates epidermal DNA synthesis and hyperplasia as a homeostatic attempt to restore the barrier. Second, corneocyte shedding is impaired, so corneocytes are retained rather than desquamated. Disorders differ in which process dominates - retention hyperkeratosis is the primary mechanism in X-linked ichthyosis, whereas hyperproliferative kinetics predominate in the congenital ichthyosiform erythrodermas.</div>
                 
@@ -2752,11 +2823,13 @@ This pathophysiological event involves increased keratinization (GO:0031424). GO
             
             <div class="item-box anchor-target" id="module-pathophysiology-ichthyotic-scaling-and-cutaneous-barrier-complications" data-dismech-node="Ichthyotic Scaling and Cutaneous Barrier Complications" data-dismech-type="pathophysiology">
                 <div class="item-name">Ichthyotic Scaling and Cutaneous Barrier Complications</div>
+                
                 <div class="item-meta">
                     
                     <span class="tag tag-role">consequence</span>
                     
                 </div>
+                
                 
                 <div class="item-desc">The clinical endpoint: generalized adherent scaling, with disorder-dependent erythroderma, palmoplantar keratoderma, and fissuring. Because the defect is a permeability barrier defect and not merely a cosmetic one, severe forms carry neonatal transcutaneous water and electrolyte loss, impaired thermoregulation, and increased cutaneous infection risk.</div>
                 
@@ -2805,6 +2878,9 @@ This pathophysiological event involves abnormal epidermis development (GO:000854
             </div>
             
         </div>
+        
+
+        
         
 
         <footer class="page-footer">

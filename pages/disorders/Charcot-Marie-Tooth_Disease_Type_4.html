@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2954,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2969,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3078,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3091,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3295,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3305,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3341,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3362,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3740,6 +3817,22 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3984,6 +4077,14 @@
             </a>
 
 
+            <a class="stat-link" href="#differentials">
+            <div class="stat-item">
+                <div class="stat-icon" aria-hidden="true">🔀</div>
+                <div class="stat-value">1</div>
+                <div class="stat-label">Differentials</div>
+            </div>
+            </a>
+
 
 
 
@@ -4066,6 +4167,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4176,6 +4279,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4235,6 +4340,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4298,6 +4405,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4357,6 +4466,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4420,6 +4531,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4479,6 +4592,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4542,6 +4657,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4586,6 +4703,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-gdap1-mitochondrial-dynamics-defect" data-dismech-node="GDAP1 Mitochondrial Dynamics Defect" data-dismech-type="pathophysiology">
                 <div class="item-name">GDAP1 Mitochondrial Dynamics Defect</div>
+
 
                 <div class="item-desc">Biallelic GDAP1 mutations (CMT4A) disrupt regulation of the mitochondrial network. GDAP1 promotes mitochondrial fission, and its loss impairs mitochondrial dynamics in Schwann cells and neurons, producing a neuropathy that can be axonal, demyelinating, or mixed and is frequently accompanied by vocal cord paresis.</div>
 
@@ -4783,6 +4901,8 @@ This pathophysiological event involves abnormal Mitochondrial fission (GO:000026
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4805,6 +4925,7 @@ This pathophysiological event involves abnormal Mitochondrial fission (GO:000026
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-myotubularin-phosphoinositide-dysregulation-and-myelin-outfolding" data-dismech-node="Myotubularin Phosphoinositide Dysregulation and Myelin Outfolding" data-dismech-type="pathophysiology">
                 <div class="item-name">Myotubularin Phosphoinositide Dysregulation and Myelin Outfolding</div>
+
 
                 <div class="item-desc">Biallelic loss of the myotubularin-family phosphoinositide phosphatases MTMR2 (CMT4B1) and SBF2 / MTMR13 (CMT4B2) dysregulates Schwann-cell membrane phosphoinositide turnover. The resulting membrane-trafficking defect produces the redundant, focally folded (outfolded) myelin that is the histological hallmark of CMT4B, and a demyelinating neuropathy.</div>
 
@@ -5011,6 +5132,8 @@ This pathophysiological event involves abnormal Phosphatidylinositol dephosphory
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5032,6 +5155,8 @@ This pathophysiological event involves abnormal Phosphatidylinositol dephosphory
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5056,6 +5181,7 @@ This pathophysiological event involves abnormal Phosphatidylinositol dephosphory
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sh3tc2-endosomal-recycling-defect-in-schwann-cells" data-dismech-node="SH3TC2 Endosomal Recycling Defect in Schwann Cells" data-dismech-type="pathophysiology">
                 <div class="item-name">SH3TC2 Endosomal Recycling Defect in Schwann Cells</div>
+
 
                 <div class="item-desc">Biallelic SH3TC2 (KIAA1985) mutations (CMT4C) disrupt an endosomal-recycling function required for normal Schwann-cell myelination, producing a childhood-onset demyelinating neuropathy with a distinct Schwann-cell pathology and prominent early-onset scoliosis.</div>
 
@@ -5223,6 +5349,8 @@ This pathophysiological event involves abnormal Endocytic recycling (GO:0032456)
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5245,6 +5373,7 @@ This pathophysiological event involves abnormal Endocytic recycling (GO:0032456)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-axon-glia-interaction" data-dismech-node="Impaired Axon-Glia Interaction" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Axon-Glia Interaction</div>
+
 
                 <div class="item-desc">Biallelic loss of Schwann-cell genes NDRG1 (CMT4D / HMSN-Lom) and PRX / periaxin (CMT4F) disrupts myelinating Schwann-cell function and the axon-glia interaction required to maintain the myelin sheath. NDRG1 loss produces Schwann-cell dysfunction with early axonal involvement, and periaxin loss destabilizes the myelin sheath, in both cases yielding a demyelinating neuropathy.</div>
 
@@ -5481,6 +5610,8 @@ This pathophysiological event involves decreased Myelination in the peripheral n
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5502,6 +5633,8 @@ This pathophysiological event involves decreased Myelination in the peripheral n
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5526,6 +5659,7 @@ This pathophysiological event involves decreased Myelination in the peripheral n
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-demyelination-and-secondary-axonal-loss" data-dismech-node="Demyelination and Secondary Axonal Loss" data-dismech-type="pathophysiology">
                 <div class="item-name">Demyelination and Secondary Axonal Loss</div>
+
 
                 <div class="item-desc">The shared terminal node of the autosomal-recessive CMT4 compartment. The diverse Schwann-cell and neuronal lesions (GDAP1 mitochondrial dysfunction, myotubularin phosphoinositide dysregulation, SH3TC2 trafficking defect, NDRG1 and periaxin loss) converge on demyelination — often with redundant myelin outfoldings or onion-bulb formation — and, over time, length-dependent secondary axonal degeneration. It is this secondary axonal loss, affecting the longest motor and sensory fibers first, that produces the progressive distal clinical deficit shared across all CMT compartments, typically with earlier onset and greater severity in the recessive forms.</div>
 
@@ -5702,6 +5836,8 @@ This pathophysiological event involves decreased Myelination in the peripheral n
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5770,7 +5906,7 @@ This pathophysiological event involves decreased Myelination in the peripheral n
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Musculoskeletal<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Other<span class="pill-count">(3)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Nervous System<span class="pill-count">(3)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5806,6 +5942,9 @@ This clinical feature is Pes cavus (HP:0001761). HP:0001761 is a phenotype from 
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5872,6 +6011,9 @@ This clinical feature is Distal muscle weakness (HP:0002460), qualified as cours
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5886,6 +6028,8 @@ This clinical feature is Distal muscle weakness (HP:0002460), qualified as cours
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5939,6 +6083,9 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5953,6 +6100,8 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5983,7 +6132,7 @@ This clinical feature is Scoliosis (HP:0002650). HP:0002650 is a phenotype from 
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
+                    Nervous System
                     <span class="cat-count">3</span>
                 </summary>
 
@@ -6017,6 +6166,9 @@ This clinical feature is Distal sensory impairment (HP:0002936). HP:0002936 is a
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6031,6 +6183,8 @@ This clinical feature is Distal sensory impairment (HP:0002936). HP:0002936 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6090,6 +6244,9 @@ This clinical feature is Hyporeflexia (HP:0001265). HP:0001265 is a phenotype fr
 
 
 
+
+
+
                 </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-onion-bulb-formation" data-dismech-node="Onion Bulb Formation" data-dismech-type="phenotype">
@@ -6115,6 +6272,9 @@ This clinical feature is Onion bulb formation (HP:0003383). HP:0003383 is a phen
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6198,6 +6358,9 @@ This disease-associated gene is GDAP1 (hgnc:15968). hgnc:15968 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6212,6 +6375,8 @@ This disease-associated gene is GDAP1 (hgnc:15968). hgnc:15968 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6268,6 +6433,9 @@ This disease-associated gene is MTMR2 (hgnc:7450). hgnc:7450 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6282,6 +6450,8 @@ This disease-associated gene is MTMR2 (hgnc:7450). hgnc:7450 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6338,6 +6508,9 @@ This disease-associated gene is SBF2 (hgnc:2135). hgnc:2135 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6352,6 +6525,8 @@ This disease-associated gene is SBF2 (hgnc:2135). hgnc:2135 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6408,6 +6583,9 @@ This disease-associated gene is SH3TC2 (hgnc:29427). hgnc:29427 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6422,6 +6600,8 @@ This disease-associated gene is SH3TC2 (hgnc:29427). hgnc:29427 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6478,6 +6658,9 @@ This disease-associated gene is NDRG1 (hgnc:7679). hgnc:7679 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6492,6 +6675,8 @@ This disease-associated gene is NDRG1 (hgnc:7679). hgnc:7679 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6548,6 +6733,9 @@ This disease-associated gene is PRX (hgnc:13797). hgnc:13797 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6562,6 +6750,8 @@ This disease-associated gene is PRX (hgnc:13797). hgnc:13797 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6618,6 +6808,9 @@ This disease-associated gene is FIG4 (hgnc:16873). hgnc:16873 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6632,6 +6825,8 @@ This disease-associated gene is FIG4 (hgnc:16873). hgnc:16873 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6714,6 +6909,20 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Mainstay of supportive care to maintain mobility and function.</div>
 
 
@@ -6760,6 +6969,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -6816,6 +7039,20 @@ This treatment is orthopedic surgical procedure (NCIT:C16186). NCIT:C16186 is a 
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Bracing and, when required, corrective spinal surgery for the early-onset scoliosis that is prominent in CMT4C.</div>
 
 
@@ -6866,6 +7103,20 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Counseling for affected individuals and families, with attention to the recessive inheritance pattern, recurrence risk in consanguineous unions, and carrier testing.</div>
 
 
@@ -6885,7 +7136,117 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
         <!-- Biochemical Markers -->
 
 
+        <!-- Diagnosis -->
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
+
+
         <!-- Differential Diagnoses -->
+
+        <div class="card" id="differentials">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef2f2; color: #dc2626;">🔀</div>
+                <h2 class="card-title">Differential Diagnoses</h2>
+                <span class="card-count">1</span>
+            </div>
+            <p style="margin-bottom: 16px; font-size: 0.95rem; color: var(--text-muted);">
+                Conditions with similar clinical presentations that must be differentiated from Charcot-Marie-Tooth Disease Type 4:
+            </p>
+
+
+
+            <div class="item-box differential-box anchor-target" id="differential-diagnosis-charcot-marie-tooth-disease-type-4k">
+                <div class="item-name">
+
+                    <a class="item-name-link" href="Charcot-Marie-Tooth_Disease_Type_4K.html">Charcot-Marie-Tooth Disease Type 4K</a>
+
+
+                </div>
+
+                <div class="differential-similarities">
+                    <strong>Overlapping Features</strong>
+                    CMT4K (MONDO:0014733, SURF1-related) is the one CMT4 subtype curated as its own dismech entry rather than in the has_subtypes list above. It is a cytochrome c oxidase assembly defect rather than a Schwann-cell myelin-maintenance defect, and is distinguished clinically by lactic acidosis and by putaminal and periaqueductal lesions developing years after the neuropathy — features no other CMT4 subtype shows.
+                </div>
+
+
+                <div class="differential-distinctions">
+                    <strong>Distinguishing Features</strong>
+
+                    <ul>
+
+                        <li>Lactic acidosis</li>
+
+                        <li>Putaminal and periaqueductal brain MRI lesions</li>
+
+                        <li>Cerebellar ataxia developing years after the polyneuropathy</li>
+
+                    </ul>
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24027061" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24027061" target="_blank">PMID:24027061</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We found SURF1 mutations in 5% of families (2/41) presenting with CMT4."</div>
+
+
+                <div class="evidence-explanation">Establishes SURF1 as a cause of CMT4 that this entry&#39;s has_subtypes list does not cover, and quantifies its share of otherwise unsolved CMT4.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
 
 
         <!-- Datasets -->
@@ -7510,6 +7871,28 @@ treatments:
     term:
       id: NCIT:C15240
       label: Genetic Counseling
+differential_diagnoses:
+- name: Charcot-Marie-Tooth Disease Type 4K
+  description: &gt;-
+    CMT4K (MONDO:0014733, SURF1-related) is the one CMT4 subtype curated as its
+    own dismech entry rather than in the has_subtypes list above. It is a
+    cytochrome c oxidase assembly defect rather than a Schwann-cell
+    myelin-maintenance defect, and is distinguished clinically by lactic
+    acidosis and by putaminal and periaqueductal lesions developing years after
+    the neuropathy — features no other CMT4 subtype shows.
+  distinguishing_features:
+  - Lactic acidosis
+  - Putaminal and periaqueductal brain MRI lesions
+  - Cerebellar ataxia developing years after the polyneuropathy
+  evidence:
+  - reference: PMID:24027061
+    reference_title: &#34;SURF1 deficiency causes demyelinating Charcot-Marie-Tooth disease.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;We found SURF1 mutations in 5% of families (2/41) presenting with CMT4.&#34;
+    explanation: &gt;-
+      Establishes SURF1 as a cause of CMT4 that this entry&#39;s has_subtypes list
+      does not cover, and quantifies its share of otherwise unsolved CMT4.
 references:
 - reference: PMID:20301532
   title: &#34;Charcot-Marie-Tooth Hereditary Neuropathy Overview.&#34;
@@ -7611,7 +7994,7 @@ datasets: []
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Charcot-Marie-Tooth Disease Type 4", "mondoId": "MONDO:0018995", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Charcot-Marie-Tooth_Disease_Type_4", "yamlRevision": "5baebcc1ae05"};
+        const OS_CONFIG = {"diseaseName": "Charcot-Marie-Tooth Disease Type 4", "mondoId": "MONDO:0018995", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Charcot-Marie-Tooth_Disease_Type_4", "yamlRevision": "289ebe28cbce"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

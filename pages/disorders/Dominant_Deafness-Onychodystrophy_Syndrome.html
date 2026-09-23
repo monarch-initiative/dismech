@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2954,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2969,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3078,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3091,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3295,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3305,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3341,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3362,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3675,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4206,6 +4299,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4227,6 +4322,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4368,6 +4465,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4381,14 +4480,16 @@
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:24913193" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:24913193" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/24913193" target="_blank">PMID:24913193</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4509,6 +4610,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4532,6 +4635,8 @@
                     <span class="evidence-support support-REFUTE">REFUTE</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4553,6 +4658,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4673,6 +4780,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4791,6 +4900,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4814,6 +4925,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4827,14 +4940,16 @@
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:39210597" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:39210597" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39210597" target="_blank">PMID:39210597</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4995,6 +5110,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5016,6 +5133,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5052,6 +5171,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-atp6v1b2-c-terminal-truncation-and-weakened-v-atpase-subunit-interaction" data-dismech-node="ATP6V1B2 C-Terminal Truncation and Weakened V-ATPase Subunit Interaction" data-dismech-type="pathophysiology">
                 <div class="item-name">ATP6V1B2 C-Terminal Truncation and Weakened V-ATPase Subunit Interaction</div>
+
 
                 <div class="item-desc">The recurrent heterozygous c.1516C&gt;T (p.Arg506*) variant inserts a premature stop codon that removes the last six, highly conserved residues of the ATP6V1B2 B2 subunit. Because the transcript is stable and escapes nonsense-mediated decay, the truncated subunit is produced and incorporated into the pump rather than being absent. The truncation weakens the interaction between the V1B2 and V1E subunits and ATP hydrolysis by the complex falls. The node is deliberately named for the weakened subunit interaction rather than for failed assembly: the V-ATPase complex still assembles with the truncated subunit, so this is a defective pump rather than an absent one, which is exactly why the dominant-negative reading remains live.
 </div>
@@ -5111,6 +5231,8 @@ This genetic context concerns ATP6V1B2 (hgnc:854). hgnc:854 is a gene from the H
 
 
 
+
+
         <span class="tag tag-classification">allele_type: nonsense single-nucleotide variant</span>
 
 
@@ -5126,6 +5248,9 @@ This genetic context concerns ATP6V1B2 (hgnc:854). hgnc:854 is a gene from the H
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Heterozygous germline NM_001693.4:c.1516C&gt;T (p.Arg506*), recurrent and usually de novo, removing the C-terminal six residues of the B2 subunit.</div>
 
@@ -5214,6 +5339,8 @@ This pathophysiological event involves decreased V-ATPase proton transmembrane t
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5237,6 +5364,8 @@ This pathophysiological event involves decreased V-ATPase proton transmembrane t
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5250,14 +5379,16 @@ This pathophysiological event involves decreased V-ATPase proton transmembrane t
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:31257146" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:31257146" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31257146" target="_blank">PMID:31257146</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5282,6 +5413,7 @@ This pathophysiological event involves decreased V-ATPase proton transmembrane t
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-endolysosomal-acidification" data-dismech-node="Impaired Endolysosomal Acidification" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Endolysosomal Acidification</div>
+
 
                 <div class="item-desc">Reduced V-ATPase proton pumping raises lysosomal luminal pH. In cells expressing the DDOD allele, and in cochlear tissue from the corresponding mouse models, lysosomal acidification is reduced, cathepsin-D activity falls and lysosomal membrane and ion-channel proteins are upregulated, consistent with failure of the acidic compartment to support hydrolase activity. This node is the disease&#39;s rate-limiting molecular lesion.
 </div>
@@ -5491,6 +5623,8 @@ This pathophysiological event involves decreased Vacuolar acidification (GO:0007
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5512,6 +5646,8 @@ This pathophysiological event involves decreased Vacuolar acidification (GO:0007
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5537,6 +5673,8 @@ This pathophysiological event involves decreased Vacuolar acidification (GO:0007
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5559,6 +5697,7 @@ This pathophysiological event involves decreased Vacuolar acidification (GO:0007
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-autophagic-flux-blockade" data-dismech-node="Autophagic Flux Blockade" data-dismech-type="pathophysiology">
                 <div class="item-name">Autophagic Flux Blockade</div>
+
 
                 <div class="item-desc">Undegraded autophagosomes accumulate because fusion-competent, acidified lysosomes are not available to complete cargo breakdown. In cochlear tissue this manifests as accumulation of large autophagosomes together with the lysosomal morphological abnormalities seen in the mouse models.
 </div>
@@ -5684,6 +5823,8 @@ This pathophysiological event involves decreased Autophagy (GO:0006914). GO:0006
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5706,6 +5847,7 @@ This pathophysiological event involves decreased Autophagy (GO:0006914). GO:0006
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-apoptotic-degeneration-of-spiral-ganglion-neurons-and-hair-cells" data-dismech-node="Apoptotic Degeneration of Spiral Ganglion Neurons and Hair Cells" data-dismech-type="pathophysiology">
                 <div class="item-name">Apoptotic Degeneration of Spiral Ganglion Neurons and Hair Cells</div>
+
 
                 <div class="item-desc">Autophagosome accumulation shifts the Bcl-2 to Bax ratio, permeabilizing the mitochondrial outer membrane and releasing cytochrome c, which activates caspase-3. The resulting apoptosis produces loss of spiral ganglion neurons and, in the hair-cell-specific knockout model, hair cell degeneration. In the knock-in mouse the earliest cochlear lesion is demyelination of auditory nerve fibres, followed by fibre and spiral ganglion cell body loss, with the organ of Corti morphologically normal, so the degeneration in that model is neural rather than sensory. Atp6v1b2 is expressed in exactly these compartments, which is what makes the cochlea the tissue that fails first. This node is the DDOD-specific instance of the conserved spiral-ganglion arm of the sensorineural hearing loss module. It attaches at the spiral ganglion node rather than the module&#39;s upstream `#Hair Cell Mechanotransduction Failure and Death` node because the p.Arg506* evidence describes apoptotic neurodegeneration downstream of lysosomal failure, not a primary mechanotransduction defect.
 </div>
@@ -5928,6 +6070,8 @@ This pathophysiological event involves increased Apoptotic process (GO:0006915).
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5951,6 +6095,8 @@ This pathophysiological event involves increased Apoptotic process (GO:0006915).
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5972,6 +6118,8 @@ This pathophysiological event involves increased Apoptotic process (GO:0006915).
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5998,6 +6146,7 @@ This pathophysiological event involves increased Apoptotic process (GO:0006915).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-nail-matrix-and-distal-digit-development" data-dismech-node="Impaired Nail Matrix and Distal Digit Development" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Nail Matrix and Distal Digit Development</div>
+
 
                 <div class="item-desc">The second obligate arm of DDOD is failure of nail-plate formation with associated hypoplasia of the terminal and middle phalanges, giving absent or hypoplastic nails, bulbous fingertips and triphalangeal or finger-like thumbs. Nail-matrix keratinocytes are a highly differentiating, keratinisation-dependent lineage in which endolysosomal proteolysis is required, which is the plausible route from the same V-ATPase lesion to the integumentary and distal skeletal phenotype. This node is deliberately curated without a mechanistic evidence item for the acidification-to-nail step. The observation that DDOD patients have onychodystrophy is well-evidenced, but no study has yet demonstrated the lysosomal mechanism in nail matrix or developing digit, which is recorded as a KNOWLEDGE_GAP.
 </div>
@@ -6085,6 +6234,8 @@ This pathophysiological event involves Nail matrix keratinocyte, annotated with 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6149,21 +6300,149 @@ This pathophysiological event involves Nail matrix keratinocyte, annotated with 
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Head and Neck<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Ear<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Integument<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Head and Neck<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Limbs<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Integument<span class="pill-count">(4)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Nervous System<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Limbs<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Other<span class="pill-count">(6)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Nervous System<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
 
 
             <details class="phenotype-category-group" id="pheno-cat-1">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Ear
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-congenital-sensorineural-hearing-loss" data-dismech-node="Congenital Sensorineural Hearing Loss" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Congenital Sensorineural Hearing Loss
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Congenital sensorineural hearing impairment</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0008527" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0008527</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Congenital sensorineural hearing impairment (HP:0008527), qualified as severity severe. HP:0008527 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Severity: SEVERE</span>
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39210597" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39210597" target="_blank">PMID:39210597</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"sensorineural hearing loss and onychodystrophy appear to invariably occur in individuals carrying the recurrent truncating variant (p.Arg506∗) in ATP6V1B2, with or without neurodevelopmental involvement"</div>
+
+
+                <div class="evidence-explanation">States that hearing loss occurs invariably in p.Arg506* carriers, supporting the VERY_FREQUENT band.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28396750" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28396750" target="_blank">PMID:28396750</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Audiological examination by auditory brainstem responses (ABR) at 1 year of age indicated profound bilateral sensorineural hearing impairment."</div>
+
+
+                <div class="evidence-explanation">Documents congenital profound bilateral sensorineural hearing loss in a molecularly confirmed DDOD proband.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Head and Neck
@@ -6188,15 +6467,18 @@ This pathophysiological event involves Nail matrix keratinocyte, annotated with 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000677" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000677</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000677" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000677</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Oligodontia (HP:0000677). HP:0000677 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6216,6 +6498,8 @@ This clinical feature is Oligodontia (HP:0000677). HP:0000677 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6239,6 +6523,8 @@ This clinical feature is Oligodontia (HP:0000677). HP:0000677 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6278,15 +6564,18 @@ This clinical feature is Oligodontia (HP:0000677). HP:0000677 is a phenotype fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0006297" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0006297</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0006297" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0006297</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Enamel hypoplasia (HP:0006297). HP:0006297 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6306,6 +6595,8 @@ This clinical feature is Enamel hypoplasia (HP:0006297). HP:0006297 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6333,11 +6624,11 @@ This clinical feature is Enamel hypoplasia (HP:0006297). HP:0006297 is a phenoty
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-2">
+            <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Integument
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">4</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-onychodystrophy" data-dismech-node="Onychodystrophy" data-dismech-type="phenotype">
@@ -6358,15 +6649,18 @@ This clinical feature is Enamel hypoplasia (HP:0006297). HP:0006297 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008404" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0008404</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008404" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0008404</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Nail dystrophy (HP:0008404). HP:0008404 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6386,6 +6680,8 @@ This clinical feature is Nail dystrophy (HP:0008404). HP:0008404 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6411,6 +6707,8 @@ This clinical feature is Nail dystrophy (HP:0008404). HP:0008404 is a phenotype 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6419,327 +6717,6 @@ This clinical feature is Nail dystrophy (HP:0008404). HP:0008404 is a phenotype 
 
 
                 <div class="evidence-explanation">Documents the characteristic digit-selective pattern of nail involvement.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-3">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Limbs
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-triphalangeal-thumb" data-dismech-node="Triphalangeal Thumb" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Triphalangeal Thumb
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001199" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001199</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Triphalangeal thumb (HP:0001199). HP:0001199 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:39210597" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39210597" target="_blank">PMID:39210597</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Specifically, individuals with DDOD syndrome primarily share sensorineural deafness and onychodystrophy with digital anomalies characterized by bulbous fingertips of digits, and finger-like thumbs/triphalangeal thumb."</div>
-
-
-                <div class="evidence-explanation">Names triphalangeal or finger-like thumbs as a primary shared DDOD feature.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:28396750" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28396750" target="_blank">PMID:28396750</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"He has a high forehead with dolichocephaly, bilateral triphalangeal thumbs without nails, hypoplastic fingernails from second to fifth fingers, flat feet with absent toenails (Fig. 1)."</div>
-
-
-                <div class="evidence-explanation">Documents bilateral triphalangeal thumbs in a molecularly confirmed DDOD proband.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Nervous System
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-seizures" data-dismech-node="Seizures" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Seizures
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001250</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:37628590" data-dismech-supports="PARTIAL">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37628590" target="_blank">PMID:37628590</a>
-                    </span>
-
-
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Some but not all individuals with this truncating variant have intellectual disability and/or epilepsy, suggesting incomplete penetrance and/or variable expressivity."</div>
-
-
-                <div class="evidence-explanation">Supports occasional seizures among p.Arg506* carriers with incomplete penetrance; PARTIAL because the statement spans the DDOD and DOORS labels rather than DDOD alone.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:21998865" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21998865" target="_blank">PMID:21998865</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"In addition to deafness and onychodystrophy, other features in this family included subtle facial dysmorphism in two individuals, cutis aplasia in one individual, epilepsy in one individual, and sudden infant death in two family members, one of whom had deafness and onychodystrophy and one who did not."</div>
-
-
-                <div class="evidence-explanation">Documents epilepsy in one member of a family otherwise fitting classic DDOD.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-5">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">6</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-congenital-sensorineural-hearing-loss" data-dismech-node="Congenital Sensorineural Hearing Loss" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Congenital Sensorineural Hearing Loss
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Congenital sensorineural hearing impairment</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0008527" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0008527</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Congenital sensorineural hearing impairment (HP:0008527), qualified as severity severe. HP:0008527 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">Severity: SEVERE</span>
-
-
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:39210597" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39210597" target="_blank">PMID:39210597</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"sensorineural hearing loss and onychodystrophy appear to invariably occur in individuals carrying the recurrent truncating variant (p.Arg506∗) in ATP6V1B2, with or without neurodevelopmental involvement"</div>
-
-
-                <div class="evidence-explanation">States that hearing loss occurs invariably in p.Arg506* carriers, supporting the VERY_FREQUENT band.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:28396750" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28396750" target="_blank">PMID:28396750</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Audiological examination by auditory brainstem responses (ABR) at 1 year of age indicated profound bilateral sensorineural hearing impairment."</div>
-
-
-                <div class="evidence-explanation">Documents congenital profound bilateral sensorineural hearing loss in a molecularly confirmed DDOD proband.</div>
 
 
 
@@ -6769,15 +6746,18 @@ This clinical feature is Congenital sensorineural hearing impairment (HP:0008527
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001817" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001817</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001817" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001817</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Absent fingernail (HP:0001817). HP:0001817 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6797,6 +6777,8 @@ This clinical feature is Absent fingernail (HP:0001817). HP:0001817 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6836,15 +6818,18 @@ This clinical feature is Absent fingernail (HP:0001817). HP:0001817 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001804" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001804</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001804" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001804</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypoplastic fingernail (HP:0001804). HP:0001804 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6864,6 +6849,8 @@ This clinical feature is Hypoplastic fingernail (HP:0001804). HP:0001804 is a ph
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6903,15 +6890,18 @@ This clinical feature is Hypoplastic fingernail (HP:0001804). HP:0001804 is a ph
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001800" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001800</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001800" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001800</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypoplastic toenails (HP:0001800). HP:0001800 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6933,6 +6923,8 @@ This clinical feature is Hypoplastic toenails (HP:0001800). HP:0001800 is a phen
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6941,6 +6933,114 @@ This clinical feature is Hypoplastic toenails (HP:0001800). HP:0001800 is a phen
 
 
                 <div class="evidence-explanation">Documents hypoplastic great toenails in DDOD.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Limbs
+                    <span class="cat-count">3</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-triphalangeal-thumb" data-dismech-node="Triphalangeal Thumb" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Triphalangeal Thumb
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001199" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001199</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Triphalangeal thumb (HP:0001199). HP:0001199 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39210597" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39210597" target="_blank">PMID:39210597</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Specifically, individuals with DDOD syndrome primarily share sensorineural deafness and onychodystrophy with digital anomalies characterized by bulbous fingertips of digits, and finger-like thumbs/triphalangeal thumb."</div>
+
+
+                <div class="evidence-explanation">Names triphalangeal or finger-like thumbs as a primary shared DDOD feature.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28396750" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28396750" target="_blank">PMID:28396750</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"He has a high forehead with dolichocephaly, bilateral triphalangeal thumbs without nails, hypoplastic fingernails from second to fifth fingers, flat feet with absent toenails (Fig. 1)."</div>
+
+
+                <div class="evidence-explanation">Documents bilateral triphalangeal thumbs in a molecularly confirmed DDOD proband.</div>
 
 
 
@@ -6972,15 +7072,18 @@ This clinical feature is Hypoplastic toenails (HP:0001800). HP:0001800 is a phen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011300" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0011300</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011300" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0011300</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Broad fingertip (HP:0011300). HP:0011300 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7000,6 +7103,8 @@ This clinical feature is Broad fingertip (HP:0011300). HP:0011300 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7023,6 +7128,8 @@ This clinical feature is Broad fingertip (HP:0011300). HP:0011300 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7064,15 +7171,18 @@ This clinical feature is Broad fingertip (HP:0011300). HP:0011300 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004220" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0004220</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004220" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0004220</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Short middle phalanx of the 5th finger (HP:0004220). HP:0004220 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7094,6 +7204,8 @@ This clinical feature is Short middle phalanx of the 5th finger (HP:0004220). HP
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7102,6 +7214,112 @@ This clinical feature is Short middle phalanx of the 5th finger (HP:0004220). HP
 
 
                 <div class="evidence-explanation">Documents aplasia of the fifth-finger middle phalanx in all three original probands.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-5">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Nervous System
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-seizures" data-dismech-node="Seizures" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Seizures
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001250</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37628590" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37628590" target="_blank">PMID:37628590</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Some but not all individuals with this truncating variant have intellectual disability and/or epilepsy, suggesting incomplete penetrance and/or variable expressivity."</div>
+
+
+                <div class="evidence-explanation">Supports occasional seizures among p.Arg506* carriers with incomplete penetrance; PARTIAL because the statement spans the DDOD and DOORS labels rather than DDOD alone.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21998865" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21998865" target="_blank">PMID:21998865</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In addition to deafness and onychodystrophy, other features in this family included subtle facial dysmorphism in two individuals, cutis aplasia in one individual, epilepsy in one individual, and sudden infant death in two family members, one of whom had deafness and onychodystrophy and one who did not."</div>
+
+
+                <div class="evidence-explanation">Documents epilepsy in one member of a family otherwise fitting classic DDOD.</div>
 
 
 
@@ -7193,6 +7411,9 @@ This disease-associated gene is ATP6V1B2 (hgnc:854). hgnc:854 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -7207,6 +7428,8 @@ This disease-associated gene is ATP6V1B2 (hgnc:854). hgnc:854 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7232,6 +7455,8 @@ This disease-associated gene is ATP6V1B2 (hgnc:854). hgnc:854 is a gene from the
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7253,6 +7478,8 @@ This disease-associated gene is ATP6V1B2 (hgnc:854). hgnc:854 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7290,6 +7517,12 @@ This disease-associated gene is ATP6V1B2 (hgnc:854). hgnc:854 is a gene from the
     </div>
 
 
+
+
+
+
+
+
     <div class="item-desc">NM_001693.4:c.1516C&gt;T; p.Arg506* recurrent de novo truncating variant removing the C-terminal six residues.</div>
 
 
@@ -7316,6 +7549,8 @@ This disease-associated gene is ATP6V1B2 (hgnc:854). hgnc:854 is a gene from the
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7337,6 +7572,8 @@ This disease-associated gene is ATP6V1B2 (hgnc:854). hgnc:854 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7391,17 +7628,17 @@ This disease-associated gene is ATP6V1B2 (hgnc:854). hgnc:854 is a gene from the
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-26">cochlear implantation<span class="pill-tip" role="tooltip" id="pill-tip-26">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-26">cochlear device implantation<span class="pill-tip" role="tooltip" id="pill-tip-26">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
-This treatment is cochlear implantation, annotated with Rehabilitation (NCIT:C15315). NCIT:C15315 is a clinical intervention from the NCI Thesaurus.</span>
+This treatment is cochlear device implantation, annotated with Surgical Procedure (NCIT:C15329), qualified as medical device cochlear implant. NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
-                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Rehabilitation</span>
+                    <span class="tag" style="background: #f3e8ff; color: #6b21a8;">Ontology label: Surgical Procedure</span>
 
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/NCIT_C15315" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15315">NCIT:C15315</a>
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15329" target="_blank" class="curie-chip curie-chip-ncit" title="Open NCIT:C15329">NCIT:C15329</a>
 
 
 
@@ -7419,6 +7656,31 @@ This treatment is cochlear implantation, annotated with Rehabilitation (NCIT:C15
 
 
                     </div>
+
+
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Device</span>
+
+
+
+
+
+    </div>
+
+
+
+
 
 
 
@@ -7455,6 +7717,8 @@ This treatment is cochlear implantation, annotated with Rehabilitation (NCIT:C15
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7499,6 +7763,8 @@ This treatment is cochlear implantation, annotated with Rehabilitation (NCIT:C15
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7522,6 +7788,8 @@ This treatment is cochlear implantation, annotated with Rehabilitation (NCIT:C15
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7535,14 +7803,16 @@ This treatment is cochlear implantation, annotated with Rehabilitation (NCIT:C15
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:31257146" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:31257146" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/31257146" target="_blank">PMID:31257146</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7619,6 +7889,31 @@ This treatment uses CPT-cAMP (8-(4-chlorophenylthio)adenosine 3&#39;,5&#39;-cycl
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">The one mechanism-directed candidate for this disorder rather than a supportive measure. CPT-cAMP is a membrane-permeable cAMP analogue that restored lysosomal acidification in a concentration-dependent manner in isogenic p.Arg506* cells, crosses the blood-brain barrier, and in Atp6v1b2 p.Arg506* mice reduced seizure frequency, improved cognitive performance, and resolved autophagosome accumulation. It is therefore aimed squarely at the rate-limiting node of this entry rather than at a downstream consequence. NOT an available therapy: this is proof-of-concept work in cells and mice with no human data, and the reported benefits are on the neurological and cognitive arm, which is precisely the arm that classic DDOD largely lacks, so the read-across to DDOD patients is an inference rather than a demonstrated result.
 </div>
 
@@ -7650,6 +7945,8 @@ This treatment uses CPT-cAMP (8-(4-chlorophenylthio)adenosine 3&#39;,5&#39;-cycl
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -7694,6 +7991,8 @@ This treatment uses CPT-cAMP (8-(4-chlorophenylthio)adenosine 3&#39;,5&#39;-cycl
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -7707,14 +8006,18 @@ This treatment uses CPT-cAMP (8-(4-chlorophenylthio)adenosine 3&#39;,5&#39;-cycl
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:41896517" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:41896517" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/41896517" target="_blank">PMID:41896517</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+                    <span class="evidence-directness" title="How directly the quoted text bears on this claim. Not a strength or quality grade.">INDIRECT</span>
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -7724,7 +8027,7 @@ This treatment uses CPT-cAMP (8-(4-chlorophenylthio)adenosine 3&#39;,5&#39;-cycl
                 <div class="evidence-snippet">"These findings establish proof-of-concept for cAMP-mediated lysosomal pH modulation as a viable therapeutic strategy."</div>
 
 
-                <div class="evidence-explanation">The authors&#39; own framing as proof-of-concept, which is why this is curated as preclinical rather than as an available treatment; PARTIAL because it supports the strategy without establishing clinical efficacy.</div>
+                <div class="evidence-explanation">The authors&#39; own framing as proof-of-concept, which is why this is curated as preclinical rather than as an available treatment; INDIRECT because it supports the strategy without establishing clinical efficacy.</div>
 
 
 
@@ -7778,6 +8081,31 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Counselling addresses the autosomal dominant recurrence risk. Most probands carry a de novo p.Arg506* variant with a correspondingly low sibling recurrence risk, but documented three-generation transmission means an affected individual carries a 50 percent transmission risk, and the variable penetrance of intellectual disability and seizures within the same allele must be conveyed as genuine uncertainty rather than as a predictable outcome.
 </div>
 
@@ -7802,6 +8130,8 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7823,6 +8153,8 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7852,6 +8184,241 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-atp6v1b2-molecular-testing">
+                <div class="item-name">
+                    ATP6V1B2 molecular testing
+
+                </div>
+
+                <div class="item-desc">Molecular confirmation is definitive and is the only test that separates DDOD from its phenotypic neighbours, because the clinical triad of congenital sensorineural deafness, onychodystrophy and digital anomaly is shared across the ATP6V1B2 continuum. In practice this means finding the recurrent heterozygous NM_001693.4:c.1516C&gt;T (p.Arg506*), which accounts for essentially every reported case; most probands are de novo, so parental testing is informative. Note the important limit: the identical allele also causes ATP6V1B2-related DOORS syndrome, so a positive result establishes the gene and the allele but does not by itself assign the DDOD label. That assignment rests on the absence of osteodystrophy, intellectual disability and seizures.
+</div>
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Heterozygous ATP6V1B2 NM_001693.4:c.1516C&gt;T (p.Arg506*), typically de novo.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34746137" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34746137" target="_blank">PMID:34746137</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"ATP6V1B2 c.1516 C &gt; T, p.Arg506∗, was identified in all families with DDOD syndrome"</div>
+
+
+                <div class="evidence-explanation">Establishes that testing for this single recurrent allele is effectively diagnostic at the gene level.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34232384" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34232384" target="_blank">PMID:34232384</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Pathogenic variants in four genes, ATP6V1B2, TBC1D24, KCNH1 and KCNN3, have been shown to be associated with deafness and onychodystrophy syndromes."</div>
+
+
+                <div class="evidence-explanation">Defines the four-gene panel a deafness-plus-onychodystrophy presentation should be tested against, which is the differential this diagnosis sits inside.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-auditory-brainstem-response-testing">
+                <div class="item-name">
+                    Auditory brainstem response testing
+
+                </div>
+
+                <div class="item-desc">ABR establishes the severity and sensorineural character of the hearing loss in infancy, before behavioural audiometry is reliable, and is the measurement on which the timing of cochlear implantation depends.
+</div>
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> Profound bilateral sensorineural hearing impairment, detectable in the first year of life.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28396750" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28396750" target="_blank">PMID:28396750</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Audiological examination by auditory brainstem responses (ABR) at 1 year of age indicated profound bilateral sensorineural hearing impairment."</div>
+
+
+                <div class="evidence-explanation">Documents ABR as the modality establishing the hearing phenotype in infancy.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-temporal-bone-imaging">
+                <div class="item-name">
+                    Temporal bone imaging
+
+                </div>
+
+                <div class="item-desc">Imaging is performed to exclude a structural cause of congenital sensorineural hearing loss and to plan implantation. In DDOD it is characteristically normal. This is a useful negative: the deafness is cellular and neural rather than malformative, which is consistent with the spiral ganglion degeneration mechanism and means normal imaging does not argue against the diagnosis.
+</div>
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> No inner ear malformation.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24913193" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24913193" target="_blank">PMID:24913193</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"None showed inner ear malformation and intellectual disability."</div>
+
+
+                <div class="evidence-explanation">Records absence of inner ear malformation in the original DDOD probands.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -7927,6 +8494,8 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7950,6 +8519,8 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7971,6 +8542,8 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8049,6 +8622,8 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8070,6 +8645,8 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8151,6 +8728,8 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -8172,6 +8751,8 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -8311,6 +8892,8 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8350,6 +8933,8 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -8393,6 +8978,8 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -8519,6 +9106,8 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8558,6 +9147,8 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -8601,6 +9192,8 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -8727,6 +9320,8 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8766,6 +9361,8 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -9061,7 +9658,7 @@ pathophysiology:
     explanation: Provides the subunit-interaction defect that links the truncation to reduced pump function.
   - reference: PMID:31257146
     reference_title: A subunit of V-ATPases, ATP6V1B2, underlies the pathology of intellectual disability.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &#34;The molecular mechanism underlying V-ATPases dysfunction involves a weak interaction between the E and B2 subunits, although the assembly of V-ATPases can still take place.&#34;
     explanation: Qualifies the preceding item. Assembly of the complex is not abolished, so the lesion is a weakened subunit interaction within an assembled pump rather than failure to assemble; PARTIAL because it supports the interaction defect while constraining how strongly the assembly claim may be stated.
@@ -9538,7 +10135,7 @@ phenotypes:
   evidence:
   - reference: PMID:37628590
     reference_title: The ATP6V1B2 DDOD/DOORS-Associated p.Arg506* Variant Causes Hyperactivity and Seizures in Mice.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Some but not all individuals with this truncating variant have intellectual disability and/or epilepsy, suggesting incomplete penetrance and/or variable expressivity.&#34;
     explanation: Supports occasional seizures among p.Arg506* carriers with incomplete penetrance; PARTIAL because the statement spans the DDOD and DOORS labels rather than DDOD alone.
@@ -9701,17 +10298,28 @@ treatments:
     should not be presented to families as a guarantee of language outcome.
   therapeutic_modality: DEVICE
   treatment_term:
-    preferred_term: cochlear implantation
+    preferred_term: cochlear device implantation
     term:
-      id: NCIT:C15315
-      label: Rehabilitation
+      id: NCIT:C15329
+      label: Surgical Procedure
+    qualifiers:
+    - predicate:
+        preferred_term: medical device
+        term:
+          id: NCIT:C16830
+          label: Medical Device
+      value:
+        preferred_term: cochlear implant
+        term:
+          id: NCIT:C157820
+          label: Cochlear Implant
   notes: &gt;-
-    The treatment term is deliberately the generic Rehabilitation action.
-    NCIT:C157820 `Cochlear Implant` exists but denotes the device, not a
-    clinical action, and is not reachable from NCIT:C25218, so it fails the
-    TreatmentActionTerm dynamic enum. The specificity is carried by
-    `preferred_term`, following the pattern already used in
-    Jervell_and_Lange-Nielsen_Syndrome_1 and CAPOS_Syndrome.
+    NCIT:C157820 `Cochlear Implant` exists but denotes the device, not a clinical
+    action, and is not reachable from NCIT:C25218, so it fails the TreatmentActionTerm
+    dynamic enum. The specificity is carried by `preferred_term`. The generic action
+    bound here is the surgical one, which is what implantation is; an earlier version
+    used NCIT:C15315 Rehabilitation and cited CAPOS_Syndrome as precedent, but CAPOS
+    binds NCIT:C15329.
   target_mechanisms:
   - target: Congenital Sensorineural Hearing Loss
     treatment_effect: RESTORES
@@ -9741,7 +10349,7 @@ treatments:
     explanation: Supports molecular diagnosis as prognostically informative for cochlear implant outcome in this spectrum.
   - reference: PMID:31257146
     reference_title: A subunit of V-ATPases, ATP6V1B2, underlies the pathology of intellectual disability.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Clinical follow-up of DDOD syndrome patients with cochlear implantation revealed the language rehabilitation was unsatisfactory although the implanted cochlea worked well, which indicates there might be learning and memory problems in DDOD syndrome patients.&#34;
     explanation: Qualifies the otherwise favourable implant outcomes. The device works but language rehabilitation may still disappoint, which is why this entry does not present implantation as a guaranteed language outcome; PARTIAL because it reports a limitation of the intervention rather than supporting or refuting its use.
@@ -9795,10 +10403,11 @@ treatments:
     explanation: Reports the in vivo effects in the p.Arg506* mouse, all on the neurological and autophagic arms.
   - reference: PMID:41896517
     reference_title: Therapeutic potential of cAMP-mediated lysosomal pH modulation in ATP6V1B2-related neuropathology.
-    supports: PARTIAL
+    supports: SUPPORT
+    directness: INDIRECT
     evidence_source: OTHER
     snippet: &#34;These findings establish proof-of-concept for cAMP-mediated lysosomal pH modulation as a viable therapeutic strategy.&#34;
-    explanation: The authors&#39; own framing as proof-of-concept, which is why this is curated as preclinical rather than as an available treatment; PARTIAL because it supports the strategy without establishing clinical efficacy.
+    explanation: The authors&#39; own framing as proof-of-concept, which is why this is curated as preclinical rather than as an available treatment; INDIRECT because it supports the strategy without establishing clinical efficacy.
 - name: Genetic Counseling
   description: &gt;
     Counselling addresses the autosomal dominant recurrence risk. Most probands
@@ -9893,7 +10502,7 @@ animal_models:
       explanation: A negative result, in that the knock-in mouse has normal hearing at an age by which human DDOD is profoundly deaf.
     - reference: PMID:34746137
       reference_title: Syndromic Deafness Gene ATP6V1B2 Controls Degeneration of Spiral Ganglion Neurons Through Modulating Proton Flux.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: MODEL_ORGANISM
       snippet: &#34;We observed increased transcription of Atp6v1b1 in hair cells of Atp6v1b2Arg506*/Arg506* mice and inferred that Atp6v1b1 compensated for the Atp6v1b2 dysfunction by increasing its own transcription level. Genetic compensation in hair cells explains the milder hearing impairment in Atp6v1b2Arg506*/Arg506* mice.&#34;
       explanation: Gives the species-specific mechanism, paralogue compensation, behind the failure to recapitulate.
@@ -10011,7 +10620,7 @@ experimental_models:
     leave open.
   evidence:
   - reference: PMID:32961450
-    reference_title: &#34;Establishment of human induced pluripotent stem cell line (CPGHi002-A) from a 10-month-old female patient with DDOD syndrome carrying a heterozygous c.1516C&gt;T mutation in ATP6V1B2.&#34;
+    reference_title: &#34;Establishment of human induced pluripotent stem cell line (CPGHi002-A) from a 10-month-old female patient with DDOD syndrome carrying a heterozygous c.1516 C &gt; T mutation in ATP6V1B2.&#34;
     supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &#34;The induced pluripotent stem cell (iPSC) line was generated using the non-integrating episomal vector method from peripheral blood mononuclear cells (PBMCs) of a 10-month-old female DDOD patient with heterozygous ATP6V1B2 c.1516 C &gt; T variant.&#34;
@@ -10061,7 +10670,7 @@ discussions:
     explanation: States the unresolved alternative directly.
   - reference: PMID:24913193
     reference_title: De novo mutation in ATP6V1B2 impairs lysosome acidification and causes dominant deafness-onychodystrophy syndrome.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: IN_VITRO
     snippet: &#34;Taken together, these results suggest that ATP6V1B2 c.1516 C&gt;T mutation is a haploinsufficient mutation.&#34;
     explanation: The competing haploinsufficiency reading, offered as a suggestion from transfection data rather than as a settled result.
@@ -10206,7 +10815,7 @@ discussions:
     explanation: Independent model-organism support for a CNS arm of the same allele, from the same study.
   - reference: PMID:39210597
     reference_title: Dominantly acting variants in ATP6V1C1 and ATP6V1B2 cause a multisystem phenotypic spectrum by altering lysosomal and/or autophagosome function.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Individuals with DDOD syndrome usually show normal development and cognitive function, while those with DOORS syndrome and ZLS present with intellectual disability (ID), with or without seizures.&#34;
     explanation: The competing reading. Note the hedge &#34;usually&#34;, which is what leaves room for the subtler involvement above; PARTIAL because it supports cognitive sparing as the norm without excluding subclinical involvement.
@@ -10342,6 +10951,25 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Address review on PR 9201: deep-research artifact, diagnosis section, and corrected implant-outcome claim</strong> · 2026-08-24T16:49:46Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Dominant_Deafness-Onychodystrophy_Syndrome/2026-08-24T164946Z-claude-code-3fef07.yaml">View source</a></p>
+                        <p class="research-review-text">Second curation round on DDOD, responding to the ai4c-reviewer CHANGES_REQUESTED on PR 9201 and to second-opinion feedback left on issue 9199. Blocker resolved: the falcon deep-research report returned after the first commit and is now committed under research/, together with its citations sidecar and artifact directory. NEC preflight was run against MONDO:0007420 and returned PASS with ATP6V1B2 mentioned 46 times against TBC1D24 at 4, and the report OMIM ids including 124480 matching the MONDO xref; the issue commenter predicted a WARN here on the grounds that ATP6V1B2 is canonical for DDOD, ZLS2 and part of DOORS, so the OMIM agreement rather than the gene frequency is what carries the verdict. Substantive corrections found by cross-checking the report against the entry, each verified against the cached abstract rather than taken from the report: the V-ATPase node was renamed from Impaired V-ATPase Assembly to Weakened V-ATPase Subunit Interaction because assembly still takes place with the truncated subunit and only the E to B2 interaction is weak, which is also why the dominant-negative reading stays live; the cochlear implantation claim that outcomes are good was corrected, since follow-up of implanted DDOD patients found language rehabilitation unsatisfactory despite a well-functioning device, attributed to learning and memory problems; and a new KNOWLEDGE_GAP discussion records that cognitive sparing in DDOD is supported at the level of frank intellectual disability but not demonstrated at the level of subtle learning and memory, with a deafness-matched control arm proposed as the experiment that would settle it. Additions: a diagnosis section covering molecular testing, ABR and the informative negative that temporal bone imaging is normal; auditory nerve fibre demyelination and the mitochondrial cytochrome c release step added to the cochlear degeneration node; enamel hypoplasia as a dental phenotype; CPT-cAMP lysosomal reacidification curated as an explicitly preclinical treatment targeting the rate-limiting acidification node, with the caveat that its demonstrated benefits are on the neurological arm that classic DDOD largely lacks; and independent isogenic CRISPR replication of the raised lysosomal pH, which removes the overexpression caveat from the original transfection result and sharpens the bidirectional pH knowledge gap. Reviewer suggestions addressed: PMID:34232384 now backs a real evidence item in the diagnosis section rather than sitting uncited in references; the p.Arg506-stop variant record gained clinical_significance PATHOGENIC and two evidence items including absence from 1053 controls. Declined: splitting the spiral ganglion and hair cell node, since no evidence separates their timelines in the same model and the reviewer marked it non-blocking. Validation: just validate and just validate-terms passed; just count-verified-snippets reported 87/87 verified against cached references; check-folded-hyphens, check-snippet-length, check-title-snippets, check-duplicate-keys and check-term-cache-integrity all clean; no cache rows were required by this round after re-deriving.
+</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Dominant Deafness-Onychodystrophy Syndrome, DDOD, ATP6V1B2</strong> · 2026-08-21T21:21:16Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Dominant_Deafness-Onychodystrophy_Syndrome/2026-08-21T212116Z-claude-code-f192b4.yaml">View source</a></p>
+                        <p class="research-review-text">De novo curation of DDOD, MONDO:0007420, the ATP6V1B2 p.Arg506-stop dominant deafness-onychodystrophy syndrome. Entry type decided as DISEASE: a MONDO leaf with its own OMIM identity 124480, and dismech already curates Zimmermann-Laband and DOORS as separate entries. Curated a five-node mechanistic chain: C-terminal truncation and impaired V-ATPase assembly, impaired endolysosomal acidification, autophagic flux blockade, apoptotic spiral ganglion neuron and hair cell degeneration, and impaired nail matrix and distal digit development. Also 10 phenotypes, 2 treatments, 3 animal models, 1 iPSC experimental-model pair, and 2 differential-diagnosis blocks for ZLS2 and DOORS that state the ATP6V1B2 continuum explicitly rather than leaving it implicit. Four discussions record what is genuinely unresolved: haploinsufficiency versus dominant negative for p.Arg506-stop; the opposite-direction lysosomal pH results between the DDOD truncating allele and the ZLS2 missense alleles, which were never measured side by side; the entirely unmeasured nail-matrix mechanism; and a HUMAN_MODEL_MISMATCH on the knock-in mice having normal early hearing via Atp6v1b1 paralogue compensation. functional_impact_category set to LOSS_OF_FUNCTION deliberately as the superordinate call the literature supports, NOT DOMINANT_NEGATIVE, since the route is explicitly left open by the cited review. Conformance declared only to sensorineural_hair_cell_loss, at the Cochlear Amplification Loss and Spiral Ganglion Neuron Degeneration node; conformance to lysosomal_substrate_accumulation deliberately NOT declared because the substrate-storage data come from ZLS2 missense lines rather than DDOD cells. Literature assembled directly from PubMed E-utilities searches over the ~30-paper ATP6V1B2 deafness/onychodystrophy corpus, and every cited abstract was read in full before curation; no GeneReviews article exists for DDOD, confirmed by PubMed search. A falcon deep-research run was launched as an independent cross-check but had not returned by the time this entry was completed, so nothing in this entry derives from it and no deep-research report is committed with it. Validation: just validate and just validate-terms passed via the pre-edit hook; just count-verified-snippets reported 68/68 verified against cached references, after two initially-unverified iPSC snippets were rewritten as exact abstract quotes; check-folded-hyphens, check-snippet-length, check-title-snippets, check-environmental-evidence and check-duplicate-keys were all clean; 8921 selected tests in tests/test_data.py passed; just validate-disorders was run as the batched pre-PR sweep.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -10867,7 +11495,7 @@ references:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Dominant Deafness-Onychodystrophy Syndrome", "mondoId": "MONDO:0007420", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Dominant_Deafness-Onychodystrophy_Syndrome", "yamlRevision": "fda64c49172d"};
+        const OS_CONFIG = {"diseaseName": "Dominant Deafness-Onychodystrophy Syndrome", "mondoId": "MONDO:0007420", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Dominant_Deafness-Onychodystrophy_Syndrome", "yamlRevision": "f89d100d1c26"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

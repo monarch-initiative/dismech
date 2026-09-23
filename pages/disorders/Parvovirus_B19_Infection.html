@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2954,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2969,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3078,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3091,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3295,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3305,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3341,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3362,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3740,6 +3817,22 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -4031,6 +4124,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-viral-replication" data-dismech-node="Viral Replication" data-dismech-type="pathophysiology">
                 <div class="item-name">Viral Replication</div>
 
+
                 <div class="item-desc">The virus primarily targets erythroid progenitor cells in the bone marrow, leading to disrupted red blood cell production.</div>
 
 
@@ -4186,6 +4280,8 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"Human parvovirus B19 shows remarkable tropism for human erythroid progenitor cells."</div>
@@ -4205,6 +4301,8 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4228,6 +4326,8 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4254,6 +4354,7 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-immune-response" data-dismech-node="Immune Response" data-dismech-type="pathophysiology">
                 <div class="item-name">Immune Response</div>
+
 
                 <div class="item-desc">Immune-mediated response to the virus can lead to rash and joint symptoms.</div>
 
@@ -4291,6 +4392,8 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"Notably, adult patients with B19V infection frequently experience joint pain and cutaneous eruptions, which are ostensibly immune responses to the infection and necessitate careful differentiation from autoimmunity."</div>
@@ -4310,6 +4413,8 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -4332,6 +4437,7 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-receptor-mediated-entry" data-dismech-node="Receptor-Mediated Entry" data-dismech-type="pathophysiology">
                 <div class="item-name">Receptor-Mediated Entry</div>
+
 
                 <div class="item-desc">Initial viral entry involves binding to globoside (P antigen) on cell surfaces, followed by VP1u-mediated internalization into erythroid progenitor cells. Acidic pH in endosomes facilitates globoside-dependent infectious trafficking and VP1u conformational changes for endosomal escape.</div>
 
@@ -4471,6 +4577,8 @@ This pathophysiological event occurs in fetal liver, annotated with liver (UBERO
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4492,6 +4600,8 @@ This pathophysiological event occurs in fetal liver, annotated with liver (UBERO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4517,6 +4627,8 @@ This pathophysiological event occurs in fetal liver, annotated with liver (UBERO
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4539,6 +4651,7 @@ This pathophysiological event occurs in fetal liver, annotated with liver (UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cell-cycle-arrest-and-apoptosis" data-dismech-node="Cell Cycle Arrest and Apoptosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Cell Cycle Arrest and Apoptosis</div>
+
 
                 <div class="item-desc">Viral NS1 protein and replication intermediates activate the DNA damage response (DDR) pathway, particularly ATR and DNA-PKcs, leading to late S/G2 phase arrest and apoptotic death of infected erythroid progenitor cells.</div>
 
@@ -4786,6 +4899,8 @@ This pathophysiological event involves apoptotic process (GO:0006915). GO:000691
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4808,6 +4923,7 @@ This pathophysiological event involves apoptotic process (GO:0006915). GO:000691
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-epo-stat5-signaling-pathway" data-dismech-node="EPO-STAT5 Signaling Pathway" data-dismech-type="pathophysiology">
                 <div class="item-name">EPO-STAT5 Signaling Pathway</div>
+
 
                 <div class="item-desc">Erythropoietin (EPO) signaling through STAT5A and STAT5B creates a permissive transcriptional environment for B19V replication in erythroid progenitor cells. Hypoxic conditions enhance STAT5A activity and viral replication.</div>
 
@@ -5034,6 +5150,8 @@ This pathophysiological event involves JAK-STAT cascade, annotated with cell sur
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5167,6 +5285,9 @@ This clinical feature is Chronic pure red cell aplasia, annotated with Pure red 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5181,6 +5302,8 @@ This clinical feature is Chronic pure red cell aplasia, annotated with Pure red 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5238,6 +5361,9 @@ This clinical feature is Papular-purpuric gloves and socks syndrome, annotated w
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -5252,6 +5378,8 @@ This clinical feature is Papular-purpuric gloves and socks syndrome, annotated w
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5277,6 +5405,8 @@ This clinical feature is Papular-purpuric gloves and socks syndrome, annotated w
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5298,6 +5428,8 @@ This clinical feature is Papular-purpuric gloves and socks syndrome, annotated w
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5357,6 +5489,9 @@ This clinical feature is Myocarditis (HP:0012819). HP:0012819 is a phenotype fro
                     </div>
 
 
+
+
+
                     <div class="item-desc">More commonly observed in immunocompromised individuals or chronic infection.</div>
 
 
@@ -5368,14 +5503,16 @@ This clinical feature is Myocarditis (HP:0012819). HP:0012819 is a phenotype fro
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:7756792" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:7756792" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/7756792" target="_blank">PMID:7756792</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5442,6 +5579,9 @@ This clinical feature is Slapped Cheek Rash, annotated with Malar rash (HP:00253
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5456,6 +5596,8 @@ This clinical feature is Slapped Cheek Rash, annotated with Malar rash (HP:00253
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5517,6 +5659,9 @@ This clinical feature is Hydrops Fetalis (HP:0001789). HP:0001789 is a phenotype
                     </div>
 
 
+
+
+
                     <div class="item-desc">Due to severe fetal anemia resulting from maternal infection.</div>
 
 
@@ -5536,6 +5681,8 @@ This clinical feature is Hydrops Fetalis (HP:0001789). HP:0001789 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5559,6 +5706,8 @@ This clinical feature is Hydrops Fetalis (HP:0001789). HP:0001789 is a phenotype
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"Fetal infection by Parvovirus B 19 is a common cause of fetal anemia and nonimmune hydrops fetalis and may result in fetal death."</div>
@@ -5578,6 +5727,8 @@ This clinical feature is Hydrops Fetalis (HP:0001789). HP:0001789 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5637,6 +5788,9 @@ This clinical feature is Arthropathy (HP:0003040). HP:0003040 is a phenotype fro
                     </div>
 
 
+
+
+
                     <div class="item-desc">Particularly in adults.</div>
 
 
@@ -5656,6 +5810,8 @@ This clinical feature is Arthropathy (HP:0003040). HP:0003040 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5679,6 +5835,8 @@ This clinical feature is Arthropathy (HP:0003040). HP:0003040 is a phenotype fro
                     <span class="evidence-support support-NO_EVIDENCE">NO_EVIDENCE</span>
 
 
+
+
                 </div>
 
 
@@ -5688,14 +5846,16 @@ This clinical feature is Arthropathy (HP:0003040). HP:0003040 is a phenotype fro
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:27511498" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:27511498" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/27511498" target="_blank">PMID:27511498</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5741,6 +5901,9 @@ This clinical feature is Arthropathy (HP:0003040). HP:0003040 is a phenotype fro
 
 
 
+
+
+
                     <div class="item-meta">
                         <strong style="font-size: 0.8rem; color: #166534;">Sequelae:</strong>
 
@@ -5766,6 +5929,8 @@ This clinical feature is Arthropathy (HP:0003040). HP:0003040 is a phenotype fro
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"Erythema infectiosum, the most common clinical manifestation of parvovirus B19 infection, is characterized by a &#39;slapped cheek&#39; appearance on the face and lacy exanthem on the trunk and extremities."</div>
@@ -5787,6 +5952,8 @@ This clinical feature is Arthropathy (HP:0003040). HP:0003040 is a phenotype fro
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"The prototypical cutaneous manifestations of human parvovirus B19 (B19) infection include a petechial eruption in a glove and stocking distribution, reticular truncal erythema, and the &#39;slapped cheek&#39; sign."</div>
@@ -5806,6 +5973,8 @@ This clinical feature is Arthropathy (HP:0003040). HP:0003040 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5844,6 +6013,9 @@ This clinical feature is Arthropathy (HP:0003040). HP:0003040 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -5858,6 +6030,8 @@ This clinical feature is Arthropathy (HP:0003040). HP:0003040 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5881,6 +6055,8 @@ This clinical feature is Arthropathy (HP:0003040). HP:0003040 is a phenotype fro
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"The serum B19V DNA load during the acute phase of aplastic crisis complicating chronic hemolytic anemia was extremely high."</div>
@@ -5900,6 +6076,8 @@ This clinical feature is Arthropathy (HP:0003040). HP:0003040 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -6013,6 +6191,20 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Includes rest, fluids, and analgesics for managing symptoms.</div>
 
 
@@ -6036,6 +6228,8 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"Presently available treatments are only supportive, symptomatic, or unspecific, such as administration of intravenous immunoglobulins, and often of limited efficacy."</div>
@@ -6057,6 +6251,8 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"Treatment ranges from analgesics and antipyretics for mild and self-limited illness to administration of commercial immunoglobulin preparations and blood transfusion for more serious conditions."</div>
@@ -6076,6 +6272,8 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -6137,6 +6335,20 @@ This treatment is intravenous immunoglobulin therapy, annotated with Immunoglobu
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Used in severe cases, particularly for individuals with immunodeficiency or severe anemia.</div>
 
 
@@ -6160,6 +6372,8 @@ This treatment is intravenous immunoglobulin therapy, annotated with Immunoglobu
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"IVIG infusion effectively treated the parvovirus B19 infection and restored erythropoiesis making the child transfusion independent."</div>
@@ -6181,6 +6395,8 @@ This treatment is intravenous immunoglobulin therapy, annotated with Immunoglobu
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"Specific antiviral therapy is not available, however, intravenous immunoglobulin produces rapid improvement in most cases."</div>
@@ -6200,6 +6416,8 @@ This treatment is intravenous immunoglobulin therapy, annotated with Immunoglobu
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -6263,6 +6481,8 @@ This treatment is intravenous immunoglobulin therapy, annotated with Immunoglobu
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"strict handwashing and droplet precautions remain imperative when there is contact with potentially pre-symptomatic family members."</div>
@@ -6324,6 +6544,8 @@ This treatment is intravenous immunoglobulin therapy, annotated with Immunoglobu
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"Considering the first 12 weeks after onset of disease the window of greatest risk for fetal complications, the &#39;acute&#39; phase was extended to cover this full period. In this case, performing the avidity and ETS-EIA sequentially, the positive predictive value was 100% in patients showing..."</div>
@@ -6345,6 +6567,8 @@ This treatment is intravenous immunoglobulin therapy, annotated with Immunoglobu
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"A solid phase IgM-capture radioimmunoassay (MACRIA) for the detection of parvovirus B19-IgM is described... The purpose of the protocol is the diagnosis of recent acute infection with parvovirus B19."</div>
@@ -6364,6 +6588,8 @@ This treatment is intravenous immunoglobulin therapy, annotated with Immunoglobu
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -6416,6 +6642,8 @@ This treatment is intravenous immunoglobulin therapy, annotated with Immunoglobu
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"The development of a polymerase chain reaction (PCR) method for detection of human parvovirus B19 DNA and serological test of clinical specimens using ELISA is described."</div>
@@ -6435,6 +6663,8 @@ This treatment is intravenous immunoglobulin therapy, annotated with Immunoglobu
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -6458,6 +6688,8 @@ This treatment is intravenous immunoglobulin therapy, annotated with Immunoglobu
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"HPV B19 could be detected in various bodily fluids and tissues (especially cerebrospinal fluid) using NGS"</div>
@@ -6479,6 +6711,859 @@ This treatment is intravenous immunoglobulin therapy, annotated with Immunoglobu
             </div>
 
         </div>
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-clinical-examination">
+                <div class="item-name">
+                    Clinical Examination
+
+                </div>
+
+                <div class="item-desc">Physical assessment identifying characteristic slapped cheek rash and lacy reticular exanthem.</div>
+
+
+
+
+
+
+
+
+                <div class="item-notes">Based on characteristic rash and illness pattern.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (4 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32143947" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32143947" target="_blank">PMID:32143947</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"The objective of this study was to determine the epidemiology and clinical-analytical manifestations of acute PVB19 infection."</div>
+
+
+                <div class="evidence-explanation">The study discusses the clinical manifestations of Parvovirus B19, including characteristic rashes and illness patterns, but does not explicitly state that clinical examination alone is sufficient for diagnosis.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36811343" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36811343" target="_blank">PMID:36811343</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"Erythema infectiosum, caused by human parvovirus B19 (B19V), is difficult to diagnose by its clinical symptoms and is often misdiagnosed as measles or rubella."</div>
+
+
+                <div class="evidence-explanation">This study indicates that while clinical symptoms are important, they are often not sufficient for a conclusive diagnosis of Parvovirus B19 infection, highlighting the need for laboratory tests.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10821497" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10821497" target="_blank">PMID:10821497</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"The prototypical cutaneous manifestations of human parvovirus B19 (B19) infection include a petechial eruption in a glove and stocking distribution, reticular truncal erythema, and the &#39;slapped cheek&#39; sign."</div>
+
+
+                <div class="evidence-explanation">The reference describes characteristic cutaneous manifestations of Parvovirus B19, which can be observed during a clinical examination. However, it does not confirm that these observations alone are sufficient for diagnosis.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-serologic-testing">
+                <div class="item-name">
+                    Serologic Testing
+
+                </div>
+
+                <div class="item-desc">ELISA-based detection of parvovirus B19-specific IgM (acute) and IgG (past) antibodies.</div>
+
+
+
+
+
+
+
+
+                <div class="item-notes">Detection of IgM and IgG antibodies.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (5 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:8396604" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/8396604" target="_blank">PMID:8396604</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"Specific IgM antibodies were detected in 94% specimens collected 1 week after the onset of illness and could be detected for up to 2 months. On the other hand, specific IgG antibodies were detected in 85% patients from whom acute- and convalescent-phase serum samples were collected."</div>
+
+
+                <div class="evidence-explanation">The study confirms the detection of IgM and IgG antibodies in patients with parvovirus B19 infection.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10590428" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10590428" target="_blank">PMID:10590428</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"We analysed the diagnostic value of B19 IgM antibody testing and polymerase chain reaction (PCR) in the sera from 57 patients and their fetuses with abnormal ultrasonography."</div>
+
+
+                <div class="evidence-explanation">The study highlights the use of IgM antibody testing for the diagnosis of parvovirus B19 infection.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:11418353" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11418353" target="_blank">PMID:11418353</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"The presence of anti-parvovirus B19 (B19V) IgM against viral capsid proteins (VP1 and VP2) has long been used to detect recent infection."</div>
+
+
+                <div class="evidence-explanation">The study discusses the detection of IgM antibodies as a common method for diagnosing recent parvovirus B19 infection.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 2 more references</div>
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-pcr-testing">
+                <div class="item-name">
+                    PCR Testing
+
+                </div>
+
+                <div class="item-desc">Molecular detection and quantification of parvovirus B19 DNA in blood, amniotic fluid, or tissues.</div>
+
+
+
+
+
+
+
+
+                <div class="item-notes">Detection of viral DNA in blood or other tissues.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (7 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:32559661" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/32559661" target="_blank">PMID:32559661</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"Diagnosis of congenital viral infection at birth is generally attempted by direct detection of the virus by PCR in various neonatal materials."</div>
+
+
+                <div class="evidence-explanation">The study discusses the use of PCR for detecting Parvovirus B19 DNA in neonatal blood samples, supporting the statement that PCR testing can detect viral DNA in blood or other tissues.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37775826" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37775826" target="_blank">PMID:37775826</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"A PCR-based assay with Parvovirus B19 specific primers was implemented to detect the presence of the viral genome."</div>
+
+
+                <div class="evidence-explanation">This study confirms the use of PCR testing for detecting Parvovirus B19 DNA in heart tissue samples.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:8361022" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/8361022" target="_blank">PMID:8361022</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"The development of a polymerase chain reaction (PCR) method for detection of human parvovirus B19 DNA... In fetal infection, the PCR method provides sufficient detection of B19 DNA in cord blood, amniotic fluid, ascitic fluid, and fetal pericardial effusion and pleural effusion."</div>
+
+
+                <div class="evidence-explanation">The study demonstrates the use of PCR for detecting Parvovirus B19 DNA in various clinical specimens, including blood and other tissues.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 4 more references</div>
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-global">
+                <div class="item-name">Global</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Lifetime Prevalence</span>
+
+
+
+                    <span class="tag">Common</span>
+
+                </div>
+
+                <div class="item-notes">Seroprevalence (IgG positivity) rises with age; approximately 50–70% of adults worldwide have been exposed.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (5 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25990962" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25990962" target="_blank">PMID:25990962</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"The overall IgG prevalence in the 1008 representative sera samples was 61.4% and the age-adjusted prevalence rate was 58.2%."</div>
+
+
+                <div class="evidence-explanation">The study provides data on the prevalence of Parvovirus B19 infection in the Israeli population, indicating that a significant portion of the population has been exposed to the virus. However, this is specific to Israel and may not represent the global population.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27806994" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27806994" target="_blank">PMID:27806994</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"These viruses are prevalent worldwide and are culturable in vitro, and serological and molecular assays are available but require careful interpretation of results."</div>
+
+
+                <div class="evidence-explanation">The article mentions that Parvovirus B19 is prevalent worldwide, supporting the statement to some extent. However, it does not provide specific global prevalence percentages.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21040396" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21040396" target="_blank">PMID:21040396</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"Human parvovirus B19 infection is widespread. Approximately 30-50% of pregnant women are nonimmune, and vertical transmission is common following maternal infection in pregnancy."</div>
+
+
+                <div class="evidence-explanation">The article indicates that Parvovirus B19 infection is widespread and provides specific data on nonimmune pregnant women, suggesting significant exposure rates. However, it does not provide a comprehensive global percentage.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 2 more references</div>
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+        <div class="card" id="infectious-agent">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fee2e2; color: #b91c1c;">🦠</div>
+                <h2 class="card-title">Infectious Agent</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="infectious-agent-parvovirus-b19">
+                <div class="item-name">Parvovirus B19</div>
+
+                <div class="item-desc">A single-stranded DNA virus known to cause several clinical conditions, particularly in children.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-bio">
+
+        Human parvovirus B19
+
+
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_10798" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-28">NCBITaxon:10798</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-28">NCBI Taxonomy (NCBITaxon)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (4 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25283854" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25283854" target="_blank">PMID:25283854</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"Parvovirus B19 (B19V) is a small non-enveloped single-stranded DNA (ssDNA) virus of the family Parvoviridae, the subfamily Parvovirinae, the genus Erythrovirus and Human parvovirus B19 type species."</div>
+
+
+                <div class="evidence-explanation">The reference confirms that Parvovirus B19 is a single-stranded DNA virus.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:15485533" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15485533" target="_blank">PMID:15485533</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"Parvovirus B19 infections cause a wide range of clinical findings, including erythema infectiosum, &#39;glove-and-socks&#39; syndrome, arthropathies, red cell aplasia, and intrauterine infections."</div>
+
+
+                <div class="evidence-explanation">The reference supports that Parvovirus B19 causes several clinical conditions.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33944819" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33944819" target="_blank">PMID:33944819</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"Parvovirus B19 (PVB19) is a small DNA virus that causes the fifth disease in children; however it can also affect adults."</div>
+
+
+                <div class="evidence-explanation">The reference supports that Parvovirus B19 causes clinical conditions, particularly in children.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Transmission -->
+
+        <div class="card" id="transmission">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fee2e2; color: #b91c1c;">↔️</div>
+                <h2 class="card-title">Transmission</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="transmission-respiratory-droplets">
+                <div class="item-name">Respiratory Droplets</div>
+
+                <div class="item-desc">Spread through inhalation of respiratory droplets from infected individuals.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25283854" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25283854" target="_blank">PMID:25283854</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"It is a common community-acquired respiratory pathogen without ethnic, socioeconomic, gender, age or geographic boundaries"</div>
+
+
+                <div class="evidence-explanation">The abstract indicates that Parvovirus B19 is a respiratory pathogen, which supports the statement that it spreads through inhalation of respiratory droplets.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35192759" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35192759" target="_blank">PMID:35192759</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"Parvovirus infection (PVI) is widespread, characterized by airborne, bloodborne and vertical transmission routes."</div>
+
+
+                <div class="evidence-explanation">The abstract mentions that Parvovirus B19 has airborne transmission routes, which supports the statement about respiratory droplets.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="transmission-vertical-transmission">
+                <div class="item-name">Vertical Transmission</div>
+
+                <div class="item-desc">Transmission from mother to fetus during pregnancy.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (7 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22777688" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22777688" target="_blank">PMID:22777688</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"The vertical transmission rate was 31.7% (20/63)."</div>
+
+
+                <div class="evidence-explanation">The study confirms that Parvovirus B19 can be transmitted from mother to fetus during pregnancy, with a vertical transmission rate of 31.7%.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38861626" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38861626" target="_blank">PMID:38861626</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"Vertical transmission of an infectious agent is generally defined as transmission from a pregnant individual to their fetus... Parvovirus B19... are also known to cause transplacental infections."</div>
+
+
+                <div class="evidence-explanation">The article explicitly states that Parvovirus B19 is known to cause transplacental (vertical) infections.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17505458" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17505458" target="_blank">PMID:17505458</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"Human parvovirus B19 is a DNA virus with strong tropism for erythroid precursors and infection during pregnancy can result in fetal hydrops and stillbirth."</div>
+
+
+                <div class="evidence-explanation">This reference supports the statement by indicating that Parvovirus B19 infection during pregnancy can lead to severe outcomes like fetal hydrops, which implies vertical transmission.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 4 more references</div>
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="transmission-blood-transfusion">
+                <div class="item-name">Blood Transfusion</div>
+
+                <div class="item-desc">Transmission through contaminated blood products.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21332725" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21332725" target="_blank">PMID:21332725</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"Eight patients with TT-B19V caused by component transfusion have been identified."</div>
+
+
+                <div class="evidence-explanation">The study identified eight patients who developed parvovirus B19 infection through blood component transfusion, supporting the statement.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:9031493" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/9031493" target="_blank">PMID:9031493</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"Recent concerns regarding the potential transmission of B19 infection by pooled plasma products."</div>
+
+
+                <div class="evidence-explanation">The review addresses the potential transmission of parvovirus B19 through blood products, supporting the statement.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:15645675" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15645675" target="_blank">PMID:15645675</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"Parvovirus B19 is therefore not an uncommon &#39;contaminant&#39; of blood and blood products."</div>
+
+
+                <div class="evidence-explanation">The abstract mentions that parvovirus B19 can contaminate blood and blood products, supporting the statement.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -6577,27 +7662,27 @@ prevalence:
   evidence:
   - reference: PMID:25990962
     reference_title: &#34;Parvovirus B19V infection in Israel: prevalence and occurrence of acute infection between 2008 and 2013.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: The overall IgG prevalence in the 1008 representative sera samples was 61.4% and the age-adjusted prevalence rate was 58.2%.
     explanation: The study provides data on the prevalence of Parvovirus B19 infection in the Israeli population, indicating that a significant portion of the population has been exposed to the virus. However, this is specific to Israel and may not represent the global population.
   - reference: PMID:27806994
     reference_title: &#34;Human Parvoviruses.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: These viruses are prevalent worldwide and are culturable in vitro, and serological and molecular assays are available but require careful interpretation of results.
     explanation: The article mentions that Parvovirus B19 is prevalent worldwide, supporting the statement to some extent. However, it does not provide specific global prevalence percentages.
   - reference: PMID:21040396
     reference_title: &#34;Parvovirus B19 infection in human pregnancy.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: Human parvovirus B19 infection is widespread. Approximately 30-50% of pregnant women are nonimmune, and vertical transmission is common following maternal infection in pregnancy.
     explanation: The article indicates that Parvovirus B19 infection is widespread and provides specific data on nonimmune pregnant women, suggesting significant exposure rates. However, it does not provide a comprehensive global percentage.
   - reference: PMID:36619750
     reference_title: &#34;Human parvovirus B19 infection in hospitalized patients suspected of infection with pathogenic microorganism.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: The HPV B19 infection rate in hospitalized patients suspected of microbial infection was 2.22%.
     explanation: The study provides specific data on the infection rate among hospitalized patients, which suggests that Parvovirus B19 can be present in specific populations. However, it does not provide global prevalence data.
   - reference: PMID:30843782
     reference_title: &#34;Low human parvovirus B19 (B19V) DNA prevalence in blood donors from Central-West Brazil.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: Parvovirus B19 (B19V) transmission may occur through blood transfusion as a result of asymptomatic viral persistence in blood donors.
     explanation: The study indicates that Parvovirus B19 can persist in blood donors, suggesting potential widespread exposure. However, it does not provide specific global prevalence percentages.
 infectious_agent:
@@ -6975,7 +8060,7 @@ phenotypes:
     explanation: The reference title suggests it is about Parvovirus B19 infection in adults, but no specific excerpt or abstract is provided to confirm or refute the statement.
   - reference: PMID:27511498
     reference_title: &#34;Serological prevalence of human parvovirus B19 in diseases or disordersrelated to different human body systems.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: The highest positivity for IgG alone was found in musculoskeletal system and connective tissue diseases (55.9%)... The highest positivity for IgG was seen in rheumatoid arthritis (72.2%) and pregnancy (52.6%).
     explanation: The reference indicates a high prevalence of parvovirus B19 antibodies in musculoskeletal diseases, but does not specifically mention arthropathy.
   - reference: PMID:29512949
@@ -7105,7 +8190,7 @@ phenotypes:
   evidence:
   - reference: PMID:7756792
     reference_title: &#34;Parvovirus: the expanding spectrum of disease.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;a heterogeneous group of diseases, in which the etiologic role of parvovirus is less clear and sometimes putative (neurologic disease, rheumatologic disease, vasculitic and myocarditic syndromes).&#34;
     explanation: Identifies myocarditis as one of the broader disease associations with parvovirus B19, though the etiologic role is noted as sometimes putative; additional direct evidence linking B19V to cardiac inflammation is needed.
@@ -7185,22 +8270,22 @@ diagnosis:
   evidence:
   - reference: PMID:32143947
     reference_title: &#34;Acute parvovirus B19 infection: analysis of 46 patients.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: The objective of this study was to determine the epidemiology and clinical-analytical manifestations of acute PVB19 infection.
     explanation: The study discusses the clinical manifestations of Parvovirus B19, including characteristic rashes and illness patterns, but does not explicitly state that clinical examination alone is sufficient for diagnosis.
   - reference: PMID:36811343
     reference_title: &#34;Contribution of parvovirus B19 in suspected cases of measles/rubella in Osaka, Japan, between 2011 and 2021.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: Erythema infectiosum, caused by human parvovirus B19 (B19V), is difficult to diagnose by its clinical symptoms and is often misdiagnosed as measles or rubella.
     explanation: This study indicates that while clinical symptoms are important, they are often not sufficient for a conclusive diagnosis of Parvovirus B19 infection, highlighting the need for laboratory tests.
   - reference: PMID:10821497
     reference_title: &#34;The cutaneous manifestations of human parvovirus B19 infection.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: The prototypical cutaneous manifestations of human parvovirus B19 (B19) infection include a petechial eruption in a glove and stocking distribution, reticular truncal erythema, and the &#39;slapped cheek&#39; sign.
     explanation: The reference describes characteristic cutaneous manifestations of Parvovirus B19, which can be observed during a clinical examination. However, it does not confirm that these observations alone are sufficient for diagnosis.
   - reference: PMID:30028234
     reference_title: &#34;The clinical use of parvovirus B19 assays: recent advances.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     snippet: The complexity of virus-host relationship and the diversity of the clinical course of infection pose a diagnostic challenge that may require non-trivial solutions.
     explanation: This review suggests that while clinical examination is important, the complexity of Parvovirus B19 infection often necessitates a combination of diagnostic approaches beyond just clinical observation.
 - name: Serologic Testing
@@ -7438,6 +8523,19 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Address review: PPGSS frequency band and evidence-source split</strong> · 2026-08-25T06:32:07Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Parvovirus_B19_Infection/2026-08-25T063207Z-claude-code-0c09b9.yaml">View source</a></p>
+                        <p class="research-review-text">Review-response session for PR 8312. Corrected the PPGSS phenotype frequency from OCCASIONAL to VERY_RARE: neither cited paper supports the 5-29 percent band, and PMID:12852167 calls it a relatively rare viral exanthema while PMID:9675471 calls it an unusual syndrome and reports only the second documented US case. Added a dedicated evidence item quoting the rarity wording and documenting the Pattern C qualitative mapping from docs/frequency-evidence-guidelines.md. Rebound the PPGSS phenotype_term from HP:0031363 Palpable purpura to the more neutral parent HP:0000979 Purpura, since palpable purpura classically connotes cutaneous small-vessel vasculitis, which PPGSS is not. Split the PMID:8139629 evidence into two items so each carries a single evidence_source: the cross-sectional seroprevalence result stays HUMAN_CLINICAL, and a new IN_VITRO item quotes the p-phenotype bone-marrow experiment that the previous explanation relied on without quoting. Softened the receptor claim from the required cellular receptor for entry to required for productive infection, per the refined VP1u/globoside model in the entry deep-research artifact. Validated with just validate, just validate-terms and just count-verified-snippets at 95/95.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -7653,7 +8751,7 @@ Key mechanistic claims on receptor/entry, endosomal escape, replication cofactor
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Parvovirus B19 Infection", "mondoId": "MONDO:0006544", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Parvovirus_B19_Infection", "yamlRevision": "53276d729e11"};
+        const OS_CONFIG = {"diseaseName": "Parvovirus B19 Infection", "mondoId": "MONDO:0006544", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Parvovirus_B19_Infection", "yamlRevision": "acc5c689cf02"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

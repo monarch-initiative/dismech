@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2954,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2969,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3078,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3091,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3295,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3305,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3341,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3362,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3675,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4058,6 +4151,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4079,6 +4174,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4127,6 +4224,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-homologous-recombination" data-dismech-node="Impaired homologous recombination" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired homologous recombination</div>
+
 
                 <div class="item-desc">Biallelic MCM8 loss disables the MCM8-MCM9 helicase, reducing RAD51 recruitment and homologous-recombination repair of DNA double-strand breaks. This genome-maintenance defect is especially damaging during meiosis, where programmed double-strand breaks must be repaired by homologous recombination.</div>
 
@@ -4260,6 +4358,8 @@ This pathophysiological event involves decreased double-strand break repair via 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4281,6 +4381,8 @@ This pathophysiological event involves decreased double-strand break repair via 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4306,6 +4408,8 @@ This pathophysiological event involves decreased double-strand break repair via 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4313,7 +4417,7 @@ This pathophysiological event involves decreased double-strand break repair via 
                 <div class="evidence-snippet">"chromatin recruitment of HR factors like Rad51 and RPA is impaired and HR strongly reduced."</div>
 
 
-                <div class="evidence-explanation">Mcm8-deficient cells fail to load RAD51, confirming the homologous- recombination defect in vivo.</div>
+                <div class="evidence-explanation">Mcm8-deficient cells fail to load RAD51, confirming the homologous-recombination defect in vivo.</div>
 
 
 
@@ -4328,6 +4432,7 @@ This pathophysiological event involves decreased double-strand break repair via 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-meiotic-arrest-and-germ-cell-depletion" data-dismech-node="Meiotic arrest and germ cell depletion" data-dismech-type="pathophysiology">
                 <div class="item-name">Meiotic arrest and germ cell depletion</div>
+
 
                 <div class="item-desc">Germ cells that cannot complete homologous recombination arrest during meiotic prophase I and are eliminated rather than maturing into functional gametes, depleting the germ-cell pool in both sexes.</div>
 
@@ -4460,6 +4565,8 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4482,6 +4589,7 @@ This pathophysiological event involves increased apoptotic process (GO:0006915).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ovarian-follicle-depletion-and-primary-ovarian-insufficiency" data-dismech-node="Ovarian follicle depletion and primary ovarian insufficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Ovarian follicle depletion and primary ovarian insufficiency</div>
+
 
                 <div class="item-desc">Loss of oocytes during meiotic progression depletes the ovarian reserve, presenting clinically as primary ovarian insufficiency, ovarian dysgenesis, primary amenorrhea, and hypergonadotropic hypogonadism in 46,XX individuals.</div>
 
@@ -4606,6 +4714,8 @@ This pathophysiological event involves decreased female gamete generation (GO:00
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4628,6 +4738,7 @@ This pathophysiological event involves decreased female gamete generation (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-spermatogenic-arrest-and-non-obstructive-azoospermia" data-dismech-node="Spermatogenic arrest and non-obstructive azoospermia" data-dismech-type="pathophysiology">
                 <div class="item-name">Spermatogenic arrest and non-obstructive azoospermia</div>
+
 
                 <div class="item-desc">In 46,XY individuals, MCM8-dependent meiotic failure in spermatocytes produces spermatogenic arrest with small testes, non-obstructive azoospermia, and Sertoli cell-only histology.</div>
 
@@ -4752,6 +4863,8 @@ This pathophysiological event involves decreased male gamete generation (GO:0048
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4773,6 +4886,8 @@ This pathophysiological event involves decreased male gamete generation (GO:0048
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4797,6 +4912,7 @@ This pathophysiological event involves decreased male gamete generation (GO:0048
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-somatic-genome-instability-and-germ-cell-tumor-predisposition" data-dismech-node="Somatic genome instability and germ cell tumor predisposition" data-dismech-type="pathophysiology">
                 <div class="item-name">Somatic genome instability and germ cell tumor predisposition</div>
+
 
                 <div class="item-desc">Beyond the gonads, MCM8-dependent homologous-recombination failure produces a somatic genome-instability state. In humans this is associated with an emerging predisposition to early-onset germ cell tumors; murine Mcm8 loss likewise produces ovarian tumors. This cancer profile is narrower than the gastrointestinal polyposis / colorectal-cancer spectrum reported for MCM9.</div>
 
@@ -4887,6 +5003,8 @@ This pathophysiological event involves decreased double-strand break repair via 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4908,6 +5026,8 @@ This pathophysiological event involves decreased double-strand break repair via 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4976,9 +5096,9 @@ This pathophysiological event involves decreased double-strand break repair via 
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Endocrine<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Genitourinary<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Genitourinary<span class="pill-count">(5)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Other<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Cellular<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5019,6 +5139,9 @@ This clinical feature is Hypergonadotropic hypogonadism (HP:0000815). HP:0000815
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5033,6 +5156,8 @@ This clinical feature is Hypergonadotropic hypogonadism (HP:0000815). HP:0000815
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5084,6 +5209,7 @@ This clinical feature is Hypergonadotropic hypogonadism (HP:0000815). HP:0000815
 
 
 
+
         </div>
 
     </details>
@@ -5119,6 +5245,9 @@ This clinical feature is Hypothyroidism (HP:0000821). HP:0000821 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5133,6 +5262,8 @@ This clinical feature is Hypothyroidism (HP:0000821). HP:0000821 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5164,7 +5295,7 @@ This clinical feature is Hypothyroidism (HP:0000821). HP:0000821 is a phenotype 
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Genitourinary
-                    <span class="cat-count">4</span>
+                    <span class="cat-count">5</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-premature-ovarian-insufficiency" data-dismech-node="Premature ovarian insufficiency" data-dismech-type="phenotype">
@@ -5195,6 +5326,9 @@ This clinical feature is Premature ovarian insufficiency (HP:0008209). HP:000820
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5209,6 +5343,8 @@ This clinical feature is Premature ovarian insufficiency (HP:0008209). HP:000820
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5257,6 +5393,7 @@ This clinical feature is Premature ovarian insufficiency (HP:0008209). HP:000820
             </div>
 
 
+
             <div class="context-notes">Reported in 46,XX individuals with biallelic MCM8 variants.</div>
 
 
@@ -5275,6 +5412,8 @@ This clinical feature is Premature ovarian insufficiency (HP:0008209). HP:000820
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5330,6 +5469,9 @@ This clinical feature is Primary amenorrhea (HP:0000786). HP:0000786 is a phenot
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5344,6 +5486,8 @@ This clinical feature is Primary amenorrhea (HP:0000786). HP:0000786 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5395,6 +5539,7 @@ This clinical feature is Primary amenorrhea (HP:0000786). HP:0000786 is a phenot
 
 
 
+
         </div>
 
     </details>
@@ -5433,6 +5578,9 @@ This clinical feature is Azoospermia (HP:0000027). HP:0000027 is a phenotype fro
 
 
 
+
+
+
     <details class="phenotype-contexts">
         <summary class="phenotype-contexts-toggle">
             Context-specific annotations (1)
@@ -5459,6 +5607,7 @@ This clinical feature is Azoospermia (HP:0000027). HP:0000027 is a phenotype fro
             </div>
 
 
+
             <div class="context-notes">Reported as small testes with azoospermia / non-obstructive azoospermia in 46,XY individuals.</div>
 
 
@@ -5477,6 +5626,8 @@ This clinical feature is Azoospermia (HP:0000027). HP:0000027 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5500,6 +5651,8 @@ This clinical feature is Azoospermia (HP:0000027). HP:0000027 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5560,6 +5713,9 @@ This clinical feature is Sertoli cell-only syndrome, annotated with Male inferti
 
 
 
+
+
+
     <details class="phenotype-contexts">
         <summary class="phenotype-contexts-toggle">
             Context-specific annotations (1)
@@ -5586,6 +5742,7 @@ This clinical feature is Sertoli cell-only syndrome, annotated with Male inferti
             </div>
 
 
+
             <div class="context-notes">Current local HPO does not expose a specific SCOS term, so this entry is anchored to the closest available male-infertility ancestor while keeping the histopathologic preferred term explicit.</div>
 
 
@@ -5604,6 +5761,8 @@ This clinical feature is Sertoli cell-only syndrome, annotated with Male inferti
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5631,13 +5790,87 @@ This clinical feature is Sertoli cell-only syndrome, annotated with Male inferti
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-germ-cell-tumor" data-dismech-node="Germ cell tumor" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Germ cell tumor
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+                        <span class="phenotype-term-label">Germ cell neoplasia</span>
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100728" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0100728</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Germ cell tumor, annotated with Germ cell neoplasia (HP:0100728). HP:0100728 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40684266" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40684266" target="_blank">PMID:40684266</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"both biallelic MCM8 and MCM9 variants are linked to hypogonadism and the early development of germ cell tumors."</div>
+
+
+                <div class="evidence-explanation">This supports early-onset germ cell tumors as the cancer phenotype linked to biallelic MCM8 variants.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
 
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">2</span>
+                    Cellular
+                    <span class="cat-count">1</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-chromosome-breakage" data-dismech-node="Chromosome breakage" data-dismech-type="phenotype">
@@ -5654,15 +5887,18 @@ This clinical feature is Sertoli cell-only syndrome, annotated with Male inferti
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0040012" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0040012</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0040012" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0040012</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Chromosome breakage (HP:0040012). HP:0040012 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5682,6 +5918,8 @@ This clinical feature is Chromosome breakage (HP:0040012). HP:0040012 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5707,6 +5945,8 @@ This clinical feature is Chromosome breakage (HP:0040012). HP:0040012 is a pheno
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5715,75 +5955,6 @@ This clinical feature is Chromosome breakage (HP:0040012). HP:0040012 is a pheno
 
 
                 <div class="evidence-explanation">An independent family confirms increased induced chromosomal breakage in MCM8-deficient cells.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-germ-cell-tumor" data-dismech-node="Germ cell tumor" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Germ cell tumor
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Germ cell neoplasia</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100728" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0100728</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Germ cell tumor, annotated with Germ cell neoplasia (HP:0100728). HP:0100728 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:40684266" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40684266" target="_blank">PMID:40684266</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"both biallelic MCM8 and MCM9 variants are linked to hypogonadism and the early development of germ cell tumors."</div>
-
-
-                <div class="evidence-explanation">This supports early-onset germ cell tumors as the cancer phenotype linked to biallelic MCM8 variants.</div>
 
 
 
@@ -5869,6 +6040,9 @@ This disease-associated gene is MCM8 (hgnc:16147). hgnc:16147 is a gene from the
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive inheritance</span>
@@ -5893,6 +6067,8 @@ This disease-associated gene is MCM8 (hgnc:16147). hgnc:16147 is a gene from the
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5914,6 +6090,8 @@ This disease-associated gene is MCM8 (hgnc:16147). hgnc:16147 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6018,6 +6196,20 @@ This treatment uses estradiol (CHEBI:23965). CHEBI:23965 is a therapeutic agent 
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Estrogen-based hormone replacement is used to treat hypoestrogenism in the ovarian-failure branch, support pubertal development, and reduce osteoporosis risk.</div>
 
 
@@ -6031,14 +6223,16 @@ This treatment uses estradiol (CHEBI:23965). CHEBI:23965 is a therapeutic agent 
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:25437880" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:25437880" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25437880" target="_blank">PMID:25437880</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6062,6 +6256,8 @@ This treatment uses estradiol (CHEBI:23965). CHEBI:23965 is a therapeutic agent 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6125,6 +6321,20 @@ This treatment is surveillance for malignancies, annotated with Cancer Screening
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Because biallelic MCM8 deficiency is associated with early-onset germ cell tumors, affected individuals may benefit from cancer surveillance, including imaging for gonadal or extragonadal germ cell tumors.</div>
 
 
@@ -6146,6 +6356,8 @@ This treatment is surveillance for malignancies, annotated with Cancer Screening
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6208,6 +6420,20 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Genetic counseling is appropriate for affected families because the condition is recessive, causes infertility in both sexes, and carries implications for reproductive planning and cancer surveillance.</div>
 
 
@@ -6229,6 +6455,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6258,6 +6486,394 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">4</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-targeted-molecular-testing">
+                <div class="item-name">
+                    Targeted molecular testing
+
+                </div>
+
+                <div class="item-desc">Exome or panel-based molecular testing can confirm the diagnosis by identifying biallelic pathogenic MCM8 variants in patients with primary gonadal failure.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        genetic testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15709" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-23">NCIT:C15709</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-23">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25873734" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25873734" target="_blank">PMID:25873734</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"we identified two novel homozygous mutations in the MCM8 gene: a splice (c.1954-1G&gt;A) and a frameshift (c.1469-1470insTA)."</div>
+
+
+                <div class="evidence-explanation">This supports molecular confirmation through gene-level sequencing.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-chromosome-breakage-assessment">
+                <div class="item-name">
+                    Chromosome breakage assessment
+
+                </div>
+
+                <div class="item-desc">Functional assessment of induced chromosome-break repair (e.g., after mitomycin C exposure) can help demonstrate the chromosomal-instability component of the disorder.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        clinical assessment
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C124351" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-24">NCIT:C124351</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-24">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25873734" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25873734" target="_blank">PMID:25873734</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Chromosomal breakage following exposure to mitomcyin C was significantly increased in cells from homozygous individuals for c.1954-1G&gt;A, as well as c.1469-1470insTA."</div>
+
+
+                <div class="evidence-explanation">Increased induced chromosomal breakage supports a disease-relevant functional diagnostic assay.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-hormonal-and-gonadal-evaluation">
+                <div class="item-name">
+                    Hormonal and gonadal evaluation
+
+                </div>
+
+                <div class="item-desc">Serum gonadotropins (FSH, LH) and sex-hormone levels characterize the endocrine phenotype. In 46,XX individuals, elevated FSH and LH with low estradiol confirm hypergonadotropic hypogonadism; in 46,XY individuals, semen analysis is required because severe spermatogenic failure can occur despite otherwise unremarkable findings.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        hormonal evaluation
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C124351" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-25">NCIT:C124351</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-25">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25437880" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25437880" target="_blank">PMID:25437880</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Here, we studied 3 sisters with primary amenorrhea, hypothyroidism, and hypergonadotropic hypogonadism."</div>
+
+
+                <div class="evidence-explanation">Hypergonadotropic hypogonadism is the endocrine hallmark that FSH/LH testing reveals in 46,XX individuals with MCM8 deficiency.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-andrological-evaluation">
+                <div class="item-name">
+                    Andrological evaluation
+
+                </div>
+
+                <div class="item-desc">Male patients should undergo semen analysis as the primary assessment for spermatogenic failure; non-obstructive azoospermia is the expected finding. Testicular biopsy can confirm Sertoli cell-only syndrome histology when sperm retrieval is considered.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        clinical assessment
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C124351" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-26">NCIT:C124351</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-26">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40064807" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40064807" target="_blank">PMID:40064807</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The testes tissue sections in the male showed a Sertoli cell-only syndrome (SCOS)."</div>
+
+
+                <div class="evidence-explanation">Testicular histology demonstrating Sertoli cell-only syndrome is part of the andrological evaluation of the male MCM8 branch.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -6418,8 +7034,8 @@ pathophysiology:
       chromatin recruitment of HR factors like Rad51 and RPA is impaired and HR
       strongly reduced.
     explanation: &gt;-
-      Mcm8-deficient cells fail to load RAD51, confirming the homologous-
-      recombination defect in vivo.
+      Mcm8-deficient cells fail to load RAD51, confirming the homologous-recombination
+      defect in vivo.
   downstream:
   - target: Meiotic arrest and germ cell depletion
     description: &gt;-
@@ -6885,7 +7501,7 @@ treatments:
   evidence:
   - reference: PMID:25437880
     reference_title: &#34;Exome sequencing reveals MCM8 mutation underlies ovarian failure and chromosomal instability.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Here, we studied 3 sisters with primary amenorrhea, hypothyroidism, and
@@ -7100,7 +7716,7 @@ diagnosis:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "MCM8-related gametogenic failure", "mondoId": "MONDO:0044776", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "MCM8-related_gametogenic_failure", "yamlRevision": "da76f1a8a4eb"};
+        const OS_CONFIG = {"diseaseName": "MCM8-related gametogenic failure", "mondoId": "MONDO:0044776", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "MCM8-related_gametogenic_failure", "yamlRevision": "50a52ed460ed"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2954,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2969,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3078,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3091,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3295,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3305,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3341,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3362,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3740,6 +3817,22 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3782,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 9</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 11</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Houge-Janssens%20Syndrome"
@@ -3932,7 +4025,7 @@
             <a class="stat-link" href="#pathophysiology">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⚙️</div>
-                <div class="stat-value">4</div>
+                <div class="stat-value">6</div>
                 <div class="stat-label">Pathophys.</div>
             </div>
             </a>
@@ -3953,7 +4046,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">9</div>
+                <div class="stat-value">11</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4019,7 +4112,7 @@
             <a class="stat-link" href="#references">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">📚</div>
-                <div class="stat-value">1</div>
+                <div class="stat-value">2</div>
                 <div class="stat-label">References</div>
             </div>
             </a>
@@ -4226,6 +4319,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4289,6 +4384,8 @@
                     <div class="item-name">
                         Houge-Janssens syndrome type 1 (PPP2R5D)
 
+                        <a class="subtype-term-link" href="http://purl.obolibrary.org/obo/MONDO_0014602" target="_blank">MONDO:0014602</a>
+
 
 
                     </div>
@@ -4298,9 +4395,28 @@
 
 
 
+                            <span class="subtype-gene-tag">
+                                PPP2R5D
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:9312" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:9312</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in PPP2R5D (hgnc:9312). hgnc:9312 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
                     </div>
 
-                    <div class="item-desc">Most well-characterized subtype, caused by de novo missense variants in PPP2R5D encoding the B56delta regulatory subunit. Features include macrocephaly, developmental delay, intellectual disability, seizures, ASD, and early-onset parkinsonism. Recurrent variants include E198K and E420K.
+                    <div class="item-desc">Most well-characterized subtype, caused by heterozygous missense variants - usually de novo - in PPP2R5D encoding the B56delta regulatory subunit. Features include macrocephaly, developmental delay, intellectual disability, seizures, ASD, and early-onset parkinsonism. Recurrent variants include E198K and E420K.
 </div>
 
 
@@ -4321,6 +4437,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4344,6 +4462,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4385,6 +4505,25 @@
 
 
 
+                            <span class="subtype-gene-tag">
+                                PPP2R1A
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:9302" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:9302</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in PPP2R1A (hgnc:9302). hgnc:9302 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
                     </div>
 
                     <div class="item-desc">Caused by de novo missense variants in PPP2R1A encoding the Aalpha scaffolding subunit. Recurrent hotspots include p.Arg182Trp and p.Arg183Gln in HEAT repeats 5-7. Developmental delay and intellectual disability are universal. Epilepsy occurs in ~51% and structural brain abnormalities in ~83%, with corpus callosum abnormalities and ventriculomegaly most frequent.
@@ -4410,6 +4549,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4431,6 +4572,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4472,6 +4615,25 @@
 
 
 
+                            <span class="subtype-gene-tag">
+                                PPP2CA
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:9299" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:9299</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in PPP2CA (hgnc:9299). hgnc:9299 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
                     </div>
 
                     <div class="item-desc">Caused by de novo missense and loss-of-function variants in PPP2CA encoding the Calpha catalytic subunit.
@@ -4495,6 +4657,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4536,6 +4700,25 @@
 
 
 
+                            <span class="subtype-gene-tag">
+                                PPP2R5C
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:9311" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:9311</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in PPP2R5C (hgnc:9311). hgnc:9311 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
                     </div>
 
                     <div class="item-desc">Caused by de novo missense variants in PPP2R5C encoding the B56gamma regulatory subunit. Clinical features are within the HJS spectrum with strongest resemblance to HJS type 1. Average intellectual disability is milder than other subtypes. Head circumferences are above average or macrocephalic. Pathogenic mechanism is dominant-negative on substrate dephosphorylation.
@@ -4559,6 +4742,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4600,13 +4785,14 @@
             <div class="card-header">
                 <div class="card-icon" style="background: #fef3c7; color: #d97706;">⚙</div>
                 <h2 class="card-title">Pathophysiology</h2>
-                <span class="card-count">4</span>
+                <span class="card-count">6</span>
             </div>
 
-            <div class="item-box pathophys-box anchor-target" id="pathophysiology-pp2a-subunit-mutations" data-dismech-node="PP2A subunit mutations" data-dismech-type="pathophysiology">
-                <div class="item-name">PP2A subunit mutations</div>
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-pp2a-b56-regulatory-subunit-variants" data-dismech-node="PP2A B56 Regulatory Subunit Variants" data-dismech-type="pathophysiology">
+                <div class="item-name">PP2A B56 Regulatory Subunit Variants</div>
 
-                <div class="item-desc">De novo dominant missense variants in PP2A subunit genes (PPP2R5D, PPP2R1A, PPP2CA, PPP2R5C) disrupt the structure or function of the affected subunit. In PPP2R5D, variants such as E198K and E420K cause dominant-negative effects rather than loss of function.
+
+                <div class="item-desc">Heterozygous missense variants - typically but not invariably de novo - in the two B56-family regulatory subunit genes of PP2A: PPP2R5D, encoding B56delta (HJS type 1), and PPP2R5C, encoding B56gamma (HJS type 4). For both, the reported mechanism is dominant-negative interference with substrate dephosphorylation rather than loss of function - PPP2R5D-null neurons do not reproduce the patient overgrowth phenotype, and PPP2R5C total loss-of-function alleles can be inherited from an unaffected parent. Recurrent PPP2R5D variants include E198K and E420K.
 </div>
 
 
@@ -4629,91 +4815,13 @@
         PPP2R5D
 
 
-    <a href="https://bioregistry.io/hgnc:9312" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:9312</a>
+    <a href="https://bioregistry.io/hgnc:9312" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-5">hgnc:9312</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-5">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves PPP2R5D (hgnc:9312). hgnc:9312 is a gene from the HUGO Gene Nomenclature Committee.</span>
-    </span>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    <span class="tag tag-gene">
-
-        PPP2R1A
-
-
-    <a href="https://bioregistry.io/hgnc:9302" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:9302</a>
-
-
-
-        <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves PPP2R1A (hgnc:9302). hgnc:9302 is a gene from the HUGO Gene Nomenclature Committee.</span>
-    </span>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    <span class="tag tag-gene">
-
-        PPP2CA
-
-
-    <a href="https://bioregistry.io/hgnc:9299" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-3">hgnc:9299</a>
-
-
-
-        <span class="pill-tip" role="tooltip" id="pill-tip-3">HUGO Gene Nomenclature Committee (hgnc)
-Relation: this pathophysiological event involves this gene
-This pathophysiological event involves PPP2CA (hgnc:9299). hgnc:9299 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
 
 
@@ -4746,11 +4854,11 @@ This pathophysiological event involves PPP2CA (hgnc:9299). hgnc:9299 is a gene f
         PPP2R5C
 
 
-    <a href="https://bioregistry.io/hgnc:9311" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:9311</a>
+    <a href="https://bioregistry.io/hgnc:9311" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-6">hgnc:9311</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-6">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this pathophysiological event involves this gene
 This pathophysiological event involves PPP2R5C (hgnc:9311). hgnc:9311 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -4775,6 +4883,115 @@ This pathophysiological event involves PPP2R5C (hgnc:9311). hgnc:9311 is a gene 
 
 
 
+    <div class="item-meta">
+        <span class="tag tag-classification">Genetic context</span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        PPP2R5D
+
+
+    <a href="https://bioregistry.io/hgnc:9312" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-7">hgnc:9312</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-7">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this genetic context concerns this gene
+This genetic context concerns PPP2R5D (hgnc:9312). hgnc:9312 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        PPP2R5C
+
+
+    <a href="https://bioregistry.io/hgnc:9311" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-8">hgnc:9311</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-8">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this genetic context concerns this gene
+This genetic context concerns PPP2R5C (hgnc:9311). hgnc:9311 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        <span class="tag tag-classification">variant_origin: DE_NOVO</span>
+
+
+
+
+        <span class="tag tag-classification">zygosity: HETEROZYGOUS</span>
+
+
+
+        <span class="tag tag-classification">functional_impact_category: DOMINANT_NEGATIVE</span>
+
+    </div>
+
+
+
+
+
+
 
 
 
@@ -4792,7 +5009,246 @@ This pathophysiological event involves PPP2R5C (hgnc:9311). hgnc:9311 is a gene 
 	                        <div class="crosslink-item">
 	                            <span class="crosslink-meta">Disrupted PP2A holoenzyme assembly and function</span>
 
-	                            <span class="crosslink-desc">Mutant subunits impair holoenzyme assembly or catalytic activity through dominant-negative mechanisms.</span>
+	                            <span class="crosslink-desc">Mutant B56 regulatory subunits impair holoenzyme assembly or substrate dephosphorylation through a dominant-negative mechanism.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40555839" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40555839" target="_blank">PMID:40555839</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"dominant pathogenic variants in at least two B subunits (PPP2R5D in HJS type 1 and PPP2R5C in HJS type 4), the major scaffolding subunit (PPP2R1A in HJS type 2) and the major catalytic subunit (PPP2CA in HJS type 3) can cause Houge-Janssens syndrome."</div>
+
+
+                <div class="evidence-explanation">Assigns PPP2R5D and PPP2R5C to the B-subunit role of the PP2A holoenzyme, which is what this node groups.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40340253" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40340253" target="_blank">PMID:40340253</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
+
+                </div>
+
+                <div class="evidence-snippet">"neuronal overgrowth phenotypes were not observed in neurons lacking PPP2R5D, suggesting the disorder does not result from loss of function."</div>
+
+
+                <div class="evidence-explanation">Supports the dominant-negative rather than loss-of-function reading of the B56delta variants recorded on this node.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39978342" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39978342" target="_blank">PMID:39978342</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"PPP2R5C total loss-of-function variants could be inherited from a non-symptomatic parent. This implies that a dominant-negative mechanism on substrate dephosphorylation or general PP2A function is the most likely pathogenic mechanism."</div>
+
+
+                <div class="evidence-explanation">Supports the same dominant-negative reading for the B56gamma variants recorded on this node.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-pp2a-scaffolding-a-alpha-subunit-variants" data-dismech-node="PP2A Scaffolding A-alpha Subunit Variants" data-dismech-type="pathophysiology">
+                <div class="item-name">PP2A Scaffolding A-alpha Subunit Variants</div>
+
+
+                <div class="item-desc">De novo heterozygous missense variants in PPP2R1A, which encodes the Aalpha scaffolding subunit of PP2A (HJS type 2). Reported variants cluster within HEAT repeats 5-7, with p.Arg182Trp and p.Arg183Gln the recurrent hotspots.
+</div>
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        PPP2R1A
+
+
+    <a href="https://bioregistry.io/hgnc:9302" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-9">hgnc:9302</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-9">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PPP2R1A (hgnc:9302). hgnc:9302 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+    <div class="item-meta">
+        <span class="tag tag-classification">Genetic context</span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        PPP2R1A
+
+
+    <a href="https://bioregistry.io/hgnc:9302" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-10">hgnc:9302</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-10">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this genetic context concerns this gene
+This genetic context concerns PPP2R1A (hgnc:9302). hgnc:9302 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        <span class="tag tag-classification">variant_origin: DE_NOVO</span>
+
+
+
+
+        <span class="tag tag-classification">zygosity: HETEROZYGOUS</span>
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Disrupted PP2A holoenzyme assembly and function</span>
+
+	                            <span class="crosslink-desc">Loss of normal scaffolding-subunit function is one route to the PP2A dysfunction that causes Houge-Janssens syndrome.</span>
 
 
 	                        </div>
@@ -4818,37 +5274,228 @@ This pathophysiological event involves PPP2R5C (hgnc:9311). hgnc:9311 is a gene 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"Houge-Janssens syndrome (HJS) is caused by protein phosphatase type 2A (PP2A) dysfunction."</div>
+                <div class="evidence-snippet">"the major scaffolding subunit (PPP2R1A in HJS type 2)"</div>
 
 
-                <div class="evidence-explanation">Overview paper establishing PP2A dysfunction as the unifying cause of HJS.</div>
+                <div class="evidence-explanation">Assigns PPP2R1A to the scaffolding-subunit role of the PP2A holoenzyme, which is what this node records.</div>
 
 
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:39978342" data-dismech-supports="SUPPORT">
+            <div class="evidence-item" data-dismech-evidence="PMID:41465181" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39978342" target="_blank">PMID:39978342</a>
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41465181" target="_blank">PMID:41465181</a>
                     </span>
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"a dominant-negative mechanism on substrate dephosphorylation or general PP2A function is the most likely pathogenic mechanism."</div>
+                <div class="evidence-snippet">"Twenty-six distinct pathogenic variants were identified; these were predominantly de novo heterozygous missense changes clustering within HEAT repeats 5-7."</div>
 
 
-                <div class="evidence-explanation">Establishes dominant-negative mechanism in PPP2R5C (HJS type 4), generalizable to other subtypes.</div>
+                <div class="evidence-explanation">Supports the de novo heterozygous missense allele class and the HEAT repeat 5-7 clustering recorded on this node.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+	            </div>
+
+            <div class="item-box pathophys-box anchor-target" id="pathophysiology-pp2a-catalytic-c-alpha-subunit-variants" data-dismech-node="PP2A Catalytic C-alpha Subunit Variants" data-dismech-type="pathophysiology">
+                <div class="item-name">PP2A Catalytic C-alpha Subunit Variants</div>
+
+
+                <div class="item-desc">De novo missense and loss-of-function variants in PPP2CA, which encodes the Calpha catalytic subunit of PP2A (HJS type 3) - the subunit that carries the phosphatase activity of the holoenzyme.
+</div>
+
+
+
+
+
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        PPP2CA
+
+
+    <a href="https://bioregistry.io/hgnc:9299" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-11">hgnc:9299</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-11">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PPP2CA (hgnc:9299). hgnc:9299 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
+
+
+    <div class="item-meta">
+        <span class="tag tag-classification">Genetic context</span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        PPP2CA
+
+
+    <a href="https://bioregistry.io/hgnc:9299" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-12">hgnc:9299</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-12">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this genetic context concerns this gene
+This genetic context concerns PPP2CA (hgnc:9299). hgnc:9299 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+        <span class="tag tag-classification">variant_origin: DE_NOVO</span>
+
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	                <div class="crosslink-block">
+	                    <div class="crosslink-title">Downstream</div>
+	                    <div class="crosslink-list">
+
+	                        <div class="crosslink-item">
+	                            <span class="crosslink-meta">Disrupted PP2A holoenzyme assembly and function</span>
+
+	                            <span class="crosslink-desc">Loss of normal catalytic-subunit function is one route to the PP2A dysfunction that causes Houge-Janssens syndrome.</span>
+
+
+	                        </div>
+
+	                    </div>
+	                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40555839" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40555839" target="_blank">PMID:40555839</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the major catalytic subunit (PPP2CA in HJS type 3) can cause Houge-Janssens syndrome."</div>
+
+
+                <div class="evidence-explanation">Assigns PPP2CA to the catalytic-subunit role of the PP2A holoenzyme, which is what this node records.</div>
 
 
 
@@ -4863,6 +5510,7 @@ This pathophysiological event involves PPP2R5C (hgnc:9311). hgnc:9311 is a gene 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-pp2a-holoenzyme-assembly-and-function" data-dismech-node="Disrupted PP2A holoenzyme assembly and function" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted PP2A holoenzyme assembly and function</div>
+
 
                 <div class="item-desc">Pathogenic variants impair the assembly of the PP2A heterotrimer (A-B-C complex) or disrupt substrate binding by the regulatory B subunit. In PPP2R5D, most pathogenic missense variants cluster in conserved regions and impair holoenzyme assembly. In PPP2R5C, variants affect substrate binding, C-subunit binding, or both. Catalytic activity of the phosphatase is variably affected.
 </div>
@@ -4886,11 +5534,11 @@ This pathophysiological event involves PPP2R5C (hgnc:9311). hgnc:9311 is a gene 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006470" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0006470</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006470" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0006470</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased Protein dephosphorylation (GO:0006470). GO:0006470 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4954,6 +5602,8 @@ This pathophysiological event involves decreased Protein dephosphorylation (GO:0
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4975,6 +5625,8 @@ This pathophysiological event involves decreased Protein dephosphorylation (GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5000,6 +5652,7 @@ This pathophysiological event involves decreased Protein dephosphorylation (GO:0
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-overactivation-of-growth-promoting-kinase-pathways" data-dismech-node="Overactivation of growth-promoting kinase pathways" data-dismech-type="pathophysiology">
                 <div class="item-name">Overactivation of growth-promoting kinase pathways</div>
 
+
                 <div class="item-desc">PP2A normally opposes the activity of serine/threonine protein kinases of the PIK3CA/AKT/mTOR and RAS/MAPK pathways. Decreased PP2A activity leads to sustained activation of these growth-promoting pathways, converging on mTORC1/p70S6K/RPS6 signaling. Phosphoproteomic analysis of PPP2R5D variant cells shows RPS6 hyperphosphorylation as a shared signaling alteration, with ERK-dependent mTORC1 activation in both E198K and E420K variants, and additional AKT-mediated mTORC1 activation in the E420K variant.
 </div>
 
@@ -5022,11 +5675,11 @@ This pathophysiological event involves decreased Protein dephosphorylation (GO:0
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0031929" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0031929</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0031929" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-14">GO:0031929</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased TOR signaling (GO:0031929). GO:0031929 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5056,11 +5709,11 @@ This pathophysiological event involves increased TOR signaling (GO:0031929). GO:
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0000165" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-7">GO:0000165</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0000165" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0000165</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased MAPK cascade (GO:0000165). GO:0000165 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5090,11 +5743,11 @@ This pathophysiological event involves increased MAPK cascade (GO:0000165). GO:0
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007265" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0007265</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007265" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-16">GO:0007265</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves increased Ras protein signal transduction (GO:0007265). GO:0007265 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5158,6 +5811,8 @@ This pathophysiological event involves increased Ras protein signal transduction
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5181,6 +5836,8 @@ This pathophysiological event involves increased Ras protein signal transduction
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5202,6 +5859,8 @@ This pathophysiological event involves increased Ras protein signal transduction
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5229,6 +5888,7 @@ This pathophysiological event involves increased Ras protein signal transduction
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-neuronal-development" data-dismech-node="Disrupted neuronal development" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted neuronal development</div>
 
+
                 <div class="item-desc">Patient-derived iPSC neural progenitors are hyper-proliferative, and cortical glutamatergic neurons show increased neurite outgrowth. RNA-seq reveals disruptions in pathways critical for neuronal development, synaptic signaling, and axon guidance. Importantly, these overgrowth phenotypes are not seen in PPP2R5D-null neurons, confirming dominant-negative rather than loss-of-function effects.
 </div>
 
@@ -5244,11 +5904,11 @@ This pathophysiological event involves increased Ras protein signal transduction
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0011020" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0011020</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0011020" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-17">CL:0011020</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves Neural progenitor cell (CL:0011020). CL:0011020 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5285,11 +5945,11 @@ This pathophysiological event involves Neural progenitor cell (CL:0011020). CL:0
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007399" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0007399</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007399" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-18">GO:0007399</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves abnormal Nervous system development (GO:0007399). GO:0007399 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5338,6 +5998,8 @@ This pathophysiological event involves abnormal Nervous system development (GO:0
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5361,6 +6023,8 @@ This pathophysiological event involves abnormal Nervous system development (GO:0
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5382,6 +6046,8 @@ This pathophysiological event involves abnormal Nervous system development (GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5429,7 +6095,7 @@ This pathophysiological event involves abnormal Nervous system development (GO:0
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Disrupted PP2A holoenzyme assembly and function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic variants impair the assembly of the PP2A heterotrimer (A-B-C complex) or disrupt substrate binding by the regulatory B subunit. In PPP2R5D, most pathogenic missense variants cluster in conserved regions and impair holoenzyme assembly. In PPP2R5C, variants affect substrate binding, C-subunit binding, or both. Catalytic activity of the phosphatase is variably affected.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Protein dephosphorylation\"]}}, {\"id\": \"Disrupted neuronal development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient-derived iPSC neural progenitors are hyper-proliferative, and cortical glutamatergic neurons show increased neurite outgrowth. RNA-seq reveals disruptions in pathways critical for neuronal development, synaptic signaling, and axon guidance. Importantly, these overgrowth phenotypes are not seen in PPP2R5D-null neurons, confirming dominant-negative rather than loss-of-function effects.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Neural progenitor cell\"], \"biological_processes\": [\"Nervous system development\"]}}, {\"id\": \"E198K\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Most common disease-causing missense variant in PPP2R5D. Allele-specific antisense oligonucleotides targeting this variant can reverse neuronal overgrowth phenotypes in patient-derived neurons.\\n\", \"meta\": {\"evidence_count\": 1, \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Overactivation of growth-promoting kinase pathways\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PP2A normally opposes the activity of serine/threonine protein kinases of the PIK3CA/AKT/mTOR and RAS/MAPK pathways. Decreased PP2A activity leads to sustained activation of these growth-promoting pathways, converging on mTORC1/p70S6K/RPS6 signaling. Phosphoproteomic analysis of PPP2R5D variant cells shows RPS6 hyperphosphorylation as a shared signaling alteration, with ERK-dependent mTORC1 activation in both E198K and E420K variants, and additional AKT-mediated mTORC1 activation in the E420K variant.\\n\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"TOR signaling\", \"MAPK cascade\", \"Ras protein signal transduction\"]}}, {\"id\": \"PP2A subunit mutations\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"De novo dominant missense variants in PP2A subunit genes (PPP2R5D, PPP2R1A, PPP2CA, PPP2R5C) disrupt the structure or function of the affected subunit. In PPP2R5D, variants such as E198K and E420K cause dominant-negative effects rather than loss of function.\\n\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"PPP2R5D\", \"PPP2R1A\", \"PPP2CA\", \"PPP2R5C\"], \"gene_terms\": [{\"label\": \"PPP2R5D\", \"id\": \"hgnc:9312\"}, {\"label\": \"PPP2R1A\", \"id\": \"hgnc:9302\"}, {\"label\": \"PPP2CA\", \"id\": \"hgnc:9299\"}, {\"label\": \"PPP2R5C\", \"id\": \"hgnc:9311\"}]}}, {\"id\": \"PPP2CA\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PPP2CA\"], \"gene_terms\": [{\"label\": \"PPP2CA\", \"id\": \"hgnc:9299\"}], \"association\": \"Causative\"}}, {\"id\": \"PPP2R1A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PPP2R1A\"], \"gene_terms\": [{\"label\": \"PPP2R1A\", \"id\": \"hgnc:9302\"}], \"association\": \"Causative\"}}, {\"id\": \"PPP2R5C\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PPP2R5C\"], \"gene_terms\": [{\"label\": \"PPP2R5C\", \"id\": \"hgnc:9311\"}], \"association\": \"Causative\"}}, {\"id\": \"PPP2R5D\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"PPP2R5D\"], \"gene_terms\": [{\"label\": \"PPP2R5D\", \"id\": \"hgnc:9312\"}], \"association\": \"Causative\", \"variant_count\": 1}}], \"edges\": [{\"source\": \"PP2A subunit mutations\", \"target\": \"Disrupted PP2A holoenzyme assembly and function\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mutant subunits impair holoenzyme assembly or catalytic activity through dominant-negative mechanisms.\"}, {\"source\": \"Disrupted PP2A holoenzyme assembly and function\", \"target\": \"Overactivation of growth-promoting kinase pathways\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced PP2A dephosphorylation activity leads to sustained kinase signaling.\"}, {\"source\": \"Overactivation of growth-promoting kinase pathways\", \"target\": \"Disrupted neuronal development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Overactive growth signaling impairs normal neural progenitor proliferation and differentiation.\"}, {\"source\": \"PPP2R5D\", \"target\": \"PP2A subunit mutations\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PPP2R1A\", \"target\": \"PP2A subunit mutations\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PPP2CA\", \"target\": \"PP2A subunit mutations\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PPP2R5C\", \"target\": \"PP2A subunit mutations\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"E198K\", \"target\": \"PPP2R5D\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Disrupted PP2A holoenzyme assembly and function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic variants impair the assembly of the PP2A heterotrimer (A-B-C complex) or disrupt substrate binding by the regulatory B subunit. In PPP2R5D, most pathogenic missense variants cluster in conserved regions and impair holoenzyme assembly. In PPP2R5C, variants affect substrate binding, C-subunit binding, or both. Catalytic activity of the phosphatase is variably affected.\\n\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Protein dephosphorylation\"]}}, {\"id\": \"Disrupted neuronal development\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Patient-derived iPSC neural progenitors are hyper-proliferative, and cortical glutamatergic neurons show increased neurite outgrowth. RNA-seq reveals disruptions in pathways critical for neuronal development, synaptic signaling, and axon guidance. Importantly, these overgrowth phenotypes are not seen in PPP2R5D-null neurons, confirming dominant-negative rather than loss-of-function effects.\\n\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"Neural progenitor cell\"], \"biological_processes\": [\"Nervous system development\"]}}, {\"id\": \"E198K\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Most common disease-causing missense variant in PPP2R5D. Allele-specific antisense oligonucleotides targeting this variant can reverse neuronal overgrowth phenotypes in patient-derived neurons.\\n\", \"meta\": {\"evidence_count\": 1, \"clinical_significance\": \"PATHOGENIC\"}}, {\"id\": \"Overactivation of growth-promoting kinase pathways\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PP2A normally opposes the activity of serine/threonine protein kinases of the PIK3CA/AKT/mTOR and RAS/MAPK pathways. Decreased PP2A activity leads to sustained activation of these growth-promoting pathways, converging on mTORC1/p70S6K/RPS6 signaling. Phosphoproteomic analysis of PPP2R5D variant cells shows RPS6 hyperphosphorylation as a shared signaling alteration, with ERK-dependent mTORC1 activation in both E198K and E420K variants, and additional AKT-mediated mTORC1 activation in the E420K variant.\\n\", \"meta\": {\"evidence_count\": 4, \"biological_processes\": [\"TOR signaling\", \"MAPK cascade\", \"Ras protein signal transduction\"]}}, {\"id\": \"PP2A B56 Regulatory Subunit Variants\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Heterozygous missense variants - typically but not invariably de novo - in the two B56-family regulatory subunit genes of PP2A: PPP2R5D, encoding B56delta (HJS type 1), and PPP2R5C, encoding B56gamma (HJS type 4). For both, the reported mechanism is dominant-negative interference with substrate dephosphorylation rather than loss of function - PPP2R5D-null neurons do not reproduce the patient overgrowth phenotype, and PPP2R5C total loss-of-function alleles can be inherited from an unaffected parent. Recurrent PPP2R5D variants include E198K and E420K.\\n\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"PPP2R5D\", \"PPP2R5C\"], \"gene_terms\": [{\"label\": \"PPP2R5D\", \"id\": \"hgnc:9312\"}, {\"label\": \"PPP2R5C\", \"id\": \"hgnc:9311\"}], \"genetic_context\": {\"variant_origin\": \"DE_NOVO\", \"zygosity\": \"HETEROZYGOUS\", \"functional_impact_category\": \"DOMINANT_NEGATIVE\", \"gene_terms\": [{\"label\": \"PPP2R5D\", \"id\": \"hgnc:9312\"}, {\"label\": \"PPP2R5C\", \"id\": \"hgnc:9311\"}]}, \"subtypes\": [\"Houge-Janssens syndrome type 1 (PPP2R5D)\", \"Houge-Janssens syndrome type 4 (PPP2R5C)\"], \"role\": \"trigger\"}}, {\"id\": \"PP2A Catalytic C-alpha Subunit Variants\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"De novo missense and loss-of-function variants in PPP2CA, which encodes the Calpha catalytic subunit of PP2A (HJS type 3) - the subunit that carries the phosphatase activity of the holoenzyme.\\n\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"PPP2CA\"], \"gene_terms\": [{\"label\": \"PPP2CA\", \"id\": \"hgnc:9299\"}], \"genetic_context\": {\"variant_origin\": \"DE_NOVO\", \"gene_terms\": [{\"label\": \"PPP2CA\", \"id\": \"hgnc:9299\"}]}, \"subtypes\": [\"Houge-Janssens syndrome type 3 (PPP2CA)\"], \"role\": \"trigger\"}}, {\"id\": \"PP2A Scaffolding A-alpha Subunit Variants\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"De novo heterozygous missense variants in PPP2R1A, which encodes the Aalpha scaffolding subunit of PP2A (HJS type 2). Reported variants cluster within HEAT repeats 5-7, with p.Arg182Trp and p.Arg183Gln the recurrent hotspots.\\n\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"PPP2R1A\"], \"gene_terms\": [{\"label\": \"PPP2R1A\", \"id\": \"hgnc:9302\"}], \"genetic_context\": {\"variant_origin\": \"DE_NOVO\", \"zygosity\": \"HETEROZYGOUS\", \"gene_terms\": [{\"label\": \"PPP2R1A\", \"id\": \"hgnc:9302\"}]}, \"subtypes\": [\"Houge-Janssens syndrome type 2 (PPP2R1A)\"], \"role\": \"trigger\"}}, {\"id\": \"PPP2CA\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PPP2CA\"], \"gene_terms\": [{\"label\": \"PPP2CA\", \"id\": \"hgnc:9299\"}], \"subtypes\": [\"Houge-Janssens syndrome type 3 (PPP2CA)\"], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"PPP2R1A\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PPP2R1A\"], \"gene_terms\": [{\"label\": \"PPP2R1A\", \"id\": \"hgnc:9302\"}], \"subtypes\": [\"Houge-Janssens syndrome type 2 (PPP2R1A)\"], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"PPP2R5C\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 1, \"genes\": [\"PPP2R5C\"], \"gene_terms\": [{\"label\": \"PPP2R5C\", \"id\": \"hgnc:9311\"}], \"subtypes\": [\"Houge-Janssens syndrome type 4 (PPP2R5C)\"], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"PPP2R5D\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 4, \"genes\": [\"PPP2R5D\"], \"gene_terms\": [{\"label\": \"PPP2R5D\", \"id\": \"hgnc:9312\"}], \"subtypes\": [\"Houge-Janssens syndrome type 1 (PPP2R5D)\"], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\", \"variant_count\": 1}}], \"edges\": [{\"source\": \"PP2A B56 Regulatory Subunit Variants\", \"target\": \"Disrupted PP2A holoenzyme assembly and function\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Mutant B56 regulatory subunits impair holoenzyme assembly or substrate dephosphorylation through a dominant-negative mechanism.\"}, {\"source\": \"PP2A Scaffolding A-alpha Subunit Variants\", \"target\": \"Disrupted PP2A holoenzyme assembly and function\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of normal scaffolding-subunit function is one route to the PP2A dysfunction that causes Houge-Janssens syndrome.\"}, {\"source\": \"PP2A Catalytic C-alpha Subunit Variants\", \"target\": \"Disrupted PP2A holoenzyme assembly and function\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of normal catalytic-subunit function is one route to the PP2A dysfunction that causes Houge-Janssens syndrome.\"}, {\"source\": \"Disrupted PP2A holoenzyme assembly and function\", \"target\": \"Overactivation of growth-promoting kinase pathways\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced PP2A dephosphorylation activity leads to sustained kinase signaling.\"}, {\"source\": \"Overactivation of growth-promoting kinase pathways\", \"target\": \"Disrupted neuronal development\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Overactive growth signaling impairs normal neural progenitor proliferation and differentiation.\"}, {\"source\": \"PPP2R5D\", \"target\": \"PP2A B56 Regulatory Subunit Variants\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PPP2R1A\", \"target\": \"PP2A Scaffolding A-alpha Subunit Variants\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PPP2CA\", \"target\": \"PP2A Catalytic C-alpha Subunit Variants\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PPP2R5C\", \"target\": \"PP2A B56 Regulatory Subunit Variants\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"E198K\", \"target\": \"PPP2R5D\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5483,15 +6149,18 @@ This pathophysiological event involves abnormal Nervous system development (GO:0
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001028" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0001028</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001028" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001028</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hemangioma (HP:0001028). HP:0001028 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5511,6 +6180,8 @@ This clinical feature is Hemangioma (HP:0001028). HP:0001028 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5552,15 +6223,18 @@ This clinical feature is Hemangioma (HP:0001028). HP:0001028 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0001627</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001627" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001627</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Congenital heart defect, annotated with Abnormal heart morphology (HP:0001627). HP:0001627 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5580,6 +6254,8 @@ This clinical feature is Congenital heart defect, annotated with Abnormal heart 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5630,15 +6306,18 @@ This clinical feature is Congenital heart defect, annotated with Abnormal heart 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000256" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0000256</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000256" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000256</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Macrocephaly (HP:0000256). HP:0000256 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5658,6 +6337,8 @@ This clinical feature is Macrocephaly (HP:0000256). HP:0000256 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5683,6 +6364,8 @@ This clinical feature is Macrocephaly (HP:0000256). HP:0000256 is a phenotype fr
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5704,6 +6387,8 @@ This clinical feature is Macrocephaly (HP:0000256). HP:0000256 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5745,15 +6430,18 @@ This clinical feature is Macrocephaly (HP:0000256). HP:0000256 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000252</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000252</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5773,6 +6461,8 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5814,15 +6504,18 @@ This clinical feature is Microcephaly (HP:0000252). HP:0000252 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001999</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001999" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001999</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Dysmorphic facial features, annotated with Abnormal facial shape (HP:0001999). HP:0001999 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5842,6 +6535,8 @@ This clinical feature is Dysmorphic facial features, annotated with Abnormal fac
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5865,6 +6560,8 @@ This clinical feature is Dysmorphic facial features, annotated with Abnormal fac
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5915,15 +6612,18 @@ This clinical feature is Dysmorphic facial features, annotated with Abnormal fac
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001252</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001252" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001252</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5943,6 +6643,8 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5966,6 +6668,8 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6016,15 +6720,18 @@ This clinical feature is Hypotonia (HP:0001252). HP:0001252 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001263</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6044,6 +6751,8 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6067,6 +6776,8 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6108,15 +6819,18 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000750</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000750" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0000750</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Delayed speech and language development (HP:0000750). HP:0000750 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6136,6 +6850,8 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6177,15 +6893,18 @@ This clinical feature is Delayed speech and language development (HP:0000750). H
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001249</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001249" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001249</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6205,6 +6924,8 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6228,6 +6949,8 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6269,15 +6992,18 @@ This clinical feature is Intellectual disability (HP:0001249). HP:0001249 is a p
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0001250</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001250" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001250</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Seizures, annotated with Seizure (HP:0001250). HP:0001250 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6297,6 +7023,8 @@ This clinical feature is Seizures, annotated with Seizure (HP:0001250). HP:00012
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6320,6 +7048,8 @@ This clinical feature is Seizures, annotated with Seizure (HP:0001250). HP:00012
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6359,15 +7089,18 @@ This clinical feature is Seizures, annotated with Seizure (HP:0001250). HP:00012
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000729" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000729</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000729" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0000729</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6387,6 +7120,8 @@ This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6428,15 +7163,18 @@ This clinical feature is Autistic behavior (HP:0000729). HP:0000729 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001273" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001273</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001273" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001273</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Abnormal corpus callosum morphology (HP:0001273). HP:0001273 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6456,6 +7194,8 @@ This clinical feature is Abnormal corpus callosum morphology (HP:0001273). HP:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6479,6 +7219,8 @@ This clinical feature is Abnormal corpus callosum morphology (HP:0001273). HP:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6520,15 +7262,18 @@ This clinical feature is Abnormal corpus callosum morphology (HP:0001273). HP:00
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002119" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0002119</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002119" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-31">HP:0002119</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6548,6 +7293,8 @@ This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6571,6 +7318,8 @@ This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6610,15 +7359,18 @@ This clinical feature is Ventriculomegaly (HP:0002119). HP:0002119 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001300" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001300</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001300" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-32">HP:0001300</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-32">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Parkinsonism (HP:0001300). HP:0001300 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6638,6 +7390,8 @@ This clinical feature is Parkinsonism (HP:0001300). HP:0001300 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6720,14 +7474,16 @@ This clinical feature is Parkinsonism (HP:0001300). HP:0001300 is a phenotype fr
                         Gene: PPP2R5D
 
 
-    <a href="https://bioregistry.io/hgnc:9312" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-25">hgnc:9312</a>
+    <a href="https://bioregistry.io/hgnc:9312" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-33">hgnc:9312</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-33">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is PPP2R5D (hgnc:9312). hgnc:9312 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
+
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
 
 
                 </div>
@@ -6735,9 +7491,12 @@ This disease-associated gene is PPP2R5D (hgnc:9312). hgnc:9312 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (2 references)
+            Show evidence (4 references)
         </summary>
         <div class="evidence-list">
 
@@ -6749,6 +7508,8 @@ This disease-associated gene is PPP2R5D (hgnc:9312). hgnc:9312 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -6774,6 +7535,8 @@ This disease-associated gene is PPP2R5D (hgnc:9312). hgnc:9312 is a gene from th
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6787,6 +7550,33 @@ This disease-associated gene is PPP2R5D (hgnc:9312). hgnc:9312 is a gene from th
 
             </div>
 
+            <div class="evidence-item" data-dismech-evidence="PMID:30676711" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30676711" target="_blank">PMID:30676711</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The diagnosis of PPP2R5D-NDD is established in a proband by identification of a heterozygous pathogenic variant in PPP2R5D by molecular genetic testing."</div>
+
+
+                <div class="evidence-explanation">GeneReviews baseline establishing heterozygous PPP2R5D variants as diagnostic of this subtype.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
 
         </div>
     </details>
@@ -6805,6 +7595,12 @@ This disease-associated gene is PPP2R5D (hgnc:9312). hgnc:9312 is a gene from th
         <span class="variant-significance variant-significance-pathogenic">Pathogenic</span>
 
     </div>
+
+
+
+
+
+
 
 
     <div class="item-desc">Most common disease-causing missense variant in PPP2R5D. Allele-specific antisense oligonucleotides targeting this variant can reverse neuronal overgrowth phenotypes in patient-derived neurons.
@@ -6832,6 +7628,8 @@ This disease-associated gene is PPP2R5D (hgnc:9312). hgnc:9312 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -6878,17 +7676,22 @@ This disease-associated gene is PPP2R5D (hgnc:9312). hgnc:9312 is a gene from th
                         Gene: PPP2R1A
 
 
-    <a href="https://bioregistry.io/hgnc:9302" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-26">hgnc:9302</a>
+    <a href="https://bioregistry.io/hgnc:9302" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-34">hgnc:9302</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-34">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is PPP2R1A (hgnc:9302). hgnc:9302 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
 
                 </div>
+
+
+
 
 
 
@@ -6907,6 +7710,8 @@ This disease-associated gene is PPP2R1A (hgnc:9302). hgnc:9302 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6948,17 +7753,22 @@ This disease-associated gene is PPP2R1A (hgnc:9302). hgnc:9302 is a gene from th
                         Gene: PPP2CA
 
 
-    <a href="https://bioregistry.io/hgnc:9299" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-27">hgnc:9299</a>
+    <a href="https://bioregistry.io/hgnc:9299" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-35">hgnc:9299</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-35">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is PPP2CA (hgnc:9299). hgnc:9299 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
 
                 </div>
+
+
+
 
 
 
@@ -6977,6 +7787,8 @@ This disease-associated gene is PPP2CA (hgnc:9299). hgnc:9299 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7018,17 +7830,22 @@ This disease-associated gene is PPP2CA (hgnc:9299). hgnc:9299 is a gene from the
                         Gene: PPP2R5C
 
 
-    <a href="https://bioregistry.io/hgnc:9311" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-28">hgnc:9311</a>
+    <a href="https://bioregistry.io/hgnc:9311" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-36">hgnc:9311</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-36">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is PPP2R5C (hgnc:9311). hgnc:9311 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
 
                 </div>
+
+
+
 
 
 
@@ -7047,6 +7864,8 @@ This disease-associated gene is PPP2R5C (hgnc:9311). hgnc:9311 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7096,7 +7915,7 @@ This disease-associated gene is PPP2R5C (hgnc:9311). hgnc:9311 is a gene from th
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-29">Supportive Care<span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-37">Supportive Care<span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7128,6 +7947,20 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Management is primarily supportive, focusing on speech therapy, physical therapy, occupational therapy, educational support, and behavioral interventions. No disease-modifying therapy is currently available.
 </div>
 
@@ -7150,6 +7983,8 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7180,7 +8015,7 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-30">speech therapy<span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-38">speech therapy<span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is speech therapy, annotated with Speech Language Therapy (NCIT:C159273). NCIT:C159273 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7213,6 +8048,31 @@ This treatment is speech therapy, annotated with Speech Language Therapy (NCIT:C
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Speech and language therapy to address the prominent language delay.
 </div>
 
@@ -7235,6 +8095,8 @@ This treatment is speech therapy, annotated with Speech Language Therapy (NCIT:C
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7265,7 +8127,7 @@ This treatment is speech therapy, annotated with Speech Language Therapy (NCIT:C
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-31">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-31">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-39">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-39">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7297,6 +8159,20 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Genetic counseling for families. Most variants are de novo with low recurrence risk, though PPP2R5C loss-of-function variants can be inherited.
 </div>
 
@@ -7319,6 +8195,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7349,7 +8227,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-32">mTOR pathway inhibition<span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-40">mTOR pathway inhibition<span class="pill-tip" role="tooltip" id="pill-tip-40">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is mTOR pathway inhibition, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7382,6 +8260,20 @@ This treatment is mTOR pathway inhibition, annotated with Pharmacotherapy (NCIT:
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Rapamycin (mTORC1 inhibitor) and LY2584702 (p70S6K inhibitor) suppress RPS6 hyperphosphorylation and increased cell size in PPP2R5D variant cells. These findings suggest mTOR pathway modulation as a potential mechanism-based therapeutic approach, though clinical trials have not yet been conducted.
 </div>
 
@@ -7406,6 +8298,8 @@ This treatment is mTOR pathway inhibition, annotated with Pharmacotherapy (NCIT:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7427,6 +8321,8 @@ This treatment is mTOR pathway inhibition, annotated with Pharmacotherapy (NCIT:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -7457,7 +8353,7 @@ This treatment is mTOR pathway inhibition, annotated with Pharmacotherapy (NCIT:
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-33">allele-specific antisense oligonucleotide therapy<span class="pill-tip" role="tooltip" id="pill-tip-33">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-41">allele-specific antisense oligonucleotide therapy<span class="pill-tip" role="tooltip" id="pill-tip-41">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is allele-specific antisense oligonucleotide therapy, annotated with Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -7490,6 +8386,20 @@ This treatment is allele-specific antisense oligonucleotide therapy, annotated w
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Allele-specific antisense oligonucleotides (ASOs) targeting the PPP2R5D E198K allele reverse neurite outgrowth defects in patient-derived neurons. This represents a potential precision-medicine approach for the most common HJS type 1 variant.
 </div>
 
@@ -7512,6 +8422,8 @@ This treatment is allele-specific antisense oligonucleotide therapy, annotated w
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -7580,6 +8492,8 @@ This treatment is allele-specific antisense oligonucleotide therapy, annotated w
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7631,6 +8545,8 @@ This treatment is allele-specific antisense oligonucleotide therapy, annotated w
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7652,6 +8568,120 @@ This treatment is allele-specific antisense oligonucleotide therapy, annotated w
             </div>
 
         </div>
+
+
+        <!-- Diagnosis -->
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-global">
+                <div class="item-name">Global</div>
+                <div class="item-meta">
+
+
+
+
+
+                </div>
+
+                <div class="item-notes">Houge-Janssens syndrome is rare. No formal prevalence estimates exist. The largest reported cohorts include 60 PPP2R1A patients (HJS type 2) and 26 PPP2R5C patients (HJS type 4). HJS type 1 (PPP2R5D) is the most commonly reported subtype, with multiple case series totaling over 50 patients.
+</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:41465181" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/41465181" target="_blank">PMID:41465181</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We identified 16 studies representing 60 patients with PPP2R1A-related disorders."</div>
+
+
+                <div class="evidence-explanation">Systematic review identified 60 PPP2R1A patients across 16 studies, indicating rarity.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39978342" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39978342" target="_blank">PMID:39978342</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"we describe an additional condition in the HJS spectrum in 26 individuals with variants in PPP2R5C"</div>
+
+
+                <div class="evidence-explanation">26 individuals reported for the HJS type 4 subtype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -7724,6 +8754,8 @@ This treatment is allele-specific antisense oligonucleotide therapy, annotated w
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7745,6 +8777,8 @@ This treatment is allele-specific antisense oligonucleotide therapy, annotated w
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7826,6 +8860,8 @@ This treatment is allele-specific antisense oligonucleotide therapy, annotated w
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7902,6 +8938,8 @@ This treatment is allele-specific antisense oligonucleotide therapy, annotated w
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7983,6 +9021,8 @@ This treatment is allele-specific antisense oligonucleotide therapy, annotated w
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8061,6 +9101,8 @@ This treatment is allele-specific antisense oligonucleotide therapy, annotated w
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8163,11 +9205,11 @@ This treatment is allele-specific antisense oligonucleotide therapy, annotated w
         PPP2R1A
 
 
-    <a href="https://bioregistry.io/hgnc:9302" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-34">hgnc:9302</a>
+    <a href="https://bioregistry.io/hgnc:9302" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-42">hgnc:9302</a>
 
 
 
-        <span class="pill-tip" role="tooltip" id="pill-tip-34">HUGO Gene Nomenclature Committee (hgnc)
+        <span class="pill-tip" role="tooltip" id="pill-tip-42">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this experimental model concerns this gene
 This experimental model concerns PPP2R1A (hgnc:9302). hgnc:9302 is a gene from the HUGO Gene Nomenclature Committee.</span>
     </span>
@@ -8278,11 +9320,21 @@ prevalence:
     explanation: 26 individuals reported for the HJS type 4 subtype.
 has_subtypes:
 - name: Houge-Janssens syndrome type 1 (PPP2R5D)
+  subtype_term:
+    preferred_term: Houge-Janssens syndrome 1
+    term:
+      id: MONDO:0014602
+      label: Houge-Janssens syndrome 1
   description: &gt;
-    Most well-characterized subtype, caused by de novo missense variants in PPP2R5D
-    encoding the B56delta regulatory subunit. Features include macrocephaly,
+    Most well-characterized subtype, caused by heterozygous missense variants -
+    usually de novo - in PPP2R5D encoding the B56delta regulatory subunit. Features include macrocephaly,
     developmental delay, intellectual disability, seizures, ASD, and early-onset
     parkinsonism. Recurrent variants include E198K and E420K.
+  genes:
+  - preferred_term: PPP2R5D
+    term:
+      id: hgnc:9312
+      label: PPP2R5D
   evidence:
   - reference: PMID:40555839
     reference_title: &#34;Houge-Janssens syndrome.&#34;
@@ -8315,6 +9367,11 @@ has_subtypes:
     and structural brain abnormalities in ~83%, with corpus callosum abnormalities
     and
     ventriculomegaly most frequent.
+  genes:
+  - preferred_term: PPP2R1A
+    term:
+      id: hgnc:9302
+      label: PPP2R1A
   evidence:
   - reference: PMID:41465181
     reference_title: &#34;Clinical and Molecular Spectrum of PPP2R1A-Related Neurodevelopmental Disorders: A Systematic Review.&#34;
@@ -8345,6 +9402,11 @@ has_subtypes:
   description: &gt;
     Caused by de novo missense and loss-of-function variants in PPP2CA encoding the
     Calpha catalytic subunit.
+  genes:
+  - preferred_term: PPP2CA
+    term:
+      id: hgnc:9299
+      label: PPP2CA
   evidence:
   - reference: PMID:40555839
     reference_title: &#34;Houge-Janssens syndrome.&#34;
@@ -8367,6 +9429,11 @@ has_subtypes:
     to HJS type 1. Average intellectual disability is milder than other subtypes.
     Head circumferences are above average or macrocephalic. Pathogenic mechanism is
     dominant-negative on substrate dephosphorylation.
+  genes:
+  - preferred_term: PPP2R5C
+    term:
+      id: hgnc:9311
+      label: PPP2R5C
   evidence:
   - reference: PMID:39978342
     reference_title: &#34;Pathogenic de novo variants in PPP2R5C cause a neurodevelopmental disorder within the Houge-Janssens syndrome spectrum.&#34;
@@ -8399,33 +9466,75 @@ inheritance:
     explanation: Overview confirms de novo dominant variants across PP2A
       subunits.
 pathophysiology:
-- name: PP2A subunit mutations
+- name: PP2A B56 Regulatory Subunit Variants
+  biological_scale: MOLECULAR
+  role: trigger
   description: &gt;
-    De novo dominant missense variants in PP2A subunit genes (PPP2R5D, PPP2R1A,
-    PPP2CA, PPP2R5C) disrupt the structure or function of the affected subunit.
-    In PPP2R5D, variants such as E198K and E420K cause dominant-negative effects
-    rather than loss of function.
+    Heterozygous missense variants - typically but not invariably de novo - in
+    the two B56-family regulatory subunit genes of PP2A: PPP2R5D, encoding
+    B56delta (HJS type 1), and PPP2R5C, encoding B56gamma (HJS type 4). For both, the reported mechanism is
+    dominant-negative interference with substrate dephosphorylation rather than
+    loss of function - PPP2R5D-null neurons do not reproduce the patient
+    overgrowth phenotype, and PPP2R5C total loss-of-function alleles can be
+    inherited from an unaffected parent. Recurrent PPP2R5D variants include E198K
+    and E420K.
+  subtypes:
+  - Houge-Janssens syndrome type 1 (PPP2R5D)
+  - Houge-Janssens syndrome type 4 (PPP2R5C)
   genes:
   - preferred_term: PPP2R5D
     term:
       id: hgnc:9312
       label: PPP2R5D
-  - preferred_term: PPP2R1A
-    term:
-      id: hgnc:9302
-      label: PPP2R1A
-  - preferred_term: PPP2CA
-    term:
-      id: hgnc:9299
-      label: PPP2CA
   - preferred_term: PPP2R5C
     term:
       id: hgnc:9311
       label: PPP2R5C
+  genetic_context:
+    genes:
+    - preferred_term: PPP2R5D
+      term:
+        id: hgnc:9312
+        label: PPP2R5D
+    - preferred_term: PPP2R5C
+      term:
+        id: hgnc:9311
+        label: PPP2R5C
+    variant_origin: DE_NOVO
+    zygosity: HETEROZYGOUS
+    functional_impact_category: DOMINANT_NEGATIVE
+  evidence:
+  - reference: PMID:40555839
+    reference_title: &#34;Houge-Janssens syndrome.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;dominant pathogenic variants in at least two B subunits (PPP2R5D in
+      HJS type 1 and PPP2R5C in HJS type 4), the major scaffolding subunit (PPP2R1A
+      in HJS type 2) and the major catalytic subunit (PPP2CA in HJS type 3) can cause
+      Houge-Janssens syndrome.&#34;
+    explanation: Assigns PPP2R5D and PPP2R5C to the B-subunit role of the PP2A
+      holoenzyme, which is what this node groups.
+  - reference: PMID:40340253
+    reference_title: &#34;Pathogenic PPP2R5D variants disrupt neuronal development and neurite outgrowth in patient-derived neurons that are reversed by allele-specific knockdown.&#34;
+    supports: SUPPORT
+    evidence_source: IN_VITRO
+    snippet: &#34;neuronal overgrowth phenotypes were not observed in neurons lacking
+      PPP2R5D, suggesting the disorder does not result from loss of function.&#34;
+    explanation: Supports the dominant-negative rather than loss-of-function
+      reading of the B56delta variants recorded on this node.
+  - reference: PMID:39978342
+    reference_title: &#34;Pathogenic de novo variants in PPP2R5C cause a neurodevelopmental disorder within the Houge-Janssens syndrome spectrum.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;PPP2R5C total loss-of-function variants could be inherited from a non-symptomatic
+      parent. This implies that a dominant-negative mechanism on substrate dephosphorylation
+      or general PP2A function is the most likely pathogenic mechanism.&#34;
+    explanation: Supports the same dominant-negative reading for the B56gamma
+      variants recorded on this node.
   downstream:
   - target: Disrupted PP2A holoenzyme assembly and function
-    description: Mutant subunits impair holoenzyme assembly or catalytic
-      activity through dominant-negative mechanisms.
+    description: Mutant B56 regulatory subunits impair holoenzyme assembly or
+      substrate dephosphorylation through a dominant-negative mechanism.
     evidence:
     - reference: PMID:39201832
       reference_title: &#34;Thirteen New Patients of PPP2R5D Gene Mutation and the Fine Profile of Genotype-Phenotype Correlation Unraveling the Pathogenic Mechanism Underlying Macrocephaly Phenotype.&#34;
@@ -8433,25 +9542,107 @@ pathophysiology:
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Except for E420K and T536R, other missense variants impaired holoenzyme
         assembly.&#34;
-      explanation: Demonstrates that PP2A subunit mutations lead to disrupted
-        holoenzyme assembly.
+      explanation: Directly measures impaired holoenzyme assembly for the
+        PPP2R5D missense variants.
+
+- name: PP2A Scaffolding A-alpha Subunit Variants
+  biological_scale: MOLECULAR
+  role: trigger
+  description: &gt;
+    De novo heterozygous missense variants in PPP2R1A, which encodes the Aalpha
+    scaffolding subunit of PP2A (HJS type 2). Reported variants cluster within
+    HEAT repeats 5-7, with p.Arg182Trp and p.Arg183Gln the recurrent hotspots.
+  subtypes:
+  - Houge-Janssens syndrome type 2 (PPP2R1A)
+  genes:
+  - preferred_term: PPP2R1A
+    term:
+      id: hgnc:9302
+      label: PPP2R1A
+  genetic_context:
+    genes:
+    - preferred_term: PPP2R1A
+      term:
+        id: hgnc:9302
+        label: PPP2R1A
+    variant_origin: DE_NOVO
+    zygosity: HETEROZYGOUS
   evidence:
   - reference: PMID:40555839
     reference_title: &#34;Houge-Janssens syndrome.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Houge-Janssens syndrome (HJS) is caused by protein phosphatase type
-      2A (PP2A) dysfunction.&#34;
-    explanation: Overview paper establishing PP2A dysfunction as the unifying
-      cause of HJS.
-  - reference: PMID:39978342
-    reference_title: &#34;Pathogenic de novo variants in PPP2R5C cause a neurodevelopmental disorder within the Houge-Janssens syndrome spectrum.&#34;
+    snippet: &#34;the major scaffolding subunit (PPP2R1A
+      in HJS type 2)&#34;
+    explanation: Assigns PPP2R1A to the scaffolding-subunit role of the PP2A
+      holoenzyme, which is what this node records.
+  - reference: PMID:41465181
+    reference_title: &#34;Clinical and Molecular Spectrum of PPP2R1A-Related Neurodevelopmental Disorders: A Systematic Review.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;a dominant-negative mechanism on substrate dephosphorylation or general
-      PP2A function is the most likely pathogenic mechanism.&#34;
-    explanation: Establishes dominant-negative mechanism in PPP2R5C (HJS type
-      4), generalizable to other subtypes.
+    snippet: &#34;Twenty-six distinct pathogenic variants were identified; these were
+      predominantly de novo heterozygous missense changes clustering within HEAT repeats
+      5-7.&#34;
+    explanation: Supports the de novo heterozygous missense allele class and the
+      HEAT repeat 5-7 clustering recorded on this node.
+  downstream:
+  - target: Disrupted PP2A holoenzyme assembly and function
+    description: Loss of normal scaffolding-subunit function is one route to
+      the PP2A dysfunction that causes Houge-Janssens syndrome.
+    evidence:
+    - reference: PMID:40555839
+      reference_title: &#34;Houge-Janssens syndrome.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Houge-Janssens syndrome (HJS) is caused by protein phosphatase type
+        2A (PP2A) dysfunction.&#34;
+      explanation: Establishes PP2A dysfunction as the consequence shared by
+        every HJS subunit gene, including the scaffolding subunit.
+
+- name: PP2A Catalytic C-alpha Subunit Variants
+  biological_scale: MOLECULAR
+  role: trigger
+  description: &gt;
+    De novo missense and loss-of-function variants in PPP2CA, which encodes the
+    Calpha catalytic subunit of PP2A (HJS type 3) - the subunit that carries the
+    phosphatase activity of the holoenzyme.
+  subtypes:
+  - Houge-Janssens syndrome type 3 (PPP2CA)
+  genes:
+  - preferred_term: PPP2CA
+    term:
+      id: hgnc:9299
+      label: PPP2CA
+  genetic_context:
+    genes:
+    - preferred_term: PPP2CA
+      term:
+        id: hgnc:9299
+        label: PPP2CA
+    variant_origin: DE_NOVO
+  evidence:
+  - reference: PMID:40555839
+    reference_title: &#34;Houge-Janssens syndrome.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;the major catalytic subunit (PPP2CA in HJS type 3) can cause
+      Houge-Janssens syndrome.&#34;
+    explanation: Assigns PPP2CA to the catalytic-subunit role of the PP2A
+      holoenzyme, which is what this node records.
+  downstream:
+  - target: Disrupted PP2A holoenzyme assembly and function
+    description: Loss of normal catalytic-subunit function is one route to the
+      PP2A dysfunction that causes Houge-Janssens syndrome.
+    evidence:
+    - reference: PMID:40555839
+      reference_title: &#34;Houge-Janssens syndrome.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;Houge-Janssens syndrome (HJS) is caused by protein phosphatase type
+        2A (PP2A) dysfunction.&#34;
+      explanation: Establishes PP2A dysfunction as the consequence shared by
+        every HJS subunit gene, including the catalytic subunit.
+
 - name: Disrupted PP2A holoenzyme assembly and function
   description: &gt;
     Pathogenic variants impair the assembly of the PP2A heterotrimer (A-B-C complex)
@@ -8963,9 +10154,12 @@ genetic:
       id: hgnc:9312
       label: PPP2R5D
   association: Causative
+  relationship_type: CAUSATIVE
+  subtype: Houge-Janssens syndrome type 1 (PPP2R5D)
   notes: &gt;
-    Encodes the B56delta regulatory subunit of PP2A. De novo heterozygous missense
-    variants cause HJS type 1. Most pathogenic variants cluster in three conserved
+    Encodes the B56delta regulatory subunit of PP2A. Heterozygous missense
+    variants cause HJS type 1; the variant is usually de novo but has
+    occasionally been inherited from an affected heterozygous parent. Most pathogenic variants cluster in three conserved
     regions. Dominant-negative mechanism, not loss of function.
   evidence:
   - reference: PMID:40340253
@@ -8983,6 +10177,18 @@ genetic:
     snippet: &#34;Thirteen new patients carrying twelve PPP2R5D gene variants were detected,
       including five novel missense variants and one novel frameshift variant.&#34;
     explanation: Expands the variant spectrum for PPP2R5D.
+  - reference: PMID:30676711
+    reference_title: &#34;PPP2R5D-Related Neurodevelopmental Disorder.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;The diagnosis of PPP2R5D-NDD is established in a proband by identification of a heterozygous pathogenic variant in PPP2R5D by molecular genetic testing.&#34;
+    explanation: GeneReviews baseline establishing heterozygous PPP2R5D variants as diagnostic of this subtype.
+  - reference: PMID:30676711
+    reference_title: &#34;PPP2R5D-Related Neurodevelopmental Disorder.&#34;
+    supports: SUPPORT
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Rarely, an individual diagnosed with PPP2R5D-NDD has the disorder as the result of a pathogenic variant inherited from an affected, heterozygous parent.&#34;
+    explanation: Source for the qualification that the PPP2R5D variant is usually, but not always, de novo.
   variants:
   - name: E198K
     description: &gt;
@@ -9008,6 +10214,8 @@ genetic:
       id: hgnc:9302
       label: PPP2R1A
   association: Causative
+  relationship_type: CAUSATIVE
+  subtype: Houge-Janssens syndrome type 2 (PPP2R1A)
   notes: &gt;
     Encodes the Aalpha scaffolding subunit of PP2A. De novo heterozygous missense
     variants cause HJS type 2. Recurrent hotspots include p.Arg182Trp and p.Arg183Gln
@@ -9027,6 +10235,8 @@ genetic:
       id: hgnc:9299
       label: PPP2CA
   association: Causative
+  relationship_type: CAUSATIVE
+  subtype: Houge-Janssens syndrome type 3 (PPP2CA)
   notes: &gt;
     Encodes the Calpha catalytic subunit of PP2A. De novo missense and
     loss-of-function variants cause HJS type 3.
@@ -9047,6 +10257,8 @@ genetic:
       id: hgnc:9311
       label: PPP2R5C
   association: Causative
+  relationship_type: CAUSATIVE
+  subtype: Houge-Janssens syndrome type 4 (PPP2R5C)
   notes: &gt;
     Encodes the B56gamma regulatory subunit of PP2A. De novo missense variants
     cause HJS type 4. Total loss-of-function variants can be inherited from
@@ -9433,7 +10645,7 @@ classifications:
     evidence:
     - reference: PMID:37572851
       reference_title: &#34;Quantitative proteomics and phosphoproteomics of PP2A-PPP2R5D variants reveal deregulation of RPS6 phosphorylation via converging signaling cascades.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: IN_VITRO
       snippet: &#34;our data suggests ERK-dependent activation of mTORC1 in both E198K
         and E420K variant cells, with additional AKT-mediated mTORC1 activation in
@@ -9443,10 +10655,36 @@ classifications:
         PP2A rather than a RAS/MAPK pathway component.
 datasets:
 references:
-- reference: PMID:41465181
-  title: &#34;Clinical and Molecular Spectrum of PPP2R1A-Related Neurodevelopmental Disorders: A Systematic Review.&#34;
+- reference: PMID:30676711
+  title: &#34;PPP2R5D-Related Neurodevelopmental Disorder.&#34;
   tags:
   - GeneReviews
+  findings:
+  - statement: &gt;-
+      PPP2R5D-related neurodevelopmental disorder is diagnosed by a heterozygous
+      pathogenic PPP2R5D variant, and while the variant is typically de novo it
+      is occasionally inherited from an affected heterozygous parent - so
+      &#34;de novo&#34; is the usual rather than the invariable origin for HJS type 1.
+    evidence:
+    - reference: PMID:30676711
+      reference_title: &#34;PPP2R5D-Related Neurodevelopmental Disorder.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;PPP2R5D-NDD is an autosomal dominant disorder typically caused by a de novo pathogenic variant. Rarely, an individual diagnosed with PPP2R5D-NDD has the disorder as the result of a pathogenic variant inherited from an affected, heterozygous parent.&#34;
+      explanation: Qualifies the de novo origin recorded for the PPP2R5D subtype, which is usual but not invariable.
+  - statement: &gt;-
+      More than 100 individuals with PPP2R5D-related neurodevelopmental disorder
+      had been reported at the time of the GeneReviews chapter, making HJS type 1
+      much the best described of the four subtypes.
+    evidence:
+    - reference: PMID:30676711
+      reference_title: &#34;PPP2R5D-Related Neurodevelopmental Disorder.&#34;
+      supports: SUPPORT
+      evidence_source: HUMAN_CLINICAL
+      snippet: &#34;To date, more than 100 individuals with PPP2R5D-NDD have been reported.&#34;
+      explanation: Gives the reported case count for the PPP2R5D subtype.
+- reference: PMID:41465181
+  title: &#34;Clinical and Molecular Spectrum of PPP2R1A-Related Neurodevelopmental Disorders: A Systematic Review.&#34;
   findings: []
 </pre>
             </div>
@@ -9463,7 +10701,122 @@ references:
             <div class="grouped-section anchor-target" id="references">
                 <div class="grouped-section-header">
                     <h3 class="grouped-section-title">References</h3>
-                    <span class="card-count">1</span>
+                    <span class="card-count">2</span>
+                </div>
+
+                <div class="reference-entry">
+                    <div class="reference-entry-header">
+                        <div>
+                            <div class="reference-curie">
+                                <a href="http://www.ncbi.nlm.nih.gov/pubmed/30676711" target="_blank">PMID:30676711</a>
+                            </div>
+
+                            <div class="reference-title">PPP2R5D-Related Neurodevelopmental Disorder.</div>
+
+                        </div>
+
+                        <span class="reference-summary">2 findings</span>
+
+                    </div>
+
+
+
+    <div class="reference-findings">
+
+        <div class="reference-finding">
+
+            <div class="reference-finding-statement">PPP2R5D-related neurodevelopmental disorder is diagnosed by a heterozygous pathogenic PPP2R5D variant, and while the variant is typically de novo it is occasionally inherited from an affected heterozygous parent - so &#34;de novo&#34; is the usual rather than the invariable origin for HJS type 1.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30676711" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30676711" target="_blank">PMID:30676711</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"PPP2R5D-NDD is an autosomal dominant disorder typically caused by a de novo pathogenic variant. Rarely, an individual diagnosed with PPP2R5D-NDD has the disorder as the result of a pathogenic variant inherited from an affected, heterozygous parent."</div>
+
+
+                <div class="evidence-explanation">Qualifies the de novo origin recorded for the PPP2R5D subtype, which is usual but not invariable.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+        </div>
+
+        <div class="reference-finding">
+
+            <div class="reference-finding-statement">More than 100 individuals with PPP2R5D-related neurodevelopmental disorder had been reported at the time of the GeneReviews chapter, making HJS type 1 much the best described of the four subtypes.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:30676711" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/30676711" target="_blank">PMID:30676711</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"To date, more than 100 individuals with PPP2R5D-NDD have been reported."</div>
+
+
+                <div class="evidence-explanation">Gives the reported case count for the PPP2R5D subtype.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+        </div>
+
+    </div>
+
+
+
                 </div>
 
                 <div class="reference-entry">
@@ -9491,6 +10844,8 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">2</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -9886,7 +11241,7 @@ Focus on the molecular and cellular mechanisms underlying disease progression.</
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Houge-Janssens Syndrome", "mondoId": "MONDO:0957553", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Houge-Janssens_Syndrome", "yamlRevision": "1f0006b6c5df"};
+        const OS_CONFIG = {"diseaseName": "Houge-Janssens Syndrome", "mondoId": "MONDO:0957553", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Houge-Janssens_Syndrome", "yamlRevision": "cd5495add76a"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

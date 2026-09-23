@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2954,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2969,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3078,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3091,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3295,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3305,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3341,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3362,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3675,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4198,6 +4291,8 @@ SCA27B is a distinct disease entity from SCA27A (MONDO:0008654, OMIM:609307), wh
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4221,6 +4316,8 @@ SCA27B is a distinct disease entity from SCA27A (MONDO:0008654, OMIM:609307), wh
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4242,6 +4339,8 @@ SCA27B is a distinct disease entity from SCA27A (MONDO:0008654, OMIM:609307), wh
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4480,6 +4579,8 @@ SCA27B is a distinct disease entity from SCA27A (MONDO:0008654, OMIM:609307), wh
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4503,6 +4604,8 @@ SCA27B is a distinct disease entity from SCA27A (MONDO:0008654, OMIM:609307), wh
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4524,6 +4627,8 @@ SCA27B is a distinct disease entity from SCA27A (MONDO:0008654, OMIM:609307), wh
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4795,6 +4900,8 @@ SCA27B is a distinct disease entity from SCA27A (MONDO:0008654, OMIM:609307), wh
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5017,6 +5124,8 @@ SCA27B is a distinct disease entity from SCA27A (MONDO:0008654, OMIM:609307), wh
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5030,14 +5139,16 @@ SCA27B is a distinct disease entity from SCA27A (MONDO:0008654, OMIM:609307), wh
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:39263992" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:39263992" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39263992" target="_blank">PMID:39263992</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5074,6 +5185,13 @@ SCA27B is a distinct disease entity from SCA27A (MONDO:0008654, OMIM:609307), wh
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-fgf14-intronic-gaa-repeat-expansion" data-dismech-node="FGF14 Intronic GAA Repeat Expansion" data-dismech-type="pathophysiology">
                 <div class="item-name">FGF14 Intronic GAA Repeat Expansion</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">A heterozygous (GAA)n repeat expansion deep in intron 1 of FGF14 is the initiating molecular lesion. Because the repeat lies in non-coding sequence, it does not produce an altered FGF14 protein; instead, expansion beyond a length- and motif-dependent threshold destabilises expression of the allele. Repeat length correlates inversely with age at onset, and the tract&#39;s motif composition (pure GAA versus GAAGGA/AAGGAG interruptions) gates whether an expansion is pathogenic at all.</div>
 
@@ -5188,6 +5306,8 @@ This pathophysiological event occurs in cerebellar cortex (UBERON:0002129). UBER
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5209,6 +5329,8 @@ This pathophysiological event occurs in cerebellar cortex (UBERON:0002129). UBER
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5233,6 +5355,13 @@ This pathophysiological event occurs in cerebellar cortex (UBERON:0002129). UBER
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-fgf14-expression-in-cerebellar-neurons" data-dismech-node="Reduced FGF14 Expression in Cerebellar Neurons" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced FGF14 Expression in Cerebellar Neurons</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The expanded allele is expressed at reduced level, producing functional FGF14 haploinsufficiency in cerebellar neurons. FGF14 is an intracellular fibroblast growth factor (iFGF/FGF homologous factor) that is not secreted and does not signal through FGF receptors; it acts intracellularly as a binding partner and regulator of voltage-gated sodium channels. Reduced FGF14 RNA and protein have been demonstrated in postmortem patient cerebellum and in patient-derived iPSC neurons.</div>
 
@@ -5416,6 +5545,8 @@ This pathophysiological event occurs in cerebellar cortex (UBERON:0002129). UBER
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5437,6 +5568,8 @@ This pathophysiological event occurs in cerebellar cortex (UBERON:0002129). UBER
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5461,6 +5594,13 @@ This pathophysiological event occurs in cerebellar cortex (UBERON:0002129). UBER
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-purkinje-neuron-intrinsic-excitability-and-firing" data-dismech-node="Impaired Purkinje Neuron Intrinsic Excitability and Firing" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Purkinje Neuron Intrinsic Excitability and Firing</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Intracellular FGF14 binds the C-terminus of voltage-gated sodium (Nav) channel alpha subunits and is concentrated at the Purkinje neuron axon initial segment, where Nav1.6-mediated resurgent sodium current sustains the high-frequency pacemaking that defines these cells. Loss of FGF14 produces a hyperpolarizing shift in the voltage dependence of steady-state Nav inactivation and reduced Nav1.6 availability, so Purkinje neurons fail to fire spontaneously and cannot sustain repetitive firing to depolarizing input. This is a functional excitability defect that precedes and is separable from cell death, and it is the node targeted by 4-aminopyridine.</div>
 
@@ -5686,6 +5826,8 @@ This pathophysiological event occurs in cerebellar cortex (UBERON:0002129). UBER
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5707,6 +5849,8 @@ This pathophysiological event occurs in cerebellar cortex (UBERON:0002129). UBER
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5732,6 +5876,8 @@ This pathophysiological event occurs in cerebellar cortex (UBERON:0002129). UBER
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5754,6 +5900,13 @@ This pathophysiological event occurs in cerebellar cortex (UBERON:0002129). UBER
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-purkinje-neuron-degeneration-and-cerebellar-atrophy" data-dismech-node="Purkinje Neuron Degeneration and Cerebellar Atrophy" data-dismech-type="pathophysiology">
                 <div class="item-name">Purkinje Neuron Degeneration and Cerebellar Atrophy</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Over the disease course, loss of cerebellar Purkinje neurons develops, most severe in the anterior vermis, together with cerebellar (predominantly vermian) atrophy on imaging. Degeneration is comparatively mild and slow relative to the polyglutamine SCAs, consistent with the slow clinical progression, the absence of elevated serum neurofilament light, and the limited extra-cerebellar involvement.</div>
 
@@ -5899,6 +6052,8 @@ This pathophysiological event occurs in cerebellar cortex (UBERON:0002129). UBER
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5912,14 +6067,16 @@ This pathophysiological event occurs in cerebellar cortex (UBERON:0002129). UBER
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:37165652" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:37165652" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/37165652" target="_blank">PMID:37165652</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5944,6 +6101,13 @@ This pathophysiological event occurs in cerebellar cortex (UBERON:0002129). UBER
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-loss-of-cerebellar-cortical-output" data-dismech-node="Loss of Cerebellar Cortical Output" data-dismech-type="pathophysiology">
                 <div class="item-name">Loss of Cerebellar Cortical Output</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">Purkinje cells provide the sole output of the cerebellar cortex to the deep cerebellar nuclei. Their functional silencing and, later, loss corrupt the motor-coordination and oculomotor signals relayed downstream. In SCA27B the dysfunction is initially intermittent and reversible, which explains the prominent episodic phase and the responsiveness to a drug that restores Purkinje pacemaking precision.</div>
 
@@ -6087,6 +6251,8 @@ This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6108,6 +6274,8 @@ This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6132,6 +6300,13 @@ This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-progressive-late-onset-cerebellar-ataxia" data-dismech-node="Progressive Late-Onset Cerebellar Ataxia" data-dismech-type="pathophysiology">
                 <div class="item-name">Progressive Late-Onset Cerebellar Ataxia</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mechanism confidence: Established</span>
+
+                </div>
+
 
                 <div class="item-desc">The convergent clinical consequence: a mid- to late-adult-onset, slowly progressive pancerebellar syndrome of gait and limb ataxia, cerebellar oculomotor signs including downbeat nystagmus, and dysarthria, often preceded by an episodic phase. Progression is mild (about 0.29 SARA points per year) and severity plateaus at a moderate level even in advanced disease, distinguishing SCA27B from SCA1/2/3.</div>
 
@@ -6169,6 +6344,8 @@ This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6190,6 +6367,8 @@ This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6250,6 +6429,8 @@ This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6292,7 +6473,7 @@ This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"4-Aminopyridine\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"4-Aminopyridine (4-AP), a voltage-gated potassium channel blocker, is the principal symptomatic therapy for SCA27B and is the mechanistically rational choice: it does not increase inhibitory drive onto Purkinje cells but restores the precision of Purkinje pacemaking by prolonging the action potential and increasing the afterhyperpolarization, counteracting the firing failure caused by FGF14 loss. Across cohorts, 75-86% of treated patients report clinically meaningful benefit, and placebo-controlled video-oculography in a small number of expansion carriers showed a significant reduction in downbeat nystagmus slow-phase velocity on 4-AP but not placebo. Formal randomised trials in genetically defined SCA27B are still awaited.\", \"meta\": {\"evidence_count\": 4, \"therapeutic_agents\": [\"4-aminopyridine\"]}}, {\"id\": \"Downbeat nystagmus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Downbeat nystagmus is a hallmark cerebellar oculomotor sign of SCA27B and can be the dominant or presenting manifestation. Conversely, FGF14 (GAA)\u003e=250 expansions account for roughly half of patients presenting with otherwise idiopathic downbeat nystagmus, making SCA27B the single most common identified cause of that syndrome.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0010545\"}}, {\"id\": \"FGF14\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"genes\": [\"FGF14\"], \"gene_terms\": [{\"label\": \"FGF14\", \"id\": \"hgnc:3671\"}], \"presence\": \"Positive\", \"association\": \"Deep intronic (GAA) repeat expansion in intron 1 of FGF14\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"FGF14 GAAGGA / AAGGAG interrupted hexameric repeat configuration\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Expanded FGF14 repeat alleles whose tract is composed of, or heavily interrupted by, GAAGGA/AAGGAG hexameric motifs. These configurations occur at equal frequency in patients and controls and are treated as non-pathogenic; mosaic divergent repeat interruptions that shorten the remaining pure GAA tract are enriched in unaffected expansion carriers.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"FGF14\"], \"gene_terms\": [{\"label\": \"FGF14\", \"id\": \"hgnc:3671\"}], \"variant_type\": \"interrupted short tandem repeat\", \"clinical_significance\": \"LIKELY_BENIGN\"}}, {\"id\": \"FGF14 Intronic GAA Repeat Expansion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A heterozygous (GAA)n repeat expansion deep in intron 1 of FGF14 is the initiating molecular lesion. Because the repeat lies in non-coding sequence, it does not produce an altered FGF14 protein; instead, expansion beyond a length- and motif-dependent threshold destabilises expression of the allele. Repeat length correlates inversely with age at onset, and the tract\u0027s motif composition (pure GAA versus GAAGGA/AAGGAG interruptions) gates whether an expansion is pathogenic at all.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"FGF14\"], \"gene_terms\": [{\"label\": \"FGF14\", \"id\": \"hgnc:3671\"}], \"role\": \"trigger\", \"locations\": [\"cerebellar cortex\"]}}, {\"id\": \"FGF14 intron 1 (GAA)n repeat expansion\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Heterozygous expansion of a (GAA) short tandem repeat located deep in intron 1 of FGF14. Pathogenicity depends jointly on the length of the longest pure GAA tract and on the presence of interrupting motifs; the non-coding location means the mechanism is loss of expression rather than an altered protein product.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"FGF14\"], \"gene_terms\": [{\"label\": \"FGF14\", \"id\": \"hgnc:3671\"}], \"variant_type\": \"short tandem repeat expansion\", \"clinical_significance\": \"PATHOGENIC\", \"regulatory_category\": \"LOE\"}}, {\"id\": \"Gait ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive unsteadiness of gait is the cardinal and usually the presenting feature; balance and gait impairment were almost always present at disease onset in the largest reported cohort.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002066\"}}, {\"id\": \"Impaired Purkinje Neuron Intrinsic Excitability and Firing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Intracellular FGF14 binds the C-terminus of voltage-gated sodium (Nav) channel alpha subunits and is concentrated at the Purkinje neuron axon initial segment, where Nav1.6-mediated resurgent sodium current sustains the high-frequency pacemaking that defines these cells. Loss of FGF14 produces a hyperpolarizing shift in the voltage dependence of steady-state Nav inactivation and reduced Nav1.6 availability, so Purkinje neurons fail to fire spontaneously and cannot sustain repetitive firing to depolarizing input. This is a functional excitability defect that precedes and is separable from cell death, and it is the node targeted by 4-aminopyridine.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"cerebellar Purkinje cell\"], \"biological_processes\": [\"neuronal action potential\", \"membrane depolarization during action potential\"], \"molecular_functions\": [\"voltage-gated sodium channel activity\"], \"role\": \"central_effector\", \"locations\": [\"cerebellar cortex\"]}}, {\"id\": \"Loss of Cerebellar Cortical Output\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Purkinje cells provide the sole output of the cerebellar cortex to the deep cerebellar nuclei. Their functional silencing and, later, loss corrupt the motor-coordination and oculomotor signals relayed downstream. In SCA27B the dysfunction is initially intermittent and reversible, which explains the prominent episodic phase and the responsiveness to a drug that restores Purkinje pacemaking precision.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cerebellar Purkinje cell\"], \"biological_processes\": [\"nervous system process\"], \"role\": \"effector\", \"locations\": [\"cerebellum\"]}}, {\"id\": \"Progressive Late-Onset Cerebellar Ataxia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The convergent clinical consequence: a mid- to late-adult-onset, slowly progressive pancerebellar syndrome of gait and limb ataxia, cerebellar oculomotor signs including downbeat nystagmus, and dysarthria, often preceded by an episodic phase. Progression is mild (about 0.29 SARA points per year) and severity plateaus at a moderate level even in advanced disease, distinguishing SCA27B from SCA1/2/3.\", \"meta\": {\"evidence_count\": 2, \"role\": \"consequence\"}}, {\"id\": \"Purkinje Neuron Degeneration and Cerebellar Atrophy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Over the disease course, loss of cerebellar Purkinje neurons develops, most severe in the anterior vermis, together with cerebellar (predominantly vermian) atrophy on imaging. Degeneration is comparatively mild and slow relative to the polyglutamine SCAs, consistent with the slow clinical progression, the absence of elevated serum neurofilament light, and the limited extra-cerebellar involvement.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cerebellar Purkinje cell\"], \"biological_processes\": [\"neuron apoptotic process\"], \"role\": \"effector\", \"locations\": [\"cerebellar cortex\"]}}, {\"id\": \"Reduced FGF14 Expression in Cerebellar Neurons\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The expanded allele is expressed at reduced level, producing functional FGF14 haploinsufficiency in cerebellar neurons. FGF14 is an intracellular fibroblast growth factor (iFGF/FGF homologous factor) that is not secreted and does not signal through FGF receptors; it acts intracellularly as a binding partner and regulator of voltage-gated sodium channels. Reduced FGF14 RNA and protein have been demonstrated in postmortem patient cerebellum and in patient-derived iPSC neurons.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cerebellar Purkinje cell\"], \"biological_processes\": [\"regulation of gene expression\"], \"molecular_functions\": [\"sodium channel regulator activity\"], \"role\": \"amplifier\", \"locations\": [\"cerebellar cortex\"]}}], \"edges\": [{\"source\": \"FGF14 Intronic GAA Repeat Expansion\", \"target\": \"Reduced FGF14 Expression in Cerebellar Neurons\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Expansion of the intronic GAA tract beyond the pathogenic threshold reduces FGF14 RNA and protein levels in patient cerebellum and in patient-derived neurons.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced FGF14 Expression in Cerebellar Neurons\", \"target\": \"Impaired Purkinje Neuron Intrinsic Excitability and Firing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of intracellular FGF14 removes a required regulator of voltage-gated sodium channels at the Purkinje neuron axon initial segment, attenuating spontaneous and repetitive firing.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Purkinje Neuron Intrinsic Excitability and Firing\", \"target\": \"Purkinje Neuron Degeneration and Cerebellar Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic failure of Purkinje pacemaking is accompanied, over years, by Purkinje neuron loss, most severe in the anterior vermis in human autopsy series.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Purkinje Neuron Intrinsic Excitability and Firing\", \"target\": \"Loss of Cerebellar Cortical Output\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Because Purkinje cells are the sole output of the cerebellar cortex, silencing them directly removes cerebellar cortical output even before cell loss occurs.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Purkinje Neuron Degeneration and Cerebellar Atrophy\", \"target\": \"Loss of Cerebellar Cortical Output\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Purkinje neuron loss permanently removes the sole inhibitory output of the cerebellar cortex to the deep cerebellar nuclei.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Cerebellar Cortical Output\", \"target\": \"Progressive Late-Onset Cerebellar Ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"4-Aminopyridine\", \"target\": \"Impaired Purkinje Neuron Intrinsic Excitability and Firing\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"4-Aminopyridine\", \"target\": \"Downbeat nystagmus\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"4-Aminopyridine\", \"target\": \"Gait ataxia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"FGF14\", \"target\": \"FGF14 Intronic GAA Repeat Expansion\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"FGF14 intron 1 (GAA)n repeat expansion\", \"target\": \"FGF14\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"FGF14 GAAGGA / AAGGAG interrupted hexameric repeat configuration\", \"target\": \"FGF14\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"4-Aminopyridine\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"4-Aminopyridine (4-AP), a voltage-gated potassium channel blocker, is the principal symptomatic therapy for SCA27B and is the mechanistically rational choice: it does not increase inhibitory drive onto Purkinje cells but restores the precision of Purkinje pacemaking by prolonging the action potential and increasing the afterhyperpolarization, counteracting the firing failure caused by FGF14 loss. Across cohorts, 75-86% of treated patients report clinically meaningful benefit, and placebo-controlled video-oculography in a small number of expansion carriers showed a significant reduction in downbeat nystagmus slow-phase velocity on 4-AP but not placebo. Formal randomised trials in genetically defined SCA27B are still awaited.\", \"meta\": {\"evidence_count\": 4, \"therapeutic_agents\": [\"4-aminopyridine\"]}}, {\"id\": \"Downbeat nystagmus\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Downbeat nystagmus is a hallmark cerebellar oculomotor sign of SCA27B and can be the dominant or presenting manifestation. Conversely, FGF14 (GAA)\u003e=250 expansions account for roughly half of patients presenting with otherwise idiopathic downbeat nystagmus, making SCA27B the single most common identified cause of that syndrome.\", \"meta\": {\"evidence_count\": 2, \"term_id\": \"HP:0010545\"}}, {\"id\": \"FGF14\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 5, \"genes\": [\"FGF14\"], \"gene_terms\": [{\"label\": \"FGF14\", \"id\": \"hgnc:3671\"}], \"presence\": \"Positive\", \"association\": \"Deep intronic (GAA) repeat expansion in intron 1 of FGF14\", \"relationship_type\": \"CAUSATIVE\", \"variant_origin\": \"GERMLINE\"}}, {\"id\": \"FGF14 GAAGGA / AAGGAG interrupted hexameric repeat configuration\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Expanded FGF14 repeat alleles whose tract is composed of, or heavily interrupted by, GAAGGA/AAGGAG hexameric motifs. These configurations occur at equal frequency in patients and controls and are treated as non-pathogenic; mosaic divergent repeat interruptions that shorten the remaining pure GAA tract are enriched in unaffected expansion carriers.\", \"meta\": {\"evidence_count\": 3, \"genes\": [\"FGF14\"], \"gene_terms\": [{\"label\": \"FGF14\", \"id\": \"hgnc:3671\"}], \"variant_type\": \"interrupted short tandem repeat\", \"clinical_significance\": \"LIKELY_BENIGN\"}}, {\"id\": \"FGF14 Intronic GAA Repeat Expansion\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A heterozygous (GAA)n repeat expansion deep in intron 1 of FGF14 is the initiating molecular lesion. Because the repeat lies in non-coding sequence, it does not produce an altered FGF14 protein; instead, expansion beyond a length- and motif-dependent threshold destabilises expression of the allele. Repeat length correlates inversely with age at onset, and the tract\u0027s motif composition (pure GAA versus GAAGGA/AAGGAG interruptions) gates whether an expansion is pathogenic at all.\", \"meta\": {\"evidence_count\": 2, \"genes\": [\"FGF14\"], \"gene_terms\": [{\"label\": \"FGF14\", \"id\": \"hgnc:3671\"}], \"role\": \"trigger\", \"locations\": [\"cerebellar cortex\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"FGF14 intron 1 (GAA)n repeat expansion\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"description\": \"Heterozygous expansion of a (GAA) short tandem repeat located deep in intron 1 of FGF14. Pathogenicity depends jointly on the length of the longest pure GAA tract and on the presence of interrupting motifs; the non-coding location means the mechanism is loss of expression rather than an altered protein product.\", \"meta\": {\"evidence_count\": 1, \"genes\": [\"FGF14\"], \"gene_terms\": [{\"label\": \"FGF14\", \"id\": \"hgnc:3671\"}], \"variant_type\": \"short tandem repeat expansion\", \"clinical_significance\": \"PATHOGENIC\", \"regulatory_category\": \"LOE\"}}, {\"id\": \"Gait ataxia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Progressive unsteadiness of gait is the cardinal and usually the presenting feature; balance and gait impairment were almost always present at disease onset in the largest reported cohort.\", \"meta\": {\"evidence_count\": 3, \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002066\"}}, {\"id\": \"Impaired Purkinje Neuron Intrinsic Excitability and Firing\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Intracellular FGF14 binds the C-terminus of voltage-gated sodium (Nav) channel alpha subunits and is concentrated at the Purkinje neuron axon initial segment, where Nav1.6-mediated resurgent sodium current sustains the high-frequency pacemaking that defines these cells. Loss of FGF14 produces a hyperpolarizing shift in the voltage dependence of steady-state Nav inactivation and reduced Nav1.6 availability, so Purkinje neurons fail to fire spontaneously and cannot sustain repetitive firing to depolarizing input. This is a functional excitability defect that precedes and is separable from cell death, and it is the node targeted by 4-aminopyridine.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"cerebellar Purkinje cell\"], \"biological_processes\": [\"neuronal action potential\", \"membrane depolarization during action potential\"], \"molecular_functions\": [\"voltage-gated sodium channel activity\"], \"role\": \"central_effector\", \"locations\": [\"cerebellar cortex\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Loss of Cerebellar Cortical Output\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Purkinje cells provide the sole output of the cerebellar cortex to the deep cerebellar nuclei. Their functional silencing and, later, loss corrupt the motor-coordination and oculomotor signals relayed downstream. In SCA27B the dysfunction is initially intermittent and reversible, which explains the prominent episodic phase and the responsiveness to a drug that restores Purkinje pacemaking precision.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cerebellar Purkinje cell\"], \"biological_processes\": [\"nervous system process\"], \"role\": \"effector\", \"locations\": [\"cerebellum\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Progressive Late-Onset Cerebellar Ataxia\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The convergent clinical consequence: a mid- to late-adult-onset, slowly progressive pancerebellar syndrome of gait and limb ataxia, cerebellar oculomotor signs including downbeat nystagmus, and dysarthria, often preceded by an episodic phase. Progression is mild (about 0.29 SARA points per year) and severity plateaus at a moderate level even in advanced disease, distinguishing SCA27B from SCA1/2/3.\", \"meta\": {\"evidence_count\": 2, \"role\": \"consequence\", \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Purkinje Neuron Degeneration and Cerebellar Atrophy\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Over the disease course, loss of cerebellar Purkinje neurons develops, most severe in the anterior vermis, together with cerebellar (predominantly vermian) atrophy on imaging. Degeneration is comparatively mild and slow relative to the polyglutamine SCAs, consistent with the slow clinical progression, the absence of elevated serum neurofilament light, and the limited extra-cerebellar involvement.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cerebellar Purkinje cell\"], \"biological_processes\": [\"neuron apoptotic process\"], \"role\": \"effector\", \"locations\": [\"cerebellar cortex\"], \"mechanism_confidence\": \"ESTABLISHED\"}}, {\"id\": \"Reduced FGF14 Expression in Cerebellar Neurons\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The expanded allele is expressed at reduced level, producing functional FGF14 haploinsufficiency in cerebellar neurons. FGF14 is an intracellular fibroblast growth factor (iFGF/FGF homologous factor) that is not secreted and does not signal through FGF receptors; it acts intracellularly as a binding partner and regulator of voltage-gated sodium channels. Reduced FGF14 RNA and protein have been demonstrated in postmortem patient cerebellum and in patient-derived iPSC neurons.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"cerebellar Purkinje cell\"], \"biological_processes\": [\"regulation of gene expression\"], \"molecular_functions\": [\"sodium channel regulator activity\"], \"role\": \"amplifier\", \"locations\": [\"cerebellar cortex\"], \"mechanism_confidence\": \"ESTABLISHED\"}}], \"edges\": [{\"source\": \"FGF14 Intronic GAA Repeat Expansion\", \"target\": \"Reduced FGF14 Expression in Cerebellar Neurons\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Expansion of the intronic GAA tract beyond the pathogenic threshold reduces FGF14 RNA and protein levels in patient cerebellum and in patient-derived neurons.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Reduced FGF14 Expression in Cerebellar Neurons\", \"target\": \"Impaired Purkinje Neuron Intrinsic Excitability and Firing\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of intracellular FGF14 removes a required regulator of voltage-gated sodium channels at the Purkinje neuron axon initial segment, attenuating spontaneous and repetitive firing.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Impaired Purkinje Neuron Intrinsic Excitability and Firing\", \"target\": \"Purkinje Neuron Degeneration and Cerebellar Atrophy\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Chronic failure of Purkinje pacemaking is accompanied, over years, by Purkinje neuron loss, most severe in the anterior vermis in human autopsy series.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Impaired Purkinje Neuron Intrinsic Excitability and Firing\", \"target\": \"Loss of Cerebellar Cortical Output\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Because Purkinje cells are the sole output of the cerebellar cortex, silencing them directly removes cerebellar cortical output even before cell loss occurs.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Purkinje Neuron Degeneration and Cerebellar Atrophy\", \"target\": \"Loss of Cerebellar Cortical Output\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Purkinje neuron loss permanently removes the sole inhibitory output of the cerebellar cortex to the deep cerebellar nuclei.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Loss of Cerebellar Cortical Output\", \"target\": \"Progressive Late-Onset Cerebellar Ataxia\", \"predicate\": \"causes\", \"is_orphan\": false, \"causal_link_type\": \"DIRECT\"}, {\"source\": \"4-Aminopyridine\", \"target\": \"Impaired Purkinje Neuron Intrinsic Excitability and Firing\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"4-Aminopyridine\", \"target\": \"Downbeat nystagmus\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"4-Aminopyridine\", \"target\": \"Gait ataxia\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"FGF14\", \"target\": \"FGF14 Intronic GAA Repeat Expansion\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"FGF14 intron 1 (GAA)n repeat expansion\", \"target\": \"FGF14\", \"predicate\": \"variant_of\", \"is_orphan\": false}, {\"source\": \"FGF14 GAAGGA / AAGGAG interrupted hexameric repeat configuration\", \"target\": \"FGF14\", \"predicate\": \"variant_of\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -6311,13 +6492,11 @@ This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Ear<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Ear<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Eye<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Eye<span class="pill-count">(4)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Nervous System<span class="pill-count">(5)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Nervous System<span class="pill-count">(7)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6327,7 +6506,7 @@ This pathophysiological event occurs in cerebellum (UBERON:0002037). UBERON:0002
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Ear
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-vertigo-and-dizziness" data-dismech-node="Vertigo and dizziness" data-dismech-type="phenotype">
@@ -6376,6 +6555,9 @@ This clinical feature is Vertigo (HP:0002321), qualified as temporality recurren
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6390,6 +6572,8 @@ This clinical feature is Vertigo (HP:0002321), qualified as temporality recurren
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6415,325 +6599,9 @@ This clinical feature is Vertigo (HP:0002321), qualified as temporality recurren
 
                 </div>
 
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-2">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Eye
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-diplopia-and-visual-disturbance" data-dismech-node="Diplopia and visual disturbance" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-vestibular-hypofunction" data-dismech-node="Vestibular hypofunction" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Diplopia and visual disturbance
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000651" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000651</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Diplopia (HP:0000651), qualified as temporality recurrent. HP:0000651 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">Temporal: RECURRENT</span>
-
-
-
-
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:38271551" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38271551" target="_blank">PMID:38271551</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"visual disturbances (diplopia, oscillopsia, and blurring)"</div>
-
-
-                <div class="evidence-explanation">Documents diplopia as part of the episodic visual disturbance.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-oscillopsia" data-dismech-node="Oscillopsia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Oscillopsia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0034773" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0034773</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Oscillopsia (HP:0034773). HP:0034773 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:38271551" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38271551" target="_blank">PMID:38271551</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"visual disturbances (diplopia, oscillopsia, and blurring)"</div>
-
-
-                <div class="evidence-explanation">Documents oscillopsia as an episodic visual manifestation.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-3">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Nervous System
-                    <span class="cat-count">5</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-gait-ataxia" data-dismech-node="Gait ataxia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Gait ataxia
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002066" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0002066</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Gait ataxia (HP:0002066), qualified as course progressive; late onset. HP:0002066 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">Course: PROGRESSIVE</span>
-
-
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">
-        Onset: LATE</span>
-
-
-
-
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (3 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:39263992" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39263992" target="_blank">PMID:39263992</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Balance and gait impairment were almost always present at disease onset."</div>
-
-
-                <div class="evidence-explanation">Supports both the phenotype and the VERY_FREQUENT band: &#34;almost always&#34; maps to the 80-100% HPO frequency range in a 102-patient cohort.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:38271551" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38271551" target="_blank">PMID:38271551</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Median age at onset is 60 years (range: 21-87 years)."</div>
-
-
-                <div class="evidence-explanation">Supports the LATE onset category recorded on this phenotype.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:38271551" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38271551" target="_blank">PMID:38271551</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"slowly progressive cerebellar syndrome with predominant gait involvement"</div>
-
-
-                <div class="evidence-explanation">GeneReviews identifies gait involvement as the predominant feature.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-episodic-ataxia" data-dismech-node="Episodic ataxia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Episodic ataxia
+                        Vestibular hypofunction
 
                         <span class="phenotype-freq">FREQUENT</span>
 
@@ -6744,256 +6612,23 @@ This clinical feature is Gait ataxia (HP:0002066), qualified as course progressi
 
                     <span class="phenotype-id">
 
+                        <span class="phenotype-term-label">Vestibular hyporeflexia</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002131" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0002131</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001756" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0001756</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Episodic ataxia (HP:0002131), qualified as temporality recurrent. HP:0002131 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Vestibular hypofunction, annotated with Vestibular hyporeflexia (HP:0001756). HP:0001756 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
 
-                    <div class="item-meta">
 
 
-
-
-
-
-
-
-    <span class="tag tag-classification">Temporal: RECURRENT</span>
-
-
-
-
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (3 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:39263992" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39263992" target="_blank">PMID:39263992</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"we found that SCA27B was a late-onset (57 ± 12.5 years) slowly progressive ataxia with an episodic component in 51% of patients"</div>
-
-
-                <div class="evidence-explanation">Direct quantitative support for both the phenotype and the FREQUENT band (51% falls in the 30-79% HPO range) in a 102-patient cohort.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:39263992" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39263992" target="_blank">PMID:39263992</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Testing for SCA27B should be considered in all undiagnosed ataxia patients, especially those with episodic onset."</div>
-
-
-                <div class="evidence-explanation">Supports the diagnostic value of the episodic presentation.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:38271551" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38271551" target="_blank">PMID:38271551</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Episodic symptoms may persist after the onset of progressive ataxia and may be triggered by alcohol intake and physical activity."</div>
-
-
-                <div class="evidence-explanation">Documents the persistence and the alcohol/exertion triggers.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-dysarthria" data-dismech-node="Dysarthria" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Dysarthria
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001260</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Dysarthria (HP:0001260), qualified as severity mild. HP:0001260 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">Severity: MILD</span>
-
-
-
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:38271551" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38271551" target="_blank">PMID:38271551</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Dysarthria does not develop in all individuals and often remains mild to moderate."</div>
-
-
-                <div class="evidence-explanation">Supports both the phenotype and its typically mild severity. Frequency is omitted because the source states only that it is not universal.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-dysautonomia" data-dismech-node="Dysautonomia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Dysautonomia
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Abnormal autonomic nervous system physiology</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0012332" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0012332</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Abnormal autonomic nervous system physiology (HP:0012332), qualified as course progressive. HP:0012332 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-                    <div class="item-meta">
-
-
-
-
-
-
-
-
-
-    <span class="tag tag-classification">Course: PROGRESSIVE</span>
-
-
-
-
-
-                    </div>
 
 
 
@@ -7002,96 +6637,6 @@ This clinical feature is Abnormal autonomic nervous system physiology (HP:001233
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:37165652" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37165652" target="_blank">PMID:37165652</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"partly combined with afferent sensory deficits (55%) and dysautonomia (28%)"</div>
-
-
-                <div class="evidence-explanation">Direct quantitative support for both the phenotype and the OCCASIONAL band (28% falls in the 5-29% HPO range).</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:37165652" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37165652" target="_blank">PMID:37165652</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Dysautonomia increased with duration while cognitive impairment remained infrequent, even in advanced stages."</div>
-
-
-                <div class="evidence-explanation">Supports the progressive clinical course qualifier and, by contrast, the relative sparing of cognition.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-hyperreflexia" data-dismech-node="Hyperreflexia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Hyperreflexia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001347" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0001347</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Hyperreflexia (HP:0001347). HP:0001347 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
 
@@ -7105,14 +6650,41 @@ This clinical feature is Hyperreflexia (HP:0001347). HP:0001347 is a phenotype f
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"Affected individuals had an adult-onset, slowly progressive cerebellar ataxia with variable features including vestibular impairment, hyper-reflexia, and autonomic dysfunction."</div>
+                <div class="evidence-snippet">"Six of 10 assessed had evidence of vestibular hypofunction on video head impulse test"</div>
 
 
-                <div class="evidence-explanation">Documents hyperreflexia as a variable accompanying feature. Frequency is omitted because the source calls it &#34;variable&#34; without quantification.</div>
+                <div class="evidence-explanation">Direct quantitative support for both the phenotype and the FREQUENT band (6/10 = 60%, within the 30-79% HPO range) among formally assessed patients in the Australian discovery cohort.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38271551" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38271551" target="_blank">PMID:38271551</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Unilateral or bilateral vestibular hypofunction and tremor of the upper limbs may occur."</div>
+
+
+                <div class="evidence-explanation">GeneReviews independently documents unilateral and bilateral vestibular hypofunction as a feature of the disease.</div>
 
 
 
@@ -7130,79 +6702,12 @@ This clinical feature is Hyperreflexia (HP:0001347). HP:0001347 is a phenotype f
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-4">
+            <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">5</span>
+                    Eye
+                    <span class="cat-count">4</span>
                 </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-limb-ataxia" data-dismech-node="Limb ataxia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Limb ataxia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002070" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002070</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Limb ataxia (HP:0002070). HP:0002070 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:38271551" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38271551" target="_blank">PMID:38271551</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Nearly 50% of individuals may first experience episodic manifestations including gait and limb ataxia"</div>
-
-
-                <div class="evidence-explanation">Documents limb ataxia as a manifestation of the disease. Frequency is deliberately omitted: the quoted figure describes the episodic phase, not the overall prevalence of limb ataxia.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-downbeat-nystagmus" data-dismech-node="Downbeat nystagmus" data-dismech-type="phenotype">
                     <div class="item-name">
@@ -7218,15 +6723,18 @@ This clinical feature is Limb ataxia (HP:0002070). HP:0002070 is a phenotype fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010545" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0010545</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0010545" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0010545</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Downbeat nystagmus (HP:0010545). HP:0010545 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7246,6 +6754,8 @@ This clinical feature is Downbeat nystagmus (HP:0010545). HP:0010545 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7269,6 +6779,8 @@ This clinical feature is Downbeat nystagmus (HP:0010545). HP:0010545 is a phenot
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7310,15 +6822,18 @@ This clinical feature is Downbeat nystagmus (HP:0010545). HP:0010545 is a phenot
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000640" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000640</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000640" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000640</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Gaze-evoked nystagmus (HP:0000640). HP:0000640 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7340,6 +6855,8 @@ This clinical feature is Gaze-evoked nystagmus (HP:0000640). HP:0000640 is a phe
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -7353,14 +6870,16 @@ This clinical feature is Gaze-evoked nystagmus (HP:0000640). HP:0000640 is a phe
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38507876" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:38507876" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38507876" target="_blank">PMID:38507876</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7371,6 +6890,636 @@ This clinical feature is Gaze-evoked nystagmus (HP:0000640). HP:0000640 is a phe
 
 
                 <div class="evidence-explanation">Quantifies the near-universal presence of cerebellar oculomotor signs in expansion carriers; classified PARTIAL and no frequency band is asserted because this cohort was ascertained on downbeat nystagmus and is therefore enriched for cerebellar eye signs.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-diplopia-and-visual-disturbance" data-dismech-node="Diplopia and visual disturbance" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Diplopia and visual disturbance
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000651" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000651</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Diplopia (HP:0000651), qualified as temporality recurrent. HP:0000651 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Temporal: RECURRENT</span>
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38271551" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38271551" target="_blank">PMID:38271551</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"visual disturbances (diplopia, oscillopsia, and blurring)"</div>
+
+
+                <div class="evidence-explanation">Documents diplopia as part of the episodic visual disturbance.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-oscillopsia" data-dismech-node="Oscillopsia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Oscillopsia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0034773" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0034773</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Oscillopsia (HP:0034773). HP:0034773 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38271551" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38271551" target="_blank">PMID:38271551</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"visual disturbances (diplopia, oscillopsia, and blurring)"</div>
+
+
+                <div class="evidence-explanation">Documents oscillopsia as an episodic visual manifestation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Nervous System
+                    <span class="cat-count">7</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-gait-ataxia" data-dismech-node="Gait ataxia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Gait ataxia
+
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002066" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0002066</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Gait ataxia (HP:0002066), qualified as course progressive; late onset. HP:0002066 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Course: PROGRESSIVE</span>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">
+        Onset: LATE</span>
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39263992" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39263992" target="_blank">PMID:39263992</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Balance and gait impairment were almost always present at disease onset."</div>
+
+
+                <div class="evidence-explanation">Supports both the phenotype and the VERY_FREQUENT band: &#34;almost always&#34; maps to the 80-100% HPO frequency range in a 102-patient cohort.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38271551" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38271551" target="_blank">PMID:38271551</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Median age at onset is 60 years (range: 21-87 years)."</div>
+
+
+                <div class="evidence-explanation">Supports the LATE onset category recorded on this phenotype.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38271551" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38271551" target="_blank">PMID:38271551</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"slowly progressive cerebellar syndrome with predominant gait involvement"</div>
+
+
+                <div class="evidence-explanation">GeneReviews identifies gait involvement as the predominant feature.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-limb-ataxia" data-dismech-node="Limb ataxia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Limb ataxia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002070" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0002070</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Limb ataxia (HP:0002070). HP:0002070 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38271551" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38271551" target="_blank">PMID:38271551</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Nearly 50% of individuals may first experience episodic manifestations including gait and limb ataxia"</div>
+
+
+                <div class="evidence-explanation">Documents limb ataxia as a manifestation of the disease. Frequency is deliberately omitted: the quoted figure describes the episodic phase, not the overall prevalence of limb ataxia.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-episodic-ataxia" data-dismech-node="Episodic ataxia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Episodic ataxia
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002131" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002131</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Episodic ataxia (HP:0002131), qualified as temporality recurrent. HP:0002131 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Temporal: RECURRENT</span>
+
+
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39263992" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39263992" target="_blank">PMID:39263992</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"we found that SCA27B was a late-onset (57 ± 12.5 years) slowly progressive ataxia with an episodic component in 51% of patients"</div>
+
+
+                <div class="evidence-explanation">Direct quantitative support for both the phenotype and the FREQUENT band (51% falls in the 30-79% HPO range) in a 102-patient cohort.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39263992" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39263992" target="_blank">PMID:39263992</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Testing for SCA27B should be considered in all undiagnosed ataxia patients, especially those with episodic onset."</div>
+
+
+                <div class="evidence-explanation">Supports the diagnostic value of the episodic presentation.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38271551" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38271551" target="_blank">PMID:38271551</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Episodic symptoms may persist after the onset of progressive ataxia and may be triggered by alcohol intake and physical activity."</div>
+
+
+                <div class="evidence-explanation">Documents the persistence and the alcohol/exertion triggers.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-dysarthria" data-dismech-node="Dysarthria" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Dysarthria
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001260" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0001260</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Dysarthria (HP:0001260), qualified as severity mild. HP:0001260 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Severity: MILD</span>
+
+
+
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38271551" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38271551" target="_blank">PMID:38271551</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Dysarthria does not develop in all individuals and often remains mild to moderate."</div>
+
+
+                <div class="evidence-explanation">Supports both the phenotype and its typically mild severity. Frequency is omitted because the source states only that it is not universal.</div>
 
 
 
@@ -7402,15 +7551,18 @@ This clinical feature is Gaze-evoked nystagmus (HP:0000640). HP:0000640 is a phe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010871" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0010871</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0010871" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0010871</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Sensory ataxia (HP:0010871). HP:0010871 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -7430,6 +7582,8 @@ This clinical feature is Sensory ataxia (HP:0010871). HP:0010871 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7455,11 +7609,11 @@ This clinical feature is Sensory ataxia (HP:0010871). HP:0010871 is a phenotype 
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-vestibular-hypofunction" data-dismech-node="Vestibular hypofunction" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-dysautonomia" data-dismech-node="Dysautonomia" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Vestibular hypofunction
+                        Dysautonomia
 
-                        <span class="phenotype-freq">FREQUENT</span>
+                        <span class="phenotype-freq">OCCASIONAL</span>
 
 
 
@@ -7468,20 +7622,41 @@ This clinical feature is Sensory ataxia (HP:0010871). HP:0010871 is a phenotype 
 
                     <span class="phenotype-id">
 
-                        <span class="phenotype-term-label">Vestibular hyporeflexia</span>
+                        <span class="phenotype-term-label">Abnormal autonomic nervous system physiology</span>
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001756" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001756</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012332" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0012332</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Vestibular hypofunction, annotated with Vestibular hyporeflexia (HP:0001756). HP:0001756 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Abnormal autonomic nervous system physiology (HP:0012332), qualified as course progressive. HP:0012332 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+                    <div class="item-meta">
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-classification">Course: PROGRESSIVE</span>
+
+
+
+
+
+                    </div>
+
+
+
 
 
 
@@ -7490,6 +7665,103 @@ This clinical feature is Vestibular hypofunction, annotated with Vestibular hypo
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37165652" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37165652" target="_blank">PMID:37165652</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"partly combined with afferent sensory deficits (55%) and dysautonomia (28%)"</div>
+
+
+                <div class="evidence-explanation">Direct quantitative support for both the phenotype and the OCCASIONAL band (28% falls in the 5-29% HPO range).</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37165652" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37165652" target="_blank">PMID:37165652</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Dysautonomia increased with duration while cognitive impairment remained infrequent, even in advanced stages."</div>
+
+
+                <div class="evidence-explanation">Supports the progressive clinical course qualifier and, by contrast, the relative sparing of cognition.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-hyperreflexia" data-dismech-node="Hyperreflexia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Hyperreflexia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001347" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0001347</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Hyperreflexia (HP:0001347). HP:0001347 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
         </summary>
         <div class="evidence-list">
 
@@ -7503,37 +7775,16 @@ This clinical feature is Vestibular hypofunction, annotated with Vestibular hypo
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"Six of 10 assessed had evidence of vestibular hypofunction on video head impulse test"</div>
+                <div class="evidence-snippet">"Affected individuals had an adult-onset, slowly progressive cerebellar ataxia with variable features including vestibular impairment, hyper-reflexia, and autonomic dysfunction."</div>
 
 
-                <div class="evidence-explanation">Direct quantitative support for both the phenotype and the FREQUENT band (6/10 = 60%, within the 30-79% HPO range) among formally assessed patients in the Australian discovery cohort.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:38271551" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38271551" target="_blank">PMID:38271551</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Unilateral or bilateral vestibular hypofunction and tremor of the upper limbs may occur."</div>
-
-
-                <div class="evidence-explanation">GeneReviews independently documents unilateral and bilateral vestibular hypofunction as a feature of the disease.</div>
+                <div class="evidence-explanation">Documents hyperreflexia as a variable accompanying feature. Frequency is omitted because the source calls it &#34;variable&#34; without quantification.</div>
 
 
 
@@ -7623,6 +7874,9 @@ This disease-associated gene is FGF14 (hgnc:3671). hgnc:3671 is a gene from the 
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal dominant</span>
@@ -7645,6 +7899,8 @@ This disease-associated gene is FGF14 (hgnc:3671). hgnc:3671 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7670,6 +7926,8 @@ This disease-associated gene is FGF14 (hgnc:3671). hgnc:3671 is a gene from the 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7691,6 +7949,8 @@ This disease-associated gene is FGF14 (hgnc:3671). hgnc:3671 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7738,6 +7998,7 @@ This disease-associated gene is FGF14 (hgnc:3671). hgnc:3671 is a gene from the 
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -7757,6 +8018,7 @@ This variant is in FGF14 (hgnc:3671). hgnc:3671 is a gene from the HUGO Gene Nom
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">short tandem repeat expansion</span>
 
 
@@ -7764,6 +8026,11 @@ This variant is in FGF14 (hgnc:3671). hgnc:3671 is a gene from the HUGO Gene Nom
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Heterozygous expansion of a (GAA) short tandem repeat located deep in intron 1 of FGF14. Pathogenicity depends jointly on the length of the longest pure GAA tract and on the presence of interrupting motifs; the non-coding location means the mechanism is loss of expression rather than an altered protein product.</div>
@@ -7790,6 +8057,8 @@ This variant is in FGF14 (hgnc:3671). hgnc:3671 is a gene from the HUGO Gene Nom
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7824,6 +8093,7 @@ This variant is in FGF14 (hgnc:3671). hgnc:3671 is a gene from the HUGO Gene Nom
 
     </div>
 
+
     <div class="item-meta">
 
 
@@ -7843,11 +8113,17 @@ This variant is in FGF14 (hgnc:3671). hgnc:3671 is a gene from the HUGO Gene Nom
         </span>
 
 
+
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">interrupted short tandem repeat</span>
 
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Expanded FGF14 repeat alleles whose tract is composed of, or heavily interrupted by, GAAGGA/AAGGAG hexameric motifs. These configurations occur at equal frequency in patients and controls and are treated as non-pathogenic; mosaic divergent repeat interruptions that shorten the remaining pure GAA tract are enriched in unaffected expansion carriers.</div>
@@ -7876,6 +8152,8 @@ This variant is in FGF14 (hgnc:3671). hgnc:3671 is a gene from the HUGO Gene Nom
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7899,6 +8177,8 @@ This variant is in FGF14 (hgnc:3671). hgnc:3671 is a gene from the HUGO Gene Nom
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -7920,6 +8200,8 @@ This variant is in FGF14 (hgnc:3671). hgnc:3671 is a gene from the HUGO Gene Nom
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8023,6 +8305,31 @@ This treatment uses 4-aminopyridine (CHEBI:34385). CHEBI:34385 is a therapeutic 
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">4-Aminopyridine (4-AP), a voltage-gated potassium channel blocker, is the principal symptomatic therapy for SCA27B and is the mechanistically rational choice: it does not increase inhibitory drive onto Purkinje cells but restores the precision of Purkinje pacemaking by prolonging the action potential and increasing the afterhyperpolarization, counteracting the firing failure caused by FGF14 loss. Across cohorts, 75-86% of treated patients report clinically meaningful benefit, and placebo-controlled video-oculography in a small number of expansion carriers showed a significant reduction in downbeat nystagmus slow-phase velocity on 4-AP but not placebo. Formal randomised trials in genetically defined SCA27B are still awaited.</div>
 
 
@@ -8045,14 +8352,16 @@ This treatment uses 4-aminopyridine (CHEBI:34385). CHEBI:34385 is a therapeutic 
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:20505092" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:20505092" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/20505092" target="_blank">PMID:20505092</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -8136,6 +8445,8 @@ This treatment targets Gait ataxia (HP:0002066). HP:0002066 is a phenotype from 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8159,6 +8470,8 @@ This treatment targets Gait ataxia (HP:0002066). HP:0002066 is a phenotype from 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8180,6 +8493,8 @@ This treatment targets Gait ataxia (HP:0002066). HP:0002066 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8246,6 +8561,31 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Patients should be informed that alcohol intake and strenuous physical activity may precipitate episodes of ataxia and worsen incoordination, and that medications with known cerebellar or vestibular toxicity should be avoided.</div>
 
 
@@ -8267,6 +8607,8 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8331,6 +8673,31 @@ This treatment is Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">There is no cure or disease-modifying therapy. Management aims to improve quality of life, maximise function, and reduce complications through multidisciplinary care including physical therapy, occupational therapy, and speech-language therapy.</div>
 
 
@@ -8352,6 +8719,8 @@ This treatment is Physical Therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8416,6 +8785,31 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Other</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Counseling should cover the autosomal dominant 50% transmission risk, the age-dependent and incomplete penetrance of shorter expansions, and the intergenerational instability of the repeat (expansion on maternal, and contraction on paternal, transmission). Predictive and prenatal testing are technically possible but prognostically limited: clinical manifestations cannot be predicted from a fetal repeat size, and prenatal somatic instability is not characterised.</div>
 
 
@@ -8437,6 +8831,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -8466,6 +8862,603 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-fgf14-repeat-sizing-by-long-range-pcr-with-long-read-confirmation">
+                <div class="item-name">
+                    FGF14 repeat sizing by long-range PCR with long-read confirmation
+
+                    <span style="font-size: 0.8rem; font-weight: normal; opacity: 0.8;">(Positive)</span>
+
+                </div>
+
+                <div class="item-desc">Molecular diagnosis rests on sizing the intron 1 (GAA) repeat, usually by long-range and repeat-primed PCR. Because pathogenicity depends on the length of the longest pure GAA tract rather than total allele size, long-read sequencing (Nanopore or PacBio) is needed to resolve interrupting motifs accurately; short-read genome data can be screened with tools such as ExpansionHunter and STRling using outlier approaches.</div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38271551" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38271551" target="_blank">PMID:38271551</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The diagnosis of GAA-FGF14-related ataxia is established in a symptomatic individual with a compatible phenotype by the identification of a heterozygous (GAA)&gt;300 repeat expansion in intron 1 of FGF14 by molecular genetic testing."</div>
+
+
+                <div class="evidence-explanation">GeneReviews diagnostic criterion.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40379261" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40379261" target="_blank">PMID:40379261</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"long-read sequencing is required to detect complex repeat interruptions accurately"</div>
+
+
+                <div class="evidence-explanation">Supports the requirement for long-read confirmation.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39227614" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39227614" target="_blank">PMID:39227614</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-COMPUTATIONAL">Computational</span>
+
+                </div>
+
+                <div class="evidence-snippet">"we demonstrate that STRling and ExpansionHunter accurately detect FGF14 expansions from short-read genome data using outlier approaches"</div>
+
+
+                <div class="evidence-explanation">Supports short-read screening as a first-pass detection route. Evidence source is COMPUTATIONAL because the claim concerns performance of bioinformatic repeat-detection algorithms.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+        <div class="card" id="imaging-findings">
+            <div class="card-header">
+                <div class="card-icon" style="background: #ede9fe; color: #6d28d9;">🩻</div>
+                <h2 class="card-title">Imaging Findings</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="imaging-finding-cerebellar-atrophy-on-brain-mri">
+                <div class="item-name">
+                    Cerebellar atrophy on brain MRI
+
+                    <span class="histopathology-freq">FREQUENT</span>
+
+                </div>
+
+                <div class="item-desc">Brain MRI shows regional cerebellar atrophy in a substantial minority of patients, concordant with the anterior-vermis-predominant Purkinje cell loss seen at autopsy. Critically, a normal MRI does not exclude the diagnosis: in the Australian discovery cohort only five of thirteen expansion carriers had visible cerebellar atrophy despite a mean 8.5 years of symptoms, so imaging is a poor rule-out test and molecular repeat sizing should be pursued regardless.</div>
+
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Mri</span>
+
+
+
+
+
+
+                </div>
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-anatomy">
+
+        cerebellum
+
+
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002037" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-41">UBERON:0002037</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-41">Uberon multi-species anatomy ontology (UBERON)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-phenotype">
+
+        Cerebellar atrophy
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001272" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-42">HP:0001272</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-42">Human Phenotype Ontology (HP)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36493768" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36493768" target="_blank">PMID:36493768</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"All displayed a range of clinical ataxic phenomena, with MRI scanning revealing cerebellar atrophy in five of the 13"</div>
+
+
+                <div class="evidence-explanation">Direct quantitative support for both the finding and the FREQUENT band (5/13 = 38%, within the 30-79% HPO range), and for the point that most expansion carriers in this cohort had no visible atrophy.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36493768" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36493768" target="_blank">PMID:36493768</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Brain MRI scans were assessed visually for regional cerebellar atrophy."</div>
+
+
+                <div class="evidence-explanation">Documents the imaging modality and the visual assessment method behind the atrophy figure.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-episodic-prodrome">
+                <div class="item-name">Episodic prodrome</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Typically two to four years before progressive ataxia</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Nearly half of patients first experience discrete episodes of gait and limb ataxia, visual disturbance, vertigo/dizziness, or dysarthria, on average two to four years before progressive ataxia begins.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38271551" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38271551" target="_blank">PMID:38271551</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Nearly 50% of individuals may first experience episodic manifestations including gait and limb ataxia, visual disturbances (diplopia, oscillopsia, and blurring), vertigo and/or dizziness, or dysarthria on average two to four years before the onset of progressive ataxia."</div>
+
+
+                <div class="evidence-explanation">Defines the episodic prodromal phase and its lead time.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-slowly-progressive-ataxia-with-functional-plateau">
+                <div class="item-name">Slowly progressive ataxia with functional plateau</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Median onset 60 years, reported range 21-87 years</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Progression is slow, about 0.29 SARA points per year, with severity not exceeding a moderate level even in advanced disease and unilateral mobility aids required after roughly eight years in half of patients. Serum neurofilament light is not elevated relative to controls, consistent with limited neuroaxonal degeneration. Concurrent second neurological diseases are a major individual aggravator of severity and a confounder for trial design.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (4 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38271551" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38271551" target="_blank">PMID:38271551</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Median age at onset is 60 years (range: 21-87 years)."</div>
+
+
+                <div class="evidence-explanation">Supports the recorded age range for this phase.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37165652" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37165652" target="_blank">PMID:37165652</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Ataxia due to an autosomal dominant intronic GAA repeat expansion in FGF14 ... GAA-FGF14 ataxia, spinocerebellar ataxia 27B (SCA27B) ... has recently been identified as one of the most common genetic late-onset ataxias. ... GAA-FGF14 ataxia consistently presented as late-onset ... 60.0 years..."</div>
+
+
+                <div class="evidence-explanation">Identifies GAA-FGF14/SCA27B and slow progression with limited observed severity. The median onset and interquartile range are reported; these are not the full onset-age range or proof of a longitudinal plateau.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:37165652" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/37165652" target="_blank">PMID:37165652</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Concurrent second diseases (including progressive supranuclear palsy neuropathology) represented major individual aggravators of disease severity, constituting important caveats for planning future GAA-FGF14 trials."</div>
+
+
+                <div class="evidence-explanation">Documents comorbid disease as a driver of apparent severity.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-patients-with-unsolved-adult-onset-cerebellar-ataxia">
+                <div class="item-name">Patients with unsolved adult-onset cerebellar ataxia</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Unknown</span>
+
+
+
+                    <span class="tag">Unknown</span>
+
+                </div>
+
+                <div class="item-notes">Not a population prevalence: this is the diagnostic yield of FGF14 repeat testing among previously undiagnosed adult-onset ataxia patients, reported as 23-31% of unsolved cases. Recorded here because the population-level prevalence of SCA27B has not yet been established; the corresponding per-cohort case fractions are curated under genetic.case_fractions.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39227614" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39227614" target="_blank">PMID:39227614</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"this study suggests that SCA27B is a major overlooked cause of adult-onset ataxia, accounting for 23-31% of unsolved patients"</div>
+
+
+                <div class="evidence-explanation">Quantifies the diagnostic yield among unsolved adult-onset ataxia patients.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-patients-with-idiopathic-downbeat-nystagmus">
+                <div class="item-name">Patients with idiopathic downbeat nystagmus</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Unknown</span>
+
+
+
+                    <span class="tag">Unknown</span>
+
+                </div>
+
+                <div class="item-notes">Diagnostic yield rather than population prevalence: 48% of a 170-patient idiopathic downbeat nystagmus cohort carried an FGF14 (GAA)&gt;=250 expansion.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38507876" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38507876" target="_blank">PMID:38507876</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Frequency of FGF14 (GAA)≥250 expansions was 48% (82/170) in patients with idiopathic DBN."</div>
+
+
+                <div class="evidence-explanation">Quantifies the diagnostic yield in an idiopathic DBN cohort.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -8533,6 +9526,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8609,6 +9604,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8630,6 +9627,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -9298,7 +10297,7 @@ pathophysiology:
       genetically confirmed SCA27B.
   - reference: PMID:37165652
     reference_title: &#34;GAA-FGF14 ataxia (SCA27B): phenotypic profile, natural history progression and 4-aminopyridine treatment response.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Corresponding to slow progression and low extra-cerebellar involvement,
@@ -9575,7 +10574,7 @@ phenotypes:
     explanation: Documents gaze-evoked nystagmus as part of the oculomotor syndrome.
   - reference: PMID:38507876
     reference_title: &#34;GAA-FGF14 disease: defining its frequency, molecular basis, and 4-aminopyridine response in a large downbeat nystagmus cohort.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Additional cerebellar ocular motor signs were observed in 100% (82/82)
@@ -9893,9 +10892,25 @@ progression:
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
-      Functional impairment increased relatively slowly (unilateral mobility
-      aids after 8 years in 50% of patients).
-    explanation: Quantifies functional progression.
+      Ataxia due to an autosomal dominant intronic GAA repeat expansion in FGF14 ... GAA-FGF14
+      ataxia, spinocerebellar ataxia 27B (SCA27B) ... has recently been identified as one of the
+      most common genetic late-onset ataxias. ... GAA-FGF14 ataxia consistently presented as
+      late-onset ... 60.0 years (53.5-68.5), median (interquartile range) ... pancerebellar
+      syndrome, partly combined with afferent sensory deficits (55%) and dysautonomia (28%).
+      Dysautonomia increased with duration while cognitive impairment remained infrequent, even in
+      advanced stages. Cross-sectional and longitudinal assessments consistently indicated mild
+      progression of ataxia ... 0.29 Scale for the Assessment and Rating of Ataxia (SARA)
+      points/year ... , not exceeding a moderate disease severity even in advanced stages (maximum
+      SARA score: 18 points). Functional impairment increased relatively slowly (unilateral mobility
+      aids after 8 years in 50% of patients). Corresponding to slow progression and low
+      extra-cerebellar involvement, sNfL was not increased relative to controls. Concurrent second
+      diseases (including progressive supranuclear palsy neuropathology) represented major
+      individual aggravators of disease severity, constituting important caveats for planning future
+      GAA-FGF14 trials.
+    explanation: &gt;-
+      Identifies GAA-FGF14/SCA27B and slow progression with limited observed severity. The median
+      onset and interquartile range are reported; these are not the full onset-age range or proof of
+      a longitudinal plateau.
   - reference: PMID:37165652
     reference_title: &#34;GAA-FGF14 ataxia (SCA27B): phenotypic profile, natural history progression and 4-aminopyridine treatment response.&#34;
     supports: SUPPORT
@@ -10116,7 +11131,7 @@ treatments:
     evidence:
     - reference: PMID:20505092
       reference_title: The therapeutic mode of action of 4-aminopyridine in cerebellar ataxia.
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: MODEL_ORGANISM
       snippet: &gt;-
         4-AP restores the severely diminished precision of pacemaking in
@@ -10486,7 +11501,7 @@ discussions:
       functional deficit.
   - reference: PMID:39263992
     reference_title: Clinical, Radiological and Pathological Features of a Large American Cohort of Spinocerebellar Ataxia (SCA27B).
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       The principal finding on post-mortem examination of 4 brain specimens
@@ -10628,7 +11643,7 @@ notes: &gt;-
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Spinocerebellar ataxia 27B", "mondoId": "MONDO:0859340", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Spinocerebellar_ataxia_27B", "yamlRevision": "4ef305a03d51"};
+        const OS_CONFIG = {"diseaseName": "Spinocerebellar ataxia 27B", "mondoId": "MONDO:0859340", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Spinocerebellar_ataxia_27B", "yamlRevision": "29a77cc00a64"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

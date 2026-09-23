@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2954,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2969,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3078,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3091,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3295,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3305,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3341,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3362,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3675,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4319,6 +4412,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cloacal-membrane-overdevelopment-and-premature-rupture" data-dismech-node="Cloacal Membrane Overdevelopment and Premature Rupture" data-dismech-type="pathophysiology">
                 <div class="item-name">Cloacal Membrane Overdevelopment and Premature Rupture</div>
 
+
                 <div class="item-desc">The leading developmental hypothesis holds that EEC results from mechanical disruption or enlargement of the cloacal membrane. The cloacal membrane is a bilaminar (ectoderm-endoderm) structure at the caudal end of the embryo with no intervening mesoderm. An abnormally large, caudally positioned membrane acts as a mechanical wedge that prevents the medial migration of infraumbilical mesenchyme that should form the lower abdominal wall, pelvis, and genital tubercle. The timing of premature rupture of this unstable membrane determines the severity of the resulting malformation: rupture after complete urorectal septation yields classic bladder exstrophy, very early rupture (before the urorectal septum has divided the cloaca) yields cloacal exstrophy, and a limited dorsal defect yields isolated epispadias.</div>
 
 
@@ -4564,6 +4658,8 @@ This pathophysiological event occurs in Urorectal septum (UBERON:0005760). UBERO
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4585,6 +4681,8 @@ This pathophysiological event occurs in Urorectal septum (UBERON:0005760). UBERO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4609,6 +4707,7 @@ This pathophysiological event occurs in Urorectal septum (UBERON:0005760). UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-isl1-associated-disruption-of-pericloacal-mesenchyme-and-urinary-tract-development" data-dismech-node="ISL1-Associated Disruption of Pericloacal Mesenchyme and Urinary Tract Development" data-dismech-type="pathophysiology">
                 <div class="item-name">ISL1-Associated Disruption of Pericloacal Mesenchyme and Urinary Tract Development</div>
+
 
                 <div class="item-desc">Genome-wide association studies have identified the LIM-homeodomain transcription factor ISL1 (at chromosomal region 5q11.1) as the major susceptibility gene for classic bladder exstrophy. ISL1 is a master control gene expressed in the pericloacal mesenchyme and urorectal septum during the critical time frame for human bladder-exstrophy development. Developmental biology models (mouse lineage tracing, zebrafish) localize ISL1 activity to the forming urinary tract and genital region, supporting a model in which altered ISL1-dependent regulation of pericloacal mesenchyme and urinary tract development predisposes to the failure of lower abdominal wall and bladder closure.</div>
 
@@ -4788,6 +4887,8 @@ This pathophysiological event occurs in Urorectal septum (UBERON:0005760). UBERO
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4811,6 +4912,8 @@ This pathophysiological event occurs in Urorectal septum (UBERON:0005760). UBERO
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4832,6 +4935,8 @@ This pathophysiological event occurs in Urorectal septum (UBERON:0005760). UBERO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4898,13 +5003,13 @@ This pathophysiological event occurs in Urorectal septum (UBERON:0005760). UBERO
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Digestive<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Digestive<span class="pill-count">(4)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Genitourinary<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Genitourinary<span class="pill-count">(5)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Nervous System<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Musculoskeletal<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(8)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Nervous System<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -4914,281 +5019,7 @@ This pathophysiological event occurs in Urorectal septum (UBERON:0005760). UBERO
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Digestive
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-anal-atresia" data-dismech-node="Anal Atresia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Anal Atresia
-
-                        <span class="phenotype-freq">VERY_RARE</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002023" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0002023</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Imperforate anus, annotated with Anal atresia (HP:0002023). HP:0002023 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:19878548" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19878548" target="_blank">PMID:19878548</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"In CE, two exstrophied hemibladders, as well as omphalocele, an imperforate anus and spinal defects, can be seen after birth."</div>
-
-
-                <div class="evidence-explanation">Lists imperforate anus as a component of cloacal exstrophy.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:322" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:322" target="_blank">ORPHA:322</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0002023 | Anal atresia | Very rare (&lt;4-1%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet classifies anal atresia as very rare within EEC.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-2">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Genitourinary
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-cryptorchidism" data-dismech-node="Cryptorchidism" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Cryptorchidism
-
-                        <span class="phenotype-freq">VERY_RARE</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000028" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0000028</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:28176844" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28176844" target="_blank">PMID:28176844</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Vesicoureteral reflux and obstruction of the ureteropelvic junction are observed frequently in both genders, and cryptorchidism is common in males"</div>
-
-
-                <div class="evidence-explanation">Documents cryptorchidism as a common finding in affected males.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:322" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:322" target="_blank">ORPHA:322</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0000028 | Cryptorchidism | Very rare (&lt;4-1%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet classifies cryptorchidism as very rare within the overall EEC spectrum.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-3">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Nervous System
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-spinal-dysraphism" data-dismech-node="Spinal Dysraphism" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Spinal Dysraphism
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0010301" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0010301</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Spinal defects, annotated with Spinal dysraphism (HP:0010301). HP:0010301 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:19878548" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19878548" target="_blank">PMID:19878548</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"In CE, two exstrophied hemibladders, as well as omphalocele, an imperforate anus and spinal defects, can be seen after birth."</div>
-
-
-                <div class="evidence-explanation">Lists spinal defects as a component of cloacal exstrophy (OEIS).</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">8</span>
+                    <span class="cat-count">4</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-bladder-exstrophy" data-dismech-node="Bladder Exstrophy" data-dismech-type="phenotype">
@@ -5207,15 +5038,18 @@ This clinical feature is Spinal defects, annotated with Spinal dysraphism (HP:00
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002836" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0002836</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002836" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0002836</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Bladder exstrophy (HP:0002836). HP:0002836 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5235,6 +5069,8 @@ This clinical feature is Bladder exstrophy (HP:0002836). HP:0002836 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5260,102 +5096,14 @@ This clinical feature is Bladder exstrophy (HP:0002836). HP:0002836 is a phenoty
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"HP:0002836 | Bladder exstrophy | Frequent (79-30%)"</div>
 
 
                 <div class="evidence-explanation">Orphanet classifies bladder exstrophy as frequent in EEC.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-epispadias" data-dismech-node="Epispadias" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Epispadias
-
-                        <span class="phenotype-freq">FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000039" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000039</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Epispadias (HP:0000039). HP:0000039 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:19878548" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19878548" target="_blank">PMID:19878548</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Exstrophy-epispadias complex (EEC) represents a spectrum of genitourinary malformations ranging in severity from epispadias (E) to classical bladder exstrophy (CEB) and exstrophy of the cloaca (EC)."</div>
-
-
-                <div class="evidence-explanation">Establishes epispadias as the mild end of the EEC spectrum.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="ORPHA:322" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="https://bioregistry.io/ORPHA:322" target="_blank">ORPHA:322</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                </div>
-
-                <div class="evidence-snippet">"HP:0000039 | Epispadias | Frequent (79-30%)"</div>
-
-
-                <div class="evidence-explanation">Orphanet classifies epispadias as frequent in EEC.</div>
 
 
 
@@ -5387,15 +5135,18 @@ This clinical feature is Epispadias (HP:0000039). HP:0000039 is a phenotype from
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0010475" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0010475</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0010475" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0010475</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Cloacal exstrophy (HP:0010475). HP:0010475 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5415,6 +5166,8 @@ This clinical feature is Cloacal exstrophy (HP:0010475). HP:0010475 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5438,6 +5191,8 @@ This clinical feature is Cloacal exstrophy (HP:0010475). HP:0010475 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5477,15 +5232,18 @@ This clinical feature is Cloacal exstrophy (HP:0010475). HP:0010475 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001539" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001539</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001539" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-13">HP:0001539</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Omphalocele (HP:0001539). HP:0001539 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5505,6 +5263,8 @@ This clinical feature is Omphalocele (HP:0001539). HP:0001539 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5530,6 +5290,8 @@ This clinical feature is Omphalocele (HP:0001539). HP:0001539 is a phenotype fro
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"HP:0001539 | Omphalocele | Occasional (29-5%)"</div>
@@ -5551,9 +5313,11 @@ This clinical feature is Omphalocele (HP:0001539). HP:0001539 is a phenotype fro
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-wide-pubic-symphysis" data-dismech-node="Wide Pubic Symphysis" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-anal-atresia" data-dismech-node="Anal Atresia" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Wide Pubic Symphysis
+                        Anal Atresia
+
+                        <span class="phenotype-freq">VERY_RARE</span>
 
 
 
@@ -5565,12 +5329,12 @@ This clinical feature is Omphalocele (HP:0001539). HP:0001539 is a phenotype fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003183" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0003183</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002023" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0002023</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Pubic diastasis, annotated with Wide pubic symphysis (HP:0003183). HP:0003183 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Imperforate anus, annotated with Anal atresia (HP:0002023). HP:0002023 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5579,9 +5343,12 @@ This clinical feature is Pubic diastasis, annotated with Wide pubic symphysis (H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
 
@@ -5595,14 +5362,145 @@ This clinical feature is Pubic diastasis, annotated with Wide pubic symphysis (H
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"Depending on severity, EEC may involve the urinary system, musculoskeletal system, pelvis, pelvic floor, abdominal wall, genitalia, and sometimes the spine and anus."</div>
+                <div class="evidence-snippet">"In CE, two exstrophied hemibladders, as well as omphalocele, an imperforate anus and spinal defects, can be seen after birth."</div>
 
 
-                <div class="evidence-explanation">Supports musculoskeletal/pelvic involvement; pubic diastasis is the characteristic pelvic-bone abnormality of the complex.</div>
+                <div class="evidence-explanation">Lists imperforate anus as a component of cloacal exstrophy.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:322" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:322" target="_blank">ORPHA:322</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0002023 | Anal atresia | Very rare (&lt;4-1%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet classifies anal atresia as very rare within EEC.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-2">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Genitourinary
+                    <span class="cat-count">5</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-epispadias" data-dismech-node="Epispadias" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Epispadias
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000039" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0000039</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Epispadias (HP:0000039). HP:0000039 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19878548" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19878548" target="_blank">PMID:19878548</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Exstrophy-epispadias complex (EEC) represents a spectrum of genitourinary malformations ranging in severity from epispadias (E) to classical bladder exstrophy (CEB) and exstrophy of the cloaca (EC)."</div>
+
+
+                <div class="evidence-explanation">Establishes epispadias as the mild end of the EEC spectrum.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:322" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:322" target="_blank">ORPHA:322</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0000039 | Epispadias | Frequent (79-30%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet classifies epispadias as frequent in EEC.</div>
 
 
 
@@ -5634,15 +5532,18 @@ This clinical feature is Pubic diastasis, annotated with Wide pubic symphysis (H
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000076" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000076</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000076" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0000076</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Vesicoureteral reflux (HP:0000076). HP:0000076 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5662,6 +5563,8 @@ This clinical feature is Vesicoureteral reflux (HP:0000076). HP:0000076 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5685,6 +5588,8 @@ This clinical feature is Vesicoureteral reflux (HP:0000076). HP:0000076 is a phe
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -5722,15 +5627,18 @@ This clinical feature is Vesicoureteral reflux (HP:0000076). HP:0000076 is a phe
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000074" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000074</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000074" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000074</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Ureteropelvic junction obstruction (HP:0000074). HP:0000074 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5752,6 +5660,8 @@ This clinical feature is Ureteropelvic junction obstruction (HP:0000074). HP:000
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5760,6 +5670,103 @@ This clinical feature is Ureteropelvic junction obstruction (HP:0000074). HP:000
 
 
                 <div class="evidence-explanation">Documents ureteropelvic junction obstruction as a frequent associated urinary-tract finding in BEEC.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-cryptorchidism" data-dismech-node="Cryptorchidism" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Cryptorchidism
+
+                        <span class="phenotype-freq">VERY_RARE</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000028" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0000028</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cryptorchidism (HP:0000028). HP:0000028 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28176844" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28176844" target="_blank">PMID:28176844</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Vesicoureteral reflux and obstruction of the ureteropelvic junction are observed frequently in both genders, and cryptorchidism is common in males"</div>
+
+
+                <div class="evidence-explanation">Documents cryptorchidism as a common finding in affected males.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="ORPHA:322" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/ORPHA:322" target="_blank">ORPHA:322</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                </div>
+
+                <div class="evidence-snippet">"HP:0000028 | Cryptorchidism | Very rare (&lt;4-1%)"</div>
+
+
+                <div class="evidence-explanation">Orphanet classifies cryptorchidism as very rare within the overall EEC spectrum.</div>
 
 
 
@@ -5789,15 +5796,18 @@ This clinical feature is Ureteropelvic junction obstruction (HP:0000074). HP:000
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030911" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0030911</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030911" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0030911</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Bifid clitoris (HP:0030911). HP:0030911 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5819,6 +5829,8 @@ This clinical feature is Bifid clitoris (HP:0030911). HP:0030911 is a phenotype 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5827,6 +5839,168 @@ This clinical feature is Bifid clitoris (HP:0030911). HP:0030911 is a phenotype 
 
 
                 <div class="evidence-explanation">Supports the female genital defect (clitoral/urethral cleft) of the complex.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Musculoskeletal
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-wide-pubic-symphysis" data-dismech-node="Wide Pubic Symphysis" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Wide Pubic Symphysis
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0003183" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0003183</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Pubic diastasis, annotated with Wide pubic symphysis (HP:0003183). HP:0003183 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19878548" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19878548" target="_blank">PMID:19878548</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Depending on severity, EEC may involve the urinary system, musculoskeletal system, pelvis, pelvic floor, abdominal wall, genitalia, and sometimes the spine and anus."</div>
+
+
+                <div class="evidence-explanation">Supports musculoskeletal/pelvic involvement; pubic diastasis is the characteristic pelvic-bone abnormality of the complex.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Nervous System
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-spinal-dysraphism" data-dismech-node="Spinal Dysraphism" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Spinal Dysraphism
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010301" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0010301</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Spinal defects, annotated with Spinal dysraphism (HP:0010301). HP:0010301 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19878548" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19878548" target="_blank">PMID:19878548</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"In CE, two exstrophied hemibladders, as well as omphalocele, an imperforate anus and spinal defects, can be seen after birth."</div>
+
+
+                <div class="evidence-explanation">Lists spinal defects as a component of cloacal exstrophy (OEIS).</div>
 
 
 
@@ -5912,6 +6086,9 @@ This disease-associated gene is ISL1 (hgnc:6132). hgnc:6132 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5926,6 +6103,8 @@ This disease-associated gene is ISL1 (hgnc:6132). hgnc:6132 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5949,6 +6128,8 @@ This disease-associated gene is ISL1 (hgnc:6132). hgnc:6132 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6003,6 +6184,9 @@ This disease-associated gene is CELSR3 (hgnc:3230). hgnc:3230 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6017,6 +6201,8 @@ This disease-associated gene is CELSR3 (hgnc:3230). hgnc:3230 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6040,6 +6226,8 @@ This disease-associated gene is CELSR3 (hgnc:3230). hgnc:3230 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6122,6 +6310,20 @@ This treatment is reconstructive surgical procedure, annotated with Reconstructi
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">The mainstay of management is surgical, with the principal aims of obtaining secure abdominal wall closure, achieving urinary continence with preservation of renal function, and adequate cosmetic and functional genital reconstruction. Reconstruction may be staged or performed as a complete primary repair; several methods for bladder reconstruction with creation of an outlet resistance during the newborn period are favored worldwide.</div>
 
 
@@ -6145,6 +6347,8 @@ This treatment is reconstructive surgical procedure, annotated with Reconstructi
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6166,6 +6370,8 @@ This treatment is reconstructive surgical procedure, annotated with Reconstructi
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6229,6 +6435,31 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Bladder neck reconstruction (e.g., the Young-Dees-Leadbetter procedure) is a final stage of repair aimed at achieving urinary continence. In a single-center cohort, this yielded full continence in 33% and social continence in 67% of patients; a preoperative bladder capacity of 110 mL or more was the sole predictor of social continence.</div>
 
 
@@ -6252,6 +6483,8 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6273,6 +6506,8 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6336,6 +6571,20 @@ This treatment is osteotomy (NCIT:C51903). NCIT:C51903 is a clinical interventio
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Pelvic osteotomy is used adjunctively to facilitate secure abdominal wall and bladder closure by approximating the diastatic pubic bones and reducing tension on the closure.</div>
 
 
@@ -6357,6 +6606,8 @@ This treatment is osteotomy (NCIT:C51903). NCIT:C51903 is a clinical interventio
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6420,6 +6671,20 @@ This treatment is urinary diversion (NCIT:C91841). NCIT:C91841 is a clinical int
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">When final reconstruction fails, urinary diversion should be undertaken; removal of the bladder template with complete urinary diversion to a rectal reservoir can also be used as an alternative to bladder reconstruction.</div>
 
 
@@ -6443,6 +6708,8 @@ This treatment is urinary diversion (NCIT:C91841). NCIT:C91841 is a clinical int
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6464,6 +6731,8 @@ This treatment is urinary diversion (NCIT:C91841). NCIT:C91841 is a clinical int
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6526,6 +6795,20 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Multidisciplinary counseling for parents and affected individuals addresses recurrence risk and family planning, informed by the current state of knowledge about identified high-penetrance genetic causes. Because of the favorable outcome, termination of pregnancy is no longer recommended.</div>
 
 
@@ -6549,6 +6832,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6570,6 +6855,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6599,6 +6886,231 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-long-term-outcome-and-continence">
+                <div class="item-name">Long-term outcome and continence</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">EEC is congenital and may be detected prenatally by ultrasound through repeated non-visualization of a normally filled fetal bladder. Outcome is now considered favorable; after reconstructive bladder surgery, continence rates of about 80% are expected during childhood, although additional surgery may be needed to optimize bladder storage and emptying. Long-term complications include malignancies of the bladder mucosa.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19878548" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19878548" target="_blank">PMID:19878548</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"After reconstructive surgery of the bladder, continence rates of about 80% are expected during childhood."</div>
+
+
+                <div class="evidence-explanation">Quantifies expected childhood continence rates after bladder reconstruction.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28176844" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28176844" target="_blank">PMID:28176844</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Long-term complications are malignancies of the bladder mucosa, with 95% of these malignancies being adenocarcinomas"</div>
+
+
+                <div class="evidence-explanation">Documents bladder-mucosal malignancy (predominantly adenocarcinoma) as a long-term complication.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-whole-eec-spectrum-at-birth">
+                <div class="item-name">Whole EEC spectrum at birth</div>
+                <div class="item-meta">
+
+
+
+
+
+                </div>
+
+                <div class="item-notes">Birth prevalence for the whole spectrum is reported at about 1 in 10,000, ranging from about 1 in 30,000 for classic bladder exstrophy to about 1 in 200,000 for exstrophy of the cloaca, with an overall greater proportion of affected males.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19878548" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19878548" target="_blank">PMID:19878548</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Prevalence at birth for the whole spectrum is reported at 1/10,000, ranging from 1/30,000 for CEB to 1/200,000 for EC, with an overall greater proportion of affected males."</div>
+
+
+                <div class="evidence-explanation">Provides birth-prevalence figures across the EEC spectrum and the male predominance.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-classic-bladder-exstrophy-by-ethnicity-north-america">
+                <div class="item-name">Classic bladder exstrophy by ethnicity (North America)</div>
+                <div class="item-meta">
+
+
+
+
+
+                </div>
+
+                <div class="item-notes">Birth prevalence for classic bladder exstrophy ranges from about 1 in 30,000 to 1 in 50,000, varying among North American ethnic groups, with the highest prevalence among Native Americans (8 in 100,000) and the lowest among Asians (1 in 100,000).</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28176844" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28176844" target="_blank">PMID:28176844</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Birth prevalence rates for the most common defect form, classic bladder exstrophy (CBE), range from 1 in 30,000 to 1 in 50,000, varying among North American ethnic groups with the highest prevalence being observed among Native Americans (8 in 100,000) and the lowest among Asians (1 in 100,000)"</div>
+
+
+                <div class="evidence-explanation">Provides classic-bladder-exstrophy prevalence figures and ethnic variation.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -7579,6 +8091,8 @@ references:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">

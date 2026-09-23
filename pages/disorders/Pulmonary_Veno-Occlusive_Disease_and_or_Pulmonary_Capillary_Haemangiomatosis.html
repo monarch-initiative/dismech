@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2954,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2969,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3078,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3091,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3295,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3305,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3341,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3362,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3675,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4096,6 +4189,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4142,6 +4237,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pulmonary-venous-and-capillary-remodeling" data-dismech-node="Pulmonary venous and capillary remodeling" data-dismech-type="pathophysiology">
                 <div class="item-name">Pulmonary venous and capillary remodeling</div>
+
 
                 <div class="item-desc">PVOD/PCH involves small pulmonary veins, venules, and capillaries rather than isolated arterial remodeling, leading to increased pulmonary vascular resistance and right ventricular strain.</div>
 
@@ -4336,6 +4432,8 @@ This pathophysiological event occurs in pulmonary capillary (UBERON:0016405). UB
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4357,6 +4455,8 @@ This pathophysiological event occurs in pulmonary capillary (UBERON:0016405). UB
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4381,6 +4481,7 @@ This pathophysiological event occurs in pulmonary capillary (UBERON:0016405). UB
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-eif2ak4-gcn2-stress-response-loss" data-dismech-node="EIF2AK4/GCN2 stress-response loss" data-dismech-type="pathophysiology">
                 <div class="item-name">EIF2AK4/GCN2 stress-response loss</div>
+
 
                 <div class="item-desc">Biallelic EIF2AK4 loss impairs GCN2-mediated integrated stress-response signaling and provides the established genetic mechanism for heritable PVOD/PCH.</div>
 
@@ -4533,6 +4634,8 @@ This pathophysiological event involves decreased response to amino acid starvati
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4546,14 +4649,16 @@ This pathophysiological event involves decreased response to amino acid starvati
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:36852942" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:36852942" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36852942" target="_blank">PMID:36852942</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4579,6 +4684,8 @@ This pathophysiological event involves decreased response to amino acid starvati
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4601,6 +4708,7 @@ This pathophysiological event involves decreased response to amino acid starvati
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mitomycin-c-pkr-isr-endothelial-barrier-dysfunction" data-dismech-node="Mitomycin C PKR/ISR endothelial barrier dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Mitomycin C PKR/ISR endothelial barrier dysfunction</div>
+
 
                 <div class="item-desc">Mitomycin C exposure can drive PVOD-like disease in rats through PKR and integrated stress-response activation, converging on endothelial junctional and barrier impairment.</div>
 
@@ -4747,14 +4855,16 @@ This pathophysiological event occurs in pulmonary vein (UBERON:0002016). UBERON:
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:39269983" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:39269983" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39269983" target="_blank">PMID:39269983</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4779,6 +4889,7 @@ This pathophysiological event occurs in pulmonary vein (UBERON:0002016). UBERON:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-immune-inflammation-in-eif2ak4-gcn2-deficiency" data-dismech-node="Immune inflammation in EIF2AK4/GCN2 deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Immune inflammation in EIF2AK4/GCN2 deficiency</div>
+
 
                 <div class="item-desc">Experimental Gcn2 deficiency produces inflammatory lung signatures that may contribute to pulmonary vascular injury and remodeling.</div>
 
@@ -4929,14 +5040,16 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:36852942" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:36852942" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36852942" target="_blank">PMID:36852942</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4961,6 +5074,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-macrophage-ferroptosis-and-venous-arterialization" data-dismech-node="Macrophage ferroptosis and venous arterialization" data-dismech-type="pathophysiology">
                 <div class="item-name">Macrophage ferroptosis and venous arterialization</div>
+
 
                 <div class="item-desc">Recent translational work implicates macrophage ferroptosis and arterial marker expression in venous endothelial cells as a potential mechanism of pulmonary venous arterialization.</div>
 
@@ -5111,14 +5225,16 @@ This pathophysiological event occurs in pulmonary vein (UBERON:0002016). UBERON:
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:40983649" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:40983649" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40983649" target="_blank">PMID:40983649</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -5134,14 +5250,16 @@ This pathophysiological event occurs in pulmonary vein (UBERON:0002016). UBERON:
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:40983649" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:40983649" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40983649" target="_blank">PMID:40983649</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5202,6 +5320,8 @@ This pathophysiological event occurs in pulmonary vein (UBERON:0002016). UBERON:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5223,6 +5343,8 @@ This pathophysiological event occurs in pulmonary vein (UBERON:0002016). UBERON:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5271,6 +5393,8 @@ This pathophysiological event occurs in pulmonary vein (UBERON:0002016). UBERON:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5315,6 +5439,8 @@ This pathophysiological event occurs in pulmonary vein (UBERON:0002016). UBERON:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5378,13 +5504,13 @@ This pathophysiological event occurs in pulmonary vein (UBERON:0002016). UBERON:
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Cardiovascular<span class="pill-count">(3)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Metabolism<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Respiratory<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Respiratory<span class="pill-count">(4)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5394,7 +5520,7 @@ This pathophysiological event occurs in pulmonary vein (UBERON:0002016). UBERON:
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Cardiovascular
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-pulmonary-arterial-hypertension" data-dismech-node="Pulmonary arterial hypertension" data-dismech-type="phenotype">
@@ -5425,6 +5551,9 @@ This clinical feature is Pulmonary arterial hypertension (HP:0002092). HP:000209
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5441,6 +5570,8 @@ This clinical feature is Pulmonary arterial hypertension (HP:0002092). HP:000209
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5449,6 +5580,78 @@ This clinical feature is Pulmonary arterial hypertension (HP:0002092). HP:000209
 
 
                 <div class="evidence-explanation">The clinical review supports pulmonary arterial hypertension as the diagnostic classification framework.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-right-ventricular-failure" data-dismech-node="Right ventricular failure" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Right ventricular failure
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0001708" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0001708</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Right ventricular failure (HP:0001708). HP:0001708 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38232988" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38232988" target="_blank">PMID:38232988</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"leading to increased pulmonary vascular resistance and right ventricular failure"</div>
+
+
+                <div class="evidence-explanation">The review links venous/capillary involvement to increased resistance and right ventricular failure.</div>
 
 
 
@@ -5478,15 +5681,18 @@ This clinical feature is Pulmonary arterial hypertension (HP:0002092). HP:000209
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100721" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0100721</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100721" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0100721</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Mediastinal lymphadenopathy (HP:0100721). HP:0100721 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5506,6 +5712,8 @@ This clinical feature is Mediastinal lymphadenopathy (HP:0100721). HP:0100721 is
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5554,15 +5762,18 @@ This clinical feature is Mediastinal lymphadenopathy (HP:0100721). HP:0100721 is
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0100598" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0100598</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0100598" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0100598</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Pulmonary edema (HP:0100598). HP:0100598 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5582,6 +5793,8 @@ This clinical feature is Pulmonary edema (HP:0100598). HP:0100598 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5613,7 +5826,7 @@ This clinical feature is Pulmonary edema (HP:0100598). HP:0100598 is a phenotype
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Respiratory
-                    <span class="cat-count">2</span>
+                    <span class="cat-count">4</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-dyspnea" data-dismech-node="Dyspnea" data-dismech-type="phenotype">
@@ -5630,15 +5843,18 @@ This clinical feature is Pulmonary edema (HP:0100598). HP:0100598 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0002094</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002094" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0002094</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5658,6 +5874,8 @@ This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5697,15 +5915,18 @@ This clinical feature is Dyspnea (HP:0002094). HP:0002094 is a phenotype from th
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0012418" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0012418</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0012418" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0012418</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypoxemia (HP:0012418). HP:0012418 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5725,6 +5946,8 @@ This clinical feature is Hypoxemia (HP:0012418). HP:0012418 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5750,15 +5973,6 @@ This clinical feature is Hypoxemia (HP:0012418). HP:0012418 is a phenotype from 
 
                 </div>
 
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">4</span>
-                </summary>
-
                 <div class="item-box phenotype-box anchor-target" id="phenotype-decreased-dlco" data-dismech-node="Decreased DLCO" data-dismech-type="phenotype">
                     <div class="item-name">
                         Decreased DLCO
@@ -5773,15 +5987,18 @@ This clinical feature is Hypoxemia (HP:0012418). HP:0012418 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0045051" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0045051</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0045051" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0045051</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Decreased DLCO (HP:0045051). HP:0045051 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5801,6 +6018,8 @@ This clinical feature is Decreased DLCO (HP:0045051). HP:0045051 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5826,6 +6045,8 @@ This clinical feature is Decreased DLCO (HP:0045051). HP:0045051 is a phenotype 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5834,73 +6055,6 @@ This clinical feature is Decreased DLCO (HP:0045051). HP:0045051 is a phenotype 
 
 
                 <div class="evidence-explanation">A large PAH/PVOD cohort found reduced carbon monoxide transfer in biallelic EIF2AK4 carriers.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-right-ventricular-failure" data-dismech-node="Right ventricular failure" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Right ventricular failure
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0001708" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0001708</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Right ventricular failure (HP:0001708). HP:0001708 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:38232988" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38232988" target="_blank">PMID:38232988</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"leading to increased pulmonary vascular resistance and right ventricular failure"</div>
-
-
-                <div class="evidence-explanation">The review links venous/capillary involvement to increased resistance and right ventricular failure.</div>
 
 
 
@@ -5944,6 +6098,9 @@ This clinical feature is Interlobular septal thickening (HP:0030879). HP:0030879
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5958,6 +6115,8 @@ This clinical feature is Interlobular septal thickening (HP:0030879). HP:0030879
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5983,12 +6142,24 @@ This clinical feature is Interlobular septal thickening (HP:0030879). HP:0030879
 
                 </div>
 
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Other
+                    <span class="cat-count">1</span>
+                </summary>
+
                 <div class="item-box phenotype-box anchor-target" id="phenotype-ground-glass-opacities" data-dismech-node="Ground-glass opacities" data-dismech-type="phenotype">
                     <div class="item-name">
                         Ground-glass opacities
 
 
                     </div>
+
+
+
 
 
 
@@ -6008,6 +6179,8 @@ This clinical feature is Interlobular septal thickening (HP:0030879). HP:0030879
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6107,6 +6280,9 @@ This disease-associated gene is EIF2AK4 (hgnc:19687). hgnc:19687 is a gene from 
                 </div>
 
 
+
+
+
                 <div class="item-meta">
 
                     <span class="tag" style="background: #bfdbfe; color: #1e40af;">Autosomal recessive inheritance</span>
@@ -6129,6 +6305,8 @@ This disease-associated gene is EIF2AK4 (hgnc:19687). hgnc:19687 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6154,6 +6332,8 @@ This disease-associated gene is EIF2AK4 (hgnc:19687). hgnc:19687 is a gene from 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6175,6 +6355,8 @@ This disease-associated gene is EIF2AK4 (hgnc:19687). hgnc:19687 is a gene from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6259,6 +6441,31 @@ This treatment is organ transplantation (NCIT:C15289). NCIT:C15289 is a clinical
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Lung transplantation is the only established curative option for eligible patients, so early referral is emphasized once PVOD/PCH is suspected.</div>
 
 
@@ -6282,6 +6489,8 @@ This treatment is organ transplantation (NCIT:C15289). NCIT:C15289 is a clinical
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6303,6 +6512,8 @@ This treatment is organ transplantation (NCIT:C15289). NCIT:C15289 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6366,6 +6577,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Supportive care is used for symptom management and risk reduction while definitive transplant evaluation is pursued, especially because inappropriate PAH-specific vasodilators may be harmful.</div>
 
 
@@ -6387,6 +6612,8 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6449,6 +6676,20 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">PAH-approved pulmonary vasodilator therapy is not reliably effective in PVOD/PCH and can precipitate pulmonary edema, so it requires expert-center monitoring and individualized risk assessment.</div>
 
 
@@ -6462,14 +6703,16 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:40471666" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:40471666" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40471666" target="_blank">PMID:40471666</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6485,14 +6728,16 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:40104258" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:40104258" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40104258" target="_blank">PMID:40104258</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6579,6 +6824,8 @@ This environmental factor is exposure to organic solvent, annotated with exposur
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6619,14 +6866,16 @@ This environmental factor is exposure to organic solvent, annotated with exposur
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:40471666" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:40471666" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40471666" target="_blank">PMID:40471666</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6705,6 +6954,8 @@ This environmental factor is exposure to antineoplastic agent (ECTO:9001737). EC
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6745,14 +6996,16 @@ This environmental factor is exposure to antineoplastic agent (ECTO:9001737). EC
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:38232988" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:38232988" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/38232988" target="_blank">PMID:38232988</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6783,6 +7036,484 @@ This environmental factor is exposure to antineoplastic agent (ECTO:9001737). EC
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">4</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-high-resolution-chest-computed-tomography">
+                <div class="item-name">
+                    High-resolution chest computed tomography
+
+                </div>
+
+                <div class="item-desc">Chest CT supports noninvasive diagnosis when the characteristic pattern of septal thickening, ground-glass opacities, and mediastinal lymphadenopathy appears in a patient with pre-capillary pulmonary hypertension.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        computed tomography procedure
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C17204" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-36">NCIT:C17204</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-36">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38232988" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38232988" target="_blank">PMID:38232988</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Chest computed tomography typically displays interlobular septal thickening, ground-glass opacities and mediastinal lymphadenopathy."</div>
+
+
+                <div class="evidence-explanation">This supports the HRCT triad as a key diagnostic pattern.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-pulmonary-function-testing-for-dlco">
+                <div class="item-name">
+                    Pulmonary function testing for DLCO
+
+                </div>
+
+                <div class="item-desc">Reduced DLCO helps distinguish PVOD/PCH from other PAH presentations and should be interpreted alongside hypoxemia, CT findings, and hemodynamics.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        pulmonary function testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C38081" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-37">NCIT:C38081</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-37">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40104258" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40104258" target="_blank">PMID:40104258</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"the presence of hypoxia and reduced diffusion capacity of the lung may be required for a clinical diagnosis of PVOD"</div>
+
+
+                <div class="evidence-explanation">The clinical review supports diffusion-capacity testing as part of clinical PVOD diagnosis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-eif2ak4-molecular-genetic-testing">
+                <div class="item-name">
+                    EIF2AK4 molecular genetic testing
+
+                </div>
+
+                <div class="item-desc">Molecular testing for biallelic EIF2AK4 variants can support or establish heritable PVOD/PCH diagnosis and guide family testing and transplant evaluation.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        molecular genetic testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C19770" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-38">NCIT:C19770</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-38">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28972005" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28972005" target="_blank">PMID:28972005</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Genetic testing can identify these misclassified patients, allowing appropriate management and early referral for lung transplantation."</div>
+
+
+                <div class="evidence-explanation">The cohort study supports EIF2AK4 testing as a clinically actionable diagnostic tool.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-avoidance-of-diagnostic-lung-biopsy-when-pvod-pch-is-suspected">
+                <div class="item-name">
+                    Avoidance of diagnostic lung biopsy when PVOD/PCH is suspected
+
+                </div>
+
+                <div class="item-desc">Lung biopsy can provide definitive histopathology but is hazardous in pulmonary hypertension; diagnosis is generally pursued with clinical, radiologic, physiologic, and genetic data.</div>
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31178067" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31178067" target="_blank">PMID:31178067</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Lung biopsy is required for definitive diagnosis, but this is hazardous, and ideally, should be avoided in pulmonary hypertension."</div>
+
+
+                <div class="evidence-explanation">The radiology review supports avoiding lung biopsy when noninvasive diagnostic evidence is sufficient.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-progressive-pulmonary-vascular-disease">
+                <div class="item-name">Progressive pulmonary vascular disease</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">The disease often progresses rapidly with severe hypoxemia, right ventricular failure, poor response to conventional PAH therapy, and need for early transplant referral.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40471666" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40471666" target="_blank">PMID:40471666</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"PVOD is a progressive and fatal disease requiring early recognition and specific management."</div>
+
+
+                <div class="evidence-explanation">This review summarizes the progressive and high-risk clinical course.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-global">
+                <div class="item-name">Global</div>
+                <div class="item-meta">
+
+
+
+                    <span class="tag">Ultra-rare</span>
+
+                    <span class="tag">Ultra Rare</span>
+
+                </div>
+
+                <div class="item-notes">PVOD/PCH is repeatedly described as a rare cause or subtype of pulmonary arterial hypertension; exact population prevalence estimates remain limited.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38232988" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38232988" target="_blank">PMID:38232988</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"rare cause of PAH characterised by substantial small pulmonary vein and capillary involvement"</div>
+
+
+                <div class="evidence-explanation">This recent review supports PVOD/PCH as a rare PAH-associated disease.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -6830,6 +7561,8 @@ This environmental factor is exposure to antineoplastic agent (ECTO:9001737). EC
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6920,14 +7653,16 @@ This environmental factor is exposure to antineoplastic agent (ECTO:9001737). EC
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:36852942" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:36852942" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36852942" target="_blank">PMID:36852942</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7006,14 +7741,16 @@ This environmental factor is exposure to antineoplastic agent (ECTO:9001737). EC
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:39269983" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:39269983" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/39269983" target="_blank">PMID:39269983</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7029,14 +7766,16 @@ This environmental factor is exposure to antineoplastic agent (ECTO:9001737). EC
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:40983649" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:40983649" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40983649" target="_blank">PMID:40983649</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -7237,7 +7976,7 @@ pathophysiology:
       causal mechanism.
   - reference: PMID:36852942
     reference_title: T-cell dysregulation and inflammatory process in Gcn2 (Eif2ak4(-/-))-deficient rats in basal and stress conditions.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &gt;-
       The ISR was not activated after ASNase treatment in Gcn2-/- rat lungs, and apoptosis was increased.
@@ -7279,7 +8018,7 @@ pathophysiology:
   evidence:
   - reference: PMID:39269983
     reference_title: Mechanisms underlying age-associated exacerbation of pulmonary veno-occlusive disease.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &gt;-
       mitomycin C (MMC) in rats mediates PVOD through the activation of the eukaryotic initiation factor 2 (eIF2) kinase protein kinase R (PKR) and the integrated stress response (ISR), resulting in the impairment of vascular endothelial junctional structure and barrier function.
@@ -7313,7 +8052,7 @@ pathophysiology:
   evidence:
   - reference: PMID:36852942
     reference_title: T-cell dysregulation and inflammatory process in Gcn2 (Eif2ak4(-/-))-deficient rats in basal and stress conditions.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &gt;-
       Several proinflammatory and innate immunity genes were overexpressed, and inflammatory cells infiltration was also observed in the perivascular area.
@@ -7348,7 +8087,7 @@ pathophysiology:
   evidence:
   - reference: PMID:40983649
     reference_title: Macrophage ferroptosis potentiates GCN2 deficiency induced pulmonary venous arterialization.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &gt;-
       Treatment with the specific ferroptosis inhibitor ferrostatin-1 (Fer-1) reverses the changes in haemodynamic indices observed in Eif2ak4K1488X/K1488X hypoxia mice and PVOD model rats.
@@ -7357,7 +8096,7 @@ pathophysiology:
       targetable mechanism, while human causal relevance remains translational.
   - reference: PMID:40983649
     reference_title: Macrophage ferroptosis potentiates GCN2 deficiency induced pulmonary venous arterialization.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       ferroptosis pathway-related genes are upregulated in lung macrophages of PVOD patients
@@ -7686,7 +8425,7 @@ environmental:
     evidence:
     - reference: PMID:40471666
       reference_title: &#34;Pulmonary veno-occlusive disease: a paradigm of diagnosis and therapeutic challenges in pulmonary hypertension.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Known risk factors include specific drug/toxin and environmental exposures, such as mitomycin C and trichloroethylene, respectively.&#34;
       explanation: &gt;-
@@ -7726,7 +8465,7 @@ environmental:
     evidence:
     - reference: PMID:38232988
       reference_title: &#34;Pulmonary veno-occlusive disease: illustrative cases and literature review.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: HUMAN_CLINICAL
       snippet: &#34;Environmental risk factors have been associated with the development of PVOD, such as occupational exposure to organic solvents and chemotherapy, notably mitomycin.&#34;
       explanation: &gt;-
@@ -7888,7 +8627,7 @@ treatments:
   evidence:
   - reference: PMID:40471666
     reference_title: &#34;Pulmonary veno-occlusive disease: a paradigm of diagnosis and therapeutic challenges in pulmonary hypertension.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       Initiation of PAH-approved drugs in patients with PVOD requires careful consideration due to limited evidence of long-term clinical benefits and the high risk of developing pulmonary oedema in this population.
@@ -7897,7 +8636,7 @@ treatments:
       routine disease-modifying use.
   - reference: PMID:40104258
     reference_title: &#34;Pulmonary veno-occlusive disease: a clinical review.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       The development of pulmonary oedema with pulmonary vasodilator therapy limits therapeutic options for PVOD.
@@ -7918,7 +8657,7 @@ animal_models:
   evidence:
   - reference: PMID:36852942
     reference_title: T-cell dysregulation and inflammatory process in Gcn2 (Eif2ak4(-/-))-deficient rats in basal and stress conditions.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &gt;-
       Three rat lines carrying biallelic Gcn2 mutation were generated and found phenotypically normal and did not spontaneously develop a PVOD-related disease.
@@ -7940,7 +8679,7 @@ animal_models:
   evidence:
   - reference: PMID:39269983
     reference_title: Mechanisms underlying age-associated exacerbation of pulmonary veno-occlusive disease.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &gt;-
       aged rats over 1 year exhibit more severe vascular remodeling and RV hypertrophy than young adult rats following MMC treatment.
@@ -7949,7 +8688,7 @@ animal_models:
       PVOD-like vascular and right ventricular phenotypes.
   - reference: PMID:40983649
     reference_title: Macrophage ferroptosis potentiates GCN2 deficiency induced pulmonary venous arterialization.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: MODEL_ORGANISM
     snippet: &gt;-
       Treatment with the specific ferroptosis inhibitor ferrostatin-1 (Fer-1) reverses the changes in haemodynamic indices observed in Eif2ak4K1488X/K1488X hypoxia mice and PVOD model rats.
@@ -8011,7 +8750,7 @@ references:
   - Pulmonary_Veno_Occlusive_Disease_And_Or_Pulmonary_Capillary_Haemangiomatosis-deep-research-falcon.md
   findings: []
 - reference: DOI:10.1152/ajplung.00460.2021
-  title: &#34;T-cell dysregulation and inflammatory process in Gcn2 (Eif2ak4(-/-))-deficient rats in basal and stress conditions&#34;
+  title: &#34;T-cell dysregulation and inflammatory process in &lt;i&gt;Gcn2&lt;/i&gt; (&lt;i&gt;Eif2ak4&lt;/i&gt;&lt;sup&gt;−/−&lt;/sup&gt;)-deficient rats in basal and stress conditions&#34;
   found_in:
   - Pulmonary_Veno_Occlusive_Disease_And_Or_Pulmonary_Capillary_Haemangiomatosis-deep-research-falcon.md
   findings: []
@@ -8168,7 +8907,7 @@ review_notes: &gt;-
                                 <a href="https://bioregistry.io/DOI:10.1152/ajplung.00460.2021" target="_blank">DOI:10.1152/ajplung.00460.2021</a>
                             </div>
 
-                            <div class="reference-title">T-cell dysregulation and inflammatory process in Gcn2 (Eif2ak4(-/-))-deficient rats in basal and stress conditions</div>
+                            <div class="reference-title">T-cell dysregulation and inflammatory process in &lt;i&gt;Gcn2&lt;/i&gt; (&lt;i&gt;Eif2ak4&lt;/i&gt;&lt;sup&gt;−/−&lt;/sup&gt;)-deficient rats in basal and stress conditions</div>
 
                         </div>
 
@@ -8186,6 +8925,18 @@ review_notes: &gt;-
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Record review notes</strong></p>
+                        <p class="research-review-text">Falcon deep research was run on 2026-05-06 for this disorder. Imaging findings were intentionally left without HPO identifiers because repeated local OAK lookup did not confirm reliable HPO bindings for the suggested IDs: HP:0031969 resolved to Reduced blood urea nitrogen, HP:0031944 resolved to Pleural thickening, and HP:0030111 resolved to Reduced muscle fiber delta sarcoglycan. Likewise, suggested treatment IDs for oxygen therapy, diuretic therapy, and lung transplantation resolved locally to unrelated labels, so broader validated NCIT terms were retained.</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -8599,7 +9350,7 @@ Trigger(s) (biallelic EIF2AK4 loss and/or endothelial toxic exposures such as MM
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Pulmonary Veno-Occlusive Disease and/or Pulmonary Capillary Haemangiomatosis", "mondoId": "MONDO:0018554", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Pulmonary_Veno-Occlusive_Disease_and_or_Pulmonary_Capillary_Haemangiomatosis", "yamlRevision": "247381c1e70a"};
+        const OS_CONFIG = {"diseaseName": "Pulmonary Veno-Occlusive Disease and/or Pulmonary Capillary Haemangiomatosis", "mondoId": "MONDO:0018554", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Pulmonary_Veno-Occlusive_Disease_and_or_Pulmonary_Capillary_Haemangiomatosis", "yamlRevision": "8ac77411ea28"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

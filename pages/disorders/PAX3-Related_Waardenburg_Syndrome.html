@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2954,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2969,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3078,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3091,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3295,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3305,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3341,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3362,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3740,6 +3817,22 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3782,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 14</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 15</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=PAX3-Related%20Waardenburg%20Syndrome"
@@ -3954,7 +4047,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">14</div>
+                <div class="stat-value">15</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4165,6 +4258,25 @@
 
 
 
+                            <span class="subtype-gene-tag">
+                                PAX3
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:8617" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-1">hgnc:8617</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-1">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in PAX3 (hgnc:8617), qualified as loss of function. hgnc:8617 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
                     </div>
 
                     <div class="item-desc">Autosomal dominant auditory-pigmentary syndrome caused by heterozygous loss-of-function PAX3 mutations. Distinguished from Waardenburg syndrome type 2 by the presence of dystopia canthorum. Features include white forelock, heterochromia iridis, and variable sensorineural hearing loss.
@@ -4188,6 +4300,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4229,6 +4343,25 @@
 
 
 
+                            <span class="subtype-gene-tag">
+                                PAX3
+
+
+
+
+    <a href="https://bioregistry.io/hgnc:8617" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-2">hgnc:8617</a>
+
+
+
+                                <span class="pill-tip" role="tooltip" id="pill-tip-2">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this subtype is caused by variation in this gene
+This subtype is caused by variation in PAX3 (hgnc:8617), qualified as loss of function. hgnc:8617 is a gene from the HUGO Gene Nomenclature Committee.</span>
+                            </span>
+
+
+
+
+
                     </div>
 
                     <div class="item-desc">Severe form representing an extreme presentation of WS1 that additionally involves upper-limb musculoskeletal abnormalities (flexion contractures, muscle hypoplasia). Most often results from biallelic (homozygous or compound heterozygous) PAX3 loss, but heterozygous dominant-negative alleles and unlinked modifiers have also been implicated. Best understood as the high-dose end of a PAX3 dosage continuum rather than a mechanistically separate disorder.
@@ -4252,6 +4385,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4299,6 +4434,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pax3-loss-of-function" data-dismech-node="PAX3 Loss of Function" data-dismech-type="pathophysiology">
                 <div class="item-name">PAX3 Loss of Function</div>
 
+
                 <div class="item-desc">Pathogenic PAX3 variants reduce the activity of a paired-box transcription factor expressed in the dorsal neural tube, somites, and migratory neural crest derivatives. Heterozygous loss-of-function alleles cause WS1 through haploinsufficiency; biallelic loss (or heterozygous dominant-negative alleles) produces the more severe WS3 phenotype. PAX3 sits upstream of MITF and other melanocyte-fate genes in the neural crest gene regulatory network.</div>
 
 
@@ -4313,11 +4449,11 @@
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000333" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-1">CL:0000333</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000333" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0000333</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-1">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves migratory neural crest cell (CL:0000333). CL:0000333 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4339,6 +4475,53 @@ This pathophysiological event involves migratory neural crest cell (CL:0000333).
 
 
 
+                <div class="item-meta">
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-gene">
+
+        PAX3
+
+
+    <a href="https://bioregistry.io/hgnc:8617" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-4">hgnc:8617</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-4">HUGO Gene Nomenclature Committee (hgnc)
+Relation: this pathophysiological event involves this gene
+This pathophysiological event involves PAX3 (hgnc:8617), qualified as loss of function. hgnc:8617 is a gene from the HUGO Gene Nomenclature Committee.</span>
+    </span>
+
+
+
+
+    <span class="tag tag-modifier">
+        ⇓ LOSS OF FUNCTION
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                </div>
+
 
 
 
@@ -4354,11 +4537,11 @@ This pathophysiological event involves migratory neural crest cell (CL:0000333).
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0014032" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-2">GO:0014032</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0014032" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0014032</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-2">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased neural crest cell development (GO:0014032). GO:0014032 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4438,6 +4621,8 @@ This pathophysiological event involves decreased neural crest cell development (
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4459,6 +4644,8 @@ This pathophysiological event involves decreased neural crest cell development (
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4484,6 +4671,8 @@ This pathophysiological event involves decreased neural crest cell development (
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4507,6 +4696,7 @@ This pathophysiological event involves decreased neural crest cell development (
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-melanoblast-specification-failure" data-dismech-node="Melanoblast Specification Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Melanoblast Specification Failure</div>
 
+
                 <div class="item-desc">Deficient PAX3 transcriptional activity reduces specification, migration, and survival of neural-crest-derived melanoblasts, lowering downstream MITF expression and melanin production. Partial loss (heterozygous) produces the patchy depigmentation of WS1; the resulting melanocyte deficiency affects skin, hair, iris, and the cochlear stria vascularis.</div>
 
 
@@ -4521,11 +4711,11 @@ This pathophysiological event involves decreased neural crest cell development (
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000148" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-3">CL:0000148</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000148" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-6">CL:0000148</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-3">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves melanocyte (CL:0000148). CL:0000148 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4551,11 +4741,11 @@ This pathophysiological event involves melanocyte (CL:0000148). CL:0000148 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000333" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-4">CL:0000333</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000333" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000333</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-4">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves migratory neural crest cell (CL:0000333). CL:0000333 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4592,11 +4782,11 @@ This pathophysiological event involves migratory neural crest cell (CL:0000333).
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0030318" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-5">GO:0030318</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0030318" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0030318</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-5">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased melanocyte differentiation (GO:0030318). GO:0030318 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4626,11 +4816,11 @@ This pathophysiological event involves decreased melanocyte differentiation (GO:
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0048066" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-6">GO:0048066</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0048066" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-9">GO:0048066</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased developmental pigmentation (GO:0048066). GO:0048066 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4694,6 +4884,8 @@ This pathophysiological event involves decreased developmental pigmentation (GO:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4717,6 +4909,7 @@ This pathophysiological event involves decreased developmental pigmentation (GO:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-limb-muscle-progenitor-migration-defect" data-dismech-node="Limb Muscle Progenitor Migration Defect" data-dismech-type="pathophysiology">
                 <div class="item-name">Limb Muscle Progenitor Migration Defect</div>
 
+
                 <div class="item-desc">PAX3 is required for the delamination and migration of hypaxial muscle progenitors from the dermomyotome into the limb bud. Severe (biallelic or dominant-negative) PAX3 loss impairs this process, producing the upper-limb muscle hypoplasia and contractures of Klein-Waardenburg syndrome (WS3). Murine Pax3 (Splotch) loss recapitulates this with limb muscle deficiency and dermomyotomal apoptosis.</div>
 
 
@@ -4731,11 +4924,11 @@ This pathophysiological event involves decreased developmental pigmentation (GO:
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000680" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-7">CL:0000680</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000680" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-10">CL:0000680</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves hypaxial dermomyotomal muscle precursor, annotated with muscle precursor cell (CL:0000680). CL:0000680 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4772,11 +4965,11 @@ This pathophysiological event involves hypaxial dermomyotomal muscle precursor, 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0007519" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-8">GO:0007519</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0007519" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-11">GO:0007519</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased skeletal muscle tissue development (GO:0007519). GO:0007519 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -4840,6 +5033,8 @@ This pathophysiological event involves decreased skeletal muscle tissue developm
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4861,6 +5056,8 @@ This pathophysiological event involves decreased skeletal muscle tissue developm
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -4886,6 +5083,7 @@ This pathophysiological event involves decreased skeletal muscle tissue developm
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-craniofacial-neural-crest-patterning-defect" data-dismech-node="Craniofacial Neural Crest Patterning Defect" data-dismech-type="pathophysiology">
                 <div class="item-name">Craniofacial Neural Crest Patterning Defect</div>
 
+
                 <div class="item-desc">PAX3-dependent neural crest dysfunction also affects craniofacial patterning. This branch is separated from melanoblast failure because dystopia canthorum reflects altered craniofacial morphogenesis rather than loss of pigment cells.</div>
 
 
@@ -4900,11 +5098,11 @@ This pathophysiological event involves decreased skeletal muscle tissue developm
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000333" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-9">CL:0000333</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000333" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-12">CL:0000333</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves migratory neural crest cell (CL:0000333). CL:0000333 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -4941,11 +5139,11 @@ This pathophysiological event involves migratory neural crest cell (CL:0000333).
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0014032" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-10">GO:0014032</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0014032" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-13">GO:0014032</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased neural crest cell development (GO:0014032). GO:0014032 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5009,6 +5207,8 @@ This pathophysiological event involves decreased neural crest cell development (
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5032,6 +5232,7 @@ This pathophysiological event involves decreased neural crest cell development (
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pigmentary-and-cochlear-manifestations" data-dismech-node="Pigmentary and Cochlear Manifestations" data-dismech-type="pathophysiology">
                 <div class="item-name">Pigmentary and Cochlear Manifestations</div>
 
+
                 <div class="item-desc">Visible pigmentary defects (white forelock, heterochromia iridis, skin patches) and sensorineural hearing loss resulting from neural-crest-derived melanocyte deficiency. Absence of melanocytes in the stria vascularis disrupts the endocochlear potential required for cochlear hair cell function.</div>
 
 
@@ -5046,11 +5247,11 @@ This pathophysiological event involves decreased neural crest cell development (
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CL_0000148" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-11">CL:0000148</a>
+    <a href="http://purl.obolibrary.org/obo/CL_0000148" target="_blank" class="curie-chip curie-chip-cl" aria-describedby="pill-tip-14">CL:0000148</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Cell Ontology (CL)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Cell Ontology (CL)
 Relation: this pathophysiological event involves this cell type
 This pathophysiological event involves melanocyte (CL:0000148). CL:0000148 is a cell type from the Cell Ontology.</span>
                     </span>
@@ -5087,11 +5288,11 @@ This pathophysiological event involves melanocyte (CL:0000148). CL:0000148 is a 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/GO_0006813" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-12">GO:0006813</a>
+    <a href="http://purl.obolibrary.org/obo/GO_0006813" target="_blank" class="curie-chip curie-chip-go" aria-describedby="pill-tip-15">GO:0006813</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Gene Ontology (GO)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Gene Ontology (GO)
 Relation: this pathophysiological event involves this biological process
 This pathophysiological event involves decreased stria vascularis potassium ion transport, annotated with potassium ion transport (GO:0006813). GO:0006813 is a biological process from the Gene Ontology.</span>
                     </span>
@@ -5128,11 +5329,11 @@ This pathophysiological event involves decreased stria vascularis potassium ion 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/UBERON_0002282" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-13">UBERON:0002282</a>
+    <a href="http://purl.obolibrary.org/obo/UBERON_0002282" target="_blank" class="curie-chip curie-chip-uberon" aria-describedby="pill-tip-16">UBERON:0002282</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-13">Uberon multi-species anatomy ontology (UBERON)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Uberon multi-species anatomy ontology (UBERON)
 Relation: this pathophysiological event occurs in this anatomical location
 This pathophysiological event occurs in stria vascularis, annotated with stria vascularis of cochlear duct (UBERON:0002282). UBERON:0002282 is an anatomical location from the Uberon multi-species anatomy ontology.</span>
                     </span>
@@ -5208,6 +5409,8 @@ This pathophysiological event occurs in stria vascularis, annotated with stria v
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5253,7 +5456,7 @@ This pathophysiological event occurs in stria vascularis, annotated with stria v
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Cochlear Implantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Cochlear implantation for severe-to-profound congenital sensorineural hearing loss, which is typically non-progressive in WS1. Reported outcomes in WS1 are favorable.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Congenital Leukoderma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital patches of depigmented skin on the face, trunk, or limbs, reflecting regional absence of neural-crest-derived melanocytes. Distinct from the white forelock and present from birth.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"WS1\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001010\"}}, {\"id\": \"Craniofacial Neural Crest Patterning Defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PAX3-dependent neural crest dysfunction also affects craniofacial patterning. This branch is separated from melanoblast failure because dystopia canthorum reflects altered craniofacial morphogenesis rather than loss of pigment cells.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"migratory neural crest cell\"], \"biological_processes\": [\"neural crest cell development\"]}}, {\"id\": \"Dystopia Canthorum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Lateral displacement of the inner canthi (telecanthus) with normal interpupillary distance. This is the defining feature that distinguishes Waardenburg syndrome type 1 (PAX3) from type 2.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"WS1\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000506\"}}, {\"id\": \"Hearing Aids\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Hearing amplification for milder degrees of sensorineural hearing loss. Audiologic management is tailored to the severity of the hearing loss.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Heterochromia Iridis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Complete or partial heterochromia of the iris arising from asymmetric deficiency of iris melanocytes.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"WS1\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001100\"}}, {\"id\": \"Limb Muscle Progenitor Migration Defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PAX3 is required for the delamination and migration of hypaxial muscle progenitors from the dermomyotome into the limb bud. Severe (biallelic or dominant-negative) PAX3 loss impairs this process, producing the upper-limb muscle hypoplasia and contractures of Klein-Waardenburg syndrome (WS3). Murine Pax3 (Splotch) loss recapitulates this with limb muscle deficiency and dermomyotomal apoptosis.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hypaxial dermomyotomal muscle precursor\"], \"biological_processes\": [\"skeletal muscle tissue development\"]}}, {\"id\": \"Melanoblast Specification Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Deficient PAX3 transcriptional activity reduces specification, migration, and survival of neural-crest-derived melanoblasts, lowering downstream MITF expression and melanin production. Partial loss (heterozygous) produces the patchy depigmentation of WS1; the resulting melanocyte deficiency affects skin, hair, iris, and the cochlear stria vascularis.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"melanocyte\", \"migratory neural crest cell\"], \"biological_processes\": [\"melanocyte differentiation\", \"developmental pigmentation\"]}}, {\"id\": \"PAX3 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic PAX3 variants reduce the activity of a paired-box transcription factor expressed in the dorsal neural tube, somites, and migratory neural crest derivatives. Heterozygous loss-of-function alleles cause WS1 through haploinsufficiency; biallelic loss (or heterozygous dominant-negative alleles) produces the more severe WS3 phenotype. PAX3 sits upstream of MITF and other melanocyte-fate genes in the neural crest gene regulatory network.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"migratory neural crest cell\"], \"biological_processes\": [\"neural crest cell development\"]}}, {\"id\": \"Pigmentary and Cochlear Manifestations\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Visible pigmentary defects (white forelock, heterochromia iridis, skin patches) and sensorineural hearing loss resulting from neural-crest-derived melanocyte deficiency. Absence of melanocytes in the stria vascularis disrupts the endocochlear potential required for cochlear hair cell function.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"melanocyte\"], \"biological_processes\": [\"stria vascularis potassium ion transport\"], \"locations\": [\"stria vascularis\"]}}, {\"id\": \"Premature Hair Graying\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Early graying of scalp hair before age 30 years is a GeneReviews-documented hair-pigmentation feature distinct from the classic white forelock.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"WS1\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002216\"}}, {\"id\": \"Sensorineural Hearing Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital sensorineural hearing loss attributed to neural-crest-derived melanocyte deficiency in the cochlear stria vascularis, which is required for generation of the endocochlear potential.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000407\"}}, {\"id\": \"Upper Limb Musculoskeletal Abnormalities\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Upper-limb defects (flexion contractures, muscle hypoplasia, occasional fusion/syndactyly) that distinguish Klein-Waardenburg syndrome (WS3) from WS1. Reflect PAX3\u0027s role in migration of limb muscle progenitors from the somite.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"WS3\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002817\"}}, {\"id\": \"White Forelock\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Patch of white or depigmented hair in the frontal scalp, reflecting absence of neural-crest-derived melanocytes in the affected follicles.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"WS1\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002211\"}}], \"edges\": [{\"source\": \"PAX3 Loss of Function\", \"target\": \"Melanoblast Specification Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced PAX3 activity impairs specification and survival of neural-crest-derived melanoblasts.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"PAX3 Loss of Function\", \"target\": \"Craniofacial Neural Crest Patterning Defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired PAX3-dependent neural crest development alters craniofacial morphogenesis, producing the telecanthus/dystopia canthorum hallmark of WS1.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"PAX3 Loss of Function\", \"target\": \"Limb Muscle Progenitor Migration Defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In the high-dose (biallelic/WS3) state, impaired PAX3 function disrupts migration of limb muscle progenitors from the somite.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Melanoblast Specification Failure\", \"target\": \"Pigmentary and Cochlear Manifestations\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Melanocyte deficiency in skin, hair, and iris produces the pigmentary phenotype, while deficiency in the cochlear stria vascularis causes sensorineural hearing loss.\"}, {\"source\": \"Limb Muscle Progenitor Migration Defect\", \"target\": \"Upper Limb Musculoskeletal Abnormalities\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failed limb muscle progenitor contribution is expressed clinically as the upper-limb musculoskeletal abnormalities of Klein-Waardenburg syndrome.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial Neural Crest Patterning Defect\", \"target\": \"Dystopia Canthorum\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Craniofacial neural crest patterning defects produce the lateral displacement of the inner canthi characteristic of WS1.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Pigmentary and Cochlear Manifestations\", \"target\": \"White Forelock\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hair-follicle melanocyte deficiency produces a white forelock.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Pigmentary and Cochlear Manifestations\", \"target\": \"Congenital Leukoderma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Skin melanocyte deficiency produces congenital hypopigmented patches.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Pigmentary and Cochlear Manifestations\", \"target\": \"Premature Hair Graying\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hair melanocyte dysfunction contributes to premature graying.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Pigmentary and Cochlear Manifestations\", \"target\": \"Heterochromia Iridis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Iris melanocyte deficiency produces heterochromia iridis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Pigmentary and Cochlear Manifestations\", \"target\": \"Sensorineural Hearing Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Stria vascularis melanocyte deficiency disrupts cochlear homeostasis and manifests as sensorineural hearing impairment.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cochlear Implantation\", \"target\": \"Sensorineural Hearing Impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Hearing Aids\", \"target\": \"Sensorineural Hearing Impairment\", \"predicate\": \"treats\", \"is_orphan\": false}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Cochlear Implantation\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Cochlear implantation for severe-to-profound congenital sensorineural hearing loss, which is typically non-progressive in WS1. Reported outcomes in WS1 are favorable.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Congenital Leukoderma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital patches of depigmented skin on the face, trunk, or limbs, reflecting regional absence of neural-crest-derived melanocytes. Distinct from the white forelock and present from birth.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"WS1\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001010\"}}, {\"id\": \"Craniofacial Neural Crest Patterning Defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PAX3-dependent neural crest dysfunction also affects craniofacial patterning. This branch is separated from melanoblast failure because dystopia canthorum reflects altered craniofacial morphogenesis rather than loss of pigment cells.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"migratory neural crest cell\"], \"biological_processes\": [\"neural crest cell development\"]}}, {\"id\": \"Dystopia Canthorum\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Lateral displacement of the inner canthi (telecanthus) with normal interpupillary distance. This is the defining feature that distinguishes Waardenburg syndrome type 1 (PAX3) from type 2.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"WS1\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0000506\"}}, {\"id\": \"Hearing Aids\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Hearing amplification for milder degrees of sensorineural hearing loss. Audiologic management is tailored to the severity of the hearing loss.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Heterochromia Iridis\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Complete or partial heterochromia of the iris arising from asymmetric deficiency of iris melanocytes.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"WS1\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0001100\"}}, {\"id\": \"Limb Muscle Progenitor Migration Defect\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"PAX3 is required for the delamination and migration of hypaxial muscle progenitors from the dermomyotome into the limb bud. Severe (biallelic or dominant-negative) PAX3 loss impairs this process, producing the upper-limb muscle hypoplasia and contractures of Klein-Waardenburg syndrome (WS3). Murine Pax3 (Splotch) loss recapitulates this with limb muscle deficiency and dermomyotomal apoptosis.\", \"meta\": {\"evidence_count\": 2, \"cell_types\": [\"hypaxial dermomyotomal muscle precursor\"], \"biological_processes\": [\"skeletal muscle tissue development\"]}}, {\"id\": \"Melanoblast Specification Failure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Deficient PAX3 transcriptional activity reduces specification, migration, and survival of neural-crest-derived melanoblasts, lowering downstream MITF expression and melanin production. Partial loss (heterozygous) produces the patchy depigmentation of WS1; the resulting melanocyte deficiency affects skin, hair, iris, and the cochlear stria vascularis.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"melanocyte\", \"migratory neural crest cell\"], \"biological_processes\": [\"melanocyte differentiation\", \"developmental pigmentation\"]}}, {\"id\": \"PAX3\", \"node_type\": \"genetic\", \"color\": \"#f3e8ff\", \"is_orphan\": false, \"meta\": {\"evidence_count\": 2, \"genes\": [\"PAX3\"], \"gene_terms\": [{\"label\": \"PAX3\", \"id\": \"hgnc:8617\"}], \"subtypes\": [\"WS3\"], \"association\": \"Causative\", \"relationship_type\": \"CAUSATIVE\"}}, {\"id\": \"PAX3 Loss of Function\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Pathogenic PAX3 variants reduce the activity of a paired-box transcription factor expressed in the dorsal neural tube, somites, and migratory neural crest derivatives. Heterozygous loss-of-function alleles cause WS1 through haploinsufficiency; biallelic loss (or heterozygous dominant-negative alleles) produces the more severe WS3 phenotype. PAX3 sits upstream of MITF and other melanocyte-fate genes in the neural crest gene regulatory network.\", \"meta\": {\"evidence_count\": 3, \"cell_types\": [\"migratory neural crest cell\"], \"biological_processes\": [\"neural crest cell development\"], \"genes\": [\"PAX3\"], \"gene_terms\": [{\"label\": \"PAX3\", \"id\": \"hgnc:8617\", \"modifier\": \"LOSS_OF_FUNCTION\"}]}}, {\"id\": \"Pigmentary and Cochlear Manifestations\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Visible pigmentary defects (white forelock, heterochromia iridis, skin patches) and sensorineural hearing loss resulting from neural-crest-derived melanocyte deficiency. Absence of melanocytes in the stria vascularis disrupts the endocochlear potential required for cochlear hair cell function.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"melanocyte\"], \"biological_processes\": [\"stria vascularis potassium ion transport\"], \"locations\": [\"stria vascularis\"]}}, {\"id\": \"Premature Hair Graying\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Early graying of scalp hair before age 30 years is a GeneReviews-documented hair-pigmentation feature distinct from the classic white forelock.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"WS1\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002216\"}}, {\"id\": \"Sensorineural Hearing Impairment\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Congenital sensorineural hearing loss attributed to neural-crest-derived melanocyte deficiency in the cochlear stria vascularis, which is required for generation of the endocochlear potential.\", \"meta\": {\"evidence_count\": 2, \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0000407\"}}, {\"id\": \"Upper Limb Musculoskeletal Abnormalities\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Upper-limb defects (flexion contractures, muscle hypoplasia, occasional fusion/syndactyly) that distinguish Klein-Waardenburg syndrome (WS3) from WS1. Reflect PAX3\u0027s role in migration of limb muscle progenitors from the somite.\", \"meta\": {\"evidence_count\": 2, \"subtypes\": [\"WS3\"], \"frequency\": \"VERY_FREQUENT\", \"term_id\": \"HP:0002817\"}}, {\"id\": \"White Forelock\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Patch of white or depigmented hair in the frontal scalp, reflecting absence of neural-crest-derived melanocytes in the affected follicles.\", \"meta\": {\"evidence_count\": 1, \"subtypes\": [\"WS1\"], \"frequency\": \"FREQUENT\", \"term_id\": \"HP:0002211\"}}], \"edges\": [{\"source\": \"PAX3 Loss of Function\", \"target\": \"Melanoblast Specification Failure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Reduced PAX3 activity impairs specification and survival of neural-crest-derived melanoblasts.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"PAX3 Loss of Function\", \"target\": \"Craniofacial Neural Crest Patterning Defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Impaired PAX3-dependent neural crest development alters craniofacial morphogenesis, producing the telecanthus/dystopia canthorum hallmark of WS1.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"PAX3 Loss of Function\", \"target\": \"Limb Muscle Progenitor Migration Defect\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"In the high-dose (biallelic/WS3) state, impaired PAX3 function disrupts migration of limb muscle progenitors from the somite.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Melanoblast Specification Failure\", \"target\": \"Pigmentary and Cochlear Manifestations\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Melanocyte deficiency in skin, hair, and iris produces the pigmentary phenotype, while deficiency in the cochlear stria vascularis causes sensorineural hearing loss.\"}, {\"source\": \"Limb Muscle Progenitor Migration Defect\", \"target\": \"Upper Limb Musculoskeletal Abnormalities\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Failed limb muscle progenitor contribution is expressed clinically as the upper-limb musculoskeletal abnormalities of Klein-Waardenburg syndrome.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Craniofacial Neural Crest Patterning Defect\", \"target\": \"Dystopia Canthorum\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Craniofacial neural crest patterning defects produce the lateral displacement of the inner canthi characteristic of WS1.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Pigmentary and Cochlear Manifestations\", \"target\": \"White Forelock\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hair-follicle melanocyte deficiency produces a white forelock.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Pigmentary and Cochlear Manifestations\", \"target\": \"Congenital Leukoderma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Skin melanocyte deficiency produces congenital hypopigmented patches.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Pigmentary and Cochlear Manifestations\", \"target\": \"Premature Hair Graying\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Hair melanocyte dysfunction contributes to premature graying.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Pigmentary and Cochlear Manifestations\", \"target\": \"Heterochromia Iridis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Iris melanocyte deficiency produces heterochromia iridis.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Pigmentary and Cochlear Manifestations\", \"target\": \"Sensorineural Hearing Impairment\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Stria vascularis melanocyte deficiency disrupts cochlear homeostasis and manifests as sensorineural hearing impairment.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Cochlear Implantation\", \"target\": \"Sensorineural Hearing Impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"Hearing Aids\", \"target\": \"Sensorineural Hearing Impairment\", \"predicate\": \"treats\", \"is_orphan\": false}, {\"source\": \"PAX3\", \"target\": \"PAX3 Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}, {\"source\": \"PAX3\", \"target\": \"PAX3 Loss of Function\", \"predicate\": \"contributes_to\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5276,11 +5479,11 @@ This pathophysiological event occurs in stria vascularis, annotated with stria v
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Eye<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Integument<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Head and Neck<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Limbs<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Integument<span class="pill-count">(3)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Other<span class="pill-count">(2)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Limbs<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5309,15 +5512,18 @@ This pathophysiological event occurs in stria vascularis, annotated with stria v
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0000407</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0000407</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:0000407 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5337,6 +5543,8 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5360,6 +5568,8 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5410,15 +5620,18 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001100" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0001100</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001100" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0001100</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Heterochromia iridis (HP:0001100). HP:0001100 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5438,6 +5651,8 @@ This clinical feature is Heterochromia iridis (HP:0001100). HP:0001100 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5468,15 +5683,15 @@ This clinical feature is Heterochromia iridis (HP:0001100). HP:0001100 is a phen
             <details class="phenotype-category-group" id="pheno-cat-3">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Integument
-                    <span class="cat-count">2</span>
+                    Head and Neck
+                    <span class="cat-count">1</span>
                 </summary>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-white-forelock" data-dismech-node="White Forelock" data-dismech-type="phenotype">
+                <div class="item-box phenotype-box anchor-target" id="phenotype-dystopia-canthorum" data-dismech-node="Dystopia Canthorum" data-dismech-type="phenotype">
                     <div class="item-name">
-                        White Forelock
+                        Dystopia Canthorum
 
-                        <span class="phenotype-freq">FREQUENT</span>
+                        <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
 
@@ -5485,18 +5700,23 @@ This clinical feature is Heterochromia iridis (HP:0001100). HP:0001100 is a phen
 
                     <span class="phenotype-id">
 
+                        <span class="phenotype-term-label">Telecanthus</span>
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002211" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0002211</a>
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000506" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000506</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is White forelock (HP:0002211). HP:0002211 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Dystopia canthorum, annotated with Telecanthus (HP:0000506). HP:0000506 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5516,6 +5736,91 @@ This clinical feature is White forelock (HP:0002211). HP:0002211 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"classified into four clinical types differentiated by the presence of dystopia canthorum in type 1 and its absence in type 2"</div>
+
+
+                <div class="evidence-explanation">Dystopia canthorum is the clinical hallmark separating WS1 from WS2.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-4">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Integument
+                    <span class="cat-count">3</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-white-forelock" data-dismech-node="White Forelock" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        White Forelock
+
+                        <span class="phenotype-freq">FREQUENT</span>
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0002211" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0002211</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is White forelock (HP:0002211). HP:0002211 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:38391765" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38391765" target="_blank">PMID:38391765</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5559,15 +5864,18 @@ This clinical feature is White forelock (HP:0002211). HP:0002211 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001010" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001010</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001010" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0001010</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Congenital leukoderma (hypopigmented skin patches), annotated with Hypopigmentation of the skin (HP:0001010). HP:0001010 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5587,6 +5895,8 @@ This clinical feature is Congenital leukoderma (hypopigmented skin patches), ann
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5612,118 +5922,6 @@ This clinical feature is Congenital leukoderma (hypopigmented skin patches), ann
 
                 </div>
 
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Limbs
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-upper-limb-musculoskeletal-abnormalities" data-dismech-node="Upper Limb Musculoskeletal Abnormalities" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Upper Limb Musculoskeletal Abnormalities
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Abnormality of the upper limb</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0002817" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0002817</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Upper limb musculoskeletal abnormalities, annotated with Abnormality of the upper limb (HP:0002817). HP:0002817 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:11683776" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11683776" target="_blank">PMID:11683776</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Klein-Waardenburg syndrome or Waardenburg syndrome type 3 (WS-III; MIM 148820) is characterized by the presence of musculoskeletal abnormalities in association with clinical features of Waardenburg syndrome type 1 (WS-I)"</div>
-
-
-                <div class="evidence-explanation">Upper-limb musculoskeletal abnormalities define WS3 relative to WS1.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:38391765" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/38391765" target="_blank">PMID:38391765</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"limb musculoskeletal abnormalities and Hirschsprung disease differentiate types 3 and 4, respectively"</div>
-
-
-                <div class="evidence-explanation">Limb musculoskeletal abnormalities are the differentiating feature of WS3.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-5">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">2</span>
-                </summary>
-
                 <div class="item-box phenotype-box anchor-target" id="phenotype-premature-hair-graying" data-dismech-node="Premature Hair Graying" data-dismech-type="phenotype">
                     <div class="item-name">
                         Premature Hair Graying
@@ -5742,15 +5940,18 @@ This clinical feature is Upper limb musculoskeletal abnormalities, annotated wit
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002216" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0002216</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002216" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0002216</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Premature graying of hair (HP:0002216). HP:0002216 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5770,6 +5971,8 @@ This clinical feature is Premature graying of hair (HP:0002216). HP:0002216 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5795,9 +5998,18 @@ This clinical feature is Premature graying of hair (HP:0002216). HP:0002216 is a
 
                 </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-dystopia-canthorum" data-dismech-node="Dystopia Canthorum" data-dismech-type="phenotype">
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-5">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Limbs
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-upper-limb-musculoskeletal-abnormalities" data-dismech-node="Upper Limb Musculoskeletal Abnormalities" data-dismech-type="phenotype">
                     <div class="item-name">
-                        Dystopia Canthorum
+                        Upper Limb Musculoskeletal Abnormalities
 
                         <span class="phenotype-freq">VERY_FREQUENT</span>
 
@@ -5808,17 +6020,17 @@ This clinical feature is Premature graying of hair (HP:0002216). HP:0002216 is a
 
                     <span class="phenotype-id">
 
-                        <span class="phenotype-term-label">Telecanthus</span>
+                        <span class="phenotype-term-label">Abnormality of the upper limb</span>
 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000506" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000506</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002817" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0002817</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Dystopia canthorum, annotated with Telecanthus (HP:0000506). HP:0000506 is a phenotype from the Human Phenotype Ontology.</span>
+This clinical feature is Upper limb musculoskeletal abnormalities, annotated with Abnormality of the upper limb (HP:0002817). HP:0002817 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
@@ -5827,11 +6039,39 @@ This clinical feature is Dystopia canthorum, annotated with Telecanthus (HP:0000
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
-            Show evidence (1 reference)
+            Show evidence (2 references)
         </summary>
         <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:11683776" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/11683776" target="_blank">PMID:11683776</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Klein-Waardenburg syndrome or Waardenburg syndrome type 3 (WS-III; MIM 148820) is characterized by the presence of musculoskeletal abnormalities in association with clinical features of Waardenburg syndrome type 1 (WS-I)"</div>
+
+
+                <div class="evidence-explanation">Upper-limb musculoskeletal abnormalities define WS3 relative to WS1.</div>
+
+
+
+            </div>
 
             <div class="evidence-item" data-dismech-evidence="PMID:38391765" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
@@ -5843,14 +6083,16 @@ This clinical feature is Dystopia canthorum, annotated with Telecanthus (HP:0000
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"classified into four clinical types differentiated by the presence of dystopia canthorum in type 1 and its absence in type 2"</div>
+                <div class="evidence-snippet">"limb musculoskeletal abnormalities and Hirschsprung disease differentiate types 3 and 4, respectively"</div>
 
 
-                <div class="evidence-explanation">Dystopia canthorum is the clinical hallmark separating WS1 from WS2.</div>
+                <div class="evidence-explanation">Limb musculoskeletal abnormalities are the differentiating feature of WS3.</div>
 
 
 
@@ -5923,17 +6165,22 @@ This clinical feature is Dystopia canthorum, annotated with Telecanthus (HP:0000
                         Gene: PAX3
 
 
-    <a href="https://bioregistry.io/hgnc:8617" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-21">hgnc:8617</a>
+    <a href="https://bioregistry.io/hgnc:8617" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-24">hgnc:8617</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is PAX3 (hgnc:8617). hgnc:8617 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
 
                 </div>
+
+
+
 
 
 
@@ -5952,6 +6199,8 @@ This disease-associated gene is PAX3 (hgnc:8617). hgnc:8617 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5993,17 +6242,22 @@ This disease-associated gene is PAX3 (hgnc:8617). hgnc:8617 is a gene from the H
                         Gene: PAX3
 
 
-    <a href="https://bioregistry.io/hgnc:8617" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-22">hgnc:8617</a>
+    <a href="https://bioregistry.io/hgnc:8617" target="_blank" class="curie-chip curie-chip-hgnc" aria-describedby="pill-tip-25">hgnc:8617</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">HUGO Gene Nomenclature Committee (hgnc)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-25">HUGO Gene Nomenclature Committee (hgnc)
 Relation: this disease-associated gene is this gene
 This disease-associated gene is PAX3 (hgnc:8617). hgnc:8617 is a gene from the HUGO Gene Nomenclature Committee.</span>
                     </span>
 
 
+                    <span class="tag" style="background: #e0e7ff; color: #3730a3;">relationship_type: CAUSATIVE</span>
+
 
                 </div>
+
+
+
 
 
 
@@ -6022,6 +6276,8 @@ This disease-associated gene is PAX3 (hgnc:8617). hgnc:8617 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6045,6 +6301,8 @@ This disease-associated gene is PAX3 (hgnc:8617). hgnc:8617 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6126,6 +6384,8 @@ This disease-associated gene is PAX3 (hgnc:8617). hgnc:8617 is a gene from the H
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6167,7 +6427,7 @@ This disease-associated gene is PAX3 (hgnc:8617). hgnc:8617 is a gene from the H
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-23">cochlear device implantation<span class="pill-tip" role="tooltip" id="pill-tip-23">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-26">cochlear device implantation<span class="pill-tip" role="tooltip" id="pill-tip-26">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is cochlear device implantation, annotated with Surgical Procedure (NCIT:C15329). NCIT:C15329 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6200,6 +6460,20 @@ This treatment is cochlear device implantation, annotated with Surgical Procedur
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Cochlear implantation for severe-to-profound congenital sensorineural hearing loss, which is typically non-progressive in WS1. Reported outcomes in WS1 are favorable.</div>
 
 
@@ -6215,11 +6489,11 @@ This treatment is cochlear device implantation, annotated with Surgical Procedur
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000407</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0000407</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Sensorineural hearing impairment (HP:0000407). HP:0000407 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6243,6 +6517,8 @@ This treatment targets Sensorineural hearing impairment (HP:0000407). HP:0000407
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6274,6 +6550,31 @@ This treatment targets Sensorineural hearing impairment (HP:0000407). HP:0000407
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Device</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Hearing amplification for milder degrees of sensorineural hearing loss. Audiologic management is tailored to the severity of the hearing loss.</div>
 
 
@@ -6289,11 +6590,11 @@ This treatment targets Sensorineural hearing impairment (HP:0000407). HP:0000407
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-25">HP:0000407</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000407" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-28">HP:0000407</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-25">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Human Phenotype Ontology (HP)
 Relation: this treatment targets this phenotype
 This treatment targets Sensorineural hearing impairment (HP:0000407). HP:0000407 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6317,6 +6618,8 @@ This treatment targets Sensorineural hearing impairment (HP:0000407). HP:0000407
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6347,7 +6650,7 @@ This treatment targets Sensorineural hearing impairment (HP:0000407). HP:0000407
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-26">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-26">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-29">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-29">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6379,6 +6682,20 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Counseling regarding the autosomal dominant inheritance of WS1, the 50% recurrence risk to offspring, and the availability of PAX3 molecular and prenatal testing.</div>
 
 
@@ -6400,6 +6717,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6430,7 +6749,7 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
                     <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
 
 
-                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-27">dietary intervention<span class="pill-tip" role="tooltip" id="pill-tip-27">NCI Thesaurus (NCIT)
+                    <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-30">dietary intervention<span class="pill-tip" role="tooltip" id="pill-tip-30">NCI Thesaurus (NCIT)
 Relation: this treatment is this clinical intervention
 This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical intervention from the NCI Thesaurus.</span>
                     </span>
@@ -6472,16 +6791,41 @@ This treatment is dietary intervention (NCIT:C15447). NCIT:C15447 is a clinical 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/CHEBI_27470" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-28">CHEBI:27470</a>
+    <a href="http://purl.obolibrary.org/obo/CHEBI_27470" target="_blank" class="curie-chip curie-chip-chebi" aria-describedby="pill-tip-31">CHEBI:27470</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-28">Chemical Entities of Biological Interest (CHEBI)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-31">Chemical Entities of Biological Interest (CHEBI)
 Relation: this treatment uses this therapeutic agent
 This treatment uses folic acid (CHEBI:27470). CHEBI:27470 is a therapeutic agent from Chemical Entities of Biological Interest.</span>
                     </span>
 
                 </div>
+
+
+
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
 
 
 
@@ -6506,6 +6850,8 @@ This treatment uses folic acid (CHEBI:27470). CHEBI:27470 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6535,6 +6881,63 @@ This treatment uses folic acid (CHEBI:27470). CHEBI:27470 is a therapeutic agent
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-global">
+                <div class="item-name">Global</div>
+                <div class="item-meta">
+
+
+
+                    <span class="tag">Rare</span>
+
+                    <span class="tag">Rare</span>
+
+                </div>
+
+                <div class="item-notes">Waardenburg syndrome (all types) is estimated at approximately 1:40,000. PAX3 variants account for WS1 and the great majority of WS3. WS3 (Klein-Waardenburg syndrome) is very rare, with only occasional families showing autosomal dominant inheritance.
+
+The 1:40,000 figure is uncited and no cited reference in this entry states it (flagged UNCITED by just prose-figure-audit during the wiring-015 genetics pass). Searched for a quotable source without success: the GeneReviews chapter for Waardenburg syndrome type I (PMID:20301703) and the StatPearls Waardenburg syndrome chapter are both abstract-only and neither states a prevalence; a PubMed sweep for Waardenburg syndrome prevalence/epidemiology returned only cohort and genotype-phenotype series. No Orphanet record for Waardenburg syndrome is present in references_cache. The figure is left in place rather than replaced with one from an uncited source, and prevalence_class stays at the qualitative RARE tier, which is what the entry can actually support.</div>
+
+
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -6587,6 +6990,8 @@ This treatment uses folic acid (CHEBI:27470). CHEBI:27470 is a therapeutic agent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6755,6 +7160,12 @@ has_subtypes:
     loss-of-function PAX3 mutations. Distinguished from Waardenburg syndrome
     type 2 by the presence of dystopia canthorum. Features include white
     forelock, heterochromia iridis, and variable sensorineural hearing loss.
+  genes:
+  - preferred_term: PAX3
+    term:
+      id: hgnc:8617
+      label: PAX3
+    modifier: LOSS_OF_FUNCTION
   evidence:
   - reference: PMID:12949970
     reference_title: Homozygous and heterozygous inheritance of PAX3 mutations causes different types of Waardenburg syndrome.
@@ -6780,6 +7191,12 @@ has_subtypes:
     and unlinked modifiers have also been implicated. Best understood as the
     high-dose end of a PAX3 dosage continuum rather than a mechanistically
     separate disorder.
+  genes:
+  - preferred_term: PAX3
+    term:
+      id: hgnc:8617
+      label: PAX3
+    modifier: LOSS_OF_FUNCTION
   evidence:
   - reference: PMID:12949970
     reference_title: Homozygous and heterozygous inheritance of PAX3 mutations causes different types of Waardenburg syndrome.
@@ -6801,6 +7218,18 @@ prevalence:
     PAX3 variants account for WS1 and the great majority of WS3. WS3
     (Klein-Waardenburg syndrome) is very rare, with only occasional families
     showing autosomal dominant inheritance.
+
+
+    The 1:40,000 figure is uncited and no cited reference in this entry states
+    it (flagged UNCITED by just prose-figure-audit during the wiring-015
+    genetics pass). Searched for a quotable source without success: the
+    GeneReviews chapter for Waardenburg syndrome type I (PMID:20301703) and the
+    StatPearls Waardenburg syndrome chapter are both abstract-only and neither
+    states a prevalence; a PubMed sweep for Waardenburg syndrome
+    prevalence/epidemiology returned only cohort and genotype-phenotype series. No Orphanet record for Waardenburg syndrome is
+    present in references_cache. The figure is left in place rather than
+    replaced with one from an uncited source, and prevalence_class stays at the
+    qualitative RARE tier, which is what the entry can actually support.
 inheritance:
 - name: Autosomal Dominant (WS1, most WS3)
   description: &gt;-
@@ -7018,6 +7447,12 @@ pathophysiology:
     haploinsufficiency; biallelic loss (or heterozygous dominant-negative
     alleles) produces the more severe WS3 phenotype. PAX3 sits upstream of MITF
     and other melanocyte-fate genes in the neural crest gene regulatory network.
+  genes:
+  - preferred_term: PAX3
+    term:
+      id: hgnc:8617
+      label: PAX3
+    modifier: LOSS_OF_FUNCTION
   cell_types:
   - preferred_term: migratory neural crest cell
     term:
@@ -7331,6 +7766,7 @@ genetic:
       id: hgnc:8617
       label: PAX3
   association: Causative
+  relationship_type: CAUSATIVE
   subtype: WS1
   features: &gt;-
     Heterozygous loss-of-function PAX3 variants (missense in the paired or
@@ -7355,6 +7791,7 @@ genetic:
       id: hgnc:8617
       label: PAX3
   association: Causative
+  relationship_type: CAUSATIVE
   subtype: WS3
   features: &gt;-
     Biallelic (homozygous or compound heterozygous) PAX3 mutations, or
@@ -7585,6 +8022,8 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -8228,7 +8667,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "PAX3-Related Waardenburg Syndrome", "mondoId": "MONDO:0018094", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "PAX3-Related_Waardenburg_Syndrome", "yamlRevision": "5f1bf7e53edb"};
+        const OS_CONFIG = {"diseaseName": "PAX3-Related Waardenburg Syndrome", "mondoId": "MONDO:0018094", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "PAX3-Related_Waardenburg_Syndrome", "yamlRevision": "abe23e7837b1"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

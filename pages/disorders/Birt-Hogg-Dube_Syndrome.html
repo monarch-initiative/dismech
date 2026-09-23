@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2954,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2969,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3078,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3091,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3295,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3305,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3341,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3362,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3675,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4072,6 +4165,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4095,6 +4190,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4116,6 +4213,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4166,6 +4265,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-germline-flcn-first-hit-inactivation" data-dismech-node="Germline FLCN First-Hit Inactivation" data-dismech-type="pathophysiology">
                 <div class="item-name">Germline FLCN First-Hit Inactivation</div>
+
 
                 <div class="item-desc">A heterozygous loss-of-function variant in FLCN at 17p11.2 is present constitutionally. Most alleles are protein-truncating, and a striking proportion are insertions or deletions within a hypermutable mononucleotide C(8) tract, which is why that tract is the first target of diagnostic sequencing. FLCN transcript is widely expressed — including in kidney, lung and skin, the three affected organs — so the tissue restriction of the phenotype is not explained by where the gene is expressed.</div>
 
@@ -4264,6 +4364,8 @@ This genetic context concerns FLCN (hgnc:27310). hgnc:27310 is a gene from the H
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4284,6 +4386,9 @@ This genetic context concerns FLCN (hgnc:27310). hgnc:27310 is a gene from the H
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Constitutional heterozygous FLCN loss of function, predominantly protein-truncating, with a hotspot in a hypermutable C(8) tract.</div>
 
@@ -4332,6 +4437,8 @@ This genetic context concerns FLCN (hgnc:27310). hgnc:27310 is a gene from the H
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4353,6 +4460,8 @@ This genetic context concerns FLCN (hgnc:27310). hgnc:27310 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4377,6 +4486,7 @@ This genetic context concerns FLCN (hgnc:27310). hgnc:27310 is a gene from the H
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-somatic-flcn-second-hit-inactivation" data-dismech-node="Somatic FLCN Second-Hit Inactivation" data-dismech-type="pathophysiology">
                 <div class="item-name">Somatic FLCN Second-Hit Inactivation</div>
+
 
                 <div class="item-desc">A somatic event inactivates the retained wild-type FLCN allele. In BHD renal tumors the dominant route is not loss of heterozygosity but an independent intragenic mutation: sequencing 77 renal tumors from 12 carriers found somatic sequence alterations in 53% and loss of heterozygosity in a further 17%, with most somatic changes producing frameshifts predicted to truncate the protein. That distribution matters for interpretation, because a BHD renal tumor without loss of heterozygosity has usually still completed its second hit, by mutation rather than allele loss.</div>
 
@@ -4430,6 +4540,8 @@ This genetic context concerns FLCN (hgnc:27310). hgnc:27310 is a gene from the H
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: SOMATIC</span>
 
 
@@ -4448,6 +4560,9 @@ This genetic context concerns FLCN (hgnc:27310). hgnc:27310 is a gene from the H
         <span class="tag tag-classification">functional_impact_category: LOSS_OF_FUNCTION</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Acquired inactivation of the retained wild-type FLCN allele in renal tumor tissue, predominantly by somatic frameshift mutation and less often by loss of heterozygosity.</div>
 
@@ -4496,6 +4611,8 @@ This genetic context concerns FLCN (hgnc:27310). hgnc:27310 is a gene from the H
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4518,6 +4635,7 @@ This genetic context concerns FLCN (hgnc:27310). hgnc:27310 is a gene from the H
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-folliculin-loss-and-fnip1-ampk-mtor-nutrient-sensing-dysregulation" data-dismech-node="Folliculin Loss and FNIP1-AMPK-mTOR Nutrient Sensing Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Folliculin Loss and FNIP1-AMPK-mTOR Nutrient Sensing Dysregulation</div>
+
 
                 <div class="item-desc">Folliculin is a tumor-suppressor protein without an assigned catalytic family; its identified partner FNIP1 binds AMP-activated protein kinase, the central energy sensor that negatively regulates mTOR. FNIP1 is phosphorylated by AMPK, and folliculin phosphorylation is reduced by AMPK inhibitors, diminished by rapamycin and by amino-acid starvation, and increased by FNIP1 overexpression — placing folliculin inside the AMPK and mTOR signalling network rather than upstream or downstream of it. Loss of folliculin in a cell that has inactivated both alleles therefore dysregulates nutrient and energy sensing, which is the mechanistic link between Birt-Hogg-Dube and the other hamartoma syndromes caused by LKB1, TSC1/2 and PTEN.</div>
 
@@ -4608,6 +4726,8 @@ This pathophysiological event involves abnormal TOR signaling (GO:0031929). GO:0
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4631,6 +4751,8 @@ This pathophysiological event involves abnormal TOR signaling (GO:0031929). GO:0
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -4652,6 +4774,8 @@ This pathophysiological event involves abnormal TOR signaling (GO:0031929). GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -4678,6 +4802,7 @@ This pathophysiological event involves abnormal TOR signaling (GO:0031929). GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-multiorgan-hamartoma-and-renal-tumor-development" data-dismech-node="Multiorgan Hamartoma and Renal Tumor Development" data-dismech-type="pathophysiology">
                 <div class="item-name">Multiorgan Hamartoma and Renal Tumor Development</div>
+
 
                 <div class="item-desc">The clinical output: follicular hamartomas of the skin, cysts in the lung wall that predispose to spontaneous pneumothorax, and renal neoplasms that are characteristically bilateral and multifocal. The renal histology is distinctive and diagnostically useful — oncocytoma and chromophobe renal cell carcinoma rather than the clear-cell tumors of von Hippel-Lindau disease. Risk is family-stratified: carriers whose relatives have had kidney cancer, or spontaneous pneumothorax, are at significantly higher risk of that same feature, which is what surveillance planning is built on.</div>
 
@@ -4715,6 +4840,8 @@ This pathophysiological event involves abnormal TOR signaling (GO:0031929). GO:0
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4736,6 +4863,8 @@ This pathophysiological event involves abnormal TOR signaling (GO:0031929). GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4802,9 +4931,11 @@ This pathophysiological event involves abnormal TOR signaling (GO:0031929). GO:0
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Genitourinary<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Genitourinary<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Other<span class="pill-count">(4)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Integument<span class="pill-count">(1)</span></button>
+
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Respiratory<span class="pill-count">(2)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -4814,7 +4945,7 @@ This pathophysiological event involves abnormal TOR signaling (GO:0031929). GO:0
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Genitourinary
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-renal-neoplasm" data-dismech-node="Renal Neoplasm" data-dismech-type="phenotype">
@@ -4845,6 +4976,9 @@ This clinical feature is Renal neoplasm (HP:0009726). HP:0009726 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4859,6 +4993,8 @@ This clinical feature is Renal neoplasm (HP:0009726). HP:0009726 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4884,13 +5020,110 @@ This clinical feature is Renal neoplasm (HP:0009726). HP:0009726 is a phenotype 
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-renal-oncocytoma" data-dismech-node="Renal Oncocytoma" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Renal Oncocytoma
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0011798" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-6">HP:0011798</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Renal oncocytoma (HP:0011798). HP:0011798 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:18234728" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18234728" target="_blank">PMID:18234728</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We report the first germline missense mutation in BHD c.1978A&gt;G (K508R) in a patient who presented with bilateral multifocal renal oncocytomas."</div>
+
+
+                <div class="evidence-explanation">Documents bilateral multifocal renal oncocytoma as a presenting phenotype in a mutation-confirmed carrier — the multifocality predicted by the two-hit mechanism.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301695" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301695" target="_blank">PMID:20301695</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The most common renal tumors are a hybrid of oncocytoma and chromophobe histologic cell types (oncocytic hybrid tumor); clear cell carcinoma and oncocytoma are also common."</div>
+
+
+                <div class="evidence-explanation">GeneReviews Clinical Characteristics section, giving the full renal histological spectrum. Note it includes clear cell carcinoma, so the oncocytic/chromophobe predominance is a tendency rather than an absolute discriminator from von Hippel-Lindau disease.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
 
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">4</span>
+                    Integument
+                    <span class="cat-count">1</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-fibrofolliculoma" data-dismech-node="Fibrofolliculoma" data-dismech-type="phenotype">
@@ -4907,15 +5140,18 @@ This clinical feature is Renal neoplasm (HP:0009726). HP:0009726 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030436" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-6">HP:0030436</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030436" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0030436</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Fibrofolliculoma (HP:0030436). HP:0030436 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -4935,6 +5171,8 @@ This clinical feature is Fibrofolliculoma (HP:0030436). HP:0030436 is a phenotyp
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4960,6 +5198,8 @@ This clinical feature is Fibrofolliculoma (HP:0030436). HP:0030436 is a phenotyp
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4973,14 +5213,16 @@ This clinical feature is Fibrofolliculoma (HP:0030436). HP:0030436 is a phenotyp
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:18234728" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:18234728" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/18234728" target="_blank">PMID:18234728</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5006,6 +5248,15 @@ This clinical feature is Fibrofolliculoma (HP:0030436). HP:0030436 is a phenotyp
 
                 </div>
 
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Respiratory
+                    <span class="cat-count">2</span>
+                </summary>
+
                 <div class="item-box phenotype-box anchor-target" id="phenotype-pulmonary-cysts" data-dismech-node="Pulmonary Cysts" data-dismech-type="phenotype">
                     <div class="item-name">
                         Pulmonary Cysts
@@ -5020,15 +5271,18 @@ This clinical feature is Fibrofolliculoma (HP:0030436). HP:0030436 is a phenotyp
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0032445" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0032445</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0032445" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0032445</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Pulmonary cyst (HP:0032445). HP:0032445 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5048,6 +5302,8 @@ This clinical feature is Pulmonary cyst (HP:0032445). HP:0032445 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5071,6 +5327,8 @@ This clinical feature is Pulmonary cyst (HP:0032445). HP:0032445 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5110,15 +5368,18 @@ This clinical feature is Pulmonary cyst (HP:0032445). HP:0032445 is a phenotype 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002108" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0002108</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002108" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0002108</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Spontaneous pneumothorax (HP:0002108). HP:0002108 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5140,6 +5401,8 @@ This clinical feature is Spontaneous pneumothorax (HP:0002108). HP:0002108 is a 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5148,96 +5411,6 @@ This clinical feature is Spontaneous pneumothorax (HP:0002108). HP:0002108 is a 
 
 
                 <div class="evidence-explanation">Establishes spontaneous pneumothorax as a BHD feature and quantifies its familial clustering.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-renal-oncocytoma" data-dismech-node="Renal Oncocytoma" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Renal Oncocytoma
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0011798" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0011798</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Renal oncocytoma (HP:0011798). HP:0011798 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:18234728" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/18234728" target="_blank">PMID:18234728</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"We report the first germline missense mutation in BHD c.1978A&gt;G (K508R) in a patient who presented with bilateral multifocal renal oncocytomas."</div>
-
-
-                <div class="evidence-explanation">Documents bilateral multifocal renal oncocytoma as a presenting phenotype in a mutation-confirmed carrier — the multifocality predicted by the two-hit mechanism.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:20301695" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301695" target="_blank">PMID:20301695</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"The most common renal tumors are a hybrid of oncocytoma and chromophobe histologic cell types (oncocytic hybrid tumor); clear cell carcinoma and oncocytoma are also common."</div>
-
-
-                <div class="evidence-explanation">GeneReviews Clinical Characteristics section, giving the full renal histological spectrum. Note it includes clear cell carcinoma, so the oncocytic/chromophobe predominance is a tendency rather than an absolute discriminator from von Hippel-Lindau disease.</div>
 
 
 
@@ -5325,6 +5498,9 @@ This disease-associated gene is FLCN (hgnc:27310). hgnc:27310 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -5339,6 +5515,8 @@ This disease-associated gene is FLCN (hgnc:27310). hgnc:27310 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5362,6 +5540,8 @@ This disease-associated gene is FLCN (hgnc:27310). hgnc:27310 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5443,6 +5623,31 @@ This treatment is Nephrectomy (NCIT:C15284). NCIT:C15284 is a clinical intervent
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">The renal arm dominates management. Tumors under 3 cm are watched rather than resected, and larger ones are removed nephron-sparingly where possible — a deliberately conservative approach that only makes sense because the tumors are typically indolent oncocytic lesions and because bilateral, multifocal disease means renal tissue must be preserved for future operations. This is the opposite of the wide-margin policy used in HLRCC, where the renal tumor metastasizes while small.</div>
 
 
@@ -5484,6 +5689,8 @@ This treatment is Nephrectomy (NCIT:C15284). NCIT:C15284 is a clinical intervent
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5505,6 +5712,8 @@ This treatment is Nephrectomy (NCIT:C15284). NCIT:C15284 is a clinical intervent
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5567,6 +5776,31 @@ This treatment is Behavioral Counseling (NCIT:C181743). NCIT:C181743 is a clinic
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Pneumothoraces are treated conventionally, with surgery considered for recurrence. The distinctive part is anticipatory counselling: carriers are advised about activities involving ambient pressure change, because the underlying cysts are permanent and the risk is lifelong.</div>
 
 
@@ -5588,6 +5822,8 @@ This treatment is Behavioral Counseling (NCIT:C181743). NCIT:C181743 is a clinic
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5613,6 +5849,8 @@ This treatment is Behavioral Counseling (NCIT:C181743). NCIT:C181743 is a clinic
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5634,6 +5872,8 @@ This treatment is Behavioral Counseling (NCIT:C181743). NCIT:C181743 is a clinic
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5696,6 +5936,31 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Surgical and laser treatment of fibrofolliculomas is cosmetic and temporary — the lesions recur, which is expected given that the skin continues to accumulate independently initiated lesions with age.</div>
 
 
@@ -5717,6 +5982,8 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5746,6 +6013,315 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-clinical-diagnostic-criteria-for-birt-hogg-dube-syndrome">
+                <div class="item-name">
+                    Clinical Diagnostic Criteria for Birt-Hogg-Dube Syndrome
+
+                </div>
+
+                <div class="item-desc">A clinical diagnosis can be made without genetic testing: one major criterion (more than five fibrofolliculomas or trichodiscomas, at least one histologically confirmed) or two minor criteria drawn from the pulmonary, renal and family-history features.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        Clinical Evaluation
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C124351" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-14">NCIT:C124351</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-14">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> One major or two minor criteria establish the clinical diagnosis and prompt confirmatory FLCN testing.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301695" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301695" target="_blank">PMID:20301695</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The clinical diagnosis of BHDS is established in a proband with either one major criteria (&gt;5 fibrofolliculomas/trichodiscomas; one histologically confirmed) or two minor criteria"</div>
+
+
+                <div class="evidence-explanation">GeneReviews Diagnosis/Testing section, giving the major and minor criteria structure of the clinical diagnosis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-molecular-genetic-testing-for-flcn">
+                <div class="item-name">
+                    Molecular Genetic Testing for FLCN
+
+                </div>
+
+                <div class="item-desc">A germline heterozygous FLCN pathogenic variant establishes the molecular diagnosis. Cascade testing then serves both directions: starting renal surveillance in carriers and releasing non-carriers from lifelong imaging.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        Genetic Testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15709" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-15">NCIT:C15709</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-15">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-desc"><strong>Results:</strong> A heterozygous germline pathogenic FLCN variant confirms the diagnosis and determines which relatives need renal surveillance.</div>
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301695" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301695" target="_blank">PMID:20301695</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The molecular diagnosis is established in a proband with any suggestive findings and a germline heterozygous pathogenic variant in FLCN identified by molecular genetic testing."</div>
+
+
+                <div class="evidence-explanation">GeneReviews Diagnosis/Testing section, stating the confirmatory molecular test.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301695" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301695" target="_blank">PMID:20301695</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Molecular genetic testing for the family-specific FLCN pathogenic variant for early identification of at-risk family members improves diagnostic certainty and reduces costly screening procedures in at-risk relatives who have not inherited the family-specific pathogenic variant."</div>
+
+
+                <div class="evidence-explanation">GeneReviews Evaluation of Relatives at Risk, giving both purposes of cascade testing.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-general-population">
+                <div class="item-name">General population</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Point Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        0.2 per 100,000
+                    </span>
+
+
+                    <span class="tag">&lt;1 in 1,000,000</span>
+
+                </div>
+
+                <div class="item-notes">Estimated 2 cases per million, normalised to 0.2 per 100,000. Treat as an order-of-magnitude estimate rather than a measured rate: Birt-Hogg-Dube is substantially underdiagnosed because its commonest features — skin papules and asymptomatic lung cysts — rarely prompt genetic evaluation on their own, so ascertainment-based estimates are expected to run low. The same source reports a local founder cluster, which illustrates how far the figure can depart from the general-population estimate in a specific ancestry group.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:35907578" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/35907578" target="_blank">PMID:35907578</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Although its prevalence in the general population has been estimated at 2 cases per million, BHDS has been detected in a few patients from the nearby Portuguese-lineage quarter of the city of Newark, a disproportionate prevalence possibly explained by the founder effect."</div>
+
+
+                <div class="evidence-explanation">Source for the general-population estimate, quoted together with the founder-effect cluster that qualifies it. Evidence source is OTHER because this is a review article rather than a primary epidemiological study.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -5788,11 +6364,11 @@ This treatment is Therapeutic Procedure (NCIT:C49236). NCIT:C49236 is a clinical
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0009726" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-14">HP:0009726</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0009726" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0009726</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-14">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets Renal neoplasm (HP:0009726). HP:0009726 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5805,11 +6381,11 @@ This clinical trial targets Renal neoplasm (HP:0009726). HP:0009726 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011798" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-15">HP:0011798</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0011798" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0011798</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-15">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets Renal oncocytoma (HP:0011798). HP:0011798 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -5832,6 +6408,8 @@ This clinical trial targets Renal oncocytoma (HP:0011798). HP:0011798 is a pheno
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5933,7 +6511,7 @@ inheritance:
     that feature has already occurred in the family.
   evidence:
   - reference: PMID:18234728
-    reference_title: &#34;BHD mutations, clinical and molecular genetic investigations of Birt-Hogg-Dube syndrome: a new series of 50 families and a review of published reports.&#34;
+    reference_title: &#34;BHD mutations, clinical and molecular genetic investigations of Birt-Hogg-Dubé syndrome: a new series of 50 families and a review of published reports.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -5945,7 +6523,7 @@ inheritance:
       States the autosomal dominant inheritance and the defining multi-organ
       phenotype in a series of 50 families.
   - reference: PMID:18234728
-    reference_title: &#34;BHD mutations, clinical and molecular genetic investigations of Birt-Hogg-Dube syndrome: a new series of 50 families and a review of published reports.&#34;
+    reference_title: &#34;BHD mutations, clinical and molecular genetic investigations of Birt-Hogg-Dubé syndrome: a new series of 50 families and a review of published reports.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -6070,7 +6648,7 @@ pathophysiology:
       by loss of heterozygosity.
   evidence:
   - reference: PMID:15956655
-    reference_title: &#34;High frequency of somatic frameshift BHD gene mutations in Birt-Hogg-Dube-associated renal tumors.&#34;
+    reference_title: &#34;High frequency of somatic frameshift BHD gene mutations in Birt-Hogg-Dubé-associated renal tumors.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -6110,7 +6688,7 @@ pathophysiology:
     modifier: ABNORMAL
   evidence:
   - reference: PMID:15956655
-    reference_title: &#34;High frequency of somatic frameshift BHD gene mutations in Birt-Hogg-Dube-associated renal tumors.&#34;
+    reference_title: &#34;High frequency of somatic frameshift BHD gene mutations in Birt-Hogg-Dubé-associated renal tumors.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -6190,7 +6768,7 @@ pathophysiology:
       Documents the characteristic renal histology and the three-organ
       distribution of the phenotype.
   - reference: PMID:18234728
-    reference_title: &#34;BHD mutations, clinical and molecular genetic investigations of Birt-Hogg-Dube syndrome: a new series of 50 families and a review of published reports.&#34;
+    reference_title: &#34;BHD mutations, clinical and molecular genetic investigations of Birt-Hogg-Dubé syndrome: a new series of 50 families and a review of published reports.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -6215,7 +6793,7 @@ phenotypes:
       label: Fibrofolliculoma
   evidence:
   - reference: PMID:18234728
-    reference_title: &#34;BHD mutations, clinical and molecular genetic investigations of Birt-Hogg-Dube syndrome: a new series of 50 families and a review of published reports.&#34;
+    reference_title: &#34;BHD mutations, clinical and molecular genetic investigations of Birt-Hogg-Dubé syndrome: a new series of 50 families and a review of published reports.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -6238,8 +6816,8 @@ phenotypes:
       the progressive accumulation with age — the visible signature of
       independent second hits occurring across the skin over time.
   - reference: PMID:18234728
-    reference_title: &#34;BHD mutations, clinical and molecular genetic investigations of Birt-Hogg-Dube syndrome: a new series of 50 families and a review of published reports.&#34;
-    supports: PARTIAL
+    reference_title: &#34;BHD mutations, clinical and molecular genetic investigations of Birt-Hogg-Dubé syndrome: a new series of 50 families and a review of published reports.&#34;
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       10% (5/51) of the families had individuals without histologically
@@ -6295,7 +6873,7 @@ phenotypes:
       label: Spontaneous pneumothorax
   evidence:
   - reference: PMID:18234728
-    reference_title: &#34;BHD mutations, clinical and molecular genetic investigations of Birt-Hogg-Dube syndrome: a new series of 50 families and a review of published reports.&#34;
+    reference_title: &#34;BHD mutations, clinical and molecular genetic investigations of Birt-Hogg-Dubé syndrome: a new series of 50 families and a review of published reports.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -6318,7 +6896,7 @@ phenotypes:
       label: Renal neoplasm
   evidence:
   - reference: PMID:18234728
-    reference_title: &#34;BHD mutations, clinical and molecular genetic investigations of Birt-Hogg-Dube syndrome: a new series of 50 families and a review of published reports.&#34;
+    reference_title: &#34;BHD mutations, clinical and molecular genetic investigations of Birt-Hogg-Dubé syndrome: a new series of 50 families and a review of published reports.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -6339,7 +6917,7 @@ phenotypes:
       label: Renal oncocytoma
   evidence:
   - reference: PMID:18234728
-    reference_title: &#34;BHD mutations, clinical and molecular genetic investigations of Birt-Hogg-Dube syndrome: a new series of 50 families and a review of published reports.&#34;
+    reference_title: &#34;BHD mutations, clinical and molecular genetic investigations of Birt-Hogg-Dubé syndrome: a new series of 50 families and a review of published reports.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -6376,7 +6954,7 @@ genetic:
     mutation detection rate in clinically defined families is high.
   evidence:
   - reference: PMID:18234728
-    reference_title: &#34;BHD mutations, clinical and molecular genetic investigations of Birt-Hogg-Dube syndrome: a new series of 50 families and a review of published reports.&#34;
+    reference_title: &#34;BHD mutations, clinical and molecular genetic investigations of Birt-Hogg-Dubé syndrome: a new series of 50 families and a review of published reports.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
@@ -6730,7 +7308,7 @@ clinical_trials:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Birt-Hogg-Dube Syndrome", "mondoId": "MONDO:0800444", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Birt-Hogg-Dube_Syndrome", "yamlRevision": "763284d10f47"};
+        const OS_CONFIG = {"diseaseName": "Birt-Hogg-Dube Syndrome", "mondoId": "MONDO:0800444", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Birt-Hogg-Dube_Syndrome", "yamlRevision": "ddfc46232eb0"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

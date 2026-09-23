@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2954,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2969,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3078,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3091,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3295,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3305,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3341,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3362,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3740,6 +3817,22 @@
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
     <nav class="site-nav">
         <div class="nav-inner">
             <a href="../../" class="nav-logo">dismech</a>
@@ -3782,7 +3875,7 @@
                 </span>
 
 
-                <a class="badge badge-pathograph" href="#pathograph">Pathograph 10</a>
+                <a class="badge badge-pathograph" href="#pathograph">Pathograph 12</a>
 
                 <a class="badge badge-embeddings"
                    href="../../app/embeddings/index.html?focus=Microphthalmia%20with%20Coloboma"
@@ -3952,7 +4045,7 @@
             <a class="stat-link" href="#pathograph">
             <div class="stat-item">
                 <div class="stat-icon" aria-hidden="true">⬡</div>
-                <div class="stat-value">10</div>
+                <div class="stat-value">12</div>
                 <div class="stat-label">Pathograph</div>
             </div>
             </a>
@@ -4086,6 +4179,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4155,6 +4250,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4214,14 +4311,16 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:36192130" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:36192130" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/36192130" target="_blank">PMID:36192130</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4394,7 +4493,7 @@
 
                     </div>
 
-                    <div class="item-desc">Coding MAB21L2 variants and non-coding regulatory deletions upstream of MAB21L2 cause microphthalmia and coloboma; a worked example of non-coding regulatory pathogenesis in MAC.</div>
+                    <div class="item-desc">Coding MAB21L2 variants and non-coding regulatory deletions upstream of MAB21L2 cause microphthalmia and coloboma; a worked example of non-coding regulatory pathogenesis in MAC. Note that the recurrent p.Arg51Cys allele causes a distinct *syndromic* oculo-skeletal disorder with rhizomelic limb shortening and intellectual disability, curated separately as Colobomatous_Microphthalmia-Rhizomelic_Dysplasia_Syndrome and listed in the ISDS skeletal nosology; this entry stays scoped to the isolated MAC presentation and therefore carries no ISDS assignment.</div>
 
 
 
@@ -4511,6 +4610,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-failure-of-optic-fissure-closure" data-dismech-node="Failure of optic fissure closure" data-dismech-type="pathophysiology">
                 <div class="item-name">Failure of optic fissure closure</div>
+
 
                 <div class="item-desc">The proximate developmental lesion in colobomatous microphthalmia is failure of the embryonic optic (choroid) fissure to close. During optic-cup morphogenesis the invaginating optic cup forms a transient inferonasal groove (the optic fissure) through which the hyaloid vasculature enters; fusion of its margins completes the eye. When fusion fails, tissue is left &#34;missing&#34; at the inferonasal pole, producing coloboma of the iris, ciliary body, retina/choroid, and/or optic nerve. In humans the fissure normally closes by about the 7th week, so the insult is early-embryonic.</div>
 
@@ -4737,6 +4837,8 @@ This pathophysiological event occurs in Optic cup (UBERON:0003072). UBERON:00030
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4759,6 +4861,7 @@ This pathophysiological event occurs in Optic cup (UBERON:0003072). UBERON:00030
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disrupted-optic-cup-and-globe-morphogenesis" data-dismech-node="Disrupted optic-cup and globe morphogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Disrupted optic-cup and globe morphogenesis</div>
+
 
                 <div class="item-desc">Disruption of the eye-development gene regulatory network impairs optic vesicle/optic cup specification, growth, and patterning. Reduced or mispatterned neuroepithelial proliferation yields a small globe (microphthalmia), and in severe cases failure of optic-vesicle outgrowth yields anophthalmia. The same developmental disruption that reduces globe size also predisposes to incomplete optic-fissure closure, so microphthalmia and coloboma frequently co-occur.</div>
 
@@ -5018,6 +5121,8 @@ This pathophysiological event occurs in Eye (UBERON:0000970). UBERON:0000970 is 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5040,6 +5145,7 @@ This pathophysiological event occurs in Eye (UBERON:0000970). UBERON:0000970 is 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-retinoic-acid-signaling-disruption" data-dismech-node="Retinoic acid signaling disruption" data-dismech-type="pathophysiology">
                 <div class="item-name">Retinoic acid signaling disruption</div>
+
 
                 <div class="item-desc">Retinoic acid (RA) signaling, generated locally by retinaldehyde dehydrogenases (including ALDH1A3) and acting through retinoic-acid receptors, is required for ventral optic-cup patterning and optic-fissure morphogenesis. Genetic loss of RA synthesis (ALDH1A3) and teratogenic perturbation of the retinoid pathway (e.g. isotretinoin/retinoic-acid embryopathy, maternal vitamin A deficiency) both converge on this pathway, a classic gene–environment phenocopy in MAC.</div>
 
@@ -5130,6 +5236,8 @@ This pathophysiological event involves decreased Retinoic acid receptor signalin
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5152,6 +5260,7 @@ This pathophysiological event involves decreased Retinoic acid receptor signalin
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-wnt-fzd5-signaling-disruption" data-dismech-node="Wnt/FZD5 signaling disruption" data-dismech-type="pathophysiology">
                 <div class="item-name">Wnt/FZD5 signaling disruption</div>
+
 
                 <div class="item-desc">The Wnt receptor FZD5 is expressed throughout eye development; FZD5 variants disrupt Wnt signaling required for optic-fissure closure. Most reported alleles are dominant-negative (the mutant receptor sequesters Wnt ligands), but a recessive hypomorphic missense allele impairing signal transduction causes syndromic coloboma with microcornea, illustrating an alternative Wnt-pathway mechanism in MAC.</div>
 
@@ -5242,6 +5351,8 @@ This pathophysiological event involves decreased Wnt signaling pathway (GO:00160
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5263,6 +5374,8 @@ This pathophysiological event involves decreased Wnt signaling pathway (GO:00160
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5287,6 +5400,7 @@ This pathophysiological event involves decreased Wnt signaling pathway (GO:00160
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-non-coding-regulatory-variant-pathogenesis" data-dismech-node="Non-coding regulatory variant pathogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Non-coding regulatory variant pathogenesis</div>
+
 
                 <div class="item-desc">A substantial fraction of MAC remains undiagnosed because analysis often focuses on coding variants. Conserved non-coding regulatory elements (enhancers) controlling eye-development genes can be deleted or disrupted, abolishing correct spatiotemporal expression. The ~113.5 kb homozygous deletion 19.38 kb upstream of MAB21L2 removes conserved elements, two of which bind OTX2, and causes microphthalmia and coloboma — establishing enhancer loss as a bona fide MAC mechanism.</div>
 
@@ -5377,6 +5491,8 @@ This pathophysiological event involves abnormal Eye development (GO:0001654). GO
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5398,6 +5514,8 @@ This pathophysiological event involves abnormal Eye development (GO:0001654). GO
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5445,7 +5563,7 @@ This pathophysiological event involves abnormal Eye development (GO:0001654). GO
             </div>
             <script>
             (function() {
-                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Anophthalmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Clinical absence of the globe with preserved ocular adnexa, at the severe end of the MAC spectrum.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000528\"}}, {\"id\": \"Coloboma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Missing ocular tissue resulting from incomplete optic-fissure closure; may involve iris, ciliary body, retina/choroid, and/or optic nerve.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000589\"}}, {\"id\": \"Disrupted optic-cup and globe morphogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Disruption of the eye-development gene regulatory network impairs optic vesicle/optic cup specification, growth, and patterning. Reduced or mispatterned neuroepithelial proliferation yields a small globe (microphthalmia), and in severe cases failure of optic-vesicle outgrowth yields anophthalmia. The same developmental disruption that reduces globe size also predisposes to incomplete optic-fissure closure, so microphthalmia and coloboma frequently co-occur.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Retinal progenitor cell\", \"Neural crest cell\"], \"biological_processes\": [\"Eye development\", \"Eye morphogenesis\", \"Camera-type eye morphogenesis\"], \"locations\": [\"Eye\"]}}, {\"id\": \"Failure of optic fissure closure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The proximate developmental lesion in colobomatous microphthalmia is failure of the embryonic optic (choroid) fissure to close. During optic-cup morphogenesis the invaginating optic cup forms a transient inferonasal groove (the optic fissure) through which the hyaloid vasculature enters; fusion of its margins completes the eye. When fusion fails, tissue is left \\\"missing\\\" at the inferonasal pole, producing coloboma of the iris, ciliary body, retina/choroid, and/or optic nerve. In humans the fissure normally closes by about the 7th week, so the insult is early-embryonic.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Retinal progenitor cell\", \"Retinal pigment epithelial cell\"], \"biological_processes\": [\"Closure of optic fissure\", \"Camera-type eye morphogenesis\"], \"locations\": [\"Optic fissure\", \"Optic cup\"]}}, {\"id\": \"Microphthalmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A small eye, defined as a globe with total axial length at least two standard deviations below the age-adjusted mean.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000568\"}}, {\"id\": \"Non-coding regulatory variant pathogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A substantial fraction of MAC remains undiagnosed because analysis often focuses on coding variants. Conserved non-coding regulatory elements (enhancers) controlling eye-development genes can be deleted or disrupted, abolishing correct spatiotemporal expression. The ~113.5 kb homozygous deletion 19.38 kb upstream of MAB21L2 removes conserved elements, two of which bind OTX2, and causes microphthalmia and coloboma \\u2014 establishing enhancer loss as a bona fide MAC mechanism.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Eye development\"]}}, {\"id\": \"Retinoic acid signaling disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Retinoic acid (RA) signaling, generated locally by retinaldehyde dehydrogenases (including ALDH1A3) and acting through retinoic-acid receptors, is required for ventral optic-cup patterning and optic-fissure morphogenesis. Genetic loss of RA synthesis (ALDH1A3) and teratogenic perturbation of the retinoid pathway (e.g. isotretinoin/retinoic-acid embryopathy, maternal vitamin A deficiency) both converge on this pathway, a classic gene\\u2013environment phenocopy in MAC.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Retinoic acid receptor signaling pathway\"]}}, {\"id\": \"Retinoid pathway teratogens\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Prenatal exposures that disrupt retinoid (vitamin A / retinoic acid) biology \\u2014 including isotretinoin/retinoic-acid embryopathy and maternal vitamin A deficiency \\u2014 are associated with microphthalmia and coloboma, acting as a phenocopy of genetic retinoid-pathway lesions (e.g. ALDH1A3).\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Thalidomide and other ocular teratogens\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Thalidomide is a classic ocular teratogen, and additional environmental contributors to anophthalmia/microphthalmia include gestational infections, maternal vitamin A deficiency, X-ray exposure, and solvent misuse.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Wnt/FZD5 signaling disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The Wnt receptor FZD5 is expressed throughout eye development; FZD5 variants disrupt Wnt signaling required for optic-fissure closure. Most reported alleles are dominant-negative (the mutant receptor sequesters Wnt ligands), but a recessive hypomorphic missense allele impairing signal transduction causes syndromic coloboma with microcornea, illustrating an alternative Wnt-pathway mechanism in MAC.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Wnt signaling pathway\"]}}], \"edges\": [{\"source\": \"Failure of optic fissure closure\", \"target\": \"Coloboma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Incomplete apposition and fusion of the optic-fissure margins leaves the persistent ocular cleft that defines coloboma.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted optic-cup and globe morphogenesis\", \"target\": \"Failure of optic fissure closure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Optic-cup invagination and ventral patterning precede fissure apposition; disturbed cup geometry can therefore compromise the later closure step.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted optic-cup and globe morphogenesis\", \"target\": \"Microphthalmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Partial failure of globe morphogenesis produces a small globe.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted optic-cup and globe morphogenesis\", \"target\": \"Anophthalmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe early morphogenesis failure can prevent globe formation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Retinoic acid signaling disruption\", \"target\": \"Disrupted optic-cup and globe morphogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of retinoic-acid signaling impairs ventral optic-cup patterning and growth, feeding the shared morphogenesis defect.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Wnt/FZD5 signaling disruption\", \"target\": \"Failure of optic fissure closure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disrupted Wnt/FZD5 signaling, required during eye development, impairs optic-fissure closure and produces coloboma.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Non-coding regulatory variant pathogenesis\", \"target\": \"Disrupted optic-cup and globe morphogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Enhancer loss abolishes correct spatiotemporal expression of eye-development genes (e.g. MAB21L2), driving the shared optic-cup and globe morphogenesis defect.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Retinoid pathway teratogens\", \"target\": \"Retinoic acid signaling disruption\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Retinoid drugs act on the very signalling pathway this node names, so the exposure perturbs retinoic acid signalling directly rather than through an intermediate.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Thalidomide and other ocular teratogens\", \"target\": \"Failure of optic fissure closure\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Groups several unrelated environmental contributors, including gestational infection and maternal vitamin A deficiency, whose common feature is raising the chance that fissure closure fails rather than a shared mechanism.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}], \"orphan_targets\": []}");
+                var graphData = JSON.parse("{\"nodes\": [{\"id\": \"Anophthalmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Clinical absence of the globe with preserved ocular adnexa, at the severe end of the MAC spectrum.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000528\"}}, {\"id\": \"Coloboma\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"Missing ocular tissue resulting from incomplete optic-fissure closure; may involve iris, ciliary body, retina/choroid, and/or optic nerve.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000589\"}}, {\"id\": \"Disrupted optic-cup and globe morphogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Disruption of the eye-development gene regulatory network impairs optic vesicle/optic cup specification, growth, and patterning. Reduced or mispatterned neuroepithelial proliferation yields a small globe (microphthalmia), and in severe cases failure of optic-vesicle outgrowth yields anophthalmia. The same developmental disruption that reduces globe size also predisposes to incomplete optic-fissure closure, so microphthalmia and coloboma frequently co-occur.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Retinal progenitor cell\", \"Neural crest cell\"], \"biological_processes\": [\"Eye development\", \"Eye morphogenesis\", \"Camera-type eye morphogenesis\"], \"locations\": [\"Eye\"]}}, {\"id\": \"Failure of optic fissure closure\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The proximate developmental lesion in colobomatous microphthalmia is failure of the embryonic optic (choroid) fissure to close. During optic-cup morphogenesis the invaginating optic cup forms a transient inferonasal groove (the optic fissure) through which the hyaloid vasculature enters; fusion of its margins completes the eye. When fusion fails, tissue is left \\\"missing\\\" at the inferonasal pole, producing coloboma of the iris, ciliary body, retina/choroid, and/or optic nerve. In humans the fissure normally closes by about the 7th week, so the insult is early-embryonic.\", \"meta\": {\"evidence_count\": 1, \"cell_types\": [\"Retinal progenitor cell\", \"Retinal pigment epithelial cell\"], \"biological_processes\": [\"Closure of optic fissure\", \"Camera-type eye morphogenesis\"], \"locations\": [\"Optic fissure\", \"Optic cup\"]}}, {\"id\": \"Microphthalmia\", \"node_type\": \"phenotype\", \"color\": \"#fef3c7\", \"is_orphan\": false, \"description\": \"A small eye, defined as a globe with total axial length at least two standard deviations below the age-adjusted mean.\", \"meta\": {\"evidence_count\": 1, \"term_id\": \"HP:0000568\"}}, {\"id\": \"Non-coding regulatory variant pathogenesis\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"A substantial fraction of MAC remains undiagnosed because analysis often focuses on coding variants. Conserved non-coding regulatory elements (enhancers) controlling eye-development genes can be deleted or disrupted, abolishing correct spatiotemporal expression. The ~113.5 kb homozygous deletion 19.38 kb upstream of MAB21L2 removes conserved elements, two of which bind OTX2, and causes microphthalmia and coloboma \\u2014 establishing enhancer loss as a bona fide MAC mechanism.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Eye development\"]}}, {\"id\": \"Ophthalmic surgical management\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Surgical interventions in colobomatous microphthalmia include cataract surgery / lensectomy and vitreoretinal surgery for coloboma-associated retinal detachment, with management individualized by visual potential.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Retinoic acid signaling disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"Retinoic acid (RA) signaling, generated locally by retinaldehyde dehydrogenases (including ALDH1A3) and acting through retinoic-acid receptors, is required for ventral optic-cup patterning and optic-fissure morphogenesis. Genetic loss of RA synthesis (ALDH1A3) and teratogenic perturbation of the retinoid pathway (e.g. isotretinoin/retinoic-acid embryopathy, maternal vitamin A deficiency) both converge on this pathway, a classic gene\\u2013environment phenocopy in MAC.\", \"meta\": {\"evidence_count\": 1, \"biological_processes\": [\"Retinoic acid receptor signaling pathway\"]}}, {\"id\": \"Retinoid pathway teratogens\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Prenatal exposures that disrupt retinoid (vitamin A / retinoic acid) biology \\u2014 including isotretinoin/retinoic-acid embryopathy and maternal vitamin A deficiency \\u2014 are associated with microphthalmia and coloboma, acting as a phenocopy of genetic retinoid-pathway lesions (e.g. ALDH1A3).\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Supportive and rehabilitative care\", \"node_type\": \"treatment\", \"color\": \"#fce7f3\", \"is_orphan\": false, \"description\": \"Multidisciplinary supportive care includes prosthetic/conformer expansion of the orbit for severe microphthalmia/anophthalmia, low-vision aids and vision rehabilitation, and developmental/early-intervention support.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Thalidomide and other ocular teratogens\", \"node_type\": \"environmental\", \"color\": \"#dcfce7\", \"is_orphan\": false, \"description\": \"Thalidomide is a classic ocular teratogen, and additional environmental contributors to anophthalmia/microphthalmia include gestational infections, maternal vitamin A deficiency, X-ray exposure, and solvent misuse.\", \"meta\": {\"evidence_count\": 1}}, {\"id\": \"Wnt/FZD5 signaling disruption\", \"node_type\": \"pathophysiology\", \"color\": \"#dbeafe\", \"is_orphan\": false, \"description\": \"The Wnt receptor FZD5 is expressed throughout eye development; FZD5 variants disrupt Wnt signaling required for optic-fissure closure. Most reported alleles are dominant-negative (the mutant receptor sequesters Wnt ligands), but a recessive hypomorphic missense allele impairing signal transduction causes syndromic coloboma with microcornea, illustrating an alternative Wnt-pathway mechanism in MAC.\", \"meta\": {\"evidence_count\": 2, \"biological_processes\": [\"Wnt signaling pathway\"]}}], \"edges\": [{\"source\": \"Failure of optic fissure closure\", \"target\": \"Coloboma\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Incomplete apposition and fusion of the optic-fissure margins leaves the persistent ocular cleft that defines coloboma.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted optic-cup and globe morphogenesis\", \"target\": \"Failure of optic fissure closure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Optic-cup invagination and ventral patterning precede fissure apposition; disturbed cup geometry can therefore compromise the later closure step.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Disrupted optic-cup and globe morphogenesis\", \"target\": \"Microphthalmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Partial failure of globe morphogenesis produces a small globe.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Disrupted optic-cup and globe morphogenesis\", \"target\": \"Anophthalmia\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Severe early morphogenesis failure can prevent globe formation.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Retinoic acid signaling disruption\", \"target\": \"Disrupted optic-cup and globe morphogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Loss of retinoic-acid signaling impairs ventral optic-cup patterning and growth, feeding the shared morphogenesis defect.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Wnt/FZD5 signaling disruption\", \"target\": \"Failure of optic fissure closure\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Disrupted Wnt/FZD5 signaling, required during eye development, impairs optic-fissure closure and produces coloboma.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Non-coding regulatory variant pathogenesis\", \"target\": \"Disrupted optic-cup and globe morphogenesis\", \"predicate\": \"causes\", \"is_orphan\": false, \"description\": \"Enhancer loss abolishes correct spatiotemporal expression of eye-development genes (e.g. MAB21L2), driving the shared optic-cup and globe morphogenesis defect.\", \"causal_link_type\": \"INDIRECT_KNOWN_INTERMEDIATES\"}, {\"source\": \"Retinoid pathway teratogens\", \"target\": \"Retinoic acid signaling disruption\", \"predicate\": \"triggers\", \"is_orphan\": false, \"description\": \"Retinoid drugs act on the very signalling pathway this node names, so the exposure perturbs retinoic acid signalling directly rather than through an intermediate.\", \"causal_link_type\": \"DIRECT\"}, {\"source\": \"Thalidomide and other ocular teratogens\", \"target\": \"Failure of optic fissure closure\", \"predicate\": \"predisposes_to\", \"is_orphan\": false, \"description\": \"Groups several unrelated environmental contributors, including gestational infection and maternal vitamin A deficiency, whose common feature is raising the chance that fissure closure fails rather than a shared mechanism.\", \"causal_link_type\": \"INDIRECT_UNKNOWN_INTERMEDIATES\"}, {\"source\": \"Ophthalmic surgical management\", \"target\": \"Disrupted optic-cup and globe morphogenesis\", \"predicate\": \"targets\", \"is_orphan\": false}, {\"source\": \"Supportive and rehabilitative care\", \"target\": \"Disrupted optic-cup and globe morphogenesis\", \"predicate\": \"targets\", \"is_orphan\": false}], \"orphan_targets\": []}");
                 renderPathograph("pathograph", graphData);
             })();
             </script>
@@ -5466,11 +5584,9 @@ This pathophysiological event involves abnormal Eye development (GO:0001654). GO
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Ear<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Eye<span class="pill-count">(5)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Eye<span class="pill-count">(7)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Nervous System<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Other<span class="pill-count">(2)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -5513,6 +5629,9 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5527,6 +5646,8 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5558,7 +5679,7 @@ This clinical feature is Sensorineural hearing impairment (HP:0000407). HP:00004
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Eye
-                    <span class="cat-count">5</span>
+                    <span class="cat-count">7</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-microphthalmia" data-dismech-node="Microphthalmia" data-dismech-type="phenotype">
@@ -5589,6 +5710,9 @@ This clinical feature is Microphthalmia (HP:0000568). HP:0000568 is a phenotype 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5603,6 +5727,8 @@ This clinical feature is Microphthalmia (HP:0000568). HP:0000568 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5656,6 +5782,9 @@ This clinical feature is Coloboma (HP:0000589). HP:0000589 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5672,6 +5801,8 @@ This clinical feature is Coloboma (HP:0000589). HP:0000589 is a phenotype from t
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5680,6 +5811,78 @@ This clinical feature is Coloboma (HP:0000589). HP:0000589 is a phenotype from t
 
 
                 <div class="evidence-explanation">Coloboma is a defining feature, mechanistically tied to fissure closure.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-iris-coloboma" data-dismech-node="Iris coloboma" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Iris coloboma
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000612" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000612</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Iris coloboma (HP:0000612). HP:0000612 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301552" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301552" target="_blank">PMID:20301552</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Iris coloboma causes the iris to appear keyhole-shaped."</div>
+
+
+                <div class="evidence-explanation">GeneReviews baseline describes iris coloboma in the MAC spectrum.</div>
 
 
 
@@ -5709,15 +5912,18 @@ This clinical feature is Coloboma (HP:0000589). HP:0000589 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000567" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0000567</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000567" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000567</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Chorioretinal coloboma (HP:0000567). HP:0000567 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5739,6 +5945,8 @@ This clinical feature is Chorioretinal coloboma (HP:0000567). HP:0000567 is a ph
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5747,6 +5955,78 @@ This clinical feature is Chorioretinal coloboma (HP:0000567). HP:0000567 is a ph
 
 
                 <div class="evidence-explanation">GeneReviews baseline defines chorioretinal coloboma.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-anophthalmia" data-dismech-node="Anophthalmia" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Anophthalmia
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000528" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000528</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Anophthalmia (HP:0000528). HP:0000528 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:20301552" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301552" target="_blank">PMID:20301552</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Anophthalmia refers to complete absence of the globe in the presence of ocular adnexa (eyelids, conjunctiva, and lacrimal apparatus)."</div>
+
+
+                <div class="evidence-explanation">GeneReviews baseline defines anophthalmia within the spectrum.</div>
 
 
 
@@ -5776,15 +6056,18 @@ This clinical feature is Chorioretinal coloboma (HP:0000567). HP:0000567 is a ph
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000482" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-20">HP:0000482</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000482" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0000482</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-20">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Microcornea (HP:0000482). HP:0000482 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5804,6 +6087,8 @@ This clinical feature is Microcornea (HP:0000482). HP:0000482 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5843,15 +6128,18 @@ This clinical feature is Microcornea (HP:0000482). HP:0000482 is a phenotype fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-21">HP:0000505</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000505" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000505</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-21">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5871,6 +6159,8 @@ This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5921,15 +6211,18 @@ This clinical feature is Visual impairment (HP:0000505). HP:0000505 is a phenoty
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-22">HP:0001263</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001263" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0001263</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-22">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5951,6 +6244,8 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5959,149 +6254,6 @@ This clinical feature is Global developmental delay (HP:0001263). HP:0001263 is 
 
 
                 <div class="evidence-explanation">Developmental delay is the leading systemic association in MAC patients with extraocular features.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-4">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-iris-coloboma" data-dismech-node="Iris coloboma" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Iris coloboma
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000612" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-23">HP:0000612</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-23">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Iris coloboma (HP:0000612). HP:0000612 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:20301552" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301552" target="_blank">PMID:20301552</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Iris coloboma causes the iris to appear keyhole-shaped."</div>
-
-
-                <div class="evidence-explanation">GeneReviews baseline describes iris coloboma in the MAC spectrum.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-anophthalmia" data-dismech-node="Anophthalmia" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Anophthalmia
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000528" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-24">HP:0000528</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-24">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Anophthalmia (HP:0000528). HP:0000528 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:20301552" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/20301552" target="_blank">PMID:20301552</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Anophthalmia refers to complete absence of the globe in the presence of ocular adnexa (eyelids, conjunctiva, and lacrimal apparatus)."</div>
-
-
-                <div class="evidence-explanation">GeneReviews baseline defines anophthalmia within the spectrum.</div>
 
 
 
@@ -6189,6 +6341,9 @@ This disease-associated gene is SOX2 (hgnc:11195). hgnc:11195 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6203,6 +6358,8 @@ This disease-associated gene is SOX2 (hgnc:11195). hgnc:11195 is a gene from the
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6259,6 +6416,9 @@ This disease-associated gene is OTX2 (hgnc:8522). hgnc:8522 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6273,6 +6433,8 @@ This disease-associated gene is OTX2 (hgnc:8522). hgnc:8522 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6329,6 +6491,9 @@ This disease-associated gene is PAX6 (hgnc:8620). hgnc:8620 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6343,6 +6508,8 @@ This disease-associated gene is PAX6 (hgnc:8620). hgnc:8620 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6399,6 +6566,9 @@ This disease-associated gene is MAB21L2 (hgnc:6758). hgnc:6758 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6413,6 +6583,8 @@ This disease-associated gene is MAB21L2 (hgnc:6758). hgnc:6758 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6469,6 +6641,9 @@ This disease-associated gene is FZD5 (hgnc:4043). hgnc:4043 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6483,6 +6658,8 @@ This disease-associated gene is FZD5 (hgnc:4043). hgnc:4043 is a gene from the H
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6539,6 +6716,9 @@ This disease-associated gene is FOXE3 (hgnc:3808). hgnc:3808 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6553,6 +6733,8 @@ This disease-associated gene is FOXE3 (hgnc:3808). hgnc:3808 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6609,6 +6791,9 @@ This disease-associated gene is ALDH1A3 (hgnc:409). hgnc:409 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6623,6 +6808,8 @@ This disease-associated gene is ALDH1A3 (hgnc:409). hgnc:409 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6669,7 +6856,9 @@ This disease-associated gene is ALDH1A3 (hgnc:409). hgnc:409 is a gene from the 
                     Genetic counseling
                 </div>
                 <div class="item-meta">
-                    <strong style="font-size: 0.8rem; color: #5b21b6;">Action:</strong>
+                    <strong style="font-size: 0.8rem; color: #5b21b6;">Category:</strong>
+                    <span class="tag tag-treatment">Counseling / Informational</span>
+                    <strong style="font-size: 0.8rem; color: #5b21b6; margin-left: 12px;">Action:</strong>
 
 
                     <span class="tag tag-treatment" tabindex="0" aria-describedby="pill-tip-32">Genetic Counseling<span class="pill-tip" role="tooltip" id="pill-tip-32">NCI Thesaurus (NCIT)
@@ -6704,6 +6893,20 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Genetic counseling and diagnostic genetic testing (chromosomal microarray, clinical exome or whole-genome sequencing) guide recurrence-risk assessment and family planning in the genetically heterogeneous MAC spectrum.</div>
 
 
@@ -6725,6 +6928,8 @@ This treatment is Genetic Counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6788,8 +6993,51 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Surgical interventions in colobomatous microphthalmia include cataract surgery / lensectomy and vitreoretinal surgery for coloboma-associated retinal detachment, with management individualized by visual potential.</div>
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+
+                        </span>
+                        <strong style="color: #5b21b6;">Disrupted optic-cup and globe morphogenesis</strong>
+
+                        <span style="color: #7c3aed;"> &mdash; Addresses the structural consequences of the morphogenetic defect, and in the anophthalmic socket supports orbital growth. It does not act on optic fissure closure, which has already failed in utero.</span>
+
+
+
+
+                    </div>
+
+                </div>
 
 
 
@@ -6809,6 +7057,8 @@ This treatment is surgical procedure (NCIT:C15329). NCIT:C15329 is a clinical in
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6872,8 +7122,40 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Multidisciplinary supportive care includes prosthetic/conformer expansion of the orbit for severe microphthalmia/anophthalmia, low-vision aids and vision rehabilitation, and developmental/early-intervention support.</div>
 
+
+                <div class="item-meta" style="margin-top: 8px;">
+                    <strong style="font-size: 0.8rem; color: #7c3aed;">Mechanism Target:</strong>
+
+                    <div style="margin: 4px 0 4px 12px; font-size: 0.88rem;">
+                        <span class="tag" style="background: #f3e8ff; color: #6b21a8; font-size: 0.8rem;">
+
+                        </span>
+                        <strong style="color: #5b21b6;">Disrupted optic-cup and globe morphogenesis</strong>
+
+                        <span style="color: #7c3aed;"> &mdash; Addresses the visual impairment resulting from the malformed globe. Purely supportive.</span>
+
+
+
+
+                    </div>
+
+                </div>
 
 
 
@@ -6893,6 +7175,8 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6979,6 +7263,8 @@ This environmental factor is retinoid teratogen exposure, annotated with exposur
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7027,6 +7313,8 @@ This environmental factor is retinoid teratogen exposure, annotated with exposur
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7082,6 +7370,8 @@ This environmental factor is retinoid teratogen exposure, annotated with exposur
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7132,6 +7422,8 @@ This environmental factor is retinoid teratogen exposure, annotated with exposur
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7160,6 +7452,33 @@ This environmental factor is retinoid teratogen exposure, annotated with exposur
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -7246,6 +7565,8 @@ This clinical trial targets Microphthalmia (HP:0000568). HP:0000568 is a phenoty
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                 </div>
 
                 <div class="evidence-snippet">"Uveal coloboma is part of a spectrum of developmental eye conditions that include anophthalmia and microphthalmia, typically referred to as &#34;MAC&#34;"</div>
@@ -7314,6 +7635,8 @@ This clinical trial targets Coloboma (HP:0000589). HP:0000589 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                 </div>
@@ -7426,7 +7749,12 @@ has_subtypes:
   description: &gt;-
     Coding MAB21L2 variants and non-coding regulatory deletions upstream of
     MAB21L2 cause microphthalmia and coloboma; a worked example of non-coding
-    regulatory pathogenesis in MAC.
+    regulatory pathogenesis in MAC. Note that the recurrent p.Arg51Cys allele
+    causes a distinct *syndromic* oculo-skeletal disorder with rhizomelic limb
+    shortening and intellectual disability, curated separately as
+    Colobomatous_Microphthalmia-Rhizomelic_Dysplasia_Syndrome and listed in the
+    ISDS skeletal nosology; this entry stays scoped to the isolated MAC
+    presentation and therefore carries no ISDS assignment.
 - name: FOXE3-MAC
   display_name: FOXE3-related microphthalmia with coloboma
   description: &gt;-
@@ -7493,7 +7821,7 @@ inheritance:
   evidence:
   - reference: PMID:36192130
     reference_title: &#34;Real-world clinical and molecular management of 50 prospective patients with microphthalmia, anophthalmia and/or ocular coloboma.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;novel variants in six known MAC genes (SOX2, KMT2D, MAB21L2, ALDH1A3, BCOR and FOXE3)&#34;
     explanation: &gt;-
@@ -8081,6 +8409,7 @@ environmental:
       deficiency, X-rays, solvents, thalidomide) to A/M.
 treatments:
 - name: Genetic counseling
+  action_category: COUNSELING_INFORMATIONAL
   description: &gt;-
     Genetic counseling and diagnostic genetic testing (chromosomal microarray,
     clinical exome or whole-genome sequencing) guide recurrence-risk assessment
@@ -8108,6 +8437,12 @@ treatments:
     term:
       id: NCIT:C15329
       label: Surgical Procedure
+  target_mechanisms:
+  - target: Disrupted optic-cup and globe morphogenesis
+    description: &gt;-
+      Addresses the structural consequences of the morphogenetic defect, and in
+      the anophthalmic socket supports orbital growth. It does not act on optic
+      fissure closure, which has already failed in utero.
   evidence:
   - reference: PMID:20301552
     reference_title: &#34;Microphthalmia/Anophthalmia/Coloboma Spectrum – RETIRED CHAPTER, FOR HISTORICAL REFERENCE ONLY.&#34;
@@ -8127,6 +8462,11 @@ treatments:
     term:
       id: NCIT:C15747
       label: Supportive Care
+  target_mechanisms:
+  - target: Disrupted optic-cup and globe morphogenesis
+    description: &gt;-
+      Addresses the visual impairment resulting from the malformed globe.
+      Purely supportive.
   evidence:
   - reference: PMID:20301552
     reference_title: &#34;Microphthalmia/Anophthalmia/Coloboma Spectrum – RETIRED CHAPTER, FOR HISTORICAL REFERENCE ONLY.&#34;
@@ -8216,6 +8556,8 @@ clinical_trials:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -9216,7 +9558,7 @@ For each section, provide:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Microphthalmia with Coloboma", "mondoId": "MONDO:0000170", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Microphthalmia_with_Coloboma", "yamlRevision": "4a23b0a23131"};
+        const OS_CONFIG = {"diseaseName": "Microphthalmia with Coloboma", "mondoId": "MONDO:0000170", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Microphthalmia_with_Coloboma", "yamlRevision": "c7ce22a03db1"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

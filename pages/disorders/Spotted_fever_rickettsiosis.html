@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2954,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2969,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3078,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3091,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3295,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3305,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3341,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3362,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3675,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4193,6 +4286,8 @@ This root entry is deliberately thin. It carries only what is defined over the g
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4214,6 +4309,8 @@ This root entry is deliberately thin. It carries only what is defined over the g
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4279,6 +4376,8 @@ This root entry is deliberately thin. It carries only what is defined over the g
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4300,6 +4399,8 @@ This root entry is deliberately thin. It carries only what is defined over the g
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4365,6 +4466,8 @@ This root entry is deliberately thin. It carries only what is defined over the g
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4386,6 +4489,8 @@ This root entry is deliberately thin. It carries only what is defined over the g
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4451,6 +4556,8 @@ This root entry is deliberately thin. It carries only what is defined over the g
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4472,6 +4579,8 @@ This root entry is deliberately thin. It carries only what is defined over the g
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4537,6 +4646,8 @@ This root entry is deliberately thin. It carries only what is defined over the g
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4598,6 +4709,8 @@ This root entry is deliberately thin. It carries only what is defined over the g
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4884,6 +4997,7 @@ Third, the names lie in both directions. Queensland tick typhus and North Asian 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-arthropod-inoculation-of-a-spotted-fever-group-rickettsia" data-dismech-node="Arthropod Inoculation of a Spotted Fever Group Rickettsia" data-dismech-type="pathophysiology">
                 <div class="item-name">Arthropod Inoculation of a Spotted Fever Group Rickettsia</div>
 
+
                 <div class="item-desc">A feeding tick — or, for rickettsialpox, a mite — deposits SFG rickettsiae in the dermis at the attachment site. In most members of the group this produces a local dermal lesion that necroses into an inoculation eschar; the resulting fever, rash and eschar triad is what makes the group clinically recognisable. The vector genus and the incubation period are member-specific and are curated on the member entries.</div>
 
 
@@ -4935,6 +5049,8 @@ Third, the names lie in both directions. Queensland tick typhus and North Asian 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -4956,6 +5072,8 @@ Third, the names lie in both directions. Queensland tick typhus and North Asian 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -4980,6 +5098,7 @@ Third, the names lie in both directions. Queensland tick typhus and North Asian 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-obligate-intracytosolic-infection-of-microvascular-endothelium" data-dismech-node="Obligate Intracytosolic Infection of Microvascular Endothelium" data-dismech-type="pathophysiology">
                 <div class="item-name">Obligate Intracytosolic Infection of Microvascular Endothelium</div>
+
 
                 <div class="item-desc">The mechanistic core shared by every member of the group. SFG rickettsiae adhere to and induce their own uptake by microvascular endothelial cells, escape the phagosome into the cytosol, and replicate free in the cytoplasm, exploiting host actin for both entry and intracellular movement. This node is the group-level statement of endothelial tropism only; the receptor-ligand detail, the actin-based motility machinery and the VE-cadherin biology are not re-derived here and are curated in `Rocky_Mountain_Spotted_Fever.yaml`.</div>
 
@@ -5142,6 +5261,8 @@ This pathophysiological event involves increased symbiont entry into host (GO:00
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5163,6 +5284,8 @@ This pathophysiological event involves increased symbiont entry into host (GO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5188,6 +5311,8 @@ This pathophysiological event involves increased symbiont entry into host (GO:00
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5210,6 +5335,7 @@ This pathophysiological event involves increased symbiont entry into host (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-species-graded-endothelial-inflammatory-response" data-dismech-node="Species-Graded Endothelial Inflammatory Response" data-dismech-type="pathophysiology">
                 <div class="item-name">Species-Graded Endothelial Inflammatory Response</div>
+
 
                 <div class="item-desc">The node that only a root entry can carry, because it is a statement about the differences between members rather than about any one of them. Members of the group share a target cell and a route of infection but differ by orders of magnitude in severity, from self-limiting African tick-bite fever to frequently fatal Rocky Mountain spotted fever. That gradient tracks how strongly the particular species drives interleukin-8 and adhesion-molecule expression in endothelium and how much endothelial barrier failure and cell death follow: R. conorii elicits a markedly stronger response in vitro and in patients than R. africae does, and the Israeli spotted fever strain of R. conorii collapses endothelial monolayer resistance where the mild pathogen R. massiliae does not.</div>
 
@@ -5368,6 +5494,8 @@ This pathophysiological event involves increased leukocyte adhesion to vascular 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5389,6 +5517,8 @@ This pathophysiological event involves increased leukocyte adhesion to vascular 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
@@ -5414,6 +5544,8 @@ This pathophysiological event involves increased leukocyte adhesion to vascular 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
@@ -5436,6 +5568,7 @@ This pathophysiological event involves increased leukocyte adhesion to vascular 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-disseminated-small-vessel-vasculitis-and-increased-vascular-permeability" data-dismech-node="Disseminated Small-Vessel Vasculitis and Increased Vascular Permeability" data-dismech-type="pathophysiology">
                 <div class="item-name">Disseminated Small-Vessel Vasculitis and Increased Vascular Permeability</div>
+
 
                 <div class="item-desc">Multifocal endothelial infection and injury produce a disseminated small-vessel vasculitis with perivascular mononuclear infiltration and loss of endothelial barrier integrity. This is the single lesion that explains the group&#39;s rash, and at its severe end the oedema of the lungs and brain. The downstream haemostatic detail — platelet consumption, fibrin thrombi, disseminated intravascular coagulation — is member-specific and is curated in `Rocky_Mountain_Spotted_Fever.yaml` rather than repeated here.</div>
 
@@ -5594,6 +5727,8 @@ This pathophysiological event involves increased positive regulation of vascular
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5615,6 +5750,8 @@ This pathophysiological event involves increased positive regulation of vascular
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5639,6 +5776,7 @@ This pathophysiological event involves increased positive regulation of vascular
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-severe-end-organ-involvement-of-the-lung-and-brain" data-dismech-node="Severe End-Organ Involvement of the Lung and Brain" data-dismech-type="pathophysiology">
                 <div class="item-name">Severe End-Organ Involvement of the Lung and Brain</div>
+
 
                 <div class="item-desc">The severe tail of the group. Vascular leak in the pulmonary microcirculation produces non-cardiogenic pulmonary oedema and respiratory failure; in the central nervous system it produces meningoencephalitis with seizures and coma. These two are the proximate causes of death across the group, and in a large Brazilian case-control series seizures and coma were the strongest predictors of a fatal outcome. Which members reach this node, and how often, differs by species — that dependency is the point of the `Species-Graded Endothelial Inflammatory Response` node above.</div>
 
@@ -5752,6 +5890,8 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5765,14 +5905,16 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:15109588" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:15109588" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/15109588" target="_blank">PMID:15109588</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5797,6 +5939,7 @@ This pathophysiological event occurs in brain (UBERON:0000955). UBERON:0000955 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-rickettsial-ribosomal-translation-doxycycline-target" data-dismech-node="Rickettsial Ribosomal Translation (Doxycycline Target)" data-dismech-type="pathophysiology">
                 <div class="item-name">Rickettsial Ribosomal Translation (Doxycycline Target)</div>
+
 
                 <div class="item-desc">Every member of the group depends on its own 70S ribosome for protein synthesis, and that ribosome — not a cell-wall target — is what doxycycline inhibits. The molecular mechanism is held once in the `bacterial_protein_synthesis_inhibition` module and is not re-derived here; this node exists so the group-level doxycycline recommendation has a mechanism node to point at.</div>
 
@@ -5868,6 +6011,8 @@ This pathophysiological event involves translation (GO:0006412). GO:0006412 is a
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -5889,6 +6034,8 @@ This pathophysiological event involves translation (GO:0006412). GO:0006412 is a
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5913,6 +6060,7 @@ This pathophysiological event involves translation (GO:0006412). GO:0006412 is a
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-obligate-intracytosolic-niche-cell-penetrant-drug-requirement" data-dismech-node="Obligate Intracytosolic Niche (Cell-Penetrant Drug Requirement)" data-dismech-type="pathophysiology">
                 <div class="item-name">Obligate Intracytosolic Niche (Cell-Penetrant Drug Requirement)</div>
+
 
                 <div class="item-desc">Because SFG rickettsiae replicate free in the host cell cytosol, effective therapy is restricted to agents that accumulate intracellularly. Doxycycline does; beta-lactams do not reach the organism whatever their in vitro activity. This is the pharmacokinetic gate that, together with the ribosomal target above, makes doxycycline first-line for every member of the group regardless of species or geography. The gating principle itself is held once in the `intracellular_pathogen_persistence` module.</div>
 
@@ -5984,6 +6132,8 @@ This pathophysiological event involves response to antibiotic (GO:0046677). GO:0
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6007,6 +6157,8 @@ This pathophysiological event involves response to antibiotic (GO:0046677). GO:0
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6028,6 +6180,8 @@ This pathophysiological event involves response to antibiotic (GO:0046677). GO:0
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6098,13 +6252,13 @@ This pathophysiological event involves response to antibiotic (GO:0046677). GO:0
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Immune<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Metabolism<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Integument<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Nervous System<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Metabolism<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Constitutional<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Nervous System<span class="pill-count">(1)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Other<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Constitutional<span class="pill-count">(1)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -6145,6 +6299,9 @@ This clinical feature is Skin rash (HP:0000988). HP:0000988 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6159,6 +6316,8 @@ This clinical feature is Skin rash (HP:0000988). HP:0000988 is a phenotype from 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6189,6 +6348,112 @@ This clinical feature is Skin rash (HP:0000988). HP:0000988 is a phenotype from 
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
+                    Integument
+                    <span class="cat-count">1</span>
+                </summary>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-inoculation-eschar" data-dismech-node="Inoculation eschar" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Inoculation eschar
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_6000793" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:6000793</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Eschar (HP:6000793). HP:6000793 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:15109588" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15109588" target="_blank">PMID:15109588</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Most patients present with a mild-to-moderately severe flu-like illness typically accompanied by a cutaneous rash and an inoculation eschar at the site of the tick bite, but potentially life-threatening disease with disseminated vaculitis is occasionally seen."</div>
+
+
+                <div class="evidence-explanation">States the inoculation eschar as a typical group-level feature and locates it at the bite site. Evidence source is OTHER as this is a literature-based review.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27172113" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27172113" target="_blank">PMID:27172113</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Unlike some SFG rickettsioses, an inoculation eschar is rarely present with RMSF"</div>
+
+
+                <div class="evidence-explanation">Recorded as PARTIAL because it supports the phenotype&#39;s presence in the group only by contrast, while refuting its presence in one member. That is exactly the bound the description records, and it is why `frequency` is omitted. Evidence source is OTHER as this is a national recommendations report.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+            </details>
+
+            <details class="phenotype-category-group" id="pheno-cat-3">
+                <summary>
+                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Metabolism
                     <span class="cat-count">1</span>
                 </summary>
@@ -6207,15 +6472,18 @@ This clinical feature is Skin rash (HP:0000988). HP:0000988 is a phenotype from 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-16">HP:0001945</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001945" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0001945</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-16">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6227,14 +6495,16 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:12766836" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:12766836" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12766836" target="_blank">PMID:12766836</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6262,7 +6532,7 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-3">
+            <details class="phenotype-category-group" id="pheno-cat-4">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Nervous System
@@ -6283,15 +6553,18 @@ This clinical feature is Fever (HP:0001945). HP:0001945 is a phenotype from the 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-17">HP:0002315</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0002315" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0002315</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-17">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6303,14 +6576,16 @@ This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from t
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:12766836" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:12766836" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12766836" target="_blank">PMID:12766836</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6338,7 +6613,7 @@ This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from t
 
             </details>
 
-            <details class="phenotype-category-group" id="pheno-cat-4">
+            <details class="phenotype-category-group" id="pheno-cat-5">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Constitutional
@@ -6359,15 +6634,18 @@ This clinical feature is Headache (HP:0002315). HP:0002315 is a phenotype from t
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-18">HP:0003326</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0003326" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:0003326</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-18">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Myalgia (HP:0003326). HP:0003326 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -6379,14 +6657,16 @@ This clinical feature is Myalgia (HP:0003326). HP:0003326 is a phenotype from th
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:12766836" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:12766836" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/12766836" target="_blank">PMID:12766836</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6397,105 +6677,6 @@ This clinical feature is Myalgia (HP:0003326). HP:0003326 is a phenotype from th
 
 
                 <div class="evidence-explanation">Places myalgia in the dominant early symptom complex. Recorded as PARTIAL and with no frequency band, for the same reason as fever and headache above — the &#34;&gt;80%&#34; figure is reported over an &#34;and/or&#34; disjunction of the three symptoms and is not divisible among them.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-5">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">1</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-inoculation-eschar" data-dismech-node="Inoculation eschar" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Inoculation eschar
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_6000793" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-19">HP:6000793</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-19">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Eschar (HP:6000793). HP:6000793 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (2 references)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:15109588" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15109588" target="_blank">PMID:15109588</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Most patients present with a mild-to-moderately severe flu-like illness typically accompanied by a cutaneous rash and an inoculation eschar at the site of the tick bite, but potentially life-threatening disease with disseminated vaculitis is occasionally seen."</div>
-
-
-                <div class="evidence-explanation">States the inoculation eschar as a typical group-level feature and locates it at the bite site. Evidence source is OTHER as this is a literature-based review.</div>
-
-
-
-            </div>
-
-            <div class="evidence-item" data-dismech-evidence="PMID:27172113" data-dismech-supports="PARTIAL">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27172113" target="_blank">PMID:27172113</a>
-                    </span>
-
-
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
-
-
-                    <span class="evidence-source source-OTHER">Other</span>
-
-                </div>
-
-                <div class="evidence-snippet">"Unlike some SFG rickettsioses, an inoculation eschar is rarely present with RMSF"</div>
-
-
-                <div class="evidence-explanation">Recorded as PARTIAL because it supports the phenotype&#39;s presence in the group only by contrast, while refuting its presence in one member. That is exactly the bound the description records, and it is why `frequency` is omitted. Evidence source is OTHER as this is a national recommendations report.</div>
 
 
 
@@ -6623,6 +6804,31 @@ This treatment uses doxycycline (CHEBI:50845). CHEBI:50845 is a therapeutic agen
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">One recommendation covers the entire group: doxycycline, started immediately on clinical suspicion, in patients of every age including children under eight. This is a genuinely group-level rule — it does not depend on which SFG species is involved, and it is made before the species (or often even the group) is known, which is what makes it a root-level claim rather than a per-member one. Its two mechanistic legs are the shared rickettsial ribosome and the shared cytosolic niche, both modelled above. The historical reluctance to give doxycycline to young children has been overturned: the concern derived from older tetracyclines that bind calcium more readily, and a CDC cohort of 58 children given short courses before age eight showed no dental staining, no enamel hypoplasia and no difference in tooth shade against 213 unexposed controls. Per-member specifics — the day-5 mortality window in RMSF, the sulfonamide contraindication, macrolide alternatives in pregnancy — are curated on the member entries.</div>
 
 
@@ -6653,6 +6859,8 @@ This treatment uses doxycycline (CHEBI:50845). CHEBI:50845 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6701,6 +6909,8 @@ This treatment uses doxycycline (CHEBI:50845). CHEBI:50845 is a therapeutic agen
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6743,6 +6953,8 @@ This treatment uses doxycycline (CHEBI:50845). CHEBI:50845 is a therapeutic agen
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6766,6 +6978,8 @@ This treatment uses doxycycline (CHEBI:50845). CHEBI:50845 is a therapeutic agen
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6787,6 +7001,8 @@ This treatment uses doxycycline (CHEBI:50845). CHEBI:50845 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6818,6 +7034,1038 @@ This treatment uses doxycycline (CHEBI:50845). CHEBI:50845 is a therapeutic agen
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-empiric-clinical-and-epidemiologic-diagnosis">
+                <div class="item-name">
+                    Empiric clinical and epidemiologic diagnosis
+
+                </div>
+
+                <div class="item-desc">Across the whole group, the diagnosis is made clinically and epidemiologically and treatment is started on suspicion. Confirmatory testing is retrospective in practice, an absent tick-bite history is common and does not argue against the diagnosis, and waiting for a laboratory result costs lives.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        clinical evaluation
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C124351" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-22">NCIT:C124351</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-22">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                <div class="item-notes">`diagnosis_term` is bound to `NCIT:C124351` (Clinical Evaluation) rather than the broader laboratory-procedure term used for the same node in `Rocky_Mountain_Spotted_Fever.yaml`. The divergence is deliberate: this node&#39;s claim is that treatment starts on clinical and epidemiologic grounds *without* laboratory confirmation, so a laboratory-procedure term would contradict the claim it annotates. The specific confirmatory modalities (paired-serum IFA, whole-blood PCR, eschar-swab PCR, immunohistochemistry on skin biopsy) are curated with their own terms on the member entries.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:15109588" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15109588" target="_blank">PMID:15109588</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Definite microbiological confirmation of tick-borne rickettsioses by isolation or antigen detection is only available at reference laboratories and diagnosis must in most cases rely on clinical and epidemiological data supported by serology."</div>
+
+
+                <div class="evidence-explanation">States the group-level diagnostic reality: clinical and epidemiological assessment, with serology as support rather than as the primary test. Evidence source is OTHER as this is a literature-based review.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:15109588" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15109588" target="_blank">PMID:15109588</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Only a minority of infected travellers can recall a preceding tick bite."</div>
+
+
+                <div class="evidence-explanation">Supports the specific caution that an absent exposure history does not exclude the diagnosis. Evidence source is OTHER as this is a literature-based review.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-group-specific-serology-and-the-species-level-limit">
+                <div class="item-name">
+                    Group-specific serology and the species-level limit
+
+                </div>
+
+                <div class="item-desc">Serology is the mainstay of confirmation for the whole group, and it is group-specific rather than species-specific. The immunodominant response is against spotted fever group lipopolysaccharide, which is shared, rather than against the OmpA and OmpB outer-membrane proteins that carry the species-specific epitopes. A reactive R. rickettsii titre therefore establishes infection with an SFG rickettsia, not with R. rickettsii — which is why species assignment needs cross-adsorption, Western blot, PCR or culture, and why the individual member diseases are so often reported as an undifferentiated &#34;spotted fever group rickettsiosis&#34;. This is a claim about the group as a whole and has no home on any member entry.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        serologic testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C25294" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-23">NCIT:C25294</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-23">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (3 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27172113" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27172113" target="_blank">PMID:27172113</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Cross-reactive immune responses to rickettsial antigens result in antibodies that are typically group-specific, although perhaps not species-specific, for tickborne rickettsial pathogens"</div>
+
+
+                <div class="evidence-explanation">The direct statement of the group-versus-species resolution limit of rickettsial serology. Evidence source is OTHER as this is a national recommendations report.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:27172113" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/27172113" target="_blank">PMID:27172113</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"antibodies reactive with R. rickettsii detected by a serologic test could result from infection with other SFG rickettsiae"</div>
+
+
+                <div class="evidence-explanation">The worked consequence: a positive R. rickettsii serology does not identify the species. Evidence source is OTHER as this is a national recommendations report.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:10497980" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/10497980" target="_blank">PMID:10497980</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Immunoblotting with antigens of R. akari identified antibodies against antigens of spotted fever group lipopolysaccharides and not against rickettsial outer membrane proteins A and B, which contain the species-specific epitopes."</div>
+
+
+                <div class="evidence-explanation">Gives the molecular reason for the cross-reactivity: the dominant response is against shared group lipopolysaccharide rather than the species-specific OmpA and OmpB epitopes.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+        <div class="card" id="infectious-agent">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fee2e2; color: #b91c1c;">🦠</div>
+                <h2 class="card-title">Infectious Agent</h2>
+                <span class="card-count">7</span>
+            </div>
+
+            <div class="item-box anchor-target" id="infectious-agent-spotted-fever-group-rickettsia">
+                <div class="item-name">Spotted fever group Rickettsia</div>
+
+                <div class="item-desc">The taxon that defines this disease group. SFG rickettsiae are obligately intracytosolic Gram-negative bacteria that cycle between an arthropod vector and a vertebrate host and that share an endothelial tropism in humans. Membership of this clade — not the identity of the arthropod, and not the geography of the disease name — is the unifying criterion for the entries grouped here.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-bio">
+
+        spotted fever group
+
+
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_114277" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-24">NCBITaxon:114277</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-24">NCBI Taxonomy (NCBITaxon)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24092850" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24092850" target="_blank">PMID:24092850</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Tick-borne rickettsioses are caused by obligate intracellular bacteria belonging to the spotted fever group of the genus Rickettsia."</div>
+
+
+                <div class="evidence-explanation">Defines the group by its taxon and by the obligate intracellular lifestyle. Evidence source is OTHER as this is a review article.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24092850" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24092850" target="_blank">PMID:24092850</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Several species of tick-borne rickettsiae that were considered nonpathogenic for decades are now associated with human infections, and novel Rickettsia species of undetermined pathogenicity continue to be detected in or isolated from ticks around the world."</div>
+
+
+                <div class="evidence-explanation">Establishes that the membership of this group is open and still growing, which is why the subtype list below is explicitly non-exhaustive.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="infectious-agent-rickettsia-rickettsii">
+                <div class="item-name">Rickettsia rickettsii</div>
+
+                <div class="item-desc">Agent of Rocky Mountain spotted fever in North America and of Brazilian spotted fever in South America; the most virulent member of the group.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-bio">
+
+        Rickettsia rickettsii
+
+
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_783" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-25">NCBITaxon:783</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-25">NCBI Taxonomy (NCBITaxon)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:17961858" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/17961858" target="_blank">PMID:17961858</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Rocky Mountain spotted fever (RMSF) is a life-threatening disease caused by Rickettsia rickettsii, an obligately intracellular bacterium that is spread to human beings by ticks."</div>
+
+
+                <div class="evidence-explanation">Assigns the species to its disease. Evidence source is OTHER as this is a review article.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="infectious-agent-rickettsia-conorii">
+                <div class="item-name">Rickettsia conorii</div>
+
+                <div class="item-desc">Agent of Mediterranean spotted fever (boutonneuse fever) and, through its subspecies indica, israelensis and caspia, of Indian tick typhus, Israeli spotted fever and Astrakhan fever.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-bio">
+
+        Rickettsia conorii
+
+
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_781" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-26">NCBITaxon:781</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-26">NCBI Taxonomy (NCBITaxon)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:15766388" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15766388" target="_blank">PMID:15766388</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Although homogeneous genotypically, strains within the R. conorii species show MST genotypic, serotypic, and epidemio-clinical dissimilarities."</div>
+
+
+                <div class="evidence-explanation">Establishes that one genotypically homogeneous species underlies several epidemiologically and clinically distinct named diseases. Evidence source is OTHER as this is a bacterial taxonomy proposal.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="infectious-agent-rickettsia-africae">
+                <div class="item-name">Rickettsia africae</div>
+
+                <div class="item-desc">Agent of African tick-bite fever; a mild, self-limiting member of the group that provokes a markedly weaker endothelial inflammatory response than R. conorii.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-bio">
+
+        Rickettsia africae
+
+
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_35788" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-27">NCBITaxon:35788</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-27">NCBI Taxonomy (NCBITaxon)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:19091423" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/19091423" target="_blank">PMID:19091423</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Mediterranean spotted fever (MSF) caused by Rickettsia conorii (R. conorii) is a potential lethal disease while African tick bite fever (ATBF) caused by Rickettsia africae is a self-limiting flu-like illness."</div>
+
+
+                <div class="evidence-explanation">Assigns the species to its disease and states its comparative severity.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="infectious-agent-rickettsia-akari">
+                <div class="item-name">Rickettsia akari</div>
+
+                <div class="item-desc">Agent of rickettsialpox, transmitted by the house mouse mite rather than a tick. Historically classified within the spotted fever group and still grouped with it clinically and serologically, but reassigned to the transitional group on genomic grounds.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-bio">
+
+        Rickettsia akari
+
+
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_786" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-28">NCBITaxon:786</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-28">NCBI Taxonomy (NCBITaxon)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28846279" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28846279" target="_blank">PMID:28846279</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"R. akari was initially classified as a member of the spotted fever group (SFG) of rickettsia, but it is now placed in the transitional group, which has features of both the spotted fever group and the typhus group (TG) of rickettsiae."</div>
+
+
+                <div class="evidence-explanation">States both the historical SFG placement that underlies the disease grouping and the later genomic reassignment. Evidence source is OTHER as this is a reference-text chapter.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="infectious-agent-rickettsia-australis">
+                <div class="item-name">Rickettsia australis</div>
+
+                <div class="item-desc">Agent of Queensland tick typhus in eastern Australia. Like R. akari it has been assigned to the transitional group on genomic grounds while remaining a spotted fever group infection clinically.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-bio">
+
+        Rickettsia australis
+
+
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_787" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-29">NCBITaxon:787</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-29">NCBI Taxonomy (NCBITaxon)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28719297" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28719297" target="_blank">PMID:28719297</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Rickettsia australis, the etiologic agent of Queensland tick typhus (QTT), is increasingly being recognized as a cause of community-acquired acute febrile illness in eastern Australia."</div>
+
+
+                <div class="evidence-explanation">Assigns the species to its disease. Evidence source is OTHER as this is a review article.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="infectious-agent-rickettsia-sibirica-subsp-sibirica">
+                <div class="item-name">Rickettsia sibirica subsp. sibirica</div>
+
+                <div class="item-desc">Agent of North Asian (Siberian) tick typhus across Siberia, Mongolia, Kazakhstan and eastern China.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-bio">
+
+        Rickettsia sibirica subsp. sibirica
+
+
+    <a href="http://purl.obolibrary.org/obo/NCBITaxon_1144281" target="_blank" class="curie-chip curie-chip-ncbitaxon" aria-describedby="pill-tip-30">NCBITaxon:1144281</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-30">NCBI Taxonomy (NCBITaxon)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:22493192" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/22493192" target="_blank">PMID:22493192</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Rickettsia sibirica sibirica is the causative agent of Siberian or North Asian tick typhus, a tick-borne rickettsiosis known to exist in Siberia and eastern China."</div>
+
+
+                <div class="evidence-explanation">Assigns the subspecies to its disease. Evidence source is OTHER as this is a genome announcement.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Transmission -->
+
+        <div class="card" id="transmission">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fee2e2; color: #b91c1c;">↔️</div>
+                <h2 class="card-title">Transmission</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="transmission-tick-bite-inoculation">
+                <div class="item-name">Tick bite inoculation</div>
+
+                <div class="item-desc">For every member of the group except rickettsialpox, the organism is inoculated by a feeding ixodid tick. Which tick genus is involved varies by rickettsial species and therefore by geography — Dermacentor and Rhipicephalus for R. rickettsii, Rhipicephalus sanguineus for R. conorii, Amblyomma for R. africae, Ixodes for R. australis — but the route is common to the group, and most patients cannot recall the bite.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24092850" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24092850" target="_blank">PMID:24092850</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Tick-borne rickettsioses are caused by obligate intracellular bacteria belonging to the spotted fever group of the genus Rickettsia."</div>
+
+
+                <div class="evidence-explanation">Establishes the tick route as definitional for the group. Evidence source is OTHER as this is a review article.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:15109588" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/15109588" target="_blank">PMID:15109588</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Only a minority of infected travellers can recall a preceding tick bite."</div>
+
+
+                <div class="evidence-explanation">A group-level observation with direct diagnostic consequence: an absent bite history does not argue against the diagnosis. Evidence source is OTHER as this is a literature-based review.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="transmission-mite-bite-inoculation-rickettsialpox">
+                <div class="item-name">Mite bite inoculation (rickettsialpox)</div>
+
+                <div class="item-desc">Rickettsialpox is the exception to the tick route: R. akari is transmitted by the house mouse mite Liponyssoides sanguineus in an urban rodent cycle. This is the reason the group cannot be defined by its arthropod vector.</div>
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:28846279" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/28846279" target="_blank">PMID:28846279</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-OTHER">Other</span>
+
+                </div>
+
+                <div class="evidence-snippet">"R. akari is transmitted by the house mouse mite, Liponyssoides sanguineus."</div>
+
+
+                <div class="evidence-explanation">Names the mite vector for the one non-tick-borne member listed here. Evidence source is OTHER as this is a reference-text chapter.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -7677,7 +8925,7 @@ pathophysiology:
       in a 386-case, 415-control series of tick-borne spotted fever.
   - reference: PMID:15109588
     reference_title: Tick-borne rickettsioses in international travellers.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
       Most patients present with a mild-to-moderately severe flu-like illness typically
@@ -7827,7 +9075,7 @@ phenotypes:
   evidence:
   - reference: PMID:12766836
     reference_title: African tick bite fever in travelers to rural sub-Equatorial Africa.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       More than 80% of the patients had fever, headache, and/or myalgia, whereas
@@ -7903,7 +9151,7 @@ phenotypes:
       Diagnosis and Management of Tickborne Rickettsial Diseases: Rocky Mountain
       Spotted Fever and Other Spotted Fever Group Rickettsioses, Ehrlichioses, and
       Anaplasmosis - United States.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: OTHER
     snippet: &gt;-
       Unlike some SFG rickettsioses, an inoculation eschar is rarely present with RMSF
@@ -7924,7 +9172,7 @@ phenotypes:
   evidence:
   - reference: PMID:12766836
     reference_title: African tick bite fever in travelers to rural sub-Equatorial Africa.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       More than 80% of the patients had fever, headache, and/or myalgia, whereas
@@ -7947,7 +9195,7 @@ phenotypes:
   evidence:
   - reference: PMID:12766836
     reference_title: African tick bite fever in travelers to rural sub-Equatorial Africa.
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &gt;-
       More than 80% of the patients had fever, headache, and/or myalgia, whereas
@@ -9445,7 +10693,7 @@ datasets: []
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Spotted fever rickettsiosis", "mondoId": "MONDO:0001195", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Spotted_fever_rickettsiosis", "yamlRevision": "f04b800cef93"};
+        const OS_CONFIG = {"diseaseName": "Spotted fever rickettsiosis", "mondoId": "MONDO:0001195", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Spotted_fever_rickettsiosis", "yamlRevision": "1c5203fab45b"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

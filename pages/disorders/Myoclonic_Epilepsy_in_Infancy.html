@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2954,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2969,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3078,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3091,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3295,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3305,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3341,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3362,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3675,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4216,14 +4309,16 @@
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:16904290" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:16904290" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16904290" target="_blank">PMID:16904290</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4462,6 +4557,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4485,6 +4582,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4506,6 +4605,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4678,6 +4779,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4701,6 +4804,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4722,6 +4827,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4896,6 +5003,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4909,14 +5018,16 @@
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:16904290" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:16904290" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/16904290" target="_blank">PMID:16904290</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4953,6 +5064,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-age-restricted-generalized-cortical-hyperexcitability-of-infancy" data-dismech-node="Age-Restricted Generalized Cortical Hyperexcitability of Infancy" data-dismech-type="pathophysiology">
                 <div class="item-name">Age-Restricted Generalized Cortical Hyperexcitability of Infancy</div>
+
 
                 <div class="item-desc">The substrate is a transient, presumed genetic tendency of the infant brain to generate generalized epileptic discharge, appearing in the first three years of life and generally disappearing after it. Nothing is known about it at the molecular level, and this entry does not pretend otherwise: the node carries cellular annotation and no gene. What justifies calling it generalized rather than focal is that the discharge is generalized on the recording and the jerk it produces is bilateral. What justifies calling it age-restricted is that both the onset and the remission are tied to a developmental window rather than to any event.</div>
 
@@ -5087,6 +5199,8 @@ This pathophysiological event involves increased neuronal action potential (GO:0
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5109,6 +5223,7 @@ This pathophysiological event involves increased neuronal action potential (GO:0
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-generalized-epileptiform-discharge-time-locked-to-the-jerk" data-dismech-node="Generalized Epileptiform Discharge Time-Locked to the Jerk" data-dismech-type="pathophysiology">
                 <div class="item-name">Generalized Epileptiform Discharge Time-Locked to the Jerk</div>
+
 
                 <div class="item-desc">The electrographic event: a brief burst of generalized spike-wave or polyspike-wave, coinciding with the myoclonic jerk closely enough that the two can be shown to be one event on combined recording. This time-locking is what makes the jerk a seizure rather than a movement disorder, and it is the single most useful discriminator from the non-epileptic myoclonias of infancy that otherwise look identical at the cotside.</div>
 
@@ -5193,6 +5308,8 @@ This pathophysiological event involves cortical neuron, annotated with neuron (C
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5215,6 +5332,7 @@ This pathophysiological event involves cortical neuron, annotated with neuron (C
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reflex-sensitivity-to-tactile-and-acoustic-stimuli-in-a-subset" data-dismech-node="Reflex Sensitivity to Tactile and Acoustic Stimuli in a Subset" data-dismech-type="pathophysiology">
                 <div class="item-name">Reflex Sensitivity to Tactile and Acoustic Stimuli in a Subset</div>
+
 
                 <div class="item-desc">In a subset of infants the jerks are not spontaneous but are elicited reliably by a sudden unexpected touch or noise. Whether these children have a variant of the same syndrome or a separate one is genuinely disputed, and this node exists to make the disputed branch explicit in the graph rather than leaving it in prose. What can be said from the evidence is that the reflex group is developmentally normal in every reported case, which is a real difference from the syndrome as a whole and is the strongest argument for separating them.</div>
 
@@ -5265,6 +5383,8 @@ This pathophysiological event involves cortical neuron, annotated with neuron (C
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5286,6 +5406,8 @@ This pathophysiological event involves cortical neuron, annotated with neuron (C
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5310,6 +5432,7 @@ This pathophysiological event involves cortical neuron, annotated with neuron (C
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-brief-generalized-myoclonic-seizures" data-dismech-node="Brief Generalized Myoclonic Seizures" data-dismech-type="pathophysiology">
                 <div class="item-name">Brief Generalized Myoclonic Seizures</div>
+
 
                 <div class="item-desc">The clinical seizure: a sudden brief bilateral jerk, usually of the head and upper limbs, lasting a second or less, often in clusters. Consciousness is not obviously impaired, which is one reason the events are frequently dismissed at first as startles or colic. In this syndrome the myoclonic seizure is the only seizure type; the appearance of other seizure types is a reason to doubt the diagnosis.</div>
 
@@ -5366,6 +5489,8 @@ This pathophysiological event involves cortical neuron, annotated with neuron (C
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5388,6 +5513,7 @@ This pathophysiological event involves cortical neuron, annotated with neuron (C
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-age-dependent-remission-of-the-seizure-disorder" data-dismech-node="Age-Dependent Remission of the Seizure Disorder" data-dismech-type="pathophysiology">
                 <div class="item-name">Age-Dependent Remission of the Seizure Disorder</div>
+
 
                 <div class="item-desc">The seizures stop. Long-term seizure freedom is the expected outcome and is the property that places the syndrome among the self-limited rather than the encephalopathic infantile epilepsies. Valproate is the most effective treatment, which is a statement about seizure control rather than about whether treatment alters the natural history, a question the literature does not answer.</div>
 
@@ -5425,6 +5551,8 @@ This pathophysiological event involves cortical neuron, annotated with neuron (C
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5446,6 +5574,8 @@ This pathophysiological event involves cortical neuron, annotated with neuron (C
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -5470,6 +5600,7 @@ This pathophysiological event involves cortical neuron, annotated with neuron (C
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-persisting-cognitive-and-behavioural-difficulty-in-a-minority" data-dismech-node="Persisting Cognitive and Behavioural Difficulty in a Minority" data-dismech-type="pathophysiology">
                 <div class="item-name">Persisting Cognitive and Behavioural Difficulty in a Minority</div>
+
 
                 <div class="item-desc">The reason the syndrome is no longer called benign. Roughly a third of children with long-term follow-up have cognitive problems, despite seizures that remitted and an infancy that looked normal before onset. Whether this reflects the seizures, the underlying substrate that produced them, or the medication used to stop them is not established, and the entry does not choose. The practical consequence is stated plainly in the source: the word benign may be applied to the seizures but must be used cautiously when counselling a family about their child&#39;s development.</div>
 
@@ -5507,6 +5638,8 @@ This pathophysiological event involves cortical neuron, annotated with neuron (C
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5528,6 +5661,8 @@ This pathophysiological event involves cortical neuron, annotated with neuron (C
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5592,36 +5727,20 @@ This pathophysiological event involves cortical neuron, annotated with neuron (C
             </div>
 
 
-            <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Nervous System<span class="pill-count">(2)</span></button>
+            <div class="item-box phenotype-box anchor-target" id="phenotype-generalized-myoclonic-seizures" data-dismech-node="Generalized Myoclonic Seizures" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Generalized Myoclonic Seizures
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Other<span class="pill-count">(2)</span></button>
-
-                <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
-            </div>
+                    <span class="phenotype-freq">VERY_FREQUENT</span>
 
 
-            <details class="phenotype-category-group" id="pheno-cat-1">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Nervous System
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-generalized-myoclonic-seizures" data-dismech-node="Generalized Myoclonic Seizures" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Generalized Myoclonic Seizures
-
-                        <span class="phenotype-freq">VERY_FREQUENT</span>
-
-
+                    <span class="phenotype-category">Neurological</span>
 
 
 
 
                     <span class="phenotype-id">
-
 
 
 
@@ -5633,7 +5752,10 @@ Relation: this clinical feature is this phenotype
 This clinical feature is Generalized myoclonic seizure (HP:0002123). HP:0002123 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -5653,6 +5775,8 @@ This clinical feature is Generalized myoclonic seizure (HP:0002123). HP:0002123 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5676,15 +5800,16 @@ This clinical feature is Generalized myoclonic seizure (HP:0002123). HP:0002123 
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-cognitive-impairment" data-dismech-node="Cognitive Impairment" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Cognitive Impairment
+            <div class="item-box phenotype-box anchor-target" id="phenotype-reflex-myoclonic-seizures" data-dismech-node="Reflex Myoclonic Seizures" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Reflex Myoclonic Seizures
 
-                        <span class="phenotype-freq">FREQUENT</span>
+                    <span class="phenotype-freq">OCCASIONAL</span>
 
 
+                    <span class="phenotype-category">Neurological</span>
 
 
 
@@ -5693,96 +5818,18 @@ This clinical feature is Generalized myoclonic seizure (HP:0002123). HP:0002123 
 
 
 
-
-    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-5">HP:0100543</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0020207" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-5">HP:0020207</a>
 
 
                         <span class="pill-tip" role="tooltip" id="pill-tip-5">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
-This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:16904290" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16904290" target="_blank">PMID:16904290</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"However, the cognitive outcome is much less certain with cognitive problems present in one-third of children who have long term follow up."</div>
-
-
-                <div class="evidence-explanation">One third of children with long-term follow-up is 33 percent, which falls in the FREQUENT band rather than OCCASIONAL. The band and the term are both taken directly from this sentence: it says cognitive problems, and it says one-third.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-2">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">2</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-reflex-myoclonic-seizures" data-dismech-node="Reflex Myoclonic Seizures" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Reflex Myoclonic Seizures
-
-                        <span class="phenotype-freq">OCCASIONAL</span>
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-                        <span class="phenotype-term-label">Reflex seizure</span>
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0020207" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-6">HP:0020207</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
 This clinical feature is Reflex seizure (HP:0020207). HP:0020207 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -5802,6 +5849,8 @@ This clinical feature is Reflex seizure (HP:0020207). HP:0020207 is a phenotype 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5827,6 +5876,8 @@ This clinical feature is Reflex seizure (HP:0020207). HP:0020207 is a phenotype 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5848,13 +5899,14 @@ This clinical feature is Reflex seizure (HP:0020207). HP:0020207 is a phenotype 
 
 
 
-                </div>
+            </div>
 
-                <div class="item-box phenotype-box anchor-target" id="phenotype-eeg-with-generalized-epileptiform-discharges" data-dismech-node="EEG with Generalized Epileptiform Discharges" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        EEG with Generalized Epileptiform Discharges
+            <div class="item-box phenotype-box anchor-target" id="phenotype-eeg-with-generalized-epileptiform-discharges" data-dismech-node="EEG with Generalized Epileptiform Discharges" data-dismech-type="phenotype">
+                <div class="item-name">
+                    EEG with Generalized Epileptiform Discharges
 
 
+                    <span class="phenotype-category">Neurological</span>
 
 
 
@@ -5863,16 +5915,18 @@ This clinical feature is Reflex seizure (HP:0020207). HP:0020207 is a phenotype 
 
 
 
+    <a href="http://purl.obolibrary.org/obo/HP_0011198" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-6">HP:0011198</a>
 
-    <a href="http://purl.obolibrary.org/obo/HP_0011198" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0011198</a>
 
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-6">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is EEG with generalized epileptiform discharges (HP:0011198). HP:0011198 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
-                    </div>
+                </div>
+
+
+
 
 
 
@@ -5892,6 +5946,8 @@ This clinical feature is EEG with generalized epileptiform discharges (HP:001119
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5915,34 +5971,82 @@ This clinical feature is EEG with generalized epileptiform discharges (HP:001119
 
 
 
+            </div>
+
+            <div class="item-box phenotype-box anchor-target" id="phenotype-cognitive-impairment" data-dismech-node="Cognitive Impairment" data-dismech-type="phenotype">
+                <div class="item-name">
+                    Cognitive Impairment
+
+                    <span class="phenotype-freq">FREQUENT</span>
+
+
+                    <span class="phenotype-category">Neurological</span>
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0100543" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0100543</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Cognitive impairment (HP:0100543). HP:0100543 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
                 </div>
 
-            </details>
 
-            <script>
-            (function() {
-                // TOC pill click: expand target group and scroll to it
-                document.querySelectorAll('.pheno-toc-pill').forEach(function(pill) {
-                    pill.addEventListener('click', function() {
-                        var target = document.getElementById(pill.dataset.target);
-                        if (target) {
-                            target.open = true;
-                            target.scrollIntoView({behavior: 'smooth', block: 'start'});
-                        }
-                    });
-                });
-                // Expand/collapse all toggle
-                var btn = document.getElementById('phenoToggleAll');
-                if (btn) {
-                    btn.addEventListener('click', function() {
-                        var groups = document.querySelectorAll('.phenotype-category-group');
-                        var anyOpen = Array.from(groups).some(function(g) { return g.open; });
-                        groups.forEach(function(g) { g.open = !anyOpen; });
-                        btn.textContent = anyOpen ? 'Expand all' : 'Collapse all';
-                    });
-                }
-            })();
-            </script>
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16904290" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16904290" target="_blank">PMID:16904290</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"However, the cognitive outcome is much less certain with cognitive problems present in one-third of children who have long term follow up."</div>
+
+
+                <div class="evidence-explanation">One third of children with long-term follow-up is 33 percent, which falls in the FREQUENT band rather than OCCASIONAL. The band and the term are both taken directly from this sentence: it says cognitive problems, and it says one-third.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+            </div>
+
 
         </div>
 
@@ -6027,6 +6131,31 @@ This treatment uses valproic acid (CHEBI:39867). CHEBI:39867 is a therapeutic ag
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">The most effective medication for the myoclonic seizures of this syndrome, and the drug against which the good seizure prognosis is reported. Its effect on the developmental outcome is unknown, and given that valproate has its own neurodevelopmental considerations in young children, that gap is not merely academic.</div>
 
 
@@ -6064,6 +6193,8 @@ This treatment uses valproic acid (CHEBI:39867). CHEBI:39867 is a therapeutic ag
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6126,6 +6257,31 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Not a treatment of the seizures but of the actual morbidity of the syndrome. Because a third of children have cognitive difficulty that is not apparent when the seizures stop, structured developmental surveillance for years after diagnosis is what converts an early diagnosis into a useful one. Recording it as a treatment rather than as advice is deliberate: it is the intervention that acts on the outcome this syndrome actually threatens.</div>
 
 
@@ -6165,6 +6321,8 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6192,6 +6350,411 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-video-electroencephalography-with-myoclonus-time-locking">
+                <div class="item-name">
+                    Video-Electroencephalography with Myoclonus Time-Locking
+
+                </div>
+
+                <div class="item-desc">The diagnostic investigation. What is sought is not merely an abnormal recording but the demonstration that the jerk and the discharge are the same event, which is what separates this syndrome from the non-epileptic myoclonias of infancy. Where a reflex presentation is suspected, the recording includes controlled tactile and acoustic stimulation.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        Electroencephalography
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C38054" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-11">NCIT:C38054</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-11">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23770486" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23770486" target="_blank">PMID:23770486</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"We reviewed all published articles and case reports on RMEI in order to clarify clinical and electroencephalographic findings, with particular attention to outcome and treatment."</div>
+
+
+                <div class="evidence-explanation">Establishes that electroencephalographic findings are central to delineating the syndrome.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23770486" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23770486" target="_blank">PMID:23770486</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"This rare clinical entity is often under-described and under-diagnosed, and for this reason should be brought to the attention of paediatricians in order to avoid extensive investigations and reassure parents of the lack of long-term complications."</div>
+
+
+                <div class="evidence-explanation">States the practical purpose of making the diagnosis: recognizing the reflex entity avoids an unnecessary investigative cascade.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-onset-of-myoclonic-seizures-in-an-otherwise-normal-infant">
+                <div class="item-name">Onset of myoclonic seizures in an otherwise normal infant</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: First three years of life</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Onset in a child whose development, head size and examination have been normal. The myoclonic seizure is the only seizure type, and its appearance in an otherwise well infant is the presentation.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:23770486" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/23770486" target="_blank">PMID:23770486</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Benign myoclonic epilepsy in infancy, classified among the generalised idiopathic epilepsies, is characterised by the occurrence of myoclonic seizures in the first three years of life in otherwise normal infants."</div>
+
+
+                <div class="evidence-explanation">Gives both the age window and the normal premorbid state that define this phase.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-evolution-to-another-epilepsy-in-a-minority">
+                <div class="item-name">Evolution to another epilepsy in a minority</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Later childhood, years after remission</span>
+
+
+
+                </div>
+
+                <div class="item-notes">A minority of children go on to develop a different epilepsy after this one has remitted, usually another idiopathic generalized epilepsy. This complicates the self-limited framing: what remits may be the infantile expression of a generalized epilepsy tendency rather than the tendency itself. A polygraphically documented case followed the syndrome into childhood absence epilepsy at six years and eight months, which the authors read as evidence of a shared neurobiological and genetic link between age-related epileptic phenotypes.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21752671" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21752671" target="_blank">PMID:21752671</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Recently, it has been shown that a few patients with BMEI later had other epilepsy types mainly IGE but never childhood absence epilepsy (CAE)."</div>
+
+
+                <div class="evidence-explanation">Establishes that evolution to another epilepsy happens in a minority and that it is usually another idiopathic generalized epilepsy. Note that the same sentence asserts absence epilepsy had never been seen, which is precisely what the case reported in this paper overturned.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:21752671" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/21752671" target="_blank">PMID:21752671</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"This finding suggests a common neurobiological and genetic link between different age-related epileptic phenotypes."</div>
+
+
+                <div class="evidence-explanation">The authors&#39; mechanistic reading of the evolution, which is what makes this a pathophysiologically interesting phase rather than an incidental outcome statistic.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-seizure-remission-with-development-still-to-be-watched">
+                <div class="item-name">Seizure remission, with development still to be watched</div>
+                <div class="item-meta">
+
+
+                    <span class="tag">Age: Childhood, after several years of follow-up</span>
+
+
+
+                </div>
+
+                <div class="item-notes">Seizures remit and long-term seizure freedom is the expected outcome, but the developmental trajectory is not settled at the same time. The literature is explicit that follow-up should continue for years after diagnosis rather than ending when the seizures stop, which is an unusual recommendation for a self-limited epilepsy and follows directly from the cognitive findings.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16904290" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16904290" target="_blank">PMID:16904290</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Clinicians should distinguish the syndrome of reflex myoclonic epilepsy in infancy from benign myoclonic epilepsy of infancy and all patients should continue developmental follow up for several years after diagnosis."</div>
+
+
+                <div class="evidence-explanation">States the recommendation for prolonged developmental follow-up, which is what this phase is about.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-infants-with-epilepsy">
+                <div class="item-name">Infants with epilepsy</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Cases In Literature</span>
+
+
+
+                    <span class="tag">Ultra Rare</span>
+
+                </div>
+
+                <div class="item-notes">Just over 100 cases had been reported in the four decades between the first syndromic description in 1981 and this review, of which 23 were the disputed reflex subset. No population-based rate exists. The measure_type is CASES_IN_LITERATURE because a cumulative published case count is what the literature offers, and the prevalence_class is the qualitative ULTRA_RARE tier because a case count cannot be converted into a rate.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:16904290" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/16904290" target="_blank">PMID:16904290</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Benign myoclonic epilepsy in infancy is a rare syndrome with just over 100 cases reported since the first syndromic description by Dravet and Bureau"</div>
+
+
+                <div class="evidence-explanation">Gives the cumulative published case count and dates it from the original syndromic description.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -6261,6 +6824,8 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6340,6 +6905,8 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-OTHER">Other</span>
 
                 </div>
@@ -6407,14 +6974,16 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:35503712" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:35503712" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/35503712" target="_blank">PMID:35503712</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-OTHER">Other</span>
@@ -6478,14 +7047,16 @@ This treatment is Supportive Care (NCIT:C15747). NCIT:C15747 is a clinical inter
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:23770486" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:23770486" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/23770486" target="_blank">PMID:23770486</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6676,7 +7247,7 @@ inheritance:
           Developmental outcome in benign myoclonic epilepsy in infancy and
           reflex myoclonic epilepsy in infancy: a literature review and six new
           cases.
-        supports: PARTIAL
+        supports: SUPPORT
         evidence_source: HUMAN_CLINICAL
         snippet: &gt;-
           The clinical heterogeneity within this syndrome suggests that there may
@@ -7331,7 +7902,7 @@ differential_diagnoses:
           ILAE classification and definition of epilepsy syndromes with onset in
           neonates and infants: Position statement by the ILAE Task Force on
           Nosology and Definitions.
-        supports: PARTIAL
+        supports: SUPPORT
         evidence_source: OTHER
         snippet: &gt;-
           Syndromes are separated into self-limited syndromes, where there is
@@ -7360,7 +7931,7 @@ differential_diagnoses:
     evidence:
       - reference: PMID:23770486
         reference_title: &#34;Reflex myoclonic epilepsy in infancy: a critical review.&#34;
-        supports: PARTIAL
+        supports: SUPPORT
         evidence_source: HUMAN_CLINICAL
         snippet: &gt;-
           This rare clinical entity is often under-described and under-diagnosed,
@@ -7582,7 +8153,7 @@ discussions:
           strongest statement in the cited literature in favour of separation.
       - reference: PMID:23770486
         reference_title: &#34;Reflex myoclonic epilepsy in infancy: a critical review.&#34;
-        supports: PARTIAL
+        supports: SUPPORT
         evidence_source: HUMAN_CLINICAL
         snippet: &gt;-
           RMEI appears to be a benign variant of idiopathic myoclonic epilepsy in
@@ -7663,7 +8234,7 @@ discussions:
           Developmental outcome in benign myoclonic epilepsy in infancy and
           reflex myoclonic epilepsy in infancy: a literature review and six new
           cases.
-        supports: PARTIAL
+        supports: SUPPORT
         evidence_source: HUMAN_CLINICAL
         snippet: &gt;-
           Benign myoclonic epilepsy in infancy is a rare syndrome with just over
@@ -7750,6 +8321,31 @@ discussions:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (2)</summary>
+
+                    <div>
+                        <p><strong>Record notes</strong></p>
+                        <p class="research-review-text">Naming, and why it changed. The syndrome was described by Dravet and Bureau in 1981 as &#34;the benign myoclonic epilepsy of infancy&#34; and carried that name for four decades. The 2022 ILAE nosology renamed it myoclonic epilepsy in infancy, dropping &#34;benign&#34; as part of a general removal of that word from the epilepsy syndromes. In most cases the removal was a matter of principle, since the word reassures families about a disease that is still an epilepsy. Here it is substantive: the seizures really do remit, but a substantial minority of children have lasting cognitive difficulty, so the old name was making a claim the data do not support. That tension is curated as a discussion rather than settled in prose.
+Scope. This entry models the syndrome as a whole and treats reflex myoclonic epilepsy in infancy as a subset within it, because that is how the primary literature is organized, while recording explicitly that this inclusion is disputed. If the reflex variant is later separated as its own entity it should get its own entry rather than a subtype block here, and the discussion says so.
+What is deliberately absent. There is no genetic section. Family history of epilepsy or febrile seizures is common and the literature reads the clinical heterogeneity as pointing toward several underlying genetic mechanisms, but no gene has been established for this syndrome, and no candidate is named in the sources cited here. Importing genes from adjacent infantile myoclonic epilepsies would fabricate content; the absence is recorded as a knowledge gap instead.
+Sourcing note. Drafted from the primary literature, then cross-checked against a deep-research report generated with the falcon provider (Edison Scientific), committed as research/Myoclonic_Epilepsy_in_Infancy-deep-research-falcon.md. It contributed no snippets; every quotation here is verified against its own fetched cache. It converged on the substance of this entry and added four things worth recording.
+Two are naming traps that a future curator should not walk into. First, Dravet syndrome was historically called severe myoclonic epilepsy in infancy, so the two syndromes have almost the same old name and opposite prognoses; that is why Dravet is carried here as the leading differential. Second, familial infantile myoclonic epilepsy is a separately indexed genetic entity associated with genes including TBC1D24, SCN8A, CPLX1 and KIF5A, and it is not this syndrome. The report is explicit that gene-associated cases described as myoclonic epilepsy of infancy should be read as possible phenocopies rather than as evidence that this syndrome is monogenic, and that SCN1A, SLC2A1 and YWHAG should not be asserted as established causes. That is the same conclusion the genetic knowledge gap below reaches independently, and it is the reason no genetic section exists here.
+Third, the report notes that Open Targets holds this entity as MONDO:0100566 with no established disease-target association, which is consistent with the absence of a molecular handle.
+Fourth, the report described roughly a tenth of children later developing another epilepsy, most commonly juvenile myoclonic epilepsy. That gap has since been closed with a citable source: PMID:21752671 states that a few patients later had other epilepsy types, mainly idiopathic generalized epilepsies, and reports the first case that went on to childhood absence epilepsy. It is now curated as a progression phase and in the evolution discussion. The specific one-in-ten figure and the juvenile-myoclonic-epilepsy attribution are still not asserted here, because that source does not give them.
+Module conformance note. Two nodes conform to epilepsy_excitation_inhibition_imbalance, at the hyperexcitability and recurrent-seizure nodes. The module makes no claim about the age restriction or about the myoclonic semiology, which are this entry&#39;s specific contributions.</p>
+                    </div>
+
+                    <div>
+                        <p><strong>Create: Myoclonic Epilepsy in Infancy</strong> · 2026-08-06T00:38:23Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Myoclonic_Epilepsy_in_Infancy/2026-08-06T003823Z-claude-code-dfb0a0.yaml">View source</a></p>
+                        <p class="research-review-text">Created the MEI entry as a six-node pathograph running from an age-restricted generalized cortical hyperexcitability of infancy through generalized epileptiform discharge time-locked to the jerk, a reflex-sensitivity branch present in a disputed subset, and brief generalized myoclonic seizures, to age-dependent remission and persisting cognitive difficulty in a minority. Two nodes conform to epilepsy_excitation_inhibition_imbalance. Three discussions: the controversy over what produces the cognitive difficulty in roughly a third of children despite seizure remission, which is why ILAE dropped benign from the name; whether reflex myoclonic epilepsy in infancy is a variant or a separate entity, with the reflex group developmentally normal in all reported cases; and the unknown genetic basis. No genetic section is included because no gene is established, and the falcon deep-research report independently warned against asserting SCN1A, SLC2A1 or YWHAG as causes and against merging this syndrome with familial infantile myoclonic epilepsy. All snippets verified against their own fetched caches.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -8054,7 +8650,7 @@ discussions:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Myoclonic Epilepsy in Infancy", "mondoId": "MONDO:0100566", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Myoclonic_Epilepsy_in_Infancy", "yamlRevision": "5b6d1c2f1db5"};
+        const OS_CONFIG = {"diseaseName": "Myoclonic Epilepsy in Infancy", "mondoId": "MONDO:0100566", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Myoclonic_Epilepsy_in_Infancy", "yamlRevision": "a1c39e616aed"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

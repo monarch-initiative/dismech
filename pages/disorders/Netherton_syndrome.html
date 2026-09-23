@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2954,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2969,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3078,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3091,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3295,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3305,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3341,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3362,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3675,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4128,6 +4221,23 @@
 
             </div>
 
+            <div style="margin-bottom: 16px;">
+                <div class="classification-category">IUIS Category</div>
+
+
+
+                <div class="tag-list">
+
+
+
+
+
+                    <span class="tag tag-classification" title="IUIS 2022 Table 2 (combined immunodeficiencies with associated or syndromic features), sub-section 5, Hyper IgE Syndromes (HIES); listed as &#34;Comel-Netherton syndrome&#34; with SPINK5 (autosomal recessive) as the genetic defect. The row&#39;s immunologic phenotype is high IgE and IgA with low switched and non-switched B cells and variably decreased antibody responses, alongside the defining congenital ichthyosis, bamboo hair, and atopic diathesis.">combined immunodeficiency with syndromic features</span>
+
+                </div>
+
+            </div>
+
         </div>
 
 
@@ -4192,6 +4302,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4282,6 +4394,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4343,6 +4457,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4387,6 +4503,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-spink5-loss-of-function-variants" data-dismech-node="SPINK5 loss-of-function variants" data-dismech-type="pathophysiology">
                 <div class="item-name">SPINK5 loss-of-function variants</div>
+
 
                 <div class="item-desc">Biallelic pathogenic SPINK5 variants reduce functional SPINK5 output and initiate Netherton syndrome pathogenesis.</div>
 
@@ -4537,11 +4654,13 @@ This pathophysiological event occurs in skin epidermis (UBERON:0001003). UBERON:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
 
-                <div class="evidence-snippet">"AbstractNetherton syndrome (NS) is a rare skin disease caused by loss-of-function mutations in the serine peptidase inhibitor Kazal type 5 (SPINK5) gene."</div>
+                <div class="evidence-snippet">"Netherton syndrome (NS) is a rare skin disease caused by loss-of-function mutations in the serine peptidase inhibitor Kazal type 5 (SPINK5) gene."</div>
 
 
                 <div class="evidence-explanation">This supports SPINK5 loss of function as the initiating lesion in NS.</div>
@@ -4558,6 +4677,8 @@ This pathophysiological event occurs in skin epidermis (UBERON:0001003). UBERON:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4582,6 +4703,7 @@ This pathophysiological event occurs in skin epidermis (UBERON:0001003). UBERON:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lekti-protein-deficiency" data-dismech-node="LEKTI protein deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">LEKTI protein deficiency</div>
+
 
                 <div class="item-desc">Reduced or absent LEKTI removes a key epidermal serine-protease brake in skin and hair-bearing epithelium.</div>
 
@@ -4697,6 +4819,8 @@ This pathophysiological event occurs in skin epidermis (UBERON:0001003). UBERON:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4719,6 +4843,7 @@ This pathophysiological event occurs in skin epidermis (UBERON:0001003). UBERON:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-unchecked-epidermal-kallikrein-protease-activity" data-dismech-node="Unchecked epidermal kallikrein protease activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Unchecked epidermal kallikrein protease activity</div>
+
 
                 <div class="item-desc">Loss of LEKTI control leads to increased epidermal protease activity, including KLK-dependent proteolysis in the stratum corneum.</div>
 
@@ -4868,6 +4993,8 @@ This pathophysiological event occurs in stratum corneum of epidermis (UBERON:000
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -4891,7 +5018,9 @@ This pathophysiological event occurs in stratum corneum of epidermis (UBERON:000
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
 
@@ -4913,6 +5042,7 @@ This pathophysiological event occurs in stratum corneum of epidermis (UBERON:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-corneodesmosome-degradation-and-accelerated-desquamation" data-dismech-node="Corneodesmosome degradation and accelerated desquamation" data-dismech-type="pathophysiology">
                 <div class="item-name">Corneodesmosome degradation and accelerated desquamation</div>
+
 
                 <div class="item-desc">Excess serine-protease activity accelerates stratum corneum protein breakdown, causing premature shedding and unstable cornified layers.</div>
 
@@ -5058,6 +5188,8 @@ This pathophysiological event occurs in stratum corneum of epidermis (UBERON:000
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5080,6 +5212,7 @@ This pathophysiological event occurs in stratum corneum of epidermis (UBERON:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-epidermal-barrier-breakdown-and-increased-transepidermal-water-loss" data-dismech-node="Epidermal barrier breakdown and increased transepidermal water loss" data-dismech-type="pathophysiology">
                 <div class="item-name">Epidermal barrier breakdown and increased transepidermal water loss</div>
+
 
                 <div class="item-desc">Defective stratum corneum integrity increases permeability to water, allergens, and microbes, establishing chronic barrier failure.</div>
 
@@ -5237,6 +5370,8 @@ This pathophysiological event occurs in skin epidermis (UBERON:0001003). UBERON:
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5258,6 +5393,8 @@ This pathophysiological event occurs in skin epidermis (UBERON:0001003). UBERON:
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5282,6 +5419,7 @@ This pathophysiological event occurs in skin epidermis (UBERON:0001003). UBERON:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-klk-mediated-il-36-cytokine-processing" data-dismech-node="KLK-mediated IL-36 cytokine processing" data-dismech-type="pathophysiology">
                 <div class="item-name">KLK-mediated IL-36 cytokine processing</div>
+
 
                 <div class="item-desc">KLK proteases cleave IL-36 cytokine precursors, amplifying epidermal pro-inflammatory signaling.</div>
 
@@ -5368,7 +5506,9 @@ This pathophysiological event involves inflammatory response (GO:0006954). GO:00
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
-                    <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
+
+
+                    <span class="evidence-source source-IN_VITRO">In Vitro</span>
 
                 </div>
 
@@ -5389,6 +5529,8 @@ This pathophysiological event involves inflammatory response (GO:0006954). GO:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5413,6 +5555,7 @@ This pathophysiological event involves inflammatory response (GO:0006954). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-enhanced-cutaneous-entry-of-allergens-and-microbes" data-dismech-node="Enhanced cutaneous entry of allergens and microbes" data-dismech-type="pathophysiology">
                 <div class="item-name">Enhanced cutaneous entry of allergens and microbes</div>
+
 
                 <div class="item-desc">Persistent barrier failure promotes antigen penetration and microbial exposure, increasing both atopic sensitization and infection vulnerability.</div>
 
@@ -5515,6 +5658,8 @@ This pathophysiological event involves inflammatory response (GO:0006954). GO:00
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5537,6 +5682,7 @@ This pathophysiological event involves inflammatory response (GO:0006954). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-il-17-il-36-inflammatory-amplification" data-dismech-node="IL-17/IL-36 inflammatory amplification" data-dismech-type="pathophysiology">
                 <div class="item-name">IL-17/IL-36 inflammatory amplification</div>
+
 
                 <div class="item-desc">Combined IL-36 and IL-17 pathway activation sustains epidermal inflammation and drives persistent erythro-inflammatory and eczematous disease.</div>
 
@@ -5677,6 +5823,8 @@ This pathophysiological event involves interleukin-17-mediated signaling pathway
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -5698,6 +5846,8 @@ This pathophysiological event involves interleukin-17-mediated signaling pathway
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5722,6 +5872,7 @@ This pathophysiological event involves interleukin-17-mediated signaling pathway
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hair-shaft-structural-fragility-from-follicular-protease-imbalance" data-dismech-node="Hair shaft structural fragility from follicular protease imbalance" data-dismech-type="pathophysiology">
                 <div class="item-name">Hair shaft structural fragility from follicular protease imbalance</div>
+
 
                 <div class="item-desc">SPINK5/LEKTI dysfunction in hair-bearing epithelium contributes to defective hair-shaft integrity, including trichorrhexis invaginata susceptibility.</div>
 
@@ -5885,6 +6036,8 @@ This pathophysiological event involves keratinization (GO:0031424). GO:0031424 i
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5994,6 +6147,9 @@ This clinical feature is Erythroderma (HP:0001019). HP:0001019 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6008,6 +6164,8 @@ This clinical feature is Erythroderma (HP:0001019). HP:0001019 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6031,6 +6189,8 @@ This clinical feature is Erythroderma (HP:0001019). HP:0001019 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6084,6 +6244,9 @@ This clinical feature is Atopic dermatitis (HP:0001047). HP:0001047 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6098,6 +6261,8 @@ This clinical feature is Atopic dermatitis (HP:0001047). HP:0001047 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6121,6 +6286,8 @@ This clinical feature is Atopic dermatitis (HP:0001047). HP:0001047 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6174,6 +6341,9 @@ This clinical feature is Recurrent infections (HP:0002719). HP:0002719 is a phen
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6188,6 +6358,8 @@ This clinical feature is Recurrent infections (HP:0002719). HP:0002719 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6211,6 +6383,8 @@ This clinical feature is Recurrent infections (HP:0002719). HP:0002719 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6273,6 +6447,9 @@ This clinical feature is Ichthyosis (HP:0008064). HP:0008064 is a phenotype from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -6287,6 +6464,8 @@ This clinical feature is Ichthyosis (HP:0008064). HP:0008064 is a phenotype from
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6342,6 +6521,9 @@ This clinical feature is Abnormal hairshaft morphology (HP:0003328). HP:0003328 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6356,6 +6538,8 @@ This clinical feature is Abnormal hairshaft morphology (HP:0003328). HP:0003328 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6379,6 +6563,8 @@ This clinical feature is Abnormal hairshaft morphology (HP:0003328). HP:0003328 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6432,6 +6618,9 @@ This clinical feature is Pruritus (HP:0000989). HP:0000989 is a phenotype from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6446,6 +6635,8 @@ This clinical feature is Pruritus (HP:0000989). HP:0000989 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6469,6 +6660,8 @@ This clinical feature is Pruritus (HP:0000989). HP:0000989 is a phenotype from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6531,6 +6724,9 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -6545,6 +6741,8 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6568,6 +6766,8 @@ This clinical feature is Failure to thrive (HP:0001508). HP:0001508 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6665,6 +6865,9 @@ This disease-associated gene is SPINK5 (hgnc:15464). hgnc:15464 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (6 references)
@@ -6679,6 +6882,8 @@ This disease-associated gene is SPINK5 (hgnc:15464). hgnc:15464 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6704,6 +6909,8 @@ This disease-associated gene is SPINK5 (hgnc:15464). hgnc:15464 is a gene from t
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6725,6 +6932,8 @@ This disease-associated gene is SPINK5 (hgnc:15464). hgnc:15464 is a gene from t
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6809,6 +7018,20 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Emollients and topical anti-inflammatory therapy remain baseline management for scaling and eczematous inflammation, though control is often incomplete.</div>
 
 
@@ -6830,6 +7053,8 @@ This treatment is supportive care (NCIT:C15747). NCIT:C15747 is a clinical inter
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6893,6 +7118,31 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Gene therapy</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Phase I ex vivo lentiviral gene therapy strategy using autologous epidermal sheets generated from genetically modified skin stem cells to restore LEKTI in Netherton syndrome.</div>
 
 
@@ -6916,6 +7166,8 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6937,6 +7189,8 @@ This treatment is gene therapy (NCIT:C15238). NCIT:C15238 is a clinical interven
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7055,6 +7309,20 @@ This treatment uses abrocitinib (NCIT:C166985). NCIT:C166985 is a therapeutic ag
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Biologics and JAK inhibitors are emerging options in severe disease, targeting IL-4/IL-13, IL-17, IL-36, and JAK pathways.</div>
 
 
@@ -7078,6 +7346,8 @@ This treatment uses abrocitinib (NCIT:C166985). NCIT:C166985 is a therapeutic ag
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7091,14 +7361,16 @@ This treatment uses abrocitinib (NCIT:C166985). NCIT:C166985 is a therapeutic ag
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:40888388" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:40888388" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40888388" target="_blank">PMID:40888388</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7122,6 +7394,8 @@ This treatment uses abrocitinib (NCIT:C166985). NCIT:C166985 is a therapeutic ag
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7224,6 +7498,20 @@ This treatment uses secukinumab (NCIT:C152315). NCIT:C152315 is a therapeutic ag
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Systematic review data indicate skin improvement in many reported cases with immunoglobulins and biologics.</div>
 
 
@@ -7247,6 +7535,8 @@ This treatment uses secukinumab (NCIT:C152315). NCIT:C152315 is a therapeutic ag
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7268,6 +7558,8 @@ This treatment uses secukinumab (NCIT:C152315). NCIT:C152315 is a therapeutic ag
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7331,6 +7623,20 @@ This treatment is intravenous immunoglobulin therapy, annotated with Immunoglobu
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">High-dose IVIG has been used in children with recurrent skin/systemic infections and severe inflammatory skin disease, with reported improvement in skin status and infectious exacerbations.</div>
 
 
@@ -7354,6 +7660,8 @@ This treatment is intravenous immunoglobulin therapy, annotated with Immunoglobu
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7375,6 +7683,8 @@ This treatment is intravenous immunoglobulin therapy, annotated with Immunoglobu
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7460,6 +7770,20 @@ This treatment uses dupilumab (NCIT:C162455). NCIT:C162455 is a therapeutic agen
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Dupilumab has shown improvement in pruritus and inflammatory skin disease in pediatric and mixed-age NS case reports/series.</div>
 
 
@@ -7481,6 +7805,8 @@ This treatment uses dupilumab (NCIT:C162455). NCIT:C162455 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7506,6 +7832,8 @@ This treatment uses dupilumab (NCIT:C162455). NCIT:C162455 is a therapeutic agen
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7527,6 +7855,8 @@ This treatment uses dupilumab (NCIT:C162455). NCIT:C162455 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7612,6 +7942,20 @@ This treatment uses secukinumab (NCIT:C152315). NCIT:C152315 is a therapeutic ag
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">IL-17A blockade with secukinumab has shown clinical improvement in refractory NS in case-level evidence.</div>
 
 
@@ -7635,6 +7979,8 @@ This treatment uses secukinumab (NCIT:C152315). NCIT:C152315 is a therapeutic ag
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7656,6 +8002,8 @@ This treatment uses secukinumab (NCIT:C152315). NCIT:C152315 is a therapeutic ag
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7740,6 +8088,20 @@ This treatment uses abrocitinib (NCIT:C166985). NCIT:C166985 is a therapeutic ag
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">JAK1 inhibition with abrocitinib has shown symptomatic and severity improvements in case-level NS evidence.</div>
 
 
@@ -7761,6 +8123,8 @@ This treatment uses abrocitinib (NCIT:C166985). NCIT:C166985 is a therapeutic ag
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7863,6 +8227,20 @@ This treatment uses dupilumab (NCIT:C162455). NCIT:C162455 is a therapeutic agen
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Combination IL-17A and IL-4/IL-13 blockade has been reported in severe pediatric NS cohorts.</div>
 
 
@@ -7884,6 +8262,8 @@ This treatment uses dupilumab (NCIT:C162455). NCIT:C162455 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -7951,6 +8331,8 @@ This treatment uses dupilumab (NCIT:C162455). NCIT:C162455 is a therapeutic agen
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7974,6 +8356,8 @@ This treatment uses dupilumab (NCIT:C162455). NCIT:C162455 is a therapeutic agen
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -7995,6 +8379,8 @@ This treatment uses dupilumab (NCIT:C162455). NCIT:C162455 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8047,6 +8433,8 @@ This treatment uses dupilumab (NCIT:C162455). NCIT:C162455 is a therapeutic agen
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8070,6 +8458,8 @@ This treatment uses dupilumab (NCIT:C162455). NCIT:C162455 is a therapeutic agen
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8091,6 +8481,363 @@ This treatment uses dupilumab (NCIT:C162455). NCIT:C162455 is a therapeutic agen
             </div>
 
         </div>
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-spink5-molecular-genetic-testing">
+                <div class="item-name">
+                    SPINK5 molecular genetic testing
+
+                </div>
+
+                <div class="item-desc">Molecular testing of SPINK5 variants is central for confirming diagnosis and clarifying overlap with severe atopic dermatitis.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        genetic testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15709" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-49">NCIT:C15709</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-49">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (4 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.3390/genes14051080" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/genes14051080" target="_blank">DOI:10.3390/genes14051080</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Due to the clinical overlap between NS and AD, we suggest performing SPINK5 genetic testing to search for the SPINK5 (NM_006846.4): c.1258A&gt;G polymorphism (rs2303067) and ensure a correct diagnosis, mainly in doubtful cases."</div>
+
+
+                <div class="evidence-explanation">This supports SPINK5 testing as a diagnostic discriminator in overlapping AD-like presentations.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40969297" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40969297" target="_blank">PMID:40969297</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Subsequently, genetic testing identified a defective SPINK5 gene, leading to a diagnosis of NS."</div>
+
+
+                <div class="evidence-explanation">This directly supports SPINK5 molecular confirmation in contemporary NS case diagnosis.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:40709761" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/40709761" target="_blank">PMID:40709761</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Additionally, 4 patients were diagnosed with syndromic ichthyosis, comprising 1 case of Chanarin-Dorfman syndrome and 3 cases of Netherton syndrome."</div>
+
+
+                <div class="evidence-explanation">This supports molecularly informed diagnostic workup in inherited ichthyosis cohorts that include NS cases.</div>
+
+
+
+            </div>
+
+
+            <div class="evidence-more">+ 1 more reference</div>
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-skin-biopsy-with-adjunct-immunohistochemistry">
+                <div class="item-name">
+                    Skin biopsy with adjunct immunohistochemistry
+
+                </div>
+
+                <div class="item-desc">Histopathologic evaluation with adjunct IL-36 immunostaining can support diagnosis; LEKTI immunostaining alone may be insufficient in some cases.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        skin biopsy
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C51692" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-50">NCIT:C51692</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-50">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.3390/dermatopathology11030024" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/dermatopathology11030024" target="_blank">DOI:10.3390/dermatopathology11030024</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"LEKTI IHC was negative in one biopsy, revealing a limitation of this stain in diagnosing NS."</div>
+
+
+                <div class="evidence-explanation">This supports using broader biopsy-based immunohistochemical approaches rather than relying only on LEKTI IHC.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="DOI:10.3390/dermatopathology11030024" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://bioregistry.io/DOI:10.3390/dermatopathology11030024" target="_blank">DOI:10.3390/dermatopathology11030024</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Consequently, immunohistochemistry (IHC) with IL-36 may serve as a potential tool for aiding the histopathological diagnosis of this condition."</div>
+
+
+                <div class="evidence-explanation">This supports IL-36 IHC as a potential adjunct in histopathologic diagnosis.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-live-births">
+                <div class="item-name">Live births</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Birth Prevalence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">
+                        0.5 per 100,000
+                    </span>
+
+
+                    <span class="tag">1–9 per 1,000,000 (births)</span>
+
+                </div>
+
+                <div class="item-notes">Reported as an incidence of approximately 1 in 200,000. The cited source is a case report that states this figure as background rather than deriving it; it says &#34;incidence&#34;, and BIRTH_PREVALENCE here is a curator inference.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39546052" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39546052" target="_blank">PMID:39546052</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Netherton syndrome (NS) is a rare inborn error of immunity (IEI) with an incidence of approximately 1:200,000 and the phenotypic triad of trichorrhexis invaginate (bamboo hair), congenital ichthyosiform erythroderma, and multiple atopic manifestations."</div>
+
+
+                <div class="evidence-explanation">Case report whose background sentence states the approximate incidence of Netherton syndrome.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -8158,6 +8905,8 @@ This treatment uses dupilumab (NCIT:C162455). NCIT:C162455 is a therapeutic agen
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8179,6 +8928,8 @@ This treatment uses dupilumab (NCIT:C162455). NCIT:C162455 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8254,6 +9005,8 @@ This treatment uses dupilumab (NCIT:C162455). NCIT:C162455 is a therapeutic agen
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8315,14 +9068,16 @@ This treatment uses dupilumab (NCIT:C162455). NCIT:C162455 is a therapeutic agen
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:40709761" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:40709761" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40709761" target="_blank">PMID:40709761</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8396,6 +9151,8 @@ This treatment uses dupilumab (NCIT:C162455). NCIT:C162455 is a therapeutic agen
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8466,6 +9223,8 @@ This treatment uses dupilumab (NCIT:C162455). NCIT:C162455 is a therapeutic agen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8550,6 +9309,8 @@ This treatment uses dupilumab (NCIT:C162455). NCIT:C162455 is a therapeutic agen
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8620,6 +9381,8 @@ This treatment uses dupilumab (NCIT:C162455). NCIT:C162455 is a therapeutic agen
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -8677,11 +9440,11 @@ This treatment uses dupilumab (NCIT:C162455). NCIT:C162455 is a therapeutic agen
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0008064" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-49">HP:0008064</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0008064" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0008064</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-49">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets Ichthyosis (HP:0008064). HP:0008064 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8694,11 +9457,11 @@ This clinical trial targets Ichthyosis (HP:0008064). HP:0008064 is a phenotype f
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001019" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-50">HP:0001019</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001019" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0001019</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-50">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets Erythroderma (HP:0001019). HP:0001019 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8723,6 +9486,8 @@ This clinical trial targets Erythroderma (HP:0001019). HP:0001019 is a phenotype
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -8744,6 +9509,8 @@ This clinical trial targets Erythroderma (HP:0001019). HP:0001019 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8791,11 +9558,11 @@ This clinical trial targets Erythroderma (HP:0001019). HP:0001019 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-51">HP:0000989</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000989" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0000989</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-51">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets Pruritus (HP:0000989). HP:0000989 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8808,11 +9575,11 @@ This clinical trial targets Pruritus (HP:0000989). HP:0000989 is a phenotype fro
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001019" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-52">HP:0001019</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001019" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-54">HP:0001019</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-52">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-54">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets Erythroderma (HP:0001019). HP:0001019 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8835,6 +9602,8 @@ This clinical trial targets Erythroderma (HP:0001019). HP:0001019 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8882,11 +9651,11 @@ This clinical trial targets Erythroderma (HP:0001019). HP:0001019 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0001047" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-53">HP:0001047</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0001047" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-55">HP:0001047</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-53">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-55">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets Atopic dermatitis (HP:0001047). HP:0001047 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -8909,6 +9678,8 @@ This clinical trial targets Atopic dermatitis (HP:0001047). HP:0001047 is a phen
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -8971,6 +9742,27 @@ classifications:
   harrisons_chapter:
   - classification_value: DERMATOLOGY
   - classification_value: GENETICS_ENVIRONMENT_DISEASE
+  iuis_category:
+    classification_value: combined immunodeficiency with syndromic features
+    notes: &gt;-
+      IUIS 2022 Table 2 (combined immunodeficiencies with associated or
+      syndromic features), sub-section 5, Hyper IgE Syndromes (HIES); listed as
+      &#34;Comel-Netherton syndrome&#34; with SPINK5 (autosomal recessive) as the
+      genetic defect. The row&#39;s immunologic phenotype is high IgE and IgA with
+      low switched and non-switched B cells and variably decreased antibody
+      responses, alongside the defining congenital ichthyosis, bamboo hair, and
+      atopic diathesis.
+    evidence:
+    - reference: PMID:35748970
+      reference_title: &#34;Human Inborn Errors of Immunity: 2022 Update on the Classification from the International Union of Immunological Societies Expert Committee.&#34;
+      supports: SUPPORT
+      evidence_source: OTHER
+      snippet: &gt;-
+        Comel-Netherton syndrome SPINK5 AR 605010 Normal
+      explanation: &gt;-
+        The IUIS Table 2 Hyper IgE Syndromes row assigning Comel-Netherton
+        syndrome (SPINK5, autosomal recessive) to the combined
+        immunodeficiencies with syndromic features.
 parents:
 - inherited ichthyosis
 - genodermatosis
@@ -9019,17 +9811,17 @@ prevalence:
   measure_type: BIRTH_PREVALENCE
   prevalence_class: BAND_1_9_PER_1000000
   rate_per_100000: 0.5
-  percentage: approximately 1 in 200,000
   notes: &gt;-
-    Recent clinical review literature describes Netherton syndrome as an
-    ultra-rare disorder with incidence around 1 in 200,000 births.
+    Reported as an incidence of approximately 1 in 200,000. The cited source is
+    a case report that states this figure as background rather than deriving it;
+    it says &#34;incidence&#34;, and BIRTH_PREVALENCE here is a curator inference.
   evidence:
   - reference: PMID:39546052
     reference_title: &#34;Dupilumab in a 9-week-old with Netherton Syndrome Leads to Deep Symptom Control.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Netherton syndrome (NS) is a rare inborn error of immunity (IEI) with an incidence of approximately 1:200,000 and the phenotypic triad of trichorrhexis invaginate (bamboo hair), congenital ichthyosiform erythroderma, and multiple atopic manifestations.&#34;
-    explanation: Recent review article provides a direct incidence estimate for Netherton syndrome.
+    explanation: Case report whose background sentence states the approximate incidence of Netherton syndrome.
 pathophysiology:
 - name: SPINK5 loss-of-function variants
   conforms_to: &#34;epidermal_cornification_failure#Cornification Program Component Deficiency&#34;
@@ -9058,8 +9850,8 @@ pathophysiology:
   - reference: DOI:10.1038/s42003-024-05780-y
     reference_title: &#34;Comparative analyses of Netherton syndrome patients and Spink5 conditional knock-out mice uncover disease-relevant pathways&#34;
     supports: SUPPORT
-    evidence_source: MODEL_ORGANISM
-    snippet: &#34;AbstractNetherton syndrome (NS) is a rare skin disease caused by loss-of-function mutations in the serine peptidase inhibitor Kazal type 5 (SPINK5) gene.&#34;
+    evidence_source: HUMAN_CLINICAL
+    snippet: &#34;Netherton syndrome (NS) is a rare skin disease caused by loss-of-function mutations in the serine peptidase inhibitor Kazal type 5 (SPINK5) gene.&#34;
     explanation: This supports SPINK5 loss of function as the initiating lesion in NS.
   - reference: PMID:40607310
     reference_title: &#34;Successful management of Netherton syndrome using IVIG and dupilumab: A case report.&#34;
@@ -9088,7 +9880,7 @@ pathophysiology:
     description: LEKTI loss in hair follicles predisposes to bamboo-hair morphology.
   evidence:
   - reference: DOI:10.3390/genes14051080
-    reference_title: &#34;Netherton Syndrome Caused by Heterozygous Frameshift Mutation Combined with Homozygous c.1258A&gt;G Polymorphism in SPINK5 Gene&#34;
+    reference_title: &#34;Netherton Syndrome Caused by Heterozygous Frameshift Mutation Combined with Homozygous c.1258A&amp;gt;G Polymorphism in SPINK5 Gene&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Netherton syndrome (NS) is a rare autosomal recessive disorder caused by SPINK5 mutations, resulting in a deficiency in its processed protein LEKTI.&#34;
@@ -9127,7 +9919,7 @@ pathophysiology:
   - reference: DOI:10.1038/s42003-024-05780-y
     reference_title: &#34;Comparative analyses of Netherton syndrome patients and Spink5 conditional knock-out mice uncover disease-relevant pathways&#34;
     supports: SUPPORT
-    evidence_source: MODEL_ORGANISM
+    evidence_source: IN_VITRO
     snippet: &#34;By comparing skin transcriptomes and proteomes, we uncover several putative substrates of tissue kallikrein-related proteases (KLKs), demonstrating that KLKs can proteolytically regulate IL-36 pro-inflammatory cytokines.&#34;
     explanation: This directly supports KLK-driven IL-36 cytokine processing.
 - name: Corneodesmosome degradation and accelerated desquamation
@@ -9216,7 +10008,7 @@ pathophysiology:
   - reference: DOI:10.1038/s42003-024-05780-y
     reference_title: &#34;Comparative analyses of Netherton syndrome patients and Spink5 conditional knock-out mice uncover disease-relevant pathways&#34;
     supports: SUPPORT
-    evidence_source: MODEL_ORGANISM
+    evidence_source: IN_VITRO
     snippet: &#34;By comparing skin transcriptomes and proteomes, we uncover several putative substrates of tissue kallikrein-related proteases (KLKs), demonstrating that KLKs can proteolytically regulate IL-36 pro-inflammatory cytokines.&#34;
     explanation: This defines the KLK-to-IL-36 activation step in the NS inflammatory cascade.
   - reference: DOI:10.3390/dermatopathology11030024
@@ -9307,7 +10099,7 @@ pathophysiology:
     description: Follicular structural defects manifest as bamboo hair and related shaft anomalies.
   evidence:
   - reference: DOI:10.3390/genes14051080
-    reference_title: &#34;Netherton Syndrome Caused by Heterozygous Frameshift Mutation Combined with Homozygous c.1258A&gt;G Polymorphism in SPINK5 Gene&#34;
+    reference_title: &#34;Netherton Syndrome Caused by Heterozygous Frameshift Mutation Combined with Homozygous c.1258A&amp;gt;G Polymorphism in SPINK5 Gene&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;It is clinically characterized by the triad of congenital ichthyosis, atopic diathesis, and hair shaft abnormalities.&#34;
@@ -9322,7 +10114,7 @@ phenotypes:
       label: Ichthyosis
   evidence:
   - reference: DOI:10.3390/genes14051080
-    reference_title: &#34;Netherton Syndrome Caused by Heterozygous Frameshift Mutation Combined with Homozygous c.1258A&gt;G Polymorphism in SPINK5 Gene&#34;
+    reference_title: &#34;Netherton Syndrome Caused by Heterozygous Frameshift Mutation Combined with Homozygous c.1258A&amp;gt;G Polymorphism in SPINK5 Gene&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;It is clinically characterized by the triad of congenital ichthyosis, atopic diathesis, and hair shaft abnormalities.&#34;
@@ -9358,7 +10150,7 @@ phenotypes:
       label: Abnormal hairshaft morphology
   evidence:
   - reference: DOI:10.3390/genes14051080
-    reference_title: &#34;Netherton Syndrome Caused by Heterozygous Frameshift Mutation Combined with Homozygous c.1258A&gt;G Polymorphism in SPINK5 Gene&#34;
+    reference_title: &#34;Netherton Syndrome Caused by Heterozygous Frameshift Mutation Combined with Homozygous c.1258A&amp;gt;G Polymorphism in SPINK5 Gene&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;It is clinically characterized by the triad of congenital ichthyosis, atopic diathesis, and hair shaft abnormalities.&#34;
@@ -9378,7 +10170,7 @@ phenotypes:
       label: Atopic dermatitis
   evidence:
   - reference: DOI:10.3390/genes14051080
-    reference_title: &#34;Netherton Syndrome Caused by Heterozygous Frameshift Mutation Combined with Homozygous c.1258A&gt;G Polymorphism in SPINK5 Gene&#34;
+    reference_title: &#34;Netherton Syndrome Caused by Heterozygous Frameshift Mutation Combined with Homozygous c.1258A&amp;gt;G Polymorphism in SPINK5 Gene&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;We describe an NS patient, initially misdiagnosed with severe AD, who carried the heterozygous frameshift (null) mutation (NM_006846.4): c.957_960dup combined with homozygous rs2303067 in the SPINK5 gene.&#34;
@@ -9505,7 +10297,7 @@ genetic:
     associated with phenotype severity in reported cohorts.
   evidence:
   - reference: DOI:10.3390/genes14051080
-    reference_title: &#34;Netherton Syndrome Caused by Heterozygous Frameshift Mutation Combined with Homozygous c.1258A&gt;G Polymorphism in SPINK5 Gene&#34;
+    reference_title: &#34;Netherton Syndrome Caused by Heterozygous Frameshift Mutation Combined with Homozygous c.1258A&amp;gt;G Polymorphism in SPINK5 Gene&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Netherton syndrome (NS) is a rare autosomal recessive disorder caused by SPINK5 mutations, resulting in a deficiency in its processed protein LEKTI.&#34;
@@ -9552,7 +10344,7 @@ diagnosis:
     clarifying overlap with severe atopic dermatitis.
   evidence:
   - reference: DOI:10.3390/genes14051080
-    reference_title: &#34;Netherton Syndrome Caused by Heterozygous Frameshift Mutation Combined with Homozygous c.1258A&gt;G Polymorphism in SPINK5 Gene&#34;
+    reference_title: &#34;Netherton Syndrome Caused by Heterozygous Frameshift Mutation Combined with Homozygous c.1258A&amp;gt;G Polymorphism in SPINK5 Gene&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Due to the clinical overlap between NS and AD, we suggest performing SPINK5 genetic testing to search for the SPINK5 (NM_006846.4): c.1258A&gt;G polymorphism (rs2303067) and ensure a correct diagnosis, mainly in doubtful cases.&#34;
@@ -9565,7 +10357,7 @@ diagnosis:
     explanation: This directly supports SPINK5 molecular confirmation in contemporary NS case diagnosis.
   - reference: PMID:40709761
     reference_title: &#34;The Clinical Spectrum of Rare Inherited Ichthyosis in China: A Review of Thirty-five Cases.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Additionally, 4 patients were diagnosed with syndromic ichthyosis, comprising 1 case of Chanarin-Dorfman syndrome and 3 cases of Netherton syndrome.&#34;
     explanation: This supports molecularly informed diagnostic workup in inherited ichthyosis cohorts that include NS cases.
@@ -9612,7 +10404,7 @@ differential_diagnoses:
   - Pathogenic SPINK5 variants and LEKTI pathway dysfunction support Netherton syndrome.
   evidence:
   - reference: DOI:10.3390/genes14051080
-    reference_title: &#34;Netherton Syndrome Caused by Heterozygous Frameshift Mutation Combined with Homozygous c.1258A&gt;G Polymorphism in SPINK5 Gene&#34;
+    reference_title: &#34;Netherton Syndrome Caused by Heterozygous Frameshift Mutation Combined with Homozygous c.1258A&amp;gt;G Polymorphism in SPINK5 Gene&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;We describe an NS patient, initially misdiagnosed with severe AD, who carried the heterozygous frameshift (null) mutation (NM_006846.4): c.957_960dup combined with homozygous rs2303067 in the SPINK5 gene.&#34;
@@ -9656,7 +10448,7 @@ differential_diagnoses:
   evidence:
   - reference: PMID:40709761
     reference_title: &#34;The Clinical Spectrum of Rare Inherited Ichthyosis in China: A Review of Thirty-five Cases.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Additionally, 4 patients were diagnosed with syndromic ichthyosis, comprising 1 case of Chanarin-Dorfman syndrome and 3 cases of Netherton syndrome.&#34;
     explanation: This supports real-world diagnostic overlap between NS and Chanarin-Dorfman syndrome in inherited ichthyosis cohorts.
@@ -9768,7 +10560,7 @@ treatments:
     explanation: This supports use of cytokine-targeted and JAK-pathway therapies in severe NS.
   - reference: PMID:40888388
     reference_title: &#34;Biologics and Small-Molecule Therapies in Netherton Syndrome: A Comprehensive Review.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Though evidence remains limited to case reports and small series, preliminary data suggest that cytokine-targeted interventions-particularly those inhibiting IL-4, IL-13, IL-17, IL-36, and JAK pathways-may offer tangible clinical benefits.&#34;
     explanation: This supports potential efficacy while acknowledging current evidence limits.
@@ -10055,6 +10847,8 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -10465,7 +11259,7 @@ The retrieved full-text excerpts did not consistently provide PubMed identifiers
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Netherton syndrome", "mondoId": "MONDO:0009735", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Netherton_syndrome", "yamlRevision": "2b073547f08d"};
+        const OS_CONFIG = {"diseaseName": "Netherton syndrome", "mondoId": "MONDO:0009735", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Netherton_syndrome", "yamlRevision": "e01bf7033ec6"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2954,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2969,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3078,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3091,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3295,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3305,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3341,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3362,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3675,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4327,6 +4420,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4348,6 +4443,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4400,6 +4497,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-putative-post-viral-immune-activation-in-the-geniculate-ganglion" data-dismech-node="Putative post-viral immune activation in the geniculate ganglion" data-dismech-type="pathophysiology">
                 <div class="item-name">Putative post-viral immune activation in the geniculate ganglion</div>
+
 
                 <div class="item-desc">Bell&#39;s palsy is widely modeled as a post-viral inflammatory neuropathy in which latent viral reactivation or other infection-related immune activation triggers inflammation around cranial nerve VII, particularly at the geniculate ganglion.</div>
 
@@ -4606,14 +4704,16 @@ This pathophysiological event occurs in facial nerve (UBERON:0001647). UBERON:00
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:33602968" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:33602968" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33602968" target="_blank">PMID:33602968</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4629,14 +4729,16 @@ This pathophysiological event occurs in facial nerve (UBERON:0001647). UBERON:00
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:33088514" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:33088514" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/33088514" target="_blank">PMID:33088514</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4661,6 +4763,7 @@ This pathophysiological event occurs in facial nerve (UBERON:0001647). UBERON:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-jak-stat-associated-inflammatory-signaling-and-immune-cell-recruitment" data-dismech-node="JAK-STAT-associated inflammatory signaling and immune-cell recruitment" data-dismech-type="pathophysiology">
                 <div class="item-name">JAK-STAT-associated inflammatory signaling and immune-cell recruitment</div>
+
 
                 <div class="item-desc">Emerging systems-biology analyses implicate inflammatory protein networks, immune-cell traits, and JAK-STAT-associated signaling as candidate amplifiers of local facial-nerve inflammation in Bell&#39;s palsy.</div>
 
@@ -4765,14 +4868,16 @@ This pathophysiological event involves inflammatory response (GO:0006954). GO:00
         </summary>
         <div class="evidence-list">
 
-            <div class="evidence-item" data-dismech-evidence="PMID:40299566" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:40299566" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/40299566" target="_blank">PMID:40299566</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-COMPUTATIONAL">Computational</span>
@@ -4797,6 +4902,7 @@ This pathophysiological event involves inflammatory response (GO:0006954). GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-facial-nerve-edema-within-the-facial-canal" data-dismech-node="Facial nerve edema within the facial canal" data-dismech-type="pathophysiology">
                 <div class="item-name">Facial nerve edema within the facial canal</div>
+
 
                 <div class="item-desc">Inflammatory swelling of the facial nerve develops within the rigid Fallopian canal, a confined anatomic space that limits expansion and promotes secondary entrapment injury.</div>
 
@@ -4936,6 +5042,8 @@ This pathophysiological event occurs in facial nerve (UBERON:0001647). UBERON:00
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4958,6 +5066,7 @@ This pathophysiological event occurs in facial nerve (UBERON:0001647). UBERON:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-intracanalicular-compression-and-conduction-block-of-cranial-nerve-vii" data-dismech-node="Intracanalicular compression and conduction block of cranial nerve VII" data-dismech-type="pathophysiology">
                 <div class="item-name">Intracanalicular compression and conduction block of cranial nerve VII</div>
+
 
                 <div class="item-desc">Entrapment of the swollen facial nerve impairs neural conduction and produces acute lower motor neuron facial dysfunction.</div>
 
@@ -5081,6 +5190,8 @@ This pathophysiological event occurs in facial nerve (UBERON:0001647). UBERON:00
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5103,6 +5214,7 @@ This pathophysiological event occurs in facial nerve (UBERON:0001647). UBERON:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-incomplete-recovery-with-aberrant-reinnervation" data-dismech-node="Incomplete recovery with aberrant reinnervation" data-dismech-type="pathophysiology">
                 <div class="item-name">Incomplete recovery with aberrant reinnervation</div>
+
 
                 <div class="item-desc">A minority of patients have incomplete recovery after the acute episode, with residual weakness or aberrant facial motor reinnervation leading to synkinesis.</div>
 
@@ -5208,6 +5320,8 @@ This pathophysiological event occurs in facial nerve (UBERON:0001647). UBERON:00
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5229,6 +5343,8 @@ This pathophysiological event occurs in facial nerve (UBERON:0001647). UBERON:00
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5342,6 +5458,9 @@ This clinical feature is acute unilateral peripheral facial weakness, annotated 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5356,6 +5475,8 @@ This clinical feature is acute unilateral peripheral facial weakness, annotated 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5411,6 +5532,9 @@ This clinical feature is lagophthalmos (HP:0030001). HP:0030001 is a phenotype f
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5425,6 +5549,8 @@ This clinical feature is lagophthalmos (HP:0030001). HP:0030001 is a phenotype f
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5482,6 +5608,9 @@ This clinical feature is loss of taste sensation, annotated with Abnormality of 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5496,6 +5625,8 @@ This clinical feature is loss of taste sensation, annotated with Abnormality of 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5560,6 +5691,9 @@ This clinical feature is hyperacusis (HP:0010780). HP:0010780 is a phenotype fro
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5574,6 +5708,8 @@ This clinical feature is hyperacusis (HP:0010780). HP:0010780 is a phenotype fro
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5629,6 +5765,9 @@ This clinical feature is facial synkinesis (HP:0034979). HP:0034979 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5643,6 +5782,8 @@ This clinical feature is facial synkinesis (HP:0034979). HP:0034979 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5718,6 +5859,9 @@ This clinical feature is facial synkinesis (HP:0034979). HP:0034979 is a phenoty
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -5732,6 +5876,8 @@ This clinical feature is facial synkinesis (HP:0034979). HP:0034979 is a phenoty
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5813,6 +5959,20 @@ This treatment is Pharmacotherapy (NCIT:C15986), qualified as route of administr
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Early oral corticosteroid therapy is first-line treatment for new-onset Bell&#39;s palsy and improves the chance of complete recovery.</div>
 
 
@@ -5834,6 +5994,8 @@ This treatment is Pharmacotherapy (NCIT:C15986), qualified as route of administr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5897,6 +6059,20 @@ This treatment is antiviral therapy (NCIT:C16119), qualified as route of adminis
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Antiviral therapy is sometimes added to corticosteroids, particularly in more severe acute Bell&#39;s palsy, with evidence suggesting improved recovery or reduced synkinesis in selected patients.</div>
 
 
@@ -5925,6 +6101,8 @@ This treatment is antiviral therapy (NCIT:C16119), qualified as route of adminis
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5969,6 +6147,8 @@ This treatment is antiviral therapy (NCIT:C16119), qualified as route of adminis
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5990,6 +6170,8 @@ This treatment is antiviral therapy (NCIT:C16119), qualified as route of adminis
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6053,6 +6235,31 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Behavioral / lifestyle</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Facial neuromuscular retraining and related physical therapy approaches can help patients with persistent weakness, asymmetry, or functional sequelae after the acute phase.</div>
 
 
@@ -6074,6 +6281,8 @@ This treatment is physical therapy (NCIT:C15302). NCIT:C15302 is a clinical inte
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6137,6 +6346,20 @@ This treatment is botulinum toxin type A therapy, annotated with Botulinum Toxin
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Botulinum toxin injections can be used in patients with persistent facial synkinesis or troublesome asymmetry after incomplete recovery.</div>
 
 
@@ -6182,6 +6405,8 @@ This treatment targets facial synkinesis (HP:0034979). HP:0034979 is a phenotype
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6209,6 +6434,708 @@ This treatment targets facial synkinesis (HP:0034979). HP:0034979 is a phenotype
 
 
         <!-- Biochemical Markers -->
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-clinical-history-and-neurologic-physical-examination">
+                <div class="item-name">
+                    Clinical history and neurologic physical examination
+
+                </div>
+
+                <div class="item-desc">Diagnosis is primarily clinical and is based on focused history and physical examination demonstrating acute unilateral peripheral facial weakness while excluding alternative causes such as stroke or Lyme disease.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        physical examination
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C20989" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-26">NCIT:C20989</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-26">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39939082" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39939082" target="_blank">PMID:39939082</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Diagnosis is based on a thorough history and physical examination, with careful attention to exclude other causes of facial weakness, such as stroke or Lyme disease."</div>
+
+
+                <div class="evidence-explanation">This directly supports diagnosis by focused clinical evaluation and exclusion of key mimics.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-electromyography-in-severe-or-persistent-cases">
+                <div class="item-name">
+                    Electromyography in severe or persistent cases
+
+                </div>
+
+                <div class="item-desc">Electromyography can help assess severity and recovery potential in patients with severe Bell&#39;s palsy or prolonged deficits.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        electromyography procedure
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C38056" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-27">NCIT:C38056</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-27">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="clinicaltrials:NCT02328079" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://clinicaltrials.gov/study/NCT02328079" target="_blank">clinicaltrials:NCT02328079</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"EMG was done for facial muscles of both sides beside measuring facial nerve excitability to determine the excitation threshold by recording the minimum electrical stimulus required to produce visible muscle contraction."</div>
+
+
+                <div class="evidence-explanation">This supports use of EMG as part of structured evaluation in acute Bell&#39;s palsy studies.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-nerve-conduction-study-for-prognostic-assessment">
+                <div class="item-name">
+                    Nerve conduction study for prognostic assessment
+
+                </div>
+
+                <div class="item-desc">Nerve conduction testing can be used to quantify facial nerve dysfunction and identify patients at higher risk for poor recovery.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        nerve conduction study
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C88502" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-28">NCIT:C88502</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-28">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="clinicaltrials:NCT02328079" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="https://clinicaltrials.gov/study/NCT02328079" target="_blank">clinicaltrials:NCT02328079</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Nerve conduction study of facial nerves of both sides using concentric needle electrode."</div>
+
+
+                <div class="evidence-explanation">This supports nerve conduction study as an electrophysiologic assessment method used in Bell&#39;s palsy prognosis studies.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+        <div class="card" id="progression">
+            <div class="card-header">
+                <div class="card-icon" style="background: #fef3c7; color: #b45309;">📈</div>
+                <h2 class="card-title">Progression</h2>
+                <span class="card-count">2</span>
+            </div>
+
+            <div class="item-box anchor-target" id="progression-acute-onset-phase">
+                <div class="item-name">Acute onset phase</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">Facial weakness typically appears suddenly and progresses to maximal deficit over the first 48 hours.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36397921" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36397921" target="_blank">PMID:36397921</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Bell&#39;s palsy, also known as &#34;acute facial palsy of unknown cause&#34;, is a common cranial neuropathy leading to facial muscle paresis or complete paralysis characteristically on one side, occurring suddenly and may progress over 48 hours."</div>
+
+
+                <div class="evidence-explanation">This supports the typical abrupt onset and short early progression window.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="progression-recovery-and-sequelae-phase">
+                <div class="item-name">Recovery and sequelae phase</div>
+                <div class="item-meta">
+
+
+
+
+                </div>
+
+                <div class="item-notes">Most patients recover spontaneously, but a minority develop residual weakness or synkinesis that persists beyond the acute phase.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36397921" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36397921" target="_blank">PMID:36397921</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Although the majority of patients recover spontaneously in less than three weeks even if they are not treated. But there is always a risk of residual paresis after treatment or recovery, which may require medical help."</div>
+
+
+                <div class="evidence-explanation">This supports the usual favorable recovery trajectory while documenting persistent deficits in a subset of patients.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:34640384" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/34640384" target="_blank">PMID:34640384</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Our results showed that the most important factor influencing the complete recovery of Bell&#39;s palsy in children was the lower initial H-B grade at initial presentation."</div>
+
+
+                <div class="evidence-explanation">This pediatric cohort supports early clinical severity as an important prognostic determinant of recovery.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-general-population">
+                <div class="item-name">General population</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Annual Incidence</span>
+
+
+
+                    <span class="tag" style="background: #dcfce7; color: #166534;">20.0&ndash;30.0 per 100,000
+                    </span>
+
+                    <span class="tag">1–9 per 10,000 per year</span>
+
+                    <span class="tag tag-subtype">General</span>
+
+                </div>
+
+                <div class="item-notes">Bell&#39;s palsy is relatively common among cranial mononeuropathies, with modern review literature consistently citing an annual incidence around 20-30 cases per 100,000 people.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39939082" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39939082" target="_blank">PMID:39939082</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The annual incidence is 20 to 30 per 100,000."</div>
+
+
+                <div class="evidence-explanation">This provides a direct contemporary incidence estimate for Bell&#39;s palsy in the general population.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+        <div class="card" id="epidemiology">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">🌍</div>
+                <h2 class="card-title">Epidemiology</h2>
+                <span class="card-count">3</span>
+            </div>
+
+            <div class="item-box anchor-target" id="epidemiology-age-and-clinical-risk-factor-distribution">
+                <div class="item-name">Age and clinical risk-factor distribution</div>
+
+                <div class="item-desc">Bell&#39;s palsy can occur at any age, but incidence rises with age and is increased in people with diabetes, hypertension, obesity, pregnancy, and recent upper respiratory tract infection.</div>
+
+                <div class="item-meta">
+
+
+                    <span class="tag">age</span>
+
+                    <span class="tag">diabetes</span>
+
+                    <span class="tag">hypertension</span>
+
+                    <span class="tag">pregnancy</span>
+
+                    <span class="tag">obesity</span>
+
+                    <span class="tag">upper respiratory tract infection</span>
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (2 references)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36397921" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36397921" target="_blank">PMID:36397921</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Both sexes are equally affected, and though no age is immune, its incidence rises with increasing age."</div>
+
+
+                <div class="evidence-explanation">This supports the age distribution of Bell&#39;s palsy as a disorder that can occur broadly but becomes more common with increasing age.</div>
+
+
+
+            </div>
+
+            <div class="evidence-item" data-dismech-evidence="PMID:36397921" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/36397921" target="_blank">PMID:36397921</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"The risk is high in diabetics, hypertensives, women who are pregnant, obese, and people with upper respiratory tract infections."</div>
+
+
+                <div class="evidence-explanation">This supports several commonly cited clinical risk groups and comorbidity associations.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="epidemiology-migraine-associated-risk-enrichment">
+                <div class="item-name">Migraine-associated risk enrichment</div>
+
+                <div class="item-desc">Population-based longitudinal data suggest that migraine is associated with a modestly increased subsequent risk of Bell&#39;s palsy, especially in adults aged 30 to under 60 years.</div>
+
+                <div class="item-meta">
+
+
+                    <span class="tag">migraine</span>
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:31124964" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/31124964" target="_blank">PMID:31124964</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Migraine increased the risk of Bell palsy in the total population."</div>
+
+
+                <div class="evidence-explanation">This directly supports migraine as an epidemiologic risk marker associated with later Bell&#39;s palsy.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+            <div class="item-box anchor-target" id="epidemiology-recurrence-burden">
+                <div class="item-name">Recurrence burden</div>
+
+                <div class="item-desc">Recurrence is uncommon but recognized, affecting a minority of patients after an initial Bell&#39;s palsy episode.</div>
+
+                <div class="item-meta">
+
+
+                </div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:33088514" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/33088514" target="_blank">PMID:33088514</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"8% to 12% recurrence rate."</div>
+
+
+                <div class="evidence-explanation">This supports recurrence as a real but minority long-term outcome of Bell&#39;s palsy without relying on the same case report for general incidence framing.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -6275,6 +7202,8 @@ This treatment targets facial synkinesis (HP:0034979). HP:0034979 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6350,6 +7279,8 @@ This treatment targets facial synkinesis (HP:0034979). HP:0034979 is a phenotype
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6421,6 +7352,8 @@ This treatment targets facial synkinesis (HP:0034979). HP:0034979 is a phenotype
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6520,6 +7453,8 @@ This treatment targets facial synkinesis (HP:0034979). HP:0034979 is a phenotype
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6577,11 +7512,11 @@ This treatment targets facial synkinesis (HP:0034979). HP:0034979 is a phenotype
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030319" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-26">HP:0030319</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030319" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-29">HP:0030319</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-26">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-29">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets acute unilateral peripheral facial weakness, annotated with Weakness of facial musculature (HP:0030319). HP:0030319 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6604,6 +7539,8 @@ This clinical trial targets acute unilateral peripheral facial weakness, annotat
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6651,11 +7588,11 @@ This clinical trial targets acute unilateral peripheral facial weakness, annotat
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0030319" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-27">HP:0030319</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0030319" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-30">HP:0030319</a>
 
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-27">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-30">Human Phenotype Ontology (HP)
 Relation: this clinical trial targets this phenotype
 This clinical trial targets acute unilateral peripheral facial weakness, annotated with Weakness of facial musculature (HP:0030319). HP:0030319 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
@@ -6678,6 +7615,8 @@ This clinical trial targets acute unilateral peripheral facial weakness, annotat
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6900,13 +7839,13 @@ pathophysiology:
   evidence:
   - reference: PMID:33602968
     reference_title: &#34;A meta-analysis uncovers the first sequence variant conferring risk of Bell&#39;s palsy.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;While the pathogenesis remains unknown, previous studies have implicated post-viral inflammation and resulting compression of the facial nerve.&#34;
     explanation: This supports post-viral inflammation as a leading but not definitively proven Bell&#39;s palsy mechanism.
   - reference: PMID:33088514
     reference_title: &#34;New onset of Bell&#39;s palsy in a patient with West Nile Encephalitis.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Even though the underlying pathophysiology remains elusive, Bell&#39;s palsy is thought to result due to virus-mediated inflammation resulting in swelling of the CN VII and its compression at the geniculate ganglion.&#34;
     explanation: This supports the commonly proposed geniculate-ganglion-centered viral inflammatory mechanism while making clear that it remains inferential.
@@ -6954,7 +7893,7 @@ pathophysiology:
   evidence:
   - reference: PMID:40299566
     reference_title: &#34;Exploring the Role of Inflammation and Metabolites in Bell&#39;s Palsy and Potential Treatment Strategies.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: COMPUTATIONAL
     snippet: &#34;Our study identifies causal relationships between inflammatory proteins, metabolites, immune cells, and Bell&#39;s palsy, highlighting that the JAK/STAT signaling pathway may be a potentially critical target for intervention in Bell&#39;s palsy, and that its modulation may provide new directions and opportunities for therapeutic strategies and drug discovery for the disease.&#34;
     explanation: This computational Mendelian-randomization and network-analysis study supports JAK/STAT-centered inflammatory signaling as a plausible mechanistic contributor, but not yet a definitive established pathway in human Bell&#39;s palsy.
@@ -6972,7 +7911,7 @@ pathophysiology:
     evidence:
     - reference: PMID:40299566
       reference_title: &#34;Exploring the Role of Inflammation and Metabolites in Bell&#39;s Palsy and Potential Treatment Strategies.&#34;
-      supports: PARTIAL
+      supports: SUPPORT
       evidence_source: COMPUTATIONAL
       snippet: &#34;Our study identifies causal relationships between inflammatory proteins, metabolites, immune cells, and Bell&#39;s palsy, highlighting that the JAK/STAT signaling pathway may be a potentially critical target for intervention in Bell&#39;s palsy, and that its modulation may provide new directions and opportunities for therapeutic strategies and drug discovery for the disease.&#34;
       explanation: This supports inflammatory signaling as a plausible upstream contributor to the local nerve inflammation and edema modeled in Bell&#39;s palsy.
@@ -7283,7 +8222,7 @@ treatments:
     - predicate:
         preferred_term: therapeutic agent
         term:
-          id: NCIT:C2259
+          id: NCIT:C1909
           label: Pharmacologic Substance
       value:
         preferred_term: prednisone
@@ -7321,7 +8260,7 @@ treatments:
     - predicate:
         preferred_term: therapeutic agent
         term:
-          id: NCIT:C2259
+          id: NCIT:C1909
           label: Pharmacologic Substance
       value:
         preferred_term: acyclovir
@@ -7787,6 +8726,8 @@ datasets:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -8205,7 +9146,7 @@ datasets:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Bell\u0027s palsy", "mondoId": "MONDO:0005665", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Bell\u0027s_palsy", "yamlRevision": "051b98c9eec7"};
+        const OS_CONFIG = {"diseaseName": "Bell\u0027s palsy", "mondoId": "MONDO:0005665", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Bell\u0027s_palsy", "yamlRevision": "cbc949af489c"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

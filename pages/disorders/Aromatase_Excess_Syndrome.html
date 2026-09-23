@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -844,10 +845,37 @@
         }
 
         .support-SUPPORT { background: #dcfce7; color: #166534; }
-        .support-PARTIAL { background: #fef3c7; color: #92400e; }
         .support-REFUTE { background: #fee2e2; color: #991b1b; }
         .support-NO_EVIDENCE { background: #f1f5f9; color: #64748b; }
-        .support-WRONG_STATEMENT { background: #fecaca; color: #7f1d1d; }
+
+        /* Directness is a separate axis from direction, so it is styled as a
+           neutral outline rather than another coloured pill -- an INDIRECT
+           badge must not read as a weaker or worse kind of support. */
+        .evidence-directness {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px solid #cbd5e1;
+        }
+
+        /* `quote_role` says where in the cited paper's argument the sentence
+           sits, which is a fact about the document rather than a grade of the
+           evidence. Styled as the same neutral outline as directness, dashed,
+           so a BACKGROUND badge reads as provenance and not as weaker support. */
+        .evidence-quote-role {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            text-transform: uppercase;
+            background: transparent;
+            color: #475569;
+            border: 1px dashed #cbd5e1;
+        }
 
         .evidence-source {
             font-size: 0.7rem;
@@ -2398,6 +2426,17 @@
             color: var(--text-muted);
             font-size: 0.8rem;
         }
+        .research-notice {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            margin: 0 0 12px;
+        }
+        .research-reviews {
+            margin-bottom: 12px;
+            font-size: 0.85rem;
+        }
+        .research-reviews summary { cursor: pointer; }
+        .research-review-text { white-space: pre-line; }
 
         /* Subtypes */
         .subtype-box {
@@ -2954,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -2969,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3078,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3091,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3295,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3305,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3341,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3362,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -3675,6 +3752,22 @@
     })();
 </script>
     <button type="button" class="notice-banner">This resource is in its pre-alpha development stage. Content is actively being curated and may be incomplete or subject to change.</button>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -4076,6 +4169,8 @@
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4097,6 +4192,8 @@
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4145,6 +4242,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cyp19a1-locus-rearrangement-and-aromatase-overexpression" data-dismech-node="CYP19A1 Locus Rearrangement and Aromatase Overexpression" data-dismech-type="pathophysiology">
                 <div class="item-name">CYP19A1 Locus Rearrangement and Aromatase Overexpression</div>
+
 
                 <div class="item-desc">Heterozygous submicroscopic rearrangements at chromosome 15q21.2 drive CYP19A1 overexpression by two routes: tandem duplications increase the copy number of the native tissue-specific promoters, while deletions and inversions juxtapose the CYP19A1 coding region with constitutively active or ectopic promoters of neighboring genes (e.g., TMOD3, DMXL2, GLDN, CGNL1, MAPK6, TLN2), forming chimeric transcripts. The aromatase protein itself is structurally normal; its expression is pathologically increased and broadened across tissues.</div>
 
@@ -4241,6 +4339,8 @@ This genetic context concerns CYP19A1 (hgnc:2594). hgnc:2594 is a gene from the 
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: GERMLINE</span>
 
 
@@ -4251,6 +4351,9 @@ This genetic context concerns CYP19A1 (hgnc:2594). hgnc:2594 is a gene from the 
         <span class="tag tag-classification">functional_impact_category: HYPERMORPHIC</span>
 
     </div>
+
+
+
 
     <div class="context-detail">Regulatory gain-of-function: structural rearrangements increase and broaden expression of a catalytically normal aromatase, rather than altering the enzyme&#39;s coding sequence.</div>
 
@@ -4299,6 +4402,8 @@ This genetic context concerns CYP19A1 (hgnc:2594). hgnc:2594 is a gene from the 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4320,6 +4425,8 @@ This genetic context concerns CYP19A1 (hgnc:2594). hgnc:2594 is a gene from the 
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4345,6 +4452,8 @@ This genetic context concerns CYP19A1 (hgnc:2594). hgnc:2594 is a gene from the 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4367,6 +4476,7 @@ This genetic context concerns CYP19A1 (hgnc:2594). hgnc:2594 is a gene from the 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-aromatase-activity" data-dismech-node="Increased Aromatase Activity" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased Aromatase Activity</div>
+
 
                 <div class="item-desc">Aromatase overexpression raises total and extraglandular aromatase activity; whole-body aromatization of androgens is markedly elevated. The enzyme is catalytically normal, so the change is quantitative (more activity), not a novel catalytic function.</div>
 
@@ -4521,6 +4631,8 @@ This pathophysiological event involves increased aromatase activity (GO:0070330)
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4542,6 +4654,8 @@ This pathophysiological event involves increased aromatase activity (GO:0070330)
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4566,6 +4680,7 @@ This pathophysiological event involves increased aromatase activity (GO:0070330)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-systemic-estrogen-excess" data-dismech-node="Systemic Estrogen Excess" data-dismech-type="pathophysiology">
                 <div class="item-name">Systemic Estrogen Excess</div>
+
 
                 <div class="item-desc">Excess aromatization raises circulating estradiol and estrone and the estrogen-to-androgen ratio. Estrogen negative feedback on the hypothalamic-pituitary axis suppresses gonadotropins, and downstream estrogen action drives the skeletal and breast phenotypes.</div>
 
@@ -4634,6 +4749,8 @@ This pathophysiological event involves increased aromatase activity (GO:0070330)
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4656,6 +4773,7 @@ This pathophysiological event involves increased aromatase activity (GO:0070330)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-estrogen-driven-epiphyseal-maturation" data-dismech-node="Estrogen-Driven Epiphyseal Maturation" data-dismech-type="pathophysiology">
                 <div class="item-name">Estrogen-Driven Epiphyseal Maturation</div>
+
 
                 <div class="item-desc">Excess estrogen accelerates bone age and hastens epiphyseal closure, producing an early childhood growth spurt followed by premature growth arrest and short final adult stature.</div>
 
@@ -4716,6 +4834,8 @@ This pathophysiological event involves increased aromatase activity (GO:0070330)
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4738,6 +4858,7 @@ This pathophysiological event involves increased aromatase activity (GO:0070330)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-estrogen-driven-breast-glandular-proliferation" data-dismech-node="Estrogen-Driven Breast Glandular Proliferation" data-dismech-type="pathophysiology">
                 <div class="item-name">Estrogen-Driven Breast Glandular Proliferation</div>
+
 
                 <div class="item-desc">Excess estrogen stimulates proliferation of breast glandular tissue, producing gynecomastia in males and macromastia in affected females.</div>
 
@@ -4831,6 +4952,8 @@ This pathophysiological event involves increased aromatase activity (GO:0070330)
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -4895,15 +5018,13 @@ This pathophysiological event involves increased aromatase activity (GO:0070330)
 
             <div class="pheno-toc">
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Breast<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-1">Breast<span class="pill-count">(2)</span></button>
 
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Endocrine<span class="pill-count">(1)</span></button>
+                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-2">Endocrine<span class="pill-count">(3)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-3">Musculoskeletal<span class="pill-count">(1)</span></button>
 
                 <button type="button" class="pheno-toc-pill" data-target="pheno-cat-4">Growth<span class="pill-count">(1)</span></button>
-
-                <button type="button" class="pheno-toc-pill" data-target="pheno-cat-5">Other<span class="pill-count">(3)</span></button>
 
                 <button class="pheno-toggle-all" id="phenoToggleAll">Expand all</button>
             </div>
@@ -4913,7 +5034,7 @@ This pathophysiological event involves increased aromatase activity (GO:0070330)
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Breast
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">2</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-gynecomastia" data-dismech-node="Gynecomastia" data-dismech-type="phenotype">
@@ -4944,6 +5065,9 @@ This clinical feature is Gynecomastia (HP:0000771). HP:0000771 is a phenotype fr
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -4958,6 +5082,8 @@ This clinical feature is Gynecomastia (HP:0000771). HP:0000771 is a phenotype fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -4983,13 +5109,85 @@ This clinical feature is Gynecomastia (HP:0000771). HP:0000771 is a phenotype fr
 
                 </div>
 
+                <div class="item-box phenotype-box anchor-target" id="phenotype-breast-hypertrophy" data-dismech-node="Breast hypertrophy" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Breast hypertrophy
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010313" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0010313</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Macromastia, annotated with Breast hypertrophy (HP:0010313). HP:0010313 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:9543166" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/9543166" target="_blank">PMID:9543166</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"affected females had isosexual precocity and/or macromastia"</div>
+
+
+                <div class="evidence-explanation">Documents macromastia in affected females.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
             </details>
 
             <details class="phenotype-category-group" id="pheno-cat-2">
                 <summary>
                     <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
                     Endocrine
-                    <span class="cat-count">1</span>
+                    <span class="cat-count">3</span>
                 </summary>
 
                 <div class="item-box phenotype-box anchor-target" id="phenotype-hypogonadotropic-hypogonadism" data-dismech-node="Hypogonadotropic hypogonadism" data-dismech-type="phenotype">
@@ -5006,15 +5204,18 @@ This clinical feature is Gynecomastia (HP:0000771). HP:0000771 is a phenotype fr
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0000044" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-7">HP:0000044</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0000044" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0000044</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-7">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Hypogonadotropic hypogonadism (HP:0000044). HP:0000044 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5036,6 +5237,8 @@ This clinical feature is Hypogonadotropic hypogonadism (HP:0000044). HP:0000044 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5044,6 +5247,150 @@ This clinical feature is Hypogonadotropic hypogonadism (HP:0000044). HP:0000044 
 
 
                 <div class="evidence-explanation">Attributes hypogonadotropic hypogonadism directly to elevated estrogen in AEXS.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-precocious-puberty" data-dismech-node="Precocious puberty" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Precocious puberty
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0000826" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0000826</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Isosexual precocious puberty, annotated with Precocious puberty (HP:0000826). HP:0000826 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:9543166" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/9543166" target="_blank">PMID:9543166</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"affected females had isosexual precocity and/or macromastia"</div>
+
+
+                <div class="evidence-explanation">Documents isosexual precocity in affected females.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+
+
+
+                </div>
+
+                <div class="item-box phenotype-box anchor-target" id="phenotype-premature-thelarche" data-dismech-node="Premature thelarche" data-dismech-type="phenotype">
+                    <div class="item-name">
+                        Premature thelarche
+
+
+
+
+
+
+                    <span class="phenotype-id">
+
+
+
+
+    <a href="http://purl.obolibrary.org/obo/HP_0010314" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0010314</a>
+
+
+                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
+Relation: this clinical feature is this phenotype
+This clinical feature is Premature thelarche (HP:0010314). HP:0010314 is a phenotype from the Human Phenotype Ontology.</span>
+                    </span>
+
+                    </div>
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:39634186" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39634186" target="_blank">PMID:39634186</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"who presented with premature thelarche and accelerated growth and bone age"</div>
+
+
+                <div class="evidence-explanation">Reports premature thelarche as the presenting sign in an affected girl.</div>
 
 
 
@@ -5082,15 +5429,18 @@ This clinical feature is Hypogonadotropic hypogonadism (HP:0000044). HP:0000044 
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0005616" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-8">HP:0005616</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0005616" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0005616</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-8">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Accelerated skeletal maturation (HP:0005616). HP:0005616 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5110,6 +5460,8 @@ This clinical feature is Accelerated skeletal maturation (HP:0005616). HP:000561
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5158,15 +5510,18 @@ This clinical feature is Accelerated skeletal maturation (HP:0005616). HP:000561
 
 
 
-    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-9">HP:0004322</a>
+    <a href="http://purl.obolibrary.org/obo/HP_0004322" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0004322</a>
 
 
-                        <span class="pill-tip" role="tooltip" id="pill-tip-9">Human Phenotype Ontology (HP)
+                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
 Relation: this clinical feature is this phenotype
 This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype from the Human Phenotype Ontology.</span>
                     </span>
 
                     </div>
+
+
+
 
 
 
@@ -5188,6 +5543,8 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5196,216 +5553,6 @@ This clinical feature is Short stature (HP:0004322). HP:0004322 is a phenotype f
 
 
                 <div class="evidence-explanation">Lists compromised adult height as a manifestation of AEXS.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-            </details>
-
-            <details class="phenotype-category-group" id="pheno-cat-5">
-                <summary>
-                    <svg class="chevron" viewBox="0 0 16 16" fill="currentColor"><path d="M6 3l5 5-5 5V3z"/></svg>
-                    Other
-                    <span class="cat-count">3</span>
-                </summary>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-precocious-puberty" data-dismech-node="Precocious puberty" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Precocious puberty
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0000826" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-10">HP:0000826</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-10">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Isosexual precocious puberty, annotated with Precocious puberty (HP:0000826). HP:0000826 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:9543166" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/9543166" target="_blank">PMID:9543166</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"affected females had isosexual precocity and/or macromastia"</div>
-
-
-                <div class="evidence-explanation">Documents isosexual precocity in affected females.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-breast-hypertrophy" data-dismech-node="Breast hypertrophy" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Breast hypertrophy
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0010313" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-11">HP:0010313</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-11">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Macromastia, annotated with Breast hypertrophy (HP:0010313). HP:0010313 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:9543166" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/9543166" target="_blank">PMID:9543166</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"affected females had isosexual precocity and/or macromastia"</div>
-
-
-                <div class="evidence-explanation">Documents macromastia in affected females.</div>
-
-
-
-            </div>
-
-
-        </div>
-    </details>
-
-
-
-
-
-                </div>
-
-                <div class="item-box phenotype-box anchor-target" id="phenotype-premature-thelarche" data-dismech-node="Premature thelarche" data-dismech-type="phenotype">
-                    <div class="item-name">
-                        Premature thelarche
-
-
-
-
-
-
-                    <span class="phenotype-id">
-
-
-
-
-    <a href="http://purl.obolibrary.org/obo/HP_0010314" target="_blank" class="curie-chip curie-chip-hp" aria-describedby="pill-tip-12">HP:0010314</a>
-
-
-                        <span class="pill-tip" role="tooltip" id="pill-tip-12">Human Phenotype Ontology (HP)
-Relation: this clinical feature is this phenotype
-This clinical feature is Premature thelarche (HP:0010314). HP:0010314 is a phenotype from the Human Phenotype Ontology.</span>
-                    </span>
-
-                    </div>
-
-
-
-
-
-    <details class="evidence-details">
-        <summary class="evidence-toggle">
-            Show evidence (1 reference)
-        </summary>
-        <div class="evidence-list">
-
-            <div class="evidence-item" data-dismech-evidence="PMID:39634186" data-dismech-supports="SUPPORT">
-                <div class="evidence-header">
-                    <span class="evidence-ref">
-                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/39634186" target="_blank">PMID:39634186</a>
-                    </span>
-
-
-                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
-
-
-                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
-
-                </div>
-
-                <div class="evidence-snippet">"who presented with premature thelarche and accelerated growth and bone age"</div>
-
-
-                <div class="evidence-explanation">Reports premature thelarche as the presenting sign in an affected girl.</div>
 
 
 
@@ -5495,6 +5642,9 @@ This disease-associated gene is CYP19A1 (hgnc:2594). hgnc:2594 is a gene from th
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (5 references)
@@ -5509,6 +5659,8 @@ This disease-associated gene is CYP19A1 (hgnc:2594). hgnc:2594 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5534,6 +5686,8 @@ This disease-associated gene is CYP19A1 (hgnc:2594). hgnc:2594 is a gene from th
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5555,6 +5709,8 @@ This disease-associated gene is CYP19A1 (hgnc:2594). hgnc:2594 is a gene from th
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5677,6 +5833,31 @@ This treatment uses letrozole (CHEBI:6413). CHEBI:6413 is a therapeutic agent fr
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Small molecule</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Aromatase inhibitors (e.g., anastrozole, letrozole, testolactone) suppress the excess aromatase activity, lowering serum estrogen, normalizing gonadotropins and testosterone, and slowing skeletal maturation to preserve adult height. This is the mechanism-directed therapy targeting the overexpressed aromatase.</div>
 
 
@@ -5707,6 +5888,8 @@ This treatment uses letrozole (CHEBI:6413). CHEBI:6413 is a therapeutic agent fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5751,6 +5934,8 @@ This treatment uses letrozole (CHEBI:6413). CHEBI:6413 is a therapeutic agent fr
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5774,6 +5959,8 @@ This treatment uses letrozole (CHEBI:6413). CHEBI:6413 is a therapeutic agent fr
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5795,6 +5982,8 @@ This treatment uses letrozole (CHEBI:6413). CHEBI:6413 is a therapeutic agent fr
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5860,6 +6049,31 @@ This treatment is mastectomy (NCIT:C15277). NCIT:C15277 is a clinical interventi
 
 
 
+
+
+
+
+
+
+    <div class="item-meta">
+        <strong style="font-size: 0.8rem; color: #5b21b6;">Platform:</strong>
+
+        <span class="tag tag-treatment">Surgery</span>
+
+
+
+
+
+    </div>
+
+
+
+
+
+
+
+
+
                 <div class="item-desc">Surgical breast reduction (subcutaneous mastectomy for gynecomastia, or reduction mammoplasty for macromastia) for established, progressive breast enlargement not resolved by pharmacotherapy.</div>
 
 
@@ -5881,6 +6095,8 @@ This treatment is mastectomy (NCIT:C15277). NCIT:C15277 is a clinical interventi
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -5948,6 +6164,8 @@ This treatment is mastectomy (NCIT:C15277). NCIT:C15277 is a clinical interventi
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -5961,14 +6179,16 @@ This treatment is mastectomy (NCIT:C15277). NCIT:C15277 is a clinical interventi
 
             </div>
 
-            <div class="evidence-item" data-dismech-evidence="PMID:25264451" data-dismech-supports="PARTIAL">
+            <div class="evidence-item" data-dismech-evidence="PMID:25264451" data-dismech-supports="SUPPORT">
                 <div class="evidence-header">
                     <span class="evidence-ref">
                         <a href="http://www.ncbi.nlm.nih.gov/pubmed/25264451" target="_blank">PMID:25264451</a>
                     </span>
 
 
-                    <span class="evidence-support support-PARTIAL">PARTIAL</span>
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
@@ -6021,6 +6241,8 @@ This treatment is mastectomy (NCIT:C15277). NCIT:C15277 is a clinical interventi
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
 
                 </div>
@@ -6042,6 +6264,193 @@ This treatment is mastectomy (NCIT:C15277). NCIT:C15277 is a clinical interventi
             </div>
 
         </div>
+
+
+        <!-- Diagnosis -->
+
+        <div class="card" id="diagnosis">
+            <div class="card-header">
+                <div class="card-icon" style="background: #e0f2fe; color: #0369a1;">🔬</div>
+                <h2 class="card-title">Diagnosis</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="diagnosis-molecular-genetic-analysis-of-cyp19a1">
+                <div class="item-name">
+                    Molecular genetic analysis of CYP19A1
+
+                </div>
+
+                <div class="item-desc">Because biochemistry alone is not diagnostic (serum estradiol is elevated in only a minority of affected males), the diagnosis is confirmed by detecting a gain-of-function CYP19A1 rearrangement (duplication, deletion, or inversion at 15q21.2) by molecular/genomic analysis.</div>
+
+
+
+
+
+
+
+
+
+
+    <span class="tag tag-treatment">
+
+        genetic testing
+
+
+    <a href="http://purl.obolibrary.org/obo/NCIT_C15709" target="_blank" class="curie-chip curie-chip-ncit" aria-describedby="pill-tip-18">NCIT:C15709</a>
+
+
+
+        <span class="pill-tip" role="tooltip" id="pill-tip-18">NCI Thesaurus (NCIT)</span>
+    </span>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:25264451" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/25264451" target="_blank">PMID:25264451</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"Molecular analysis of CYP19A1 mutations is mandatory to confirm aromatase excess syndrome diagnosis."</div>
+
+
+                <div class="evidence-explanation">Establishes molecular CYP19A1 analysis as the mandatory confirmatory test.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Imaging Findings -->
+
+
+        <!-- Progression -->
+
+
+        <!-- Stages -->
+
+
+        <!-- Prevalence -->
+
+        <div class="card" id="prevalence">
+            <div class="card-header">
+                <div class="card-icon" style="background: #dcfce7; color: #15803d;">📊</div>
+                <h2 class="card-title">Prevalence</h2>
+                <span class="card-count">1</span>
+            </div>
+
+            <div class="item-box anchor-target" id="prevalence-worldwide">
+                <div class="item-name">Worldwide</div>
+                <div class="item-meta">
+
+                    <span class="tag tag-classification">Cases In Literature</span>
+
+
+
+                    <span class="tag">Ultra Rare</span>
+
+                </div>
+
+                <div class="item-notes">Around 30 molecularly confirmed male patients had been reported as of 2014; AEXS is described only in isolated case reports and small pedigrees.</div>
+
+
+
+    <details class="evidence-details">
+        <summary class="evidence-toggle">
+            Show evidence (1 reference)
+        </summary>
+        <div class="evidence-list">
+
+            <div class="evidence-item" data-dismech-evidence="PMID:24716396" data-dismech-supports="SUPPORT">
+                <div class="evidence-header">
+                    <span class="evidence-ref">
+                        <a href="http://www.ncbi.nlm.nih.gov/pubmed/24716396" target="_blank">PMID:24716396</a>
+                    </span>
+
+
+                    <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
+
+
+                    <span class="evidence-source source-HUMAN_CLINICAL">Human Clinical</span>
+
+                </div>
+
+                <div class="evidence-snippet">"To date, 30 male patients with molecularly confirmed AEXS have been reported."</div>
+
+
+                <div class="evidence-explanation">Provides the reported case count underpinning the ultra-rare classification.</div>
+
+
+
+            </div>
+
+
+        </div>
+    </details>
+
+
+            </div>
+
+        </div>
+
+
+        <!-- Epidemiology -->
+
+
+        <!-- Infectious Agent -->
+
+
+        <!-- Transmission -->
+
+
+        <!-- Clinical Burden -->
 
 
         <!-- Differential Diagnoses -->
@@ -6169,6 +6578,8 @@ This treatment is mastectomy (NCIT:C15277). NCIT:C15277 is a clinical interventi
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6208,6 +6619,8 @@ This treatment is mastectomy (NCIT:C15277). NCIT:C15277 is a clinical interventi
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -6285,6 +6698,8 @@ This treatment is mastectomy (NCIT:C15277). NCIT:C15277 is a clinical interventi
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
 
 
+
+
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
 
                 </div>
@@ -6324,6 +6739,8 @@ This treatment is mastectomy (NCIT:C15277). NCIT:C15277 is a clinical interventi
 
 
                     <span class="evidence-support support-SUPPORT">SUPPORT</span>
+
+
 
 
                     <span class="evidence-source source-MODEL_ORGANISM">Model Organism</span>
@@ -6844,7 +7261,7 @@ biochemical:
       the biochemical hallmark of estrogen excess.
   - reference: PMID:25264451
     reference_title: &#34;Understanding the pathological manifestations of aromatase excess syndrome: lessons for clinical diagnosis.&#34;
-    supports: PARTIAL
+    supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
     snippet: &#34;Serum estradiol levels are elevated in 48% of affected males, but are not necessarily useful for diagnosis.&#34;
     explanation: &gt;-
@@ -7106,6 +7523,19 @@ animal_models:
                     <h3 class="grouped-section-title">Deep Research</h3>
                     <span class="card-count">1</span>
                 </div>
+                <p class="research-notice">Deep research results are used as seeds for research; they do not undergo the same validation as the main records and may contain errors. <a href="https://dismech.monarchinitiative.org/elements/deep-research-reference-validation/#how-we-use-deep-research">How we use deep research</a>.</p>
+
+                <details class="research-reviews">
+                    <summary>Evaluations and curation notes (1)</summary>
+
+                    <div>
+                        <p><strong>Create: Aromatase Excess Syndrome</strong> · 2026-08-13T23:49:11Z · <a href="https://github.com/monarch-initiative/dismech/blob/main/history/disorders/Aromatase_Excess_Syndrome/2026-08-13T234911Z-claude-code-a15a82.yaml">View source</a></p>
+                        <p class="research-review-text">Created new Disease entry for Aromatase Excess Syndrome (AEXS, MONDO:0007690, CYP19A1 gain-of-function), a rare autosomal dominant disorder of aromatase overexpression complementing the existing Aromatase_Deficiency entry. Deep research provider: claude_code (deep-research-client, WebSearch/WebFetch; 15 web searches, 20 turns, report reference_validation 13/13 references verified, confabulation_rate 0.0). GeneReviews: none exists for AEXS (a McCune-Albright GeneReviews PMID was a false-positive search hit and was discarded). Evidence anchored to primary literature independently fetched and verified: Shozu NEJM 2003 (PMID:12736278, original inversion/constitutive-promoter GOF), Fukami JCEM 2011 (PMID:21470988), Fukami Int J Endocrinol 2012 (PMID:22319526), Fukami JCEM 2013 genomic basis (PMID:24064691), Fukami Pediatr Endocrinol Rev 2014 (PMID:24716396), Stratakis JCEM 1998 feminization-of-both-sexes (PMID:9543166), Binder JCEM 2021 long-term anastrozole (PMID:33513243), Tan JPEM 2019 (PMID:30530883), Wit Nat Rev Endocrinol 2011 (PMID:22024975). NEC note: PMID:9543140 was initially mis-fetched (it is an unrelated inhibin/endometrial paper, not the Stratakis AEXS paper); correct PMID is 9543166 — the wrong one is cited nowhere. Modeled CYP19A1 GOF as functional_impact_category HYPERMORPHIC on genetic_context and INCREASED aromatase activity (GO:0070330) rather than qualitative GAIN_OF_FUNCTION, since the enzyme is catalytically normal but overexpressed. Validation: schema (linkml-validate --target-class Disease) passed; term validation passed; count-verified-snippets 22/22 verified; CI-equivalent reference validation (--no-full-text) passed; compliance 96.6% global / 98.2% weighted; title-snippet and snippet-length gates show no new violations; caches normalized.
+</p>
+                    </div>
+
+                </details>
+
 
                 <div style="margin-bottom: 4px;">
                     <div class="report-toggle" onclick="this.nextElementSibling.classList.toggle('show'); this.querySelector('.toggle-indicator').textContent = this.nextElementSibling.classList.contains('show') ? '▾' : '▸'">
@@ -7648,7 +8078,7 @@ animal_models:
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Aromatase Excess Syndrome", "mondoId": "MONDO:0007690", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Aromatase_Excess_Syndrome", "yamlRevision": "795969cb4ff3"};
+        const OS_CONFIG = {"diseaseName": "Aromatase Excess Syndrome", "mondoId": "MONDO:0007690", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Aromatase_Excess_Syndrome", "yamlRevision": "9fc049b7bdd6"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
