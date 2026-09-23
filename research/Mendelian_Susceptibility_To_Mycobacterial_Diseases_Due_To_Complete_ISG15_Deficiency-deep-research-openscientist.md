@@ -39,13 +39,13 @@ artifact_sources:
   openscientist_artifacts_zip: 2
 artifacts:
 - filename: final_report.html
-  path: Mendelian_Susceptibility_To_Mycobacterial_Diseases_Due_To_Complete_ISG15_Deficiency-deep-research-falcon_artifacts/final_report.html
+  path: Mendelian_Susceptibility_To_Mycobacterial_Diseases_Due_To_Complete_ISG15_Deficiency-deep-research-openscientist_artifacts/final_report.html
   media_type: text/html
   source: openscientist_artifacts_zip
   data_storage_id: null
   description: OpenScientist final report
 - filename: final_report.pdf
-  path: Mendelian_Susceptibility_To_Mycobacterial_Diseases_Due_To_Complete_ISG15_Deficiency-deep-research-falcon_artifacts/final_report.pdf
+  path: Mendelian_Susceptibility_To_Mycobacterial_Diseases_Due_To_Complete_ISG15_Deficiency-deep-research-openscientist_artifacts/final_report.pdf
   media_type: application/pdf
   source: openscientist_artifacts_zip
   data_storage_id: null
@@ -778,8 +778,8 @@ Therapy is **split along the two mechanisms** (NCIT concepts noted):
 
 ## Artifacts
 
-- [OpenScientist final report](Mendelian_Susceptibility_To_Mycobacterial_Diseases_Due_To_Complete_ISG15_Deficiency-deep-research-falcon_artifacts/final_report.html)
-- [OpenScientist final report](Mendelian_Susceptibility_To_Mycobacterial_Diseases_Due_To_Complete_ISG15_Deficiency-deep-research-falcon_artifacts/final_report.pdf)
+- [OpenScientist final report](Mendelian_Susceptibility_To_Mycobacterial_Diseases_Due_To_Complete_ISG15_Deficiency-deep-research-openscientist_artifacts/final_report.html)
+- [OpenScientist final report](Mendelian_Susceptibility_To_Mycobacterial_Diseases_Due_To_Complete_ISG15_Deficiency-deep-research-openscientist_artifacts/final_report.pdf)
 
 ## Reference Validation
 
