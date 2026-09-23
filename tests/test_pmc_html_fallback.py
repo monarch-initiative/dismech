@@ -161,3 +161,42 @@ def test_pdf_render_view_recovers_public_article(monkeypatch, initial):
     assert result.format_hint == "html"
     assert body.strip() in result.text
     assert calls == [result.url, result.url + "?pdf=render"]
+
+
+@pytest.mark.parametrize("successful_view", ["reader", "numeric"])
+@pytest.mark.parametrize("pmcid", ["3376493", "PMC3376493"])
+def test_alternate_public_views_recover_after_challenge_pages(
+    monkeypatch, successful_view, pmcid
+):
+    body = (
+        "Patient osteoblasts showed reduced expression of mandibular identity genes. "
+        * 30
+    )
+    provider, calls = _provider(monkeypatch, "unused")
+    canonical = "https://pmc.ncbi.nlm.nih.gov/articles/PMC3376493/"
+    alternatives = [
+        canonical,
+        canonical + "?pdf=render",
+        canonical + "?report=reader",
+        "https://pmc.ncbi.nlm.nih.gov/articles/3376493/",
+    ]
+    success_index = 2 if successful_view == "reader" else 3
+
+    def get(url, **kwargs):
+        calls.append(url)
+        html = (
+            f"<article><h2>Results</h2><p>{body}</p></article>"
+            if url == alternatives[success_index]
+            else "<html><main>Checking your browser</main></html>"
+        )
+        return SimpleNamespace(status_code=200, content=html.encode())
+
+    monkeypatch.setattr(requests, "get", get)
+    result = provider.locate(
+        ReferenceIdentifiers(pmcid=pmcid),
+        ReferenceValidationConfig(rate_limit_delay=0),
+    )
+    assert result.format_hint == "html"
+    assert result.url == canonical
+    assert body.strip() in result.text
+    assert calls == alternatives[: success_index + 1]

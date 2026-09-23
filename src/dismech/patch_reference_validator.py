@@ -261,9 +261,16 @@ def _fetch_modern_pmc_html(self, pmcid, config):
 
     canonical_url = _pmc_html_url(pmcid)
     # Some public articles return a browser-check page for the default view
-    # while PMC's PDF-render view still serves the complete article HTML.
-    # Both representations must pass the same body-content checks.
-    for url in (canonical_url, canonical_url + "?pdf=render"):
+    # while another public article view still serves the complete article HTML.
+    # Every representation must pass the same body-content checks.
+    numeric_id = str(pmcid).removeprefix("PMC")
+    urls = (
+        canonical_url,
+        canonical_url + "?pdf=render",
+        canonical_url + "?report=reader",
+        f"https://pmc.ncbi.nlm.nih.gov/articles/{numeric_id}/",
+    )
+    for url in urls:
         time.sleep(config.rate_limit_delay)
         try:
             response = requests.get(url, timeout=30)
@@ -278,7 +285,7 @@ def _fetch_modern_pmc_html(self, pmcid, config):
 
 
 def _extract_modern_pmc_html(data):
-    """Extract substantive article text from either public PMC representation."""
+    """Extract substantive article text from a public PMC representation."""
     soup = BeautifulSoup(data, "html.parser")
     article = (
         soup.select_one(".main-article-body")
