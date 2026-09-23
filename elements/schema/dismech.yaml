@@ -67,6 +67,9 @@ prefixes:
   GENO:
     prefix_prefix: GENO
     prefix_reference: http://purl.obolibrary.org/obo/GENO_
+  SO:
+    prefix_prefix: SO
+    prefix_reference: http://purl.obolibrary.org/obo/SO_
   PATO:
     prefix_prefix: PATO
     prefix_reference: http://purl.obolibrary.org/obo/PATO_
@@ -1025,6 +1028,90 @@ enums:
         title: Uncertain significance
         aliases:
         - has_uncertain_significance_for_condition
+  VariantTypeEnum:
+    name: VariantTypeEnum
+    definition_uri: https://w3id.org/monarch-initiative/dismech/VariantTypeEnum
+    description: Physical sequence alteration, independently of genomic location or
+      functional consequence. Human-readable values map to Sequence Ontology. This
+      is an optional classification alongside the legacy free-text type; it is not
+      an exhaustive vocabulary for complex rearrangements.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    permissible_values:
+      single nucleotide variant:
+        text: single nucleotide variant
+        description: SNV
+        meaning: SO:0001483
+        notes:
+        - A single-nucleotide change; does not assert population frequency as SNP
+          would.
+      deletion:
+        text: deletion
+        description: deletion
+        meaning: SO:0000159
+      insertion:
+        text: insertion
+        description: insertion
+        meaning: SO:0000667
+      duplication:
+        text: duplication
+        description: duplication
+        meaning: SO:1000035
+      inversion:
+        text: inversion
+        description: inversion
+        meaning: SO:1000036
+      translocation:
+        text: translocation
+        description: translocation
+        meaning: SO:0000199
+      copy number variation:
+        text: copy number variation
+        description: copy_number_variation
+        meaning: SO:0001019
+        notes:
+        - Use deletion or duplication when the physical alteration is known.
+      short tandem repeat expansion:
+        text: short tandem repeat expansion
+        description: short_tandem_repeat_expansion
+        meaning: SO:0002162
+        notes:
+        - Do not use for repeat expansions outside the short tandem repeat class.
+  GenomicContextEnum:
+    name: GenomicContextEnum
+    definition_uri: https://w3id.org/monarch-initiative/dismech/GenomicContextEnum
+    description: Genomic features overlapped by a variant, independently of its functional
+      effect. Values describe sequence features, not variant consequences. Contexts
+      may overlap and are relative to the relevant gene or transcript; record those
+      details in the variant description.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    permissible_values:
+      coding sequence:
+        text: coding sequence
+        description: CDS
+        meaning: SO:0000316
+      intron:
+        text: intron
+        description: intron
+        meaning: SO:0000188
+      5' UTR:
+        text: 5' UTR
+        description: five_prime_UTR
+        meaning: SO:0000204
+      3' UTR:
+        text: 3' UTR
+        description: three_prime_UTR
+        meaning: SO:0000205
+      noncoding exon:
+        text: noncoding exon
+        description: noncoding_exon
+        meaning: SO:0000198
+        notes:
+        - An entire exon without codons; use a UTR value for the untranslated part
+          of an otherwise coding exon.
+      intergenic region:
+        text: intergenic region
+        description: intergenic_region
+        meaning: SO:0000605
   RegulatoryVariantCategoryEnum:
     name: RegulatoryVariantCategoryEnum
     definition_uri: https://w3id.org/monarch-initiative/dismech/RegulatoryVariantCategoryEnum
@@ -8498,6 +8585,7 @@ slots:
     identifier: true
     owner: ModuleCollection
     domain_of:
+    - GenomicRegion
     - ExperimentalModel
     - Experiment
     - ExperimentalPerturbation
@@ -8574,6 +8662,7 @@ slots:
     domain_of:
     - Descriptor
     - DietaryModification
+    - GenomicRegion
     - GeneticContext
     - Dataset
     - ExperimentalModel
@@ -11452,6 +11541,34 @@ slots:
     - Variant
     - FunctionalEffect
     range: string
+  variant_type:
+    name: variant_type
+    definition_uri: https://w3id.org/monarch-initiative/dismech/variant_type
+    description: Optional controlled physical variant class. Complements the legacy
+      free-text type without requiring it or replacing its narrative detail. Does
+      not imply a coding or regulatory functional effect.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:variant_type
+    owner: Variant
+    domain_of:
+    - GeneticContext
+    - Variant
+    range: VariantTypeEnum
+  genomic_contexts:
+    name: genomic_contexts
+    definition_uri: https://w3id.org/monarch-initiative/dismech/genomic_contexts
+    description: Sequence features overlapped by the variant. Multiple values are
+      allowed because an SV may span several features, or transcripts may differ.
+      Specify relevant genes, transcripts, and overlap details in description; an
+      intronic host gene need not be the regulatory target. Omit when unknown.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:genomic_contexts
+    owner: Variant
+    domain_of:
+    - GeneticContext
+    - Variant
+    range: GenomicContextEnum
+    multivalued: true
   clinical_significance:
     name: clinical_significance
     definition_uri: https://w3id.org/monarch-initiative/dismech/clinical_significance
@@ -11753,20 +11870,138 @@ slots:
     slot_uri: dismech:regulatory_category
     owner: FunctionalEffect
     domain_of:
+    - Pathophysiology
     - Variant
     - FunctionalEffect
     range: RegulatoryVariantCategoryEnum
+  regulatory_target_gene:
+    name: regulatory_target_gene
+    definition_uri: https://w3id.org/monarch-initiative/dismech/regulatory_target_gene
+    description: Gene whose expression is affected, or proposed to be affected, by
+      a regulatory variant. Does not assert that the variant overlaps this gene. Describe
+      the expression effect and its uncertainty in functional_effects and evidence.
+      A variant that also overlaps the gene may specify both gene and regulatory_target_gene.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:regulatory_target_gene
+    owner: Variant
+    domain_of:
+    - Variant
+    range: GeneDescriptor
+    inlined: true
+    inlined_as_list: true
   regulatory_element_type:
     name: regulatory_element_type
     definition_uri: https://w3id.org/monarch-initiative/dismech/regulatory_element_type
-    description: Type of gene regulatory element disrupted by a non-coding variant
-      (e.g., promoter, enhancer, silencer, insulator, TAD boundary).
+    description: Type of gene regulatory element affected by a variant (e.g., promoter,
+      enhancer, silencer, insulator, TAD boundary).
     from_schema: https://w3id.org/monarch-initiative/dismech
     slot_uri: dismech:regulatory_element_type
     owner: FunctionalEffect
     domain_of:
+    - GenomicRegion
     - FunctionalEffect
     range: RegulatoryElementTypeEnum
+  affected_regions:
+    name: affected_regions
+    definition_uri: https://w3id.org/monarch-initiative/dismech/affected_regions
+    description: Named genomic regions affected by the physical alteration, including
+      regulatory elements or chromosome intervals. Each item describes the named feature,
+      which need not span the entire variant. Record only source-supported locations;
+      disease-level regions need not have exact patient-specific breakpoints. Evidence
+      belongs on the enclosing record. Location landmarks do not assert regulatory
+      targeting or causal gene involvement. Existing free-text descriptions remain
+      valid.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:affected_regions
+    owner: Variant
+    domain_of:
+    - GeneticContext
+    - Genetic
+    - Variant
+    range: GenomicRegion
+    multivalued: true
+    inlined: true
+    inlined_as_list: true
+  chromosomal_region:
+    name: chromosomal_region
+    definition_uri: https://w3id.org/monarch-initiative/dismech/chromosomal_region
+    description: 'Qualitative human cytogenetic location: a chromosome, arm, band,
+      or band range on one chromosome (e.g., 21, 7q, 17p13.3, or 16p12.2-p11.2). Use
+      a single chromosome prefix and no chr prefix. This syntax does not validate
+      band existence or imply exact coordinates, common breakpoints, or a genome assembly.'
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:chromosomal_region
+    owner: GenomicRegion
+    domain_of:
+    - GenomicRegion
+    range: string
+    pattern: ^([1-9]|1[0-9]|2[0-2]|X|Y)([pq]([1-9][0-9]*(\.[0-9]+)?)?(-[pq]([1-9][0-9]*(\.[0-9]+)?)?)?)?$
+  between_genes:
+    name: between_genes
+    definition_uri: https://w3id.org/monarch-initiative/dismech/between_genes
+    description: Exactly two distinct genes on opposite sides of the named region
+      in the linear reference genome, with no overlap between the region and either
+      gene. The pair is unordered. Neither nearest-gene status nor direct adjacency
+      is implied; intervening sequence may be present. Apply this to the named feature,
+      not automatically to the entire altered interval. Do not use it for chromatin
+      contacts or newly juxtaposed genes on a rearranged allele.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:between_genes
+    owner: GenomicRegion
+    domain_of:
+    - GenomicRegion
+    range: GeneDescriptor
+    multivalued: true
+    inlined: true
+    inlined_as_list: true
+    minimum_cardinality: 2
+    maximum_cardinality: 2
+  within_gene:
+    name: within_gene
+    definition_uri: https://w3id.org/monarch-initiative/dismech/within_gene
+    description: Gene whose genomic span contains the entire named region in the linear
+      reference genome (e.g., an intronic enhancer). Does not imply that this gene
+      is the regulatory target or a disease-causal gene.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:within_gene
+    owner: GenomicRegion
+    domain_of:
+    - GenomicRegion
+    range: GeneDescriptor
+    inlined: true
+    inlined_as_list: true
+  overlaps_genes:
+    name: overlaps_genes
+    definition_uri: https://w3id.org/monarch-initiative/dismech/overlaps_genes
+    description: Genes sharing reference-genome sequence with the named region. The
+      list need not be exhaustive and does not assert complete deletion, dosage effects,
+      regulatory targeting, or disease causality.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:overlaps_genes
+    owner: GenomicRegion
+    domain_of:
+    - GenomicRegion
+    range: GeneDescriptor
+    multivalued: true
+    inlined: true
+    inlined_as_list: true
+  adjacent_to_genes:
+    name: adjacent_to_genes
+    definition_uri: https://w3id.org/monarch-initiative/dismech/adjacent_to_genes
+    description: Genes whose sequence boundary directly meets the named region in
+      the linear reference genome, without overlap or intervening sequence. This is
+      strict adjacency, not approximate proximity. Omit when the source establishes
+      only that a gene is nearby. Does not describe chromatin contacts or adjacency
+      created by a rearrangement.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slot_uri: dismech:adjacent_to_genes
+    owner: GenomicRegion
+    domain_of:
+    - GenomicRegion
+    range: GeneDescriptor
+    multivalued: true
+    inlined: true
+    inlined_as_list: true
   affected_cell_types:
     name: affected_cell_types
     definition_uri: https://w3id.org/monarch-initiative/dismech/affected_cell_types
@@ -14234,9 +14469,9 @@ slots:
     definition_uri: https://w3id.org/monarch-initiative/dismech/allele_type
     description: Type of allele or mutation (e.g., null, missense, splice_site, deletion,
       frameshift, nonsense, hypomorphic, structural_variant). Free text retained for
-      legacy or unusually complex contexts. Prefer the structured `allelic_events`,
-      `allelic_hit_role`, `variant_origin`, and `functional_impact_category` slots
-      when possible.
+      legacy or unusually complex contexts. Prefer the structured `variant_type`,
+      `genomic_contexts`, `allelic_events`, `allelic_hit_role`, `variant_origin`,
+      and `functional_impact_category` slots when possible.
     from_schema: https://w3id.org/monarch-initiative/dismech
     slot_uri: dismech:allele_type
     owner: GeneticContext
@@ -15454,6 +15689,24 @@ slots:
     recommended: true
     inlined: true
     inlined_as_list: false
+  GenomicRegion_name:
+    name: GenomicRegion_name
+    definition_uri: https://w3id.org/monarch-initiative/dismech/name
+    examples:
+    - value: Adolescent Nephronophthisis
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: name
+    domain: GenomicRegion
+    slot_uri: dismech:name
+    identifier: true
+    alias: name
+    owner: GenomicRegion
+    domain_of:
+    - GenomicRegion
+    is_usage_slot: true
+    usage_slot_name: name
+    range: string
+    required: true
   PhenotypeContext_sex:
     name: PhenotypeContext_sex
     definition_uri: https://w3id.org/monarch-initiative/dismech/sex
@@ -17231,6 +17484,25 @@ slots:
     multivalued: true
     inlined: true
     inlined_as_list: true
+  Pathophysiology_regulatory_category:
+    name: Pathophysiology_regulatory_category
+    definition_uri: https://w3id.org/monarch-initiative/dismech/regulatory_category
+    description: 'Controlled classification of the expression-effect claim represented
+      by this node. Interpret together with mechanism_confidence: a HYPOTHETICAL node
+      classifies a proposed effect, not an observed one. For regulatory SVs, annotate
+      the target gene here rather than on the physical initiating lesion when its
+      sequence is intact.'
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    is_a: regulatory_category
+    domain: Pathophysiology
+    slot_uri: dismech:regulatory_category
+    alias: regulatory_category
+    owner: Pathophysiology
+    domain_of:
+    - Pathophysiology
+    is_usage_slot: true
+    usage_slot_name: regulatory_category
+    range: RegulatoryVariantCategoryEnum
   HistopathologyFinding_name:
     name: HistopathologyFinding_name
     definition_uri: https://w3id.org/monarch-initiative/dismech/name
@@ -19556,6 +19828,31 @@ classes:
     - tissue_term
     - cell_type_term
     class_uri: dismech:SampleTypeDescriptor
+  GenomicRegion:
+    name: GenomicRegion
+    definition_uri: https://w3id.org/monarch-initiative/dismech/GenomicRegion
+    description: A named genomic feature or interval affected by an alteration. Supports
+      qualitative reference-genome location without requiring an ontology identifier,
+      assembly, or patient-specific coordinates. Use a specific name and description
+      to distinguish an affected subfeature (such as a regulatory boundary) from the
+      full altered interval. Gene relations describe linear reference-genome placement
+      only; keep regulatory targets, expression consequences, and mechanistic confidence
+      on the enclosing variant or pathophysiology record.
+    from_schema: https://w3id.org/monarch-initiative/dismech
+    slots:
+    - GenomicRegion_name
+    - description
+    - chromosomal_region
+    - regulatory_element_type
+    - between_genes
+    - within_gene
+    - overlaps_genes
+    - adjacent_to_genes
+    slot_usage:
+      name:
+        name: name
+        required: true
+    class_uri: dismech:GenomicRegion
   GeneticContext:
     name: GeneticContext
     definition_uri: https://w3id.org/monarch-initiative/dismech/GeneticContext
@@ -19564,11 +19861,17 @@ classes:
       multiple genes, mutation types, zygosity, complementation groups, and complex
       genotypes. The description slot accommodates contexts that don't fit neatly
       into the structured fields (e.g., structural variants, complex rearrangements).
+      Physical variant class and sequence overlap use the same controlled fields as
+      Variant. Separate alternative initiating alterations into distinct pathophysiology
+      nodes when their classes or overlaps differ.
     from_schema: https://w3id.org/monarch-initiative/dismech
     slots:
     - gene
     - genes
     - allele_type
+    - variant_type
+    - genomic_contexts
+    - affected_regions
     - variant_origin
     - allelic_hit_role
     - allelic_events
@@ -20899,6 +21202,15 @@ classes:
     - pdb_structures
     - mechanism_confidence
     - biological_scale
+    - Pathophysiology_regulatory_category
+    slot_usage:
+      regulatory_category:
+        name: regulatory_category
+        description: 'Controlled classification of the expression-effect claim represented
+          by this node. Interpret together with mechanism_confidence: a HYPOTHETICAL
+          node classifies a proposed effect, not an observed one. For regulatory SVs,
+          annotate the target gene here rather than on the physical initiating lesion
+          when its sequence is intact.'
     class_uri: dismech:Pathophysiology
   Phenotype:
     name: Phenotype
@@ -21055,6 +21367,7 @@ classes:
     slots:
     - name
     - gene_term
+    - affected_regions
     - presence
     - evidence
     - association
@@ -21424,6 +21737,7 @@ classes:
     - name
     - description
     - gene
+    - regulatory_target_gene
     - evidence
     - functional_effects
     - synonyms
@@ -21432,6 +21746,9 @@ classes:
     - sequence_length
     - clinical_significance
     - type
+    - variant_type
+    - genomic_contexts
+    - affected_regions
     - regulatory_category
     class_uri: dismech:Variant
   FunctionalEffect:
@@ -22549,6 +22866,6 @@ classes:
 metamodel_version: 1.7.0
 source_file: dismech.yaml
 source_file_date: '2025-01-01T00:00:00'
-source_file_size: 343286
+source_file_size: 351418
 generation_date: '2025-01-01T00:00:00'
 

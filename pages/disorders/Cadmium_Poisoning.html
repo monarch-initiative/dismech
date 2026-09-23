@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4641,6 +4680,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cadmium-absorption-and-systemic-distribution" data-dismech-node="Cadmium Absorption and Systemic Distribution" data-dismech-type="pathophysiology">
                 <div class="item-name">Cadmium Absorption and Systemic Distribution</div>
 
+
                 <div class="item-desc">Cadmium enters the body via inhalation of fumes/dust or gastrointestinal absorption from contaminated food and water. Inhaled cadmium is absorbed considerably more efficiently than ingested cadmium, and gastrointestinal uptake is enhanced by iron deficiency via the shared divalent metal transporter 1 (DMT1). Once absorbed, cadmium distributes via the bloodstream bound to albumin and accumulates in liver, kidney, and bone with a biological half-life of 10-30 years.</div>
 
 
@@ -4843,6 +4883,7 @@ This pathophysiological event involves cellular response to cadmium ion (GO:0071
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hepatic-metallothionein-binding" data-dismech-node="Hepatic Metallothionein Binding" data-dismech-type="pathophysiology">
                 <div class="item-name">Hepatic Metallothionein Binding</div>
 
+
                 <div class="item-desc">The liver is the primary site of initial cadmium detoxification. Hepatocytes synthesize metallothionein (MT), a cysteine-rich protein that binds cadmium with high affinity. The cadmium-metallothionein (Cd-MT) complex is slowly released into the bloodstream over time. While MT binding initially protects against free cadmium toxicity, the Cd-MT complex is filtered at the glomerulus and taken up by renal tubular cells, effectively transferring the cadmium burden to the kidney.</div>
 
 
@@ -5032,6 +5073,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-renal-proximal-tubular-cadmium-uptake" data-dismech-node="Renal Proximal Tubular Cadmium Uptake" data-dismech-type="pathophysiology">
                 <div class="item-name">Renal Proximal Tubular Cadmium Uptake</div>
+
 
                 <div class="item-desc">The cadmium-metallothionein (Cd-MT) complex is freely filtered at the glomerulus because of its low molecular weight. Proximal tubular epithelial cells reabsorb Cd-MT via receptor-mediated endocytosis through the megalin/cubilin receptor complex. Once internalized, Cd-MT is degraded in lysosomes, releasing free cadmium ions intracellularly. This mechanism explains the kidney&#39;s particular vulnerability to cadmium accumulation.</div>
 
@@ -5250,6 +5292,7 @@ This pathophysiological event occurs in proximal tubule (UBERON:0004134). UBERON
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-proximal-tubular-cell-injury" data-dismech-node="Proximal Tubular Cell Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Proximal Tubular Cell Injury</div>
 
+
                 <div class="item-desc">When intracellular cadmium exceeds the metallothionein binding capacity of proximal tubular cells, free cadmium ions cause oxidative stress, mitochondrial dysfunction, and activation of apoptotic pathways. Cadmium displaces zinc from zinc-finger proteins and disrupts calcium signaling, leading to tubular cell death.</div>
 
 
@@ -5451,6 +5494,7 @@ This pathophysiological event occurs in proximal tubule (UBERON:0004134). UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-tubular-reabsorption" data-dismech-node="Impaired Tubular Reabsorption" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Tubular Reabsorption</div>
+
 
                 <div class="item-desc">Injury to proximal tubular cells causes Fanconi syndrome, characterized by impaired reabsorption of low-molecular-weight proteins (beta-2-microglobulin, retinol-binding protein), glucose, amino acids, uric acid, and phosphate. This is the earliest and most sensitive clinical indicator of chronic cadmium nephrotoxicity, detectable before decline in GFR.</div>
 
@@ -5689,6 +5733,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-renal-phosphate-wasting" data-dismech-node="Renal Phosphate Wasting" data-dismech-type="pathophysiology">
                 <div class="item-name">Renal Phosphate Wasting</div>
 
+
                 <div class="item-desc">Impaired proximal tubular phosphate reabsorption leads to chronic phosphaturia and hypophosphataemia. The sustained phosphate loss is the primary metabolic driver of cadmium-induced osteomalacia, as phosphate is essential for hydroxyapatite crystal formation in bone.</div>
 
 
@@ -5832,6 +5877,7 @@ This pathophysiological event occurs in proximal tubule (UBERON:0004134). UBERON
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chronic-kidney-disease-progression" data-dismech-node="Chronic Kidney Disease Progression" data-dismech-type="pathophysiology">
                 <div class="item-name">Chronic Kidney Disease Progression</div>
 
+
                 <div class="item-desc">Sustained proximal tubular injury from cadmium accumulation leads to tubulointerstitial inflammation, fibrosis, and progressive nephron loss. Glomerular filtration rate declines as tubulointerstitial nephritis advances, ultimately resulting in chronic kidney disease.</div>
 
 
@@ -5953,6 +5999,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-defective-bone-mineralization" data-dismech-node="Defective Bone Mineralization" data-dismech-type="pathophysiology">
                 <div class="item-name">Defective Bone Mineralization</div>
+
 
                 <div class="item-desc">Chronic hypophosphataemia from renal phosphate wasting impairs hydroxyapatite crystal deposition in osteoid, causing osteomalacia. Bone becomes soft and prone to deformation and pathologic fractures. In itai-itai disease, severe demineralization causes fractures from minimal trauma, height loss, and skeletal deformities.</div>
 
@@ -6122,6 +6169,7 @@ This pathophysiological event occurs in bone, annotated with bone tissue (UBERON
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-proposed-direct-bone-cell-toxicity" data-dismech-node="Proposed Direct Bone-Cell Toxicity" data-dismech-type="pathophysiology">
                 <div class="item-name">Proposed Direct Bone-Cell Toxicity</div>
 
+
                 <div class="item-desc">A direct skeletal arm of cadmium toxicity is proposed alongside the renal phosphate-wasting route: cadmium is held to act on bone cells themselves, reducing osteoblast function and favouring osteoclastic resorption. The evidence currently curated here does NOT establish that arm — the only human observation available is reduced bone density in an occupationally exposed patient who also had nephropathy, so the renal route is not excluded and the claim of independence from phosphate wasting is not supported. Cell-level (osteoblast culture or animal) evidence is needed before this node asserts a direct mechanism; see the attached knowledge gap.</div>
 
 
@@ -6260,6 +6308,7 @@ This pathophysiological event occurs in bone, annotated with bone tissue (UBERON
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hepatic-oxidative-stress" data-dismech-node="Hepatic Oxidative Stress" data-dismech-type="pathophysiology">
                 <div class="item-name">Hepatic Oxidative Stress</div>
+
 
                 <div class="item-desc">Cadmium disrupts the hepatic redox balance: animal studies show reduced activity of the antioxidant enzymes SOD, GSH-Px, and CAT together with increased lipid peroxidation (elevated MDA). Note the evidence curated here measures antioxidant ENZYME activity rather than glutathione stores themselves, and one study reports cadmium triggering a hepatic antioxidant RESPONSE - so &#34;depletion&#34; is the interpretation placed on these readouts, not a directly measured finding. The claim that cadmium alters cytochrome P450 drug metabolism is not evidenced in this entry.</div>
 
@@ -6480,6 +6529,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hepatocyte-apoptosis" data-dismech-node="Hepatocyte Apoptosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Hepatocyte Apoptosis</div>
 
+
                 <div class="item-desc">Sustained oxidative stress from glutathione depletion triggers hepatocyte apoptosis via mitochondrial pathways. Cadmium causes release of pro-apoptotic proteins (cytochrome c, caspase-3, Bax) and nuclear damage, leading to progressive hepatocellular loss and liver injury.</div>
 
 
@@ -6634,6 +6684,7 @@ This pathophysiological event occurs in liver (UBERON:0002107). UBERON:0002107 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-nf-kb-mapk-inflammatory-signaling" data-dismech-node="NF-kB/MAPK Inflammatory Signaling" data-dismech-type="pathophysiology">
                 <div class="item-name">NF-kB/MAPK Inflammatory Signaling</div>
 
+
                 <div class="item-desc">Cadmium activates pro-inflammatory signaling cascades including the NF-kB and MAPK/JNK pathways, leading to increased secretion of pro-inflammatory cytokines (IL-1beta, IL-6, TNF-alpha, IL-8, CCL2) and upregulation of COX-2. This chronic inflammatory state exacerbates organ-specific injury in kidney, liver, and intestine.</div>
 
 
@@ -6780,6 +6831,7 @@ This pathophysiological event involves increased inflammatory response (GO:00069
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cadmium-induced-vascular-cholesterol-dysregulation" data-dismech-node="Cadmium-Induced Vascular Cholesterol Dysregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Cadmium-Induced Vascular Cholesterol Dysregulation</div>
+
 
                 <div class="item-desc">Cadmium disrupts cholesterol homeostasis in the vascular wall, promoting atherosclerosis through miRNA-mediated dysregulation of cholesterol uptake (CD36), efflux (ABCA1), and hydrolysis (NCEH1). Cadmium upregulates miR-30d-5p and downregulates miR-504-3p, promoting foam cell formation and intracellular lipid accumulation in macrophages. This pathway links cadmium exposure to increased cardiovascular risk, particularly ischemic stroke.</div>
 
@@ -6929,6 +6981,7 @@ This pathophysiological event involves abnormal cholesterol homeostasis (GO:0042
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-acute-pulmonary-injury" data-dismech-node="Acute Pulmonary Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Acute Pulmonary Injury</div>
+
 
                 <div class="item-desc">Inhalation of cadmium fumes causes acute chemical pneumonitis with diffuse alveolar damage, pulmonary edema, and potentially fatal respiratory failure. Cadmium oxide fumes are particularly hazardous, causing delayed-onset (12-36 hours) acute lung injury that may progress to ARDS.</div>
 
@@ -7123,6 +7176,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-zinc-finger-displacement-and-dna-repair-inhibition" data-dismech-node="Zinc-Finger Displacement and DNA Repair Inhibition" data-dismech-type="pathophysiology">
                 <div class="item-name">Zinc-Finger Displacement and DNA Repair Inhibition</div>
+
 
                 <div class="item-desc">Cadmium is a weak direct mutagen; its genotoxicity is largely indirect and runs through the zinc-finger fold. Cd(2+) substitutes for the structural Zn(II) held tetrahedrally by cysteine thiolates and histidine imidazoles in zinc-finger domains, and cadmium-driven oxidative stress independently oxidises those thiolate donors. Because several DNA-repair proteins (nucleotide-excision and mismatch-repair components) are zinc-finger proteins, the displacement inhibits repair without altering the underlying gene sequence - a loss-of-function-like lesion imposed on the proteome rather than encoded in the genome. This node is the mechanistic bridge from the systemic cadmium burden to the carcinogenic arm, and is why cadmium behaves as a co-mutagen and repair inhibitor rather than as a classical DNA-adduct-forming carcinogen.</div>
 
@@ -7325,6 +7379,7 @@ This pathophysiological event involves abnormal zinc ion binding (GO:0008270). G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cadmium-associated-carcinogenesis" data-dismech-node="Cadmium-Associated Carcinogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Cadmium-Associated Carcinogenesis</div>
+
 
                 <div class="item-desc">Cadmium and its compounds have been classified by IARC as carcinogenic to humans (Group 1) since 1993, on the strength of excess lung cancer in occupationally exposed cohorts together with animal tumour data. The contemporary evidence base, reviewed across biological-sample studies, supports a causal role at the lung, pancreas and bladder, with total cancer risk and mortality correlating with measured cadmium body burden. Site attribution is deliberately not curated uniformly: the prostate association was not confirmed on cohort update, and breast and prostate evidence remains weak or inconclusive. Latency is that of chemical carcinogenesis - years to decades - which is why this arm is a feature of chronic rather than acute cadmium poisoning.</div>
 
@@ -9251,6 +9306,9 @@ This disease-associated gene is SLC39A8 (hgnc:20862). hgnc:20862 is a gene from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -9375,6 +9433,9 @@ This disease-associated gene is SLC39A14 (hgnc:20858). hgnc:20858 is a gene from
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9445,6 +9506,9 @@ This disease-associated gene is SLC11A2 (hgnc:10908). hgnc:10908 is a gene from 
 
 
                 </div>
+
+
+
 
 
 
@@ -9548,6 +9612,9 @@ This disease-associated gene is MT1A (hgnc:7393). hgnc:7393 is a gene from the H
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -9643,6 +9710,9 @@ This disease-associated gene is MT2A (hgnc:7406). hgnc:7406 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 

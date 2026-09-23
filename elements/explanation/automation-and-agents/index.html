@@ -2661,6 +2661,34 @@
   
   
     <li class="md-nav__item">
+      <a href="../../reports/postre-proposed-regulatory-sv-triage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    POSTRE regulatory structural variant curation triage
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../../reports/senescent-cell-representation-2026-09-20/" class="md-nav__link">
         
   
@@ -25179,8 +25207,8 @@ PRs: <code>curation-scanner</code>, <code>literature-scan</code>, <code>preprint
 <code>knowledge-gap-scan</code>, <code>discussion-scanner</code>. These are the top of the funnel.</p>
 <p><strong>PR lifecycle</strong> — <code>claude-code-review</code> (automated review on every PR),
 <code>post-review-agent</code> (acts on editorial review comments), <code>pr-shepherd</code> (unsticks
-stalled bot-authored PRs, repairs additive cache conflicts, and deterministically
-merges ready PRs through one common closing controller).</p>
+stalled unassigned PRs by any author, repairs additive cache conflicts, and
+deterministically merges ready PRs through one common closing controller).</p>
 <p><strong>Interactive agents</strong> — <code>claude.yml</code> and <code>dragon-ai.yml</code> respond to <code>@</code>-mentions
 on issues, PRs, and review comments (<code>dragon-ai.yml</code> is summoned as <code>@ai4c-agent</code>;
 the file keeps its old name). <code>claude-issue-triage</code> and
@@ -25202,7 +25230,11 @@ which meant a repo-wide change was an N-file edit that drifted:</p>
   Named profiles (<code>slow</code>/<code>medium</code>/<code>fast</code>/<code>fast-weekend</code>) applied with
   <code>just cron-profile &lt;name&gt;</code>.</li>
 <li><strong>Model</strong> → <a href="https://github.com/monarch-initiative/dismech/blob/main/.github/agent-config.yaml"><code>.github/agent-config.yaml</code></a>.
-  Each workflow resolves <code>AGENT_MODEL</code> at run time via a composite action.</li>
+  Single-model workflows resolve <code>AGENT_MODEL</code> via a composite action; the
+  curation scanner resolves its matrix and passes each row's <code>matrix.model</code>.
+  Family aliases follow new releases, and every managed agent uses the shared
+  <code>setup-claude-code</code> action to install the latest CLI. See
+  <a href="../../agent-config/#keeping-current-with-minimal-churn">model and runtime maintenance</a>.</li>
 </ul>
 <p><strong>Do not hand-edit the <code>cron:</code> lines or add a <code>--model</code> flag to a workflow.</strong> A
 test (<code>tests/test_agent_config.py</code>) enforces the model rule. Edit the config.</p>
@@ -25440,8 +25472,9 @@ locally:</p>
 and errors. Changed or incomplete histories are reported as deferrals without
 failing the job. API and other unexpected failures fail the job; CLI errors
 include the exit code without exposing command arguments or response bodies.
-Releasing an assignment does not close or merge the PR, change reviews, or
-override the repair jobs' separate author restrictions.</p>
+Releasing an assignment does not close or merge the PR or change reviews. It
+makes an otherwise eligible PR available for repair regardless of its author;
+the repair jobs' remaining lifecycle and branch-ownership guards still apply.</p>
 <h3 id="tending-abandoned-prs-and-repairing-cache-conflicts">Tending abandoned PRs and repairing cache conflicts</h3>
 <p>The shepherd owns eligible abandoned code and documentation PRs as well as
 curation PRs. Python changes in <code>src/</code>, <code>scripts/</code>, and <code>tests/</code> are ordinary
@@ -25452,12 +25485,17 @@ and run the relevant tests. Earlier shepherd comments calling those files
 approved red/blocked PRs and missing reviews. Within each group it considers
 the oldest updated PR first. An approved, clean branch belongs to the closer
 even when behind main; freshness alone must not trigger another push and review.</p>
-<p>The agent-tending shortlist is authorized by verified author identity, not by a
-head-branch naming convention. In particular, a human-authored <code>claude/</code> branch
-does not become agent-tendable, while an allowlisted bot-authored PR may use any
-head name outside the separately managed <code>auto/</code> lanes. This deliberately
-replaces the older <code>claude/</code> prefix heuristic with the boundary the guardrail
-actually means: never modify a human-authored PR.</p>
+<p>Author identity does not affect repair eligibility. The shepherd may repair
+unassigned PRs from humans or bots, including a human-authored <code>claude/</code> branch.
+The shortlist requires an open PR targeting <code>main</code> with no assignees and a head
+in this repository, outside the separately managed <code>auto/</code> lanes. GitHub's
+<code>isCrossRepository</code> must be explicitly false; fork heads and missing or unknown
+head-repository metadata are excluded. The agent rechecks this before checking
+out or executing PR code and before pushing. Assignment is the deterministic
+active-work hold. For unassigned PRs, the agent assesses recent activity and
+discussion to avoid duplicating an ongoing repair; there is no fixed PR-age
+cutoff for repair. Earlier comments refusing human-authored work do not block
+recovery.</p>
 <p>That tending restriction is intentionally narrower than deterministic merge
 eligibility. The LLM lane may decline to edit an assigned or <code>auto/</code> PR while
 the fixed controller can still merge it after the waiting period; mutation
@@ -25465,10 +25503,11 @@ authority and merge eligibility are separate policies.</p>
 <p>The independent <code>repair-caches</code> job runs trusted main code before the agent
 shortlist is built, including during controller-only hourly runs. Its default
 budget is three repairs, adjustable with <code>max_cache_repairs</code>; <code>0</code> disables it.
-<code>dry_run</code> and <code>pr_number</code> apply to this job too. It observes the same verified
-author and assignment guards as the agent, rejects fork heads, and defers while
-checks reported on the PR are unfinished. It never marks ready, approves, or
-merges a PR into main.</p>
+<code>dry_run</code> and <code>pr_number</code> apply to this job too. It observes the same assignment,
+lifecycle, and head-repository guards as the agent regardless of author:
+<code>isCrossRepository</code> must be explicitly false. It also defers while checks
+reported on the PR are unfinished. It never marks ready, approves, or merges a
+PR into main.</p>
 <p>Agent tending waits for this run's cache job. Cache sweeps serialize with
 <code>cancel-in-progress: false</code>, so an earlier sweep can add queueing time before
 this run's own repair job, whose execution is limited to 20 minutes. A delayed
@@ -25484,7 +25523,10 @@ it back. Labels, timestamps and memberships are never invented. Reference
 markdown, hierarchy caches, other generated artifacts, competing values,
 deletions, mode changes, renames, and mixed source conflicts remain agent work.
 Root-level cache JSON changes are rejected using tree metadata before merge
-planning, so the frozen dataset cache is never opened or changed.</p>
+planning, so the retired dataset cache is never opened or changed. A deletion
+already on trusted main is carried forward if the PR left the file unchanged
+or also deleted it. PRs that modified it still need their delete/edit conflict
+resolved by keeping the deletion.</p>
 <p>The controller does not check out PR files or run their code, generators,
 dependencies, or tests. Git computes the ordinary merge in its object database;
 a private index replaces only supported conflicting CSV blobs. All remaining
@@ -25492,9 +25534,9 @@ paths and modes must exactly match Git's merge result. Conflicts must match the
 same path in the sole ancestor and both tips, and case-colliding results are
 rejected. Only after the entire plan succeeds can it create a two-parent merge
 commit, with the original PR head first and the inspected main tip second.</p>
-<p>Before publication it rechecks author, assignment, state, branch, head, checks,
-and main. Publication uses an explicit expected-head lease <strong>and</strong> verifies
-that the new commit fast-forwards that head. The lease is compare-and-swap;
+<p>Before publication it rechecks assignment, state, branch, head repository and
+SHA, checks, and main. Publication uses an explicit expected-head lease <strong>and</strong>
+verifies that the new commit fast-forwards that head. The lease is compare-and-swap;
 the ancestry check forbids history rewriting. This also rejects a concurrent
 rewind or branch deletion, which an ordinary push would miss. Tests exercise
 forward-update, rewind, and deletion races against real disposable remotes.

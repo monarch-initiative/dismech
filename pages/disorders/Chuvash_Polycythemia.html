@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4888,6 +4927,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-pvhl-binding-to-hydroxylated-hif-alpha" data-dismech-node="Impaired pVHL Binding to Hydroxylated HIF-alpha" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired pVHL Binding to Hydroxylated HIF-alpha</div>
 
+
                 <div class="item-desc">pVHL is the substrate-recognition subunit of a Cullin-2 RING E3 ubiquitin ligase. Under normal oxygen tension, prolyl hydroxylases hydroxylate conserved prolines in HIF-1-alpha and HIF-2-alpha, pVHL binds the hydroxyproline, and the HIF-alpha subunit is polyubiquitinated and destroyed by the proteasome. The Arg200Trp substitution weakens that interaction. It does not abolish it, and that distinction carries the whole disease: a hypomorph produces a chronically mis-set oxygen thermostat, where a null would produce the tumor syndrome.</div>
 
 
@@ -5126,6 +5166,7 @@ This pathophysiological event involves decreased HIF-alpha ubiquitination, annot
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-normoxic-hif-alpha-stabilization" data-dismech-node="Normoxic HIF-alpha Stabilization" data-dismech-type="pathophysiology">
                 <div class="item-name">Normoxic HIF-alpha Stabilization</div>
 
+
                 <div class="item-desc">HIF-1-alpha and HIF-2-alpha accumulate and dimerize with HIF-1-beta at normal oxygen tension. The cell believes it is short of oxygen while sitting in ordinary room air, which is why the whole phenotype reads as permanent altitude acclimatization. Both isoforms are elevated in patients, but they are not interchangeable: mouse genetics show heterozygosity for Hif2a, and not Hif1a, suppresses both the polycythemia and the pulmonary hypertension, so HIF-2-alpha is the dominant effector for the erythroid and pulmonary-vascular arms.</div>
 
 
@@ -5325,6 +5366,7 @@ This pathophysiological event involves normoxic hypoxia response, annotated with
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hif-target-gene-program-activation" data-dismech-node="HIF Target Gene Program Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">HIF Target Gene Program Activation</div>
+
 
                 <div class="item-desc">The stabilized HIF dimers transcribe the full hypoxia-response program at normal oxygen: erythropoietin, the glucose transporter SLC2A1, transferrin and its receptor, vascular endothelial growth factor, and endothelin-1. This is the fan-out point of the disease, and it is why a single amino-acid change produces phenotypes in blood, lung, vasculature, iron handling, and muscle metabolism at once. Note that hypoxic regulation itself remains intact and correctly shaped; only the setpoint has moved.</div>
 
@@ -5529,6 +5571,7 @@ This pathophysiological event involves increased cellular response to hypoxia (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-erythropoietin-excess-and-erythroid-expansion" data-dismech-node="Erythropoietin Excess and Erythroid Expansion" data-dismech-type="pathophysiology">
                 <div class="item-name">Erythropoietin Excess and Erythroid Expansion</div>
+
 
                 <div class="item-desc">Circulating erythropoietin is roughly tenfold higher than in matched controls after adjusting for hemoglobin, yet the response to acute hypoxia is identical to normal, so the axis is intact and merely reset. Erythroid progenitors expand in marrow and, at least in the mouse model, in spleen. Erythroid progenitors from R200W homozygotes are additionally hypersensitive to erythropoietin, an asymmetry that is not shared by the Croatian H191D genotype. Note the discriminator from polycythemia vera: white cell and platelet counts are normal, indeed often lower than controls, rather than expanded.</div>
 
@@ -5828,6 +5871,7 @@ This pathophysiological event occurs in kidney (UBERON:0002113). UBERON:0002113 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-prothrombotic-state" data-dismech-node="Prothrombotic State" data-dismech-type="pathophysiology">
                 <div class="item-name">Prothrombotic State</div>
 
+
                 <div class="item-desc">Thrombosis is the leading cause of morbidity and mortality, and this node is where the disease defies the obvious intuition. The reflex reading is high hematocrit, viscous blood, clots. In Chuvash erythrocytosis that is wrong. In 155 patients followed prospectively against 154 matched controls for eleven years, thrombotic risk rose 8.9-fold, and erythropoietin elevation, not hematocrit and not ferritin, is what correlated with it. Elevated transferrin was, unexpectedly, protective. Contributory mediators include raised plasminogen activator inhibitor-1, vascular endothelial growth factor, and endothelin-1, with a broadly prothrombotic transcriptional milieu. Model the causal edge as HIF and erythropoietin signaling to the prothrombotic state, with erythrocytosis as a parallel consequence rather than the intermediate.</div>
 
 
@@ -6007,6 +6051,7 @@ This pathophysiological event involves increased blood coagulation (GO:0007596).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pulmonary-vascular-tone-and-remodeling" data-dismech-node="Pulmonary Vascular Tone and Remodeling" data-dismech-type="pathophysiology">
                 <div class="item-name">Pulmonary Vascular Tone and Remodeling</div>
+
 
                 <div class="item-desc">Basal pulmonary vascular tone is elevated and the hypoxic pulmonary vasoconstrictive response is greatly exaggerated, alongside raised basal ventilation, a physiological picture indistinguishable from acclimatization to high altitude. Roughly a third of patients have mild pulmonary hypertension by echocardiography, and tricuspid regurgitation velocity remains elevated after adjusting for blood-volume surrogates, so this is not simply a volume effect. The mouse model settles the causal question: pulmonary hypertension develops independently of the polycythemia, with vascular remodeling, hemorrhage, edema, and macrophage infiltration, all suppressed by Hif2a heterozygosity. Endothelin-1 is elevated in patients and is a HIF target.</div>
 
@@ -6257,6 +6302,7 @@ This pathophysiological event occurs in pulmonary artery (UBERON:0002012). UBERO
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hepcidin-suppression-and-iron-mobilization" data-dismech-node="Hepcidin Suppression and Iron Mobilization" data-dismech-type="pathophysiology">
                 <div class="item-name">Hepcidin Suppression and Iron Mobilization</div>
 
+
                 <div class="item-desc">Hepcidin, the master regulator of iron export, is suppressed roughly threefold in homozygotes, and the suppression survives adjustment for both erythropoietin and ferritin, so it is a direct consequence of the raised hypoxic response rather than a downstream effect of accelerated erythropoiesis. Transferrin and transferrin receptor are induced as HIF targets. The clinically important interaction is iatrogenic: therapeutic phlebotomy drives iron deficiency on top of this program, and lower ferritin independently predicts higher pulmonary artery pressure.</div>
 
 
@@ -6365,6 +6411,7 @@ This pathophysiological event occurs in pulmonary artery (UBERON:0002012). UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-metabolic-reprogramming-toward-glycolysis" data-dismech-node="Metabolic Reprogramming Toward Glycolysis" data-dismech-type="pathophysiology">
                 <div class="item-name">Metabolic Reprogramming Toward Glycolysis</div>
+
 
                 <div class="item-desc">Raised HIF activity induces glycolytic enzymes and pyruvate dehydrogenase kinase, shifting substrate use away from oxidative phosphorylation. During exercise this shows up as early phosphocreatine depletion and acidosis in skeletal muscle, greater blood lactate accumulation, and reduced maximum exercise capacity, with elevated muscle transcripts for pyruvate dehydrogenase kinase, phosphofructokinase, and muscle pyruvate kinase. This is the physiological substrate of the fatigue and exercise limitation patients report, and it is a rare opportunity to observe HIF-driven metabolic regulation at whole-organism level in humans.</div>
 
@@ -6512,6 +6559,7 @@ This pathophysiological event involves increased glycolytic process (GO:0006096)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-solid-organ-size" data-dismech-node="Increased Solid Organ Size" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased Solid Organ Size</div>
+
 
                 <div class="item-desc">Liver, spleen, and kidney volumes relative to body mass are larger in homozygotes than in matched Chuvash controls. The proposed mechanism runs through the opposing effects of the two HIF isoforms on proliferation: HIF-1-alpha induces the cyclin-dependent kinase inhibitor p21, while HIF-2-alpha promotes MYC activity and proliferation, and mouse data implicate raised hepatic HIF-2-alpha with reduced p21.</div>
 
@@ -8011,6 +8059,9 @@ This disease-associated gene is VHL (hgnc:12687). hgnc:12687 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8110,6 +8161,9 @@ This disease-associated gene is EPO (hgnc:3415). hgnc:3415 is a gene from the HU
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8180,6 +8234,9 @@ This disease-associated gene is TF (hgnc:11740). hgnc:11740 is a gene from the H
                     <span class="tag" style="background: #ede9fe; color: #5b21b6;">variant_origin: GERMLINE</span>
 
                 </div>
+
+
+
 
 
 
@@ -9466,10 +9523,10 @@ This treatment is Pharmacotherapy (NCIT:C15986). NCIT:C15986 is a clinical inter
 
                 </div>
 
-                <div class="evidence-snippet">"We studied six polycythemic Chuvash patients &lt;20 years of age from unrelated families and 12 first-degree family members."</div>
+                <div class="evidence-snippet">"Familial and congenital polycythemia, not due to high oxygen affinity hemoglobin or reduced 2,3-diphosphoglycerate in erythrocytes, is common in the Chuvash population of the Russian Federation. Hundreds of individuals appear to be affected in an autosomal recessive pattern. We studied six..."</div>
 
 
-                <div class="evidence-explanation">Establishes that the phenotype is present and detectable in childhood and adolescence.</div>
+                <div class="evidence-explanation">Connects the six young Chuvash patients to familial congenital polycythemia. Enrollment before twenty does not itself measure onset or establish an insidious presentation.</div>
 
 
 
@@ -11361,10 +11418,15 @@ progression:
     reference_title: Congenital polycythemia in Chuvashia.
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;We studied six polycythemic Chuvash patients &lt;20 years of age from unrelated families and 12 first-degree family members.&#34;
+    snippet: &gt;-
+      Familial and congenital polycythemia, not due to high oxygen affinity hemoglobin or reduced
+      2,3-diphosphoglycerate in erythrocytes, is common in the Chuvash population of the Russian
+      Federation. Hundreds of individuals appear to be affected in an autosomal recessive pattern.
+      We studied six polycythemic Chuvash patients &lt;20 years of age from unrelated families and 12
+      first-degree family members.
     explanation: &gt;-
-      Establishes that the phenotype is present and detectable in childhood and
-      adolescence.
+      Connects the six young Chuvash patients to familial congenital polycythemia. Enrollment before
+      twenty does not itself measure onset or establish an insidious presentation.
 - phase: Adult event-driven course
   notes: &gt;-
     Hematologically the disease is stable or slowly progressive; clinically it is
@@ -13695,7 +13757,7 @@ Mouse: TG101209 "reversed the disease phenotype in Vhl(R200W/R200W) knock-in mic
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Chuvash Polycythemia", "mondoId": "MONDO:0009892", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Chuvash_Polycythemia", "yamlRevision": "0a5a0e17e5fb"};
+        const OS_CONFIG = {"diseaseName": "Chuvash Polycythemia", "mondoId": "MONDO:0009892", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Chuvash_Polycythemia", "yamlRevision": "816645253abf"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');

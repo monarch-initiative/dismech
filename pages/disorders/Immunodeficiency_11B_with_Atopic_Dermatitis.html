@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4511,6 +4550,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-heterozygous-dominant-negative-card11-variant" data-dismech-node="Heterozygous Dominant-Negative CARD11 Variant" data-dismech-type="pathophysiology">
                 <div class="item-name">Heterozygous Dominant-Negative CARD11 Variant</div>
 
+
                 <div class="item-desc">A single hypomorphic CARD11 allele, expressed alongside the wild-type protein, exerts a dominant-interfering effect because CARD11 signals as an oligomer; the variant protein is loss-of-function on its own and additionally suppresses wild-type CARD11 when co-expressed.
 </div>
 
@@ -4611,6 +4651,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-oligomer-poisoning-of-the-card11-signaling-cycle" data-dismech-node="Oligomer Poisoning of the CARD11 Signaling Cycle" data-dismech-type="pathophysiology">
                 <div class="item-name">Oligomer Poisoning of the CARD11 Signaling Cycle</div>
 
+
                 <div class="item-desc">Mixed wild-type:mutant CARD11 oligomers fail at the opening step, in which the inhibitory domain&#39;s repressive elements are neutralised, and at the cofactor-association step, so that antigen receptor engagement no longer converts the scaffold to its active state.
 </div>
 
@@ -4685,6 +4726,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-attenuated-nf-kb-jnk-and-mtorc1-signaling-downstream-of-the-antigen-receptor" data-dismech-node="Attenuated NF-kB, JNK and mTORC1 Signaling Downstream of the Antigen Receptor" data-dismech-type="pathophysiology">
                 <div class="item-name">Attenuated NF-kB, JNK and mTORC1 Signaling Downstream of the Antigen Receptor</div>
+
 
                 <div class="item-desc">Antigen receptor-induced canonical NF-kB activation, JNK/AP-1 signalling and mTORC1 activation are all reduced in patient T cells and in cells expressing patient variants; the mTORC1 defect reflects impaired CARD11-dependent glutamine import and is partially rescued by glutamine supplementation.
 </div>
@@ -5008,6 +5050,7 @@ This pathophysiological event involves decreased T cell receptor signaling pathw
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-th2-skewing-via-loss-of-jnk-dependent-gata3-repression" data-dismech-node="Th2 Skewing via Loss of JNK-Dependent GATA3 Repression" data-dismech-type="pathophysiology">
                 <div class="item-name">Th2 Skewing via Loss of JNK-Dependent GATA3 Repression</div>
 
+
                 <div class="item-desc">Attenuated TCR signalling favours Th2 differentiation, a shared mechanism of the primary atopic disorders; in CADINS the loss of CARD11-JNK signalling specifically up-regulates GATA3 and NFATC1 in patient T cells, and patients show diminished IFN-gamma with increased IL-4 production.
 </div>
 
@@ -5213,6 +5256,7 @@ This pathophysiological event involves decreased interferon-gamma production, an
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-partial-t-cell-regulatory-t-cell-and-nk-cell-dysfunction" data-dismech-node="Partial T-Cell, Regulatory T-Cell and NK-Cell Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Partial T-Cell, Regulatory T-Cell and NK-Cell Dysfunction</div>
+
 
                 <div class="item-desc">T cells respond poorly to mitogens and antigens with reduced IFN-gamma and IL-2; CTLA4+FOXP3+ regulatory T cells are reduced; NK cells show reduced NKp46, NKG2D and CD69, impaired IFN-gamma production by CD56bright cells and paradoxically increased steady-state pS6, so that the effect of the variant on mTORC1 differs between T and NK cells. These defects underlie the recurrent respiratory, cutaneous and viral infections, reduced immune surveillance and autoimmunity.
 </div>
@@ -5530,6 +5574,7 @@ This pathophysiological event involves decreased interleukin-2 production (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-atopic-inflammation-with-hyper-ige-and-eosinophilia" data-dismech-node="Atopic Inflammation with Hyper-IgE and Eosinophilia" data-dismech-type="pathophysiology">
                 <div class="item-name">Atopic Inflammation with Hyper-IgE and Eosinophilia</div>
+
 
                 <div class="item-desc">Th2-skewed T cells drive severe, early-onset atopic dermatitis, asthma, food allergy and chronic urticaria with markedly elevated IgE and eosinophilia; IgE elevation develops with age and is not by itself sufficient for overt atopic symptoms in the mouse model.
 </div>
@@ -8007,6 +8052,9 @@ This disease-associated gene is CARD11 (hgnc:16393). hgnc:16393 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (2 references)
@@ -8082,7 +8130,9 @@ This disease-associated gene is CARD11 (hgnc:16393). hgnc:16393 is a gene from t
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
@@ -8090,6 +8140,11 @@ This disease-associated gene is CARD11 (hgnc:16393). hgnc:16393 is a gene from t
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Founding dominant-negative variant segregating with severe atopy in a four-member family; loss of function with dominant-negative effect on wild-type CARD11, modelled in the CARD11 R30W/+ mouse.
@@ -8153,7 +8208,9 @@ This disease-associated gene is CARD11 (hgnc:16393). hgnc:16393 is a gene from t
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
@@ -8161,6 +8218,11 @@ This disease-associated gene is CARD11 (hgnc:16393). hgnc:16393 is a gene from t
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">De novo heterozygous variant in a boy with severe atopic dermatitis, food-induced anaphylaxis and hypogammaglobulinaemia; dominant-negative effect confirmed on CD4+ and CD8+ T cells.</div>
@@ -8223,7 +8285,9 @@ This disease-associated gene is CARD11 (hgnc:16393). hgnc:16393 is a gene from t
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
@@ -8231,6 +8295,11 @@ This disease-associated gene is CARD11 (hgnc:16393). hgnc:16393 is a gene from t
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">Dominant-negative variant in a family with severe atopy, hypogammaglobulinaemia and intermittent agranulocytosis in the proband, and HPV-positive squamous cell carcinoma and cutaneous T-cell lymphoma across two generations.</div>
@@ -8293,7 +8362,9 @@ This disease-associated gene is CARD11 (hgnc:16393). hgnc:16393 is a gene from t
 
     </div>
 
+
     <div class="item-meta">
+
 
 
         <span class="tag" style="background: #e0e7ff; color: #3730a3;">missense</span>
@@ -8301,6 +8372,11 @@ This disease-associated gene is CARD11 (hgnc:16393). hgnc:16393 is a gene from t
 
 
     </div>
+
+
+
+
+
 
 
     <div class="item-desc">De novo dominant-negative variant in the MAGUK region, outside the CARD and coiled-coil domains where most CADINS alleles cluster, in a Chinese girl with periodic fever, recurrent infections and eczema.</div>

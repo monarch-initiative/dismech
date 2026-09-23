@@ -18,6 +18,40 @@ skip to [Review states and merge state](#review-states-and-merge-state).
 
 ---
 
+## Agent traces in Langfuse
+
+All 14 Claude workflows send session traces to Langfuse using the
+[Claude Observability Plugin](https://github.com/langfuse/Claude-Observability-Plugin).
+This includes the scanners, PR review and shepherd, editorial review,
+compliance, mention responders, and issue triage, summarization, and deduplication.
+The plugin records prompts, model generations, token usage, and tool inputs and
+outputs from the Claude transcript. Captured text is subject to the plugin's
+size limits; a trace is not a guarantee of an unabridged tool result.
+
+The workflows use the same repository secrets as PR Shepherd:
+`LANGFUSE_PUBLIC_KEY`, `LANGFUSE_SECRET_KEY`, and `LANGFUSE_BASE_URL`.
+These should point to the ai4curation **all-traces** project. The
+`ALLTRACES_LANGFUSE_*` prefix used in local environments is not the GitHub
+secret name. Keys are passed through the environment of the agent step;
+missing keys disable the hook's export. Each runner installs `uv` so the hook
+can load its Python dependencies.
+
+`CC_LANGFUSE_TRACE_TAGS` identifies the repository, workflow file stem, run ID,
+run attempt, and job. For example, filter on `workflow:curation-scanner` to
+inspect that scanner; the `run:<id>` tag maps to
+`https://github.com/monarch-initiative/dismech/actions/runs/<id>`.
+The curation scanner also adds `tier:<effort>` to distinguish its matrix jobs
+within the same run (for example, `tier:high_effort`).
+The upstream Claude action installs the plugin through its marketplace inputs.
+The CLI-based mention responder and local Claude action install it before
+starting the agent. These explicit installation steps are non-blocking: a
+marketplace or plugin-install failure leaves the agent running without tracing.
+
+PR Shepherd keeps `show_full_output: false`. Other workflows retain their
+existing GitHub log and artifact settings while Langfuse coverage is established.
+Retiring their direct collection in agent-watcher is a separate cutover after
+verifying traces from successful runs.
+
 ## The stance: agent-forward, with a human *window* rather than a sign-off
 
 [Design decision §7](design-decisions.md) states it: DisMech is **agent-forward**.
@@ -112,8 +146,8 @@ PRs: `curation-scanner`, `literature-scan`, `preprint-scan`,
 
 **PR lifecycle** — `claude-code-review` (automated review on every PR),
 `post-review-agent` (acts on editorial review comments), `pr-shepherd` (unsticks
-stalled bot-authored PRs, repairs additive cache conflicts, and deterministically
-merges ready PRs through one common closing controller).
+stalled unassigned PRs by any author, repairs additive cache conflicts, and
+deterministically merges ready PRs through one common closing controller).
 
 **Interactive agents** — `claude.yml` and `dragon-ai.yml` respond to `@`-mentions
 on issues, PRs, and review comments (`dragon-ai.yml` is summoned as `@ai4c-agent`;
@@ -142,7 +176,11 @@ which meant a repo-wide change was an N-file edit that drifted:
   Named profiles (`slow`/`medium`/`fast`/`fast-weekend`) applied with
   `just cron-profile <name>`.
 - **Model** → [`.github/agent-config.yaml`](https://github.com/monarch-initiative/dismech/blob/main/.github/agent-config.yaml).
-  Each workflow resolves `AGENT_MODEL` at run time via a composite action.
+  Single-model workflows resolve `AGENT_MODEL` via a composite action; the
+  curation scanner resolves its matrix and passes each row's `matrix.model`.
+  Family aliases follow new releases, and every managed agent uses the shared
+  `setup-claude-code` action to install the latest CLI. See
+  [model and runtime maintenance](../agent-config.md#keeping-current-with-minimal-churn).
 
 **Do not hand-edit the `cron:` lines or add a `--model` flag to a workflow.** A
 test (`tests/test_agent_config.py`) enforces the model rule. Edit the config.
@@ -409,8 +447,9 @@ The summary distinguishes assigned PRs found, PRs inspected, actions, deferrals,
 and errors. Changed or incomplete histories are reported as deferrals without
 failing the job. API and other unexpected failures fail the job; CLI errors
 include the exit code without exposing command arguments or response bodies.
-Releasing an assignment does not close or merge the PR, change reviews, or
-override the repair jobs' separate author restrictions.
+Releasing an assignment does not close or merge the PR or change reviews. It
+makes an otherwise eligible PR available for repair regardless of its author;
+the repair jobs' remaining lifecycle and branch-ownership guards still apply.
 
 ### Tending abandoned PRs and repairing cache conflicts
 
@@ -424,12 +463,17 @@ approved red/blocked PRs and missing reviews. Within each group it considers
 the oldest updated PR first. An approved, clean branch belongs to the closer
 even when behind main; freshness alone must not trigger another push and review.
 
-The agent-tending shortlist is authorized by verified author identity, not by a
-head-branch naming convention. In particular, a human-authored `claude/` branch
-does not become agent-tendable, while an allowlisted bot-authored PR may use any
-head name outside the separately managed `auto/` lanes. This deliberately
-replaces the older `claude/` prefix heuristic with the boundary the guardrail
-actually means: never modify a human-authored PR.
+Author identity does not affect repair eligibility. The shepherd may repair
+unassigned PRs from humans or bots, including a human-authored `claude/` branch.
+The shortlist requires an open PR targeting `main` with no assignees and a head
+in this repository, outside the separately managed `auto/` lanes. GitHub's
+`isCrossRepository` must be explicitly false; fork heads and missing or unknown
+head-repository metadata are excluded. The agent rechecks this before checking
+out or executing PR code and before pushing. Assignment is the deterministic
+active-work hold. For unassigned PRs, the agent assesses recent activity and
+discussion to avoid duplicating an ongoing repair; there is no fixed PR-age
+cutoff for repair. Earlier comments refusing human-authored work do not block
+recovery.
 
 That tending restriction is intentionally narrower than deterministic merge
 eligibility. The LLM lane may decline to edit an assigned or `auto/` PR while
@@ -439,10 +483,11 @@ authority and merge eligibility are separate policies.
 The independent `repair-caches` job runs trusted main code before the agent
 shortlist is built, including during controller-only hourly runs. Its default
 budget is three repairs, adjustable with `max_cache_repairs`; `0` disables it.
-`dry_run` and `pr_number` apply to this job too. It observes the same verified
-author and assignment guards as the agent, rejects fork heads, and defers while
-checks reported on the PR are unfinished. It never marks ready, approves, or
-merges a PR into main.
+`dry_run` and `pr_number` apply to this job too. It observes the same assignment,
+lifecycle, and head-repository guards as the agent regardless of author:
+`isCrossRepository` must be explicitly false. It also defers while checks
+reported on the PR are unfinished. It never marks ready, approves, or merges a
+PR into main.
 
 Agent tending waits for this run's cache job. Cache sweeps serialize with
 `cancel-in-progress: false`, so an earlier sweep can add queueing time before
@@ -460,7 +505,10 @@ it back. Labels, timestamps and memberships are never invented. Reference
 markdown, hierarchy caches, other generated artifacts, competing values,
 deletions, mode changes, renames, and mixed source conflicts remain agent work.
 Root-level cache JSON changes are rejected using tree metadata before merge
-planning, so the frozen dataset cache is never opened or changed.
+planning, so the retired dataset cache is never opened or changed. A deletion
+already on trusted main is carried forward if the PR left the file unchanged
+or also deleted it. PRs that modified it still need their delete/edit conflict
+resolved by keeping the deletion.
 
 The controller does not check out PR files or run their code, generators,
 dependencies, or tests. Git computes the ordinary merge in its object database;
@@ -470,9 +518,9 @@ same path in the sole ancestor and both tips, and case-colliding results are
 rejected. Only after the entire plan succeeds can it create a two-parent merge
 commit, with the original PR head first and the inspected main tip second.
 
-Before publication it rechecks author, assignment, state, branch, head, checks,
-and main. Publication uses an explicit expected-head lease **and** verifies
-that the new commit fast-forwards that head. The lease is compare-and-swap;
+Before publication it rechecks assignment, state, branch, head repository and
+SHA, checks, and main. Publication uses an explicit expected-head lease **and**
+verifies that the new commit fast-forwards that head. The lease is compare-and-swap;
 the ancestry check forbids history rewriting. This also rejects a concurrent
 rewind or branch deletion, which an ordinary push would miss. Tests exercise
 forward-update, rewind, and deletion races against real disposable remotes.

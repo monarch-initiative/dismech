@@ -20,8 +20,10 @@ import logging
 import re
 import time
 from functools import wraps
+from urllib.parse import urlsplit, urlunsplit
 
 from bs4 import BeautifulSoup
+from linkml_reference_validator.etl.acquire import ContentAcquirer
 from ruamel.yaml import YAML
 
 from dismech.doi_cache_case import is_doi_reference, resolve_doi_cache_path
@@ -261,9 +263,16 @@ def _fetch_modern_pmc_html(self, pmcid, config):
 
     canonical_url = _pmc_html_url(pmcid)
     # Some public articles return a browser-check page for the default view
-    # while PMC's PDF-render view still serves the complete article HTML.
-    # Both representations must pass the same body-content checks.
-    for url in (canonical_url, canonical_url + "?pdf=render"):
+    # while another public article view still serves the complete article HTML.
+    # Every representation must pass the same body-content checks.
+    numeric_id = str(pmcid).removeprefix("PMC")
+    urls = (
+        canonical_url,
+        canonical_url + "?pdf=render",
+        canonical_url + "?report=reader",
+        f"https://pmc.ncbi.nlm.nih.gov/articles/{numeric_id}/",
+    )
+    for url in urls:
         time.sleep(config.rate_limit_delay)
         try:
             response = requests.get(url, timeout=30)
@@ -278,7 +287,7 @@ def _fetch_modern_pmc_html(self, pmcid, config):
 
 
 def _extract_modern_pmc_html(data):
-    """Extract substantive article text from either public PMC representation."""
+    """Extract substantive article text from a public PMC representation."""
     soup = BeautifulSoup(data, "html.parser")
     article = (
         soup.select_one(".main-article-body")
@@ -392,6 +401,74 @@ def _wrap_html_extractor(original):
         if text:
             return text
         return original(self, data, *args, **kwargs)
+
+    return wrapper
+
+
+def _jstage_article_url_for_pdf(pdf_url: str) -> str | None:
+    """Return J-STAGE's article landing page URL for a direct PDF URL."""
+    parts = urlsplit(pdf_url)
+    if parts.netloc != "www.jstage.jst.go.jp":
+        return None
+    if not parts.path.endswith("/_pdf"):
+        return None
+    return urlunsplit(
+        (
+            parts.scheme,
+            parts.netloc,
+            f"{parts.path.removesuffix('/_pdf')}/_article",
+            "",
+            "",
+        )
+    )
+
+
+def _extract_jstage_citation_title(html: bytes) -> str | None:
+    """Extract the Highwire citation title J-STAGE exposes on article pages."""
+    soup = BeautifulSoup(html.decode("utf-8", errors="replace"), "html.parser")
+    meta = soup.find("meta", attrs={"name": "citation_title"})
+    if meta is None:
+        return None
+    title = (meta.get("content") or "").strip()
+    return title or None
+
+
+def _fetch_jstage_pdf_title(pdf_url: str, config) -> str | None:
+    """Fetch a J-STAGE PDF's sibling article page and recover its citation title."""
+    article_url = _jstage_article_url_for_pdf(pdf_url)
+    if article_url is None:
+        return None
+
+    try:
+        data, _content_type = ContentAcquirer().fetch_bytes(article_url, config)
+    except Exception as exc:  # external URL fetch boundary
+        logger.warning(
+            "Could not fetch J-STAGE article metadata for %s: %s: %s",
+            pdf_url,
+            type(exc).__name__,
+            exc,
+        )
+        return None
+    if data is None:
+        return None
+    return _extract_jstage_citation_title(data)
+
+
+def _wrap_jstage_pdf_title(original):
+    """Recover J-STAGE PDF titles from the sibling ``_article`` metadata page."""
+
+    @wraps(original)
+    def wrapper(self, identifier, config, *args, **kwargs):
+        content = original(self, identifier, config, *args, **kwargs)
+        if (
+            content is not None
+            and content.content_type == "full_text_pdf"
+            and content.title == identifier.strip()
+        ):
+            title = _fetch_jstage_pdf_title(identifier.strip(), config)
+            if title:
+                content.title = title
+        return content
 
     return wrapper
 
@@ -758,6 +835,11 @@ def apply_patch():
         HTMLExtractor.extract = _wrap_html_extractor(HTMLExtractor.extract)
         HTMLExtractor._paragraph_whitespace_patch_applied = True  # type: ignore[attr-defined]
         logger.debug("Applied source-whitespace preservation patch to HTMLExtractor")
+
+    if not getattr(URLSource, "_jstage_pdf_title_patch_applied", False):
+        URLSource.fetch = _wrap_jstage_pdf_title(URLSource.fetch)
+        URLSource._jstage_pdf_title_patch_applied = True  # type: ignore[attr-defined]
+        logger.debug("Applied J-STAGE PDF title metadata patch to URLSource")
 
     if not getattr(URLSource, "_html_page_code_patch_applied", False):
         URLSource.fetch = _wrap_url_fetch(URLSource.fetch)

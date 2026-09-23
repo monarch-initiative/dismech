@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -5136,6 +5175,7 @@ This readout is measured by targeted steroid mass spectrometry.</span>
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-androgen-receptor-signaling-dependence" data-dismech-node="Androgen Receptor Signaling Dependence" data-dismech-type="pathophysiology">
                 <div class="item-name">Androgen Receptor Signaling Dependence</div>
 
+
                 <div class="item-desc">Prostate adenocarcinoma is organized around androgen receptor (AR) signaling, which sustains lineage identity, proliferation, and survival and therefore remains the dominant therapeutic dependency across much of the disease course.</div>
 
 
@@ -5327,6 +5367,7 @@ This pathophysiological event occurs in prostate gland (UBERON:0002367). UBERON:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tmprss2-erg-fusion-driven-ets-activation" data-dismech-node="TMPRSS2:ERG Fusion-Driven ETS Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">TMPRSS2:ERG Fusion-Driven ETS Activation</div>
 
+
                 <div class="item-desc">In approximately half of prostate adenocarcinomas an androgen-responsive TMPRSS2 promoter is fused to the ETS transcription factor ERG, placing ERG under androgen control and driving its aberrant overexpression. The resulting ETS transcriptional program promotes an invasion-associated, less-differentiated phenotype and defines the predominant molecular subtype of the disease.</div>
 
 
@@ -5378,6 +5419,8 @@ This pathophysiological event involves epithelial cell of prostate (CL:0002231).
 
 
 
+
+
         <span class="tag tag-classification">variant_origin: SOMATIC</span>
 
 
@@ -5386,6 +5429,9 @@ This pathophysiological event involves epithelial cell of prostate (CL:0002231).
 
 
     </div>
+
+
+
 
 
 
@@ -5566,6 +5612,7 @@ This pathophysiological event occurs in prostate gland (UBERON:0002367). UBERON:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-lipogenic-metabolic-reprogramming" data-dismech-node="Lipogenic Metabolic Reprogramming" data-dismech-type="pathophysiology">
                 <div class="item-name">Lipogenic Metabolic Reprogramming</div>
 
+
                 <div class="item-desc">Prostate adenocarcinoma shows unusually strong dependence on de novo fatty acid synthesis, an AR-linked metabolic program that supports membrane biogenesis, signaling, and aggressive tumor behavior.</div>
 
 
@@ -5662,6 +5709,7 @@ This pathophysiological event involves increased fatty acid biosynthetic process
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-signaling-bypass-and-castration-resistance" data-dismech-node="Signaling Bypass and Castration Resistance" data-dismech-type="pathophysiology">
                 <div class="item-name">Signaling Bypass and Castration Resistance</div>
+
 
                 <div class="item-desc">As disease progresses under androgen deprivation, resistant clones emerge through AR splice variants, AR overexpression or mutation, and activation of PI3K/AKT and other compensatory pathways that restore growth despite ARSI therapy. This node conforms to the mtor_androgen_deprivation_resistance module: AR-pathway blockade relieves feedback inhibition of the PI3K/AKT axis (potentiated by PTEN loss in this disease), driving compensatory mTORC1 hyperactivation that sustains survival under androgen blockade — the biological basis for the co-targeting (mTOR-inhibitor plus ARPI) therapeutic rationale.</div>
 
@@ -5867,6 +5915,7 @@ This pathophysiological event involves increased TORC1 Signaling (GO:0038202). G
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-epithelial-mesenchymal-transition" data-dismech-node="Epithelial-Mesenchymal Transition" data-dismech-type="pathophysiology">
                 <div class="item-name">Epithelial-Mesenchymal Transition</div>
 
+
                 <div class="item-desc">Progression from organ-confined adenocarcinoma toward invasive disease involves signaling networks that promote epithelial-to-mesenchymal transition and increased migratory capacity.</div>
 
 
@@ -5979,6 +6028,7 @@ This pathophysiological event involves increased epithelial to mesenchymal trans
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-metastatic-dissemination" data-dismech-node="Metastatic Dissemination" data-dismech-type="pathophysiology">
                 <div class="item-name">Metastatic Dissemination</div>
 
+
                 <div class="item-desc">Advanced prostate adenocarcinoma can disseminate beyond the prostate to distant metastatic sites as disease progresses or recurs after definitive local therapy.</div>
 
 
@@ -6052,6 +6102,7 @@ This pathophysiological event involves increased epithelial to mesenchymal trans
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-immune-suppressive-tumor-microenvironment" data-dismech-node="Immune-Suppressive Tumor Microenvironment" data-dismech-type="pathophysiology">
                 <div class="item-name">Immune-Suppressive Tumor Microenvironment</div>
+
 
                 <div class="item-desc">Prostate adenocarcinoma typically has a relatively immunologically cold microenvironment with weak endogenous antitumor activity, contributing to the limited single-agent activity of checkpoint immunotherapy in unselected disease.</div>
 
@@ -6149,6 +6200,7 @@ This pathophysiological event involves increased negative regulation of immune r
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-osteoblastic-bone-tropism" data-dismech-node="Osteoblastic Bone Tropism" data-dismech-type="pathophysiology">
                 <div class="item-name">Osteoblastic Bone Tropism</div>
+
 
                 <div class="item-desc">Bone is the dominant metastatic niche in prostate cancer. Tumor-stromal signaling stimulates abnormal woven bone formation and couples osteoblastic and osteolytic remodeling, producing fragile but radiographically dense skeletal lesions.</div>
 
@@ -6249,6 +6301,7 @@ This pathophysiological event involves increased positive regulation of ossifica
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-clonal-evolution-and-lineage-plasticity" data-dismech-node="Clonal Evolution and Lineage Plasticity" data-dismech-type="pathophysiology">
                 <div class="item-name">Clonal Evolution and Lineage Plasticity</div>
 
+
                 <div class="item-desc">Under treatment pressure, metastatic prostate cancer accumulates resistant subclones and can adopt alternative lineage states that support persistence after AR-targeted therapy.</div>
 
 
@@ -6312,6 +6365,7 @@ This pathophysiological event involves abnormal cell fate commitment (GO:0045165
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ar-mediated-mutagenesis-at-androgen-receptor-binding-sites" data-dismech-node="AR-Mediated Mutagenesis at Androgen Receptor Binding Sites" data-dismech-type="pathophysiology">
                 <div class="item-name">AR-Mediated Mutagenesis at Androgen Receptor Binding Sites</div>
+
 
                 <div class="item-desc">Androgen receptor binding is a mutagenic event and not only a transcriptional one. Whole-genome analysis of the Pan Prostate Cancer Group cohort identifies AR-mediated mutagenesis as the most recurrent integrated mutational footprint in chromosomally unstable primary tumors, raising the local mutation rate at tumor-specific AR binding sites (TARBSs) and concentrating chromoplexy - chains of interchromosomal complex rearrangements - specifically and uniquely at those sites. Chromoplexy is an established generator of ERG fusions, and it is concentrated at AR binding sites, so this process is the most likely origin of the androgen-driven fusion events this entry already models - but the step that AR binding is what localizes the chromoplexy remains an inference from co-localization, not a demonstrated one. Its intensity tracks the epigenetic state of the site rather than AR occupancy alone: TARBSs are enriched for unmethylated CpGs, which places the process in early-replicating, transcriptionally active chromatin and accounts for the local depletion of the 5-methylcytosine-deamination signature SBS1 there.</div>
 
@@ -6584,6 +6638,7 @@ This pathophysiological event occurs in prostate gland (UBERON:0002367). UBERON:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-replication-stress-driven-chromosomal-instability" data-dismech-node="Replication Stress-Driven Chromosomal Instability" data-dismech-type="pathophysiology">
                 <div class="item-name">Replication Stress-Driven Chromosomal Instability</div>
 
+
                 <div class="item-desc">Dysfunctional DNA replication is the dominant mutational process in roughly a quarter of chromosomally unstable primary prostate cancers, resolving into two integrated footprints: one combining mitotic-machinery defects with replication stress, and one linked to SPOP and WNT-pathway alterations. Faulty replicated DNA persisting into mitosis yields copy-number and complex structural change rather than a distinctive base-substitution spectrum, which is why the process was only resolved by integrating substitution, indel, copy-number and complex structural-variant signatures. Clinically this footprint separates from the metastasis-associated processes in two ways: it predominates in late-onset disease, and higher activity of the SPOP-associated footprint marked tumors that failed later on AR pathway inhibitors than on taxanes.</div>
 
 
@@ -6817,6 +6872,7 @@ This pathophysiological event involves abnormal chromosome organization (GO:0051
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reactive-oxygen-species-driven-mutagenesis" data-dismech-node="Reactive Oxygen Species-Driven Mutagenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Reactive Oxygen Species-Driven Mutagenesis</div>
+
 
                 <div class="item-desc">A distinct integrated footprint attributes part of the mutation burden to oxidative DNA damage handled by a faulty base-excision repair pathway, marked by the substitution signature SBS18 and concentrated in late-replicating regions. It is anti-correlated with tumor hypoxia score, so it reads as an oxygen-dependent damage process rather than as a consequence of the hypoxic niche. Among the footprints that carry prognostic weight, this is one of the four associated with shorter time to metastasis, which makes oxidative mutagenesis a candidate risk axis independent of Gleason grade group and tumor mutational burden.</div>
 
@@ -7058,6 +7114,7 @@ This pathophysiological event involves decreased base-excision repair (GO:000628
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-homologous-recombination-deficiency" data-dismech-node="Homologous Recombination Deficiency" data-dismech-type="pathophysiology">
                 <div class="item-name">Homologous Recombination Deficiency</div>
 
+
                 <div class="item-desc">Canonical homologous-recombination deficiency is the therapeutically actionable caretaker defect in prostate cancer and the footprint most closely tied to BRCA2 alteration, combining the substitution signature SBS3, the microhomology-mediated deletion signature ID6, and complex structural and copy-number signatures of impaired repair. It is uncommon in primary disease - fewer than 3% of primary tumors - but is enriched in early-onset cases and is one of the four footprints associated with shorter time to metastasis. This is the mechanism the entry&#39;s PARP-inhibitor combination treatment is directed at.</div>
 
 
@@ -7263,6 +7320,7 @@ This pathophysiological event involves decreased double-strand break repair via 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cdk12-associated-non-canonical-homologous-recombination-impairment" data-dismech-node="CDK12-Associated Non-Canonical Homologous Recombination Impairment" data-dismech-type="pathophysiology">
                 <div class="item-name">CDK12-Associated Non-Canonical Homologous Recombination Impairment</div>
+
 
                 <div class="item-desc">A second impaired-homologous-recombination footprint is separable from the canonical BRCA-driven one by both its driver and its damage pattern. It is associated with CDK12 mutation, which phenocopies impaired homologous recombination without BRCA1/2 loss, and its structural signature is dominated by tandem duplications rather than by microhomology-mediated deletion. It is enriched in patients of African ancestry and confers a high risk of progression to metastasis. Curating it separately matters clinically, because a tumor can carry a homologous-recombination-like footprint while being negative for the BRCA alterations that current PARP-inhibitor eligibility is written around.</div>
 
@@ -7506,6 +7564,7 @@ This pathophysiological event involves increased tandem duplication formation, a
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mismatch-repair-deficiency-and-microsatellite-instability" data-dismech-node="Mismatch Repair Deficiency and Microsatellite Instability" data-dismech-type="pathophysiology">
                 <div class="item-name">Mismatch Repair Deficiency and Microsatellite Instability</div>
 
+
                 <div class="item-desc">Loss of DNA mismatch repair, most often through MSH2 alteration, produces the replicative-slippage footprint that combines the MMR-associated substitution signatures with the characteristic indel signature, and yields microsatellite instability. Its topographical behaviour is diagnostic: where the other mutational processes are strongly biased by replication timing and chromatin state, mismatch-repair-deficient tumors mutate at a near-uniform rate across the genome, consistent with replication-coupled repair normally being most efficient in early-replicating regions. Unlike the other footprints curated here it is also detectable in chromosomally stable tumors. This is the mechanism behind the entry&#39;s biomarker-selected checkpoint-blockade indication.</div>
 
 
@@ -7713,6 +7772,7 @@ This pathophysiological event involves decreased mismatch repair (GO:0006298). G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-apobec-cytidine-deaminase-mutagenesis" data-dismech-node="APOBEC Cytidine Deaminase Mutagenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">APOBEC Cytidine Deaminase Mutagenesis</div>
+
 
                 <div class="item-desc">APOBEC-family cytidine deaminase activity contributes a separate footprint carrying the APOBEC substitution signatures. Its regional behaviour links it to structural catastrophe rather than to replication timing: APOBEC-signature mutations cluster around complex structural-variant breakpoints, consistent with single-stranded DNA exposed during chromothripsis being edited by the deaminase. Clonality analysis places APOBEC mutations early in tumor evolution while the impaired-recombination signatures accompanying this footprint appear subclonally, which is the argument for reading APOBEC editing as the driving aetiology here and the recombination signatures as a later, separate process.</div>
 
@@ -8455,6 +8515,9 @@ This clinical feature is Back pain (HP:0003418). HP:0003418 is a phenotype from 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8521,6 +8584,9 @@ This disease-associated gene is PTEN (hgnc:9588). hgnc:9588 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -8597,6 +8663,9 @@ This disease-associated gene is AR (hgnc:644). hgnc:644 is a gene from the HUGO 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8669,6 +8738,9 @@ This disease-associated gene is TP53 (hgnc:11998). hgnc:11998 is a gene from the
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-rb1" data-dismech-node="RB1" data-dismech-type="genetic">
@@ -8706,6 +8778,9 @@ This disease-associated gene is RB1 (hgnc:9884). hgnc:9884 is a gene from the HU
 
 
 
+
+
+
             </div>
 
             <div class="item-box genetic-box anchor-target" id="genetic-mitf" data-dismech-node="MITF" data-dismech-type="genetic">
@@ -8737,6 +8812,9 @@ This disease-associated gene is MITF (hgnc:7105). hgnc:7105 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 

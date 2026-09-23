@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4484,6 +4523,7 @@ Closing this properly needs a primary clinical series reporting blood counts in 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sulfur-mustard-penetration-and-episulfonium-ion-formation" data-dismech-node="Sulfur Mustard Penetration and Episulfonium Ion Formation" data-dismech-type="pathophysiology">
                 <div class="item-name">Sulfur Mustard Penetration and Episulfonium Ion Formation</div>
 
+
                 <div class="item-desc">Sulfur mustard is lipophilic and crosses skin, corneal and airway epithelium within minutes of contact. Inside the cell it cyclizes intramolecularly, displacing chloride to form a strained three-membered episulfonium (ethylene sulfonium) ring. That cation, not the parent molecule, is the alkylating electrophile, and because the parent carries two chloroethyl arms the reaction can happen twice on the same molecule. Most of a dermal dose stays in the epidermis, which is why the cutaneous lesion is superficial and the systemic dose is small relative to the local injury.</div>
 
 
@@ -4627,6 +4667,7 @@ This pathophysiological event occurs in skin epidermis (UBERON:0001003). UBERON:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dna-n7-guanine-alkylation-and-interstrand-crosslinking" data-dismech-node="DNA N7-Guanine Alkylation and Interstrand Crosslinking" data-dismech-type="pathophysiology">
                 <div class="item-name">DNA N7-Guanine Alkylation and Interstrand Crosslinking</div>
+
 
                 <div class="item-desc">The episulfonium ion attacks nucleophilic sites in DNA, predominantly the N7 position of deoxyguanosine. Because sulfur mustard is bifunctional, a single molecule can alkylate two nucleophiles, producing intrastrand and interstrand DNA crosslinks as well as DNA-protein crosslinks. An interstrand crosslink tethers the two strands together and physically blocks the replication and transcription machinery, so the lesion is cytotoxic rather than merely mutagenic. Replication forks that collide with an unrepaired crosslink generate double-strand breaks.</div>
 
@@ -4775,6 +4816,7 @@ This pathophysiological event involves increased DNA damage response (GO:0006974
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-parp1-hyperactivation-and-nad-depletion" data-dismech-node="PARP1 Hyperactivation and NAD+ Depletion" data-dismech-type="pathophysiology">
                 <div class="item-name">PARP1 Hyperactivation and NAD+ Depletion</div>
+
 
                 <div class="item-desc">PARP1 detects DNA strand breaks and responds by transferring ADP-ribose units from NAD+ onto nuclear acceptor proteins. At the lesion densities sulfur mustard produces, this repair response becomes the injury: PARP1 consumes the cellular NAD+ pool, and because NAD+ is an obligate cofactor for glycolysis, the TCA cycle and the electron transport chain, ATP synthesis fails with it. The consequence is a switch in death mode - a cell with modest damage apoptoses or repairs, a cell with severe damage runs out of energy and dies by necrosis. Necrosis rather than apoptosis is what makes the lesion inflammatory and slow to heal.</div>
 
@@ -4946,6 +4988,7 @@ This pathophysiological event involves increased NAD+ consumption by poly-ADP-ri
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-glutathione-depletion-and-oxidative-stress" data-dismech-node="Glutathione Depletion and Oxidative Stress" data-dismech-type="pathophysiology">
                 <div class="item-name">Glutathione Depletion and Oxidative Stress</div>
+
 
                 <div class="item-desc">Sulfur mustard depletes intracellular glutathione by direct conjugation to the electrophile and, in chronically exposed human lung, by downregulation of glutathione reductase, the enzyme that regenerates reduced glutathione from its disulfide. The cell therefore loses its principal antioxidant buffer at the moment it most needs it, and reactive oxygen and nitrogen species accumulate. This arm is largely independent of the DNA-alkylation arm and synergistic with it: both converge on the same dying cell. Human mustard lung shows the paradoxical signature of the pathway under strain - glutathione peroxidases, transferases and synthetase are all overexpressed while glutathione reductase is strongly suppressed and the substrate they need is scarce.</div>
 
@@ -5180,6 +5223,7 @@ This pathophysiological event involves decreased glutathione reductase activity,
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cellular-energy-collapse-and-epithelial-necrosis" data-dismech-node="Cellular Energy Collapse and Epithelial Necrosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Cellular Energy Collapse and Epithelial Necrosis</div>
+
 
                 <div class="item-desc">Keratinocytes, corneal epithelial cells and airway epithelial cells that have lost their NAD+ and ATP pools and their antioxidant buffer die. The death mode is dose-dependent rather than uniform: a cell with modest damage apoptoses, a cell whose energy has collapsed cannot run the ATP-dependent apoptotic programme and dies by necrosis. Both are present in the injured airway, and the balance between them is what the PARP1 arm sets. Necrotic death spills intracellular contents into the tissue, which is what converts a molecular lesion into an inflammatory one. Do not read this node as claiming the death is exclusively necrotic - the evidence below includes a direct demonstration of early apoptosis in the same inhalation model.</div>
 
@@ -5469,6 +5513,7 @@ This pathophysiological event involves increased cell death (GO:0008219). GO:000
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-acute-pro-inflammatory-cytokine-burst-and-neutrophil-recruitment" data-dismech-node="Acute Pro-Inflammatory Cytokine Burst and Neutrophil Recruitment" data-dismech-type="pathophysiology">
                 <div class="item-name">Acute Pro-Inflammatory Cytokine Burst and Neutrophil Recruitment</div>
 
+
                 <div class="item-desc">Necrotic epithelium releases a burst of pro-inflammatory cytokines and chemokines within the first 72 hours, and neutrophils follow them into the tissue. In the rat inhalation model this burst comprises IL-1 beta, TNF-alpha, IL-2, IL-6 and the chemokines CCL2, CCL3, CCL11 and CXCL1. In exposed patients, serum IL-6 tracks the severity of the pulmonary complication, which is the human counterpart of the same signal. This node substitutes the chemical vesicant insult for the generic injury the fibrosis module expects at this step.</div>
 
 
@@ -5740,6 +5785,7 @@ This pathophysiological event involves increased neutrophil chemotaxis (GO:00305
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-dermal-epidermal-separation-and-vesication" data-dismech-node="Dermal-Epidermal Separation and Vesication" data-dismech-type="pathophysiology">
                 <div class="item-name">Dermal-Epidermal Separation and Vesication</div>
 
+
                 <div class="item-desc">Death of basal keratinocytes at the dermal-epidermal junction, together with the proteases released from them, separates the epidermis from the dermis and produces the blister that gives the agent its name. The lesion is delayed relative to the chemistry: alkylation is complete within minutes, while the visible lesion takes hours. In the mouse ear vesicant model the equivalent lesion rises sharply between 4 and 8 hours after exposure and stays elevated at 24 hours. The figures commonly quoted for humans - erythema at 2 to 24 hours, vesication at 24 to 48 - are not stated in any source cached for this entry and are deliberately not asserted here.</div>
 
 
@@ -5908,6 +5954,7 @@ This pathophysiological event occurs in skin epidermis (UBERON:0001003). UBERON:
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-skin-ulceration-and-impaired-wound-healing" data-dismech-node="Skin Ulceration and Impaired Wound Healing" data-dismech-type="pathophysiology">
                 <div class="item-name">Skin Ulceration and Impaired Wound Healing</div>
 
+
                 <div class="item-desc">Once the blister roof is lost the wound behaves unlike a thermal burn of comparable depth: healing is slow, the ulcer is prone to secondary infection, and scarring follows. Because the underlying keratinocyte population has itself been alkylated, the tissue is repairing with cells whose replicative capacity has been damaged.</div>
 
 
@@ -6006,6 +6053,7 @@ This pathophysiological event involves decreased wound healing (GO:0042060). GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-corneal-and-limbal-epithelial-injury" data-dismech-node="Corneal and Limbal Epithelial Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Corneal and Limbal Epithelial Injury</div>
+
 
                 <div class="item-desc">The cornea is the most sensitive tissue to sulfur mustard in the acute phase. Acute injury presents after a latent period of hours as lacrimation, blepharospasm, severe conjunctivitis and corneal erosion. Most acute lesions re-epithelialise within days. The consequential injury is to the limbus, the narrow zone at the corneal margin that houses the stem cells responsible for renewing corneal epithelium.</div>
 
@@ -6202,6 +6250,7 @@ This pathophysiological event occurs in cornea (UBERON:0000964). UBERON:0000964 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chronic-il-17-dependent-airway-inflammation" data-dismech-node="Chronic IL-17-Dependent Airway Inflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">Chronic IL-17-Dependent Airway Inflammation</div>
+
 
                 <div class="item-desc">The acute neutrophilic burst does not resolve. From about two weeks after a single inhalational exposure the infiltrate becomes lymphocytic, cytokine expression stays elevated, and IL-17-positive cells accumulate in the inflamed regions of the lung. This persistence is the hinge of the whole entry: it is the mechanism by which a single exposure produces disease that is still progressing decades later, and it is why the chronic pulmonary disease develops in patients whose acute exposure was unremarkable.</div>
 
@@ -6427,6 +6476,7 @@ This pathophysiological event occurs in lung (UBERON:0002048). UBERON:0002048 is
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-tgf-beta-driven-myofibroblast-activation" data-dismech-node="TGF-beta Driven Myofibroblast Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">TGF-beta Driven Myofibroblast Activation</div>
 
+
                 <div class="item-desc">TGF-beta is undetectable during the acute phase and is strongly upregulated in the chronic phase, where it drives fibroblast-to-myofibroblast conversion and proliferation. PDGF and PAI-1 rise alongside it. The temporal separation matters: the profibrotic signal is not part of the initial injury but a consequence of inflammation that failed to resolve, which is why the fibrosis is delayed rather than immediate.</div>
 
 
@@ -6647,6 +6697,7 @@ This pathophysiological event involves increased transforming growth factor beta
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bronchiolar-and-interstitial-collagen-deposition" data-dismech-node="Bronchiolar and Interstitial Collagen Deposition" data-dismech-type="pathophysiology">
                 <div class="item-name">Bronchiolar and Interstitial Collagen Deposition</div>
+
 
                 <div class="item-desc">Activated myofibroblasts deposit collagen in the bronchiolar wall and the interstitium. In the small airways this produces the concentric intraluminal and peribronchiolar scarring that defines bronchiolitis obliterans; in the parenchyma it produces interstitial fibrosis. Both are present together in the rat inhalation model and both worsen with time.</div>
 
@@ -6920,6 +6971,7 @@ This pathophysiological event occurs in bronchiole (UBERON:0002186). UBERON:0002
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-bronchiolitis-obliterans-and-progressive-airflow-obstruction" data-dismech-node="Bronchiolitis Obliterans and Progressive Airflow Obstruction" data-dismech-type="pathophysiology">
                 <div class="item-name">Bronchiolitis Obliterans and Progressive Airflow Obstruction</div>
 
+
                 <div class="item-desc">Obliterated small airways and stiffened parenchyma translate into measurable physiology: rising lung resistance, falling compliance, and a mixed obstructive-restrictive spirometric pattern that declines year on year. The pattern is mixed, not purely obstructive, in every source that reports it - worth stating because the node&#39;s name emphasises obstruction. This is the dominant cause of long-term disability and death in survivors, and it is what the clinical literature calls mustard lung. Roughly 42.5% of exposed Iranian veterans have pulmonary involvement, with cough and dyspnoea the leading complaints.</div>
 
 
@@ -7110,6 +7162,7 @@ This pathophysiological event occurs in bronchiole (UBERON:0002186). UBERON:0002
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-limbal-stem-cell-deficiency-and-delayed-mustard-gas-keratopathy" data-dismech-node="Limbal Stem Cell Deficiency and Delayed Mustard Gas Keratopathy" data-dismech-type="pathophysiology">
                 <div class="item-name">Limbal Stem Cell Deficiency and Delayed Mustard Gas Keratopathy</div>
+
 
                 <div class="item-desc">With the limbal stem cell pool destroyed, the cornea can no longer renew its own epithelium, and conjunctival epithelium invades across the limbal barrier instead. The clinical result appears after a silent interval that can run to decades: limbal ischaemia, corneal scarring and opacity, neovascularization, thinning, lipid and amyloid deposits, and persistent epithelial defects. In a series of 48 patients, corneal scar or opacity was present in 87.5% and neovascularization in 70.8%. The link between the acute limbal insult and the multi-decade latency is inferred from clinical natural history and is not established at the cell-biological level.</div>
 
@@ -7316,6 +7369,7 @@ This pathophysiological event occurs in cornea (UBERON:0000964). UBERON:0000964 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-haematopoietic-suppression" data-dismech-node="Haematopoietic Suppression" data-dismech-type="pathophysiology">
                 <div class="item-name">Haematopoietic Suppression</div>
 
+
                 <div class="item-desc">After significant systemic absorption, sulfur mustard suppresses haematopoiesis, producing cytopenias and marrow damage. Mechanistically this is unsurprising - the agent is the chemical ancestor of the nitrogen mustard cytotoxics, whose dose-limiting toxicity is myelosuppression, and dividing marrow progenitors are exactly the population an interstrand crosslink is most cytotoxic to. Read the evidence grade before relying on this node: the only quotable statement available here is a review&#39;s secondhand assertion, not a primary clinical series, which is why no frequency or severity is curated and why the gap is recorded as a discussion.</div>
 
 
@@ -7433,6 +7487,7 @@ This pathophysiological event occurs in bone marrow (UBERON:0002371). UBERON:000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-melanocyte-injury-and-dyspigmentation" data-dismech-node="Melanocyte Injury and Dyspigmentation" data-dismech-type="pathophysiology">
                 <div class="item-name">Melanocyte Injury and Dyspigmentation</div>
+
 
                 <div class="item-desc">Epidermal melanocytes are alkylated alongside keratinocytes, and the effect on pigment is dose-dependent in opposite directions. Low sulfur mustard concentrations raise melanin synthesis and the expression of tyrosinase, TRP1, TRP2 and MITF; high concentrations reduce melanin content and downregulate all of them. This is offered as an explanation for the characteristic mixture of hyper- and hypopigmented patches in healed skin. Keep the two claims apart: the opposing dose-dependence is measured, in cultured human melanocytes, and the mapping onto the clinical pattern is the study authors&#39; own inference from it - no cached source here reports the concentration gradient across a patient&#39;s contact area that the explanation would require.</div>
 
@@ -7635,6 +7690,7 @@ This pathophysiological event involves dysregulated melanin biosynthetic process
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-malignant-transformation-of-chronically-injured-bronchial-epithelium" data-dismech-node="Malignant Transformation of Chronically Injured Bronchial Epithelium" data-dismech-type="pathophysiology">
                 <div class="item-name">Malignant Transformation of Chronically Injured Bronchial Epithelium</div>
+
 
                 <div class="item-desc">Bronchial epithelium that has been alkylated, is chronically inflamed and is proliferating to repair itself carries an elevated risk of malignant transformation. Two lines of evidence support this, and neither is as strong as it first looks. In bronchial biopsies, FOXM1 and APOE are overexpressed roughly 15-fold and 4-fold - but the study has six exposed patients and five controls, excluded anyone with lung cancer, and its authors read APOE the other way, as protective against ROS damage in the short term, with the cancer link offered as a hypothesis. Clinically, in 719 victims followed for a mean of 38 years, lung fibrosis raised tumour risk about 17.75-fold, air trapping about 11.73-fold and bronchiectasis about 10.14-fold, and the lobes with fibrosis were the lobes tumours appeared in - but that cohort had no control group. The spatial concordance makes the association hard to explain by shared exposure alone; it is not itself a demonstration of mechanism.</div>
 
@@ -9688,6 +9744,9 @@ This disease-associated gene is GSTM1 (hgnc:4632). hgnc:4632 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (3 references)
@@ -9812,6 +9871,9 @@ This disease-associated gene is GSTT1 (hgnc:4641). hgnc:4641 is a gene from the 
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -9880,6 +9942,9 @@ This disease-associated gene is GSTP1 (hgnc:4638). hgnc:4638 is a gene from the 
 
 
                 </div>
+
+
+
 
 
 

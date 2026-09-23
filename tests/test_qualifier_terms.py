@@ -257,3 +257,73 @@ def test_committed_kb_qualifier_labels_are_correct():
         check=False,
     )
     assert result.returncode == 0, result.stdout + result.stderr
+
+
+# --- path arguments (#11939) -------------------------------------------------
+#
+# A mistyped path used to be swallowed as an OSError in the read loop, so the
+# script printed "OK: 0 qualifier term label(s) match" and exited 0. The
+# convention now matches `check_causal_targets.py` and
+# `check_disconnected_phenotypes.py`: exit 2 for a path that cannot be read or
+# a directory holding no *.yaml, and a directory argument is expanded.
+
+
+def _run_main(*argv):
+    with mock.patch.object(
+        check_qualifier_terms.sys, "argv", ["check_qualifier_terms.py", *argv]
+    ):
+        return check_qualifier_terms.main()
+
+
+def test_nonexistent_path_is_a_usage_error_not_a_pass(tmp_path, capsys):
+    exit_code = _run_main(str(tmp_path / "DefinitelyNotAFile.yaml"))
+    captured = capsys.readouterr()
+
+    assert exit_code == 2
+    assert "DefinitelyNotAFile.yaml" in captured.err
+    assert "No such file or directory" in captured.err
+    assert "OK:" not in captured.out, "nothing was checked, so nothing is OK"
+
+
+def test_report_mode_also_refuses_a_nonexistent_path(tmp_path, capsys):
+    """`--report` exits 0 by design, so it must not become the silent route."""
+    exit_code = _run_main("--report", str(tmp_path / "Nope.yaml"))
+    assert exit_code == 2
+    assert "Nope.yaml" in capsys.readouterr().err
+
+
+def test_directory_argument_is_expanded_into_its_entries(tmp_path, capsys):
+    (tmp_path / "Probe.yaml").write_text(
+        "name: Probe\n"
+        "treatments:\n"
+        "- name: T\n"
+        "  treatment_term:\n"
+        "    preferred_term: t\n"
+        "    qualifiers:\n"
+        "    - predicate:\n"
+        "        preferred_term: medical device\n"
+        "        term: {id: NCIT:C16830, label: Medical Device}\n"
+        "      value:\n"
+        "        preferred_term: v\n"
+    )
+    exit_code = _run_main(str(tmp_path))
+
+    assert exit_code == 0
+    assert "OK: 1 qualifier term label(s) match" in capsys.readouterr().out
+
+
+def test_directory_with_no_yaml_is_a_usage_error(tmp_path, capsys):
+    exit_code = _run_main(str(tmp_path))
+
+    assert exit_code == 2
+    assert "directory contains no *.yaml files" in capsys.readouterr().err
+
+
+def test_malformed_yaml_is_still_left_to_the_parse_gates(tmp_path, capsys):
+    """Only OSError changed. A parse failure is `check-duplicate-keys`' to report."""
+    broken = tmp_path / "Broken.yaml"
+    broken.write_text("name: [unterminated\n")
+    exit_code = _run_main(str(broken))
+
+    assert exit_code == 0
+    assert "ERROR" not in capsys.readouterr().err

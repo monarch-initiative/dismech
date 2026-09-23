@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4267,6 +4306,7 @@ These are not actually contradictory. One measures a physiological variable minu
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-systemic-cocaine-exposure" data-dismech-node="Systemic Cocaine Exposure" data-dismech-type="pathophysiology">
                 <div class="item-name">Systemic Cocaine Exposure</div>
 
+
                 <div class="item-desc">Absorbed cocaine distributes systemically and reaches concentrations at which it engages two independent pharmacological targets simultaneously: the presynaptic monoamine transporters and the voltage-gated ion channels of the cardiac myocyte membrane. Every downstream branch of this entry originates here.</div>
 
 
@@ -4323,6 +4363,7 @@ These are not actually contradictory. One measures a physiological variable minu
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-monoamine-transporter-blockade" data-dismech-node="Monoamine Transporter Blockade" data-dismech-type="pathophysiology">
                 <div class="item-name">Monoamine Transporter Blockade</div>
+
 
                 <div class="item-desc">Cocaine occupies a binding site deep within the dopamine transporter that overlaps the site used by dopamine itself, competitively inhibiting reuptake; the noradrenaline and serotonin transporters are blocked in parallel. This is the sympathomimetic arm.</div>
 
@@ -4624,6 +4665,7 @@ This pathophysiological event involves decreased dopamine transporter activity, 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-synaptic-catecholamine-excess" data-dismech-node="Synaptic Catecholamine Excess" data-dismech-type="pathophysiology">
                 <div class="item-name">Synaptic Catecholamine Excess</div>
 
+
                 <div class="item-desc">With reuptake blocked, dopamine, noradrenaline and serotonin accumulate at central and peripheral synapses. This single node is the origin of every non-cardiac-channel manifestation in the entry: the cardiovascular, neurological, thermoregulatory, muscular and cerebrovascular branches all descend from it.</div>
 
 
@@ -4694,6 +4736,7 @@ This pathophysiological event involves decreased dopamine transporter activity, 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-sympathetic-cardiovascular-stimulation" data-dismech-node="Sympathetic Cardiovascular Stimulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Sympathetic Cardiovascular Stimulation</div>
+
 
                 <div class="item-desc">Catecholamine excess at cardiac and vascular adrenergic receptors raises heart rate, contractility and arterial pressure. The rate-pressure product rises, and with it myocardial oxygen consumption.</div>
 
@@ -4786,6 +4829,7 @@ This pathophysiological event involves decreased dopamine transporter activity, 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-alpha-adrenergic-coronary-vasoconstriction" data-dismech-node="Alpha-Adrenergic Coronary Vasoconstriction" data-dismech-type="pathophysiology">
                 <div class="item-name">Alpha-Adrenergic Coronary Vasoconstriction</div>
+
 
                 <div class="item-desc">Cocaine narrows the epicardial coronary arteries and raises coronary vascular resistance through alpha-adrenergic stimulation. The effect is reversed by phentolamine and abolished by nitroglycerin, and it is markedly greater in segments already narrowed by atherosclerosis.</div>
 
@@ -4958,6 +5002,7 @@ This pathophysiological event involves increased coronary vasoconstriction, anno
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-platelet-activation" data-dismech-node="Platelet Activation" data-dismech-type="pathophysiology">
                 <div class="item-name">Platelet Activation</div>
 
+
                 <div class="item-desc">Cocaine activates platelets in vivo in humans, releasing alpha-granule contents and generating circulating platelet-containing microaggregates. The node is named for what was measured. Thrombus formation on a vasoconstricted segment is the plausible route from here to reduced flow, but the cited study states it only as a possibility, so the downstream edge is typed INDIRECT_UNKNOWN_INTERMEDIATES rather than DIRECT and no thrombus node is asserted.</div>
 
 
@@ -5097,6 +5142,7 @@ This pathophysiological event involves increased platelet activation (GO:0030168
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-myocardial-oxygen-supply" data-dismech-node="Reduced Myocardial Oxygen Supply" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced Myocardial Oxygen Supply</div>
 
+
                 <div class="item-desc">Coronary flow falls. Both the vasoconstrictive and the thrombotic branch converge here.</div>
 
 
@@ -5171,6 +5217,7 @@ This pathophysiological event involves increased platelet activation (GO:0030168
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-increased-myocardial-oxygen-demand" data-dismech-node="Increased Myocardial Oxygen Demand" data-dismech-type="pathophysiology">
                 <div class="item-name">Increased Myocardial Oxygen Demand</div>
 
+
                 <div class="item-desc">Tachycardia, hypertension and increased contractility raise myocardial oxygen consumption at the same moment supply is falling.</div>
 
 
@@ -5209,6 +5256,7 @@ This pathophysiological event involves increased platelet activation (GO:0030168
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-myocardial-oxygen-supply-demand-mismatch" data-dismech-node="Myocardial Oxygen Supply-Demand Mismatch" data-dismech-type="pathophysiology">
                 <div class="item-name">Myocardial Oxygen Supply-Demand Mismatch</div>
+
 
                 <div class="item-desc">The defining cardiac lesion of cocaine intoxication: demand rises while supply falls, in the same patient at the same time, from one drug. The risk is concentrated in the first hour after use, and in the cited catheterisation study the constriction occurred in patients with and without angiographic coronary disease alike.</div>
 
@@ -5356,6 +5404,7 @@ This pathophysiological event involves cardiac myocyte, annotated with cardiac m
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cardiac-fast-sodium-channel-blockade" data-dismech-node="Cardiac Fast Sodium Channel Blockade" data-dismech-type="pathophysiology">
                 <div class="item-name">Cardiac Fast Sodium Channel Blockade</div>
+
 
                 <div class="item-desc">Cocaine blocks the cardiac fast sodium channel in the manner of a class I antiarrhythmic. This is its local-anaesthetic action applied to myocardium, and it is the arm that a purely sympathomimetic account of cocaine toxicity leaves out.</div>
 
@@ -5547,6 +5596,7 @@ This pathophysiological event involves decreased cardiac fast sodium channel act
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-herg-potassium-channel-blockade" data-dismech-node="hERG Potassium Channel Blockade" data-dismech-type="pathophysiology">
                 <div class="item-name">hERG Potassium Channel Blockade</div>
+
 
                 <div class="item-desc">Cocaine also blocks the hERG-encoded rapid delayed-rectifier potassium channel, in the open state, at low micromolar concentrations. Cocaethylene, the metabolite formed when cocaine and ethanol are taken together, is a slightly more potent blocker than cocaine itself.</div>
 
@@ -5764,6 +5814,7 @@ This pathophysiological event involves decreased rapid delayed rectifier potassi
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-altered-cardiac-action-potential" data-dismech-node="Altered Cardiac Action Potential" data-dismech-type="pathophysiology">
                 <div class="item-name">Altered Cardiac Action Potential</div>
 
+
                 <div class="item-desc">Loss of fast inward sodium current slows phase 0 upstroke; loss of the rapid delayed rectifier prolongs phase 3. Both currents are perturbed by the same drug, so depolarisation and repolarisation are affected together.</div>
 
 
@@ -5918,6 +5969,7 @@ This pathophysiological event involves abnormal cardiac muscle cell action poten
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-slowed-ventricular-conduction" data-dismech-node="Slowed Ventricular Conduction" data-dismech-type="pathophysiology">
                 <div class="item-name">Slowed Ventricular Conduction</div>
 
+
                 <div class="item-desc">Reduced sodium current slows impulse propagation through the ventricular myocardium, widening the QRS complex. Because the QRS narrows promptly when extracellular sodium is raised and pH shifted with sodium bicarbonate, the widening is a reversible consequence of channel blockade rather than structural damage.</div>
 
 
@@ -5997,6 +6049,7 @@ This pathophysiological event involves abnormal cardiac muscle cell action poten
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-delayed-ventricular-repolarization" data-dismech-node="Delayed Ventricular Repolarization" data-dismech-type="pathophysiology">
                 <div class="item-name">Delayed Ventricular Repolarization</div>
+
 
                 <div class="item-desc">hERG blockade prolongs the action potential plateau and lengthens the QT interval, creating the substrate for afterdepolarisation-driven triggered activity.</div>
 
@@ -6080,6 +6133,7 @@ This pathophysiological event involves abnormal cardiac muscle cell action poten
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-ventricular-arrhythmogenesis" data-dismech-node="Ventricular Arrhythmogenesis" data-dismech-type="pathophysiology">
                 <div class="item-name">Ventricular Arrhythmogenesis</div>
 
+
                 <div class="item-desc">Three substrates converge: slowed conduction supporting reentry, delayed repolarisation supporting triggered activity, and ischaemic myocardium. Catecholamine excess is superimposed on all three, which is why the arrhythmia burden of cocaine cannot be attributed to any single one of its actions.
 This node deliberately declares no conforms_to. The obvious target, xenobiotic_cardiac_channel_perturbation#Xenobiotic-Induced Cardiac Arrhythmia, is excluded by that module&#39;s own scope note: &#34;the xenobiotic must act on the channel itself. A drug that causes arrhythmia through electrolyte disturbance, ischaemia, or structural injury belongs elsewhere, even when the endpoint looks the same.&#34; This node is a mixed channel, ischaemia and catecholamine endpoint and takes an inbound edge from the supply-demand node, so conforming it would assert a channel attribution the entry itself contradicts. The three upstream nodes that do act on the channel carry the conformance instead.</div>
 
@@ -6162,6 +6216,7 @@ This node deliberately declares no conforms_to. The obvious target, xenobiotic_c
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-central-nervous-system-stimulation" data-dismech-node="Central Nervous System Stimulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Central Nervous System Stimulation</div>
+
 
                 <div class="item-desc">Central monoamine excess produces the psychomotor arm of the toxidrome: agitation, hypervigilance, diaphoresis and, at higher exposures, disorientation.</div>
 
@@ -6291,6 +6346,7 @@ This pathophysiological event involves dopaminergic neuron (CL:0000700). CL:0000
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-central-neuronal-hyperexcitability" data-dismech-node="Central Neuronal Hyperexcitability" data-dismech-type="pathophysiology">
                 <div class="item-name">Central Neuronal Hyperexcitability</div>
 
+
                 <div class="item-desc">A state of lowered seizure threshold occurring at high cocaine concentrations. It is named as a node because seizures are a real and sometimes fatal feature, but no molecular mechanism is asserted here: the cited source describes generalized seizures at measured peak concentrations with a negative workup for structural causes, and states that the aetiology is unclear.</div>
 
 
@@ -6364,6 +6420,7 @@ This pathophysiological event involves dopaminergic neuron (CL:0000700). CL:0000
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-thermoregulatory-heat-dissipation" data-dismech-node="Impaired Thermoregulatory Heat Dissipation" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Thermoregulatory Heat Dissipation</div>
+
 
                 <div class="item-desc">Cocaine raises the core temperature threshold at which cutaneous vasodilation and sweating begin, and blunts the perception of heating that would normally drive a person to seek shade or remove clothing. Heat production rising is the familiar half of the story; the losing half is that the body stops getting rid of it, and stops noticing. The clustering of cocaine-associated hyperthermia in hot weather is what prompted this hypothesis, rather than something the finding explains.</div>
 
@@ -6537,6 +6594,7 @@ This pathophysiological event involves decreased core body temperature homeostas
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-skeletal-myocyte-necrosis" data-dismech-node="Skeletal Myocyte Necrosis" data-dismech-type="pathophysiology">
                 <div class="item-name">Skeletal Myocyte Necrosis</div>
 
+
                 <div class="item-desc">Skeletal muscle breaks down, releasing myoglobin and intracellular contents. Several contributors are plausible and none is established as dominant: increased muscular activity from agitation, direct muscle compression in an obtunded patient, hyperthermia, and alpha-adrenergic vasoconstriction producing muscle ischaemia.</div>
 
 
@@ -6707,6 +6765,7 @@ This pathophysiological event involves skeletal muscle fiber (CL:0008002). CL:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cerebral-vasoconstriction-and-vascular-injury" data-dismech-node="Cerebral Vasoconstriction and Vascular Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Cerebral Vasoconstriction and Vascular Injury</div>
 
+
                 <div class="item-desc">The same adrenergic vasoconstriction applied to the cerebral circulation, together with hypertensive surges and vessel-wall injury, raises the risk of both ischaemic and haemorrhagic stroke. The epidemiological evidence is consistent in direction but heterogeneous: several studies in the cited systematic review found no association.</div>
 
 
@@ -6843,6 +6902,7 @@ This pathophysiological event involves smooth muscle cell of the brain vasculatu
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-acute-aortic-wall-stress" data-dismech-node="Acute Aortic Wall Stress" data-dismech-type="pathophysiology">
                 <div class="item-name">Acute Aortic Wall Stress</div>
+
 
                 <div class="item-desc">Abrupt catecholamine-driven rises in arterial pressure and shear stress on the aortic wall can initiate dissection, characteristically within about an hour of use and in patients much younger than typical dissection cohorts.</div>
 
@@ -8522,6 +8582,9 @@ This disease-associated gene is SLC6A3 (hgnc:11049). hgnc:11049 is a gene from t
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (1 reference)
@@ -8592,6 +8655,9 @@ This disease-associated gene is DRD2 (hgnc:3023). hgnc:3023 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 

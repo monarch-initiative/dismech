@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -4853,6 +4892,7 @@
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-chronic-manganese-overexposure" data-dismech-node="Chronic Manganese Overexposure" data-dismech-type="pathophysiology">
                 <div class="item-name">Chronic Manganese Overexposure</div>
 
+
                 <div class="item-desc">Sustained intake above what homeostasis clears. Occupationally this is inhaled welding fume or ore dust; the particles are small enough that most of an inhaled dose is retained in the lung, from which manganese reaches the blood without passing the gut and liver first. The exposure is measured in months to years, not in single doses.</div>
 
 
@@ -4961,6 +5001,7 @@
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-hepatobiliary-manganese-excretion" data-dismech-node="Impaired Hepatobiliary Manganese Excretion" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Hepatobiliary Manganese Excretion</div>
+
 
                 <div class="item-desc">The other way to reach overload: normal intake with a broken exit. Manganese is cleared in bile, so chronic liver failure raises body burden without any unusual exposure, and parenteral nutrition delivers manganese straight into the blood past the gut and liver entirely. Both produce the same pallidal accumulation as the occupational route.</div>
 
@@ -5109,6 +5150,7 @@ This pathophysiological event involves abnormal manganese ion homeostasis (GO:00
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-systemic-manganese-overload" data-dismech-node="Systemic Manganese Overload" data-dismech-type="pathophysiology">
                 <div class="item-name">Systemic Manganese Overload</div>
 
+
                 <div class="item-desc">Whole-body manganese above the homeostatic set point, whichever route produced it. This is the node the environmental exposures converge on and the one blood manganese measures, imperfectly.</div>
 
 
@@ -5188,6 +5230,7 @@ This pathophysiological event involves abnormal manganese ion homeostasis (GO:00
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-manganese-transport-across-the-blood-brain-barrier" data-dismech-node="Manganese Transport Across the Blood-Brain Barrier" data-dismech-type="pathophysiology">
                 <div class="item-name">Manganese Transport Across the Blood-Brain Barrier</div>
+
 
                 <div class="item-desc">Manganese travels on carriers it does not own. Several transporters move it and few are selective for it - DMT1, ZIP8, ZIP14, transferrin receptor, all built for iron or zinc - which is why iron status changes the dose that reaches the brain and why the metal lands where those carriers are densest rather than where it would do least harm.</div>
 
@@ -5527,6 +5570,7 @@ This pathophysiological event involves increased manganese ion transmembrane tra
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-pallidal-manganese-accumulation" data-dismech-node="Pallidal Manganese Accumulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Pallidal Manganese Accumulation</div>
 
+
                 <div class="item-desc">The defining lesion location. Manganese concentrates in the basal ganglia and most of all in the globus pallidus, where it sits in GABAergic neurons and in astrocytes. Because manganese is paramagnetic, the accumulation is directly visible as symmetric T1 hyperintensity on MRI, which is what makes the imaging finding a measure of the metal rather than of its consequences.</div>
 
 
@@ -5744,6 +5788,7 @@ This pathophysiological event occurs in globus pallidus (UBERON:0001875). UBERON
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-astrocytic-manganese-sequestration" data-dismech-node="Astrocytic Manganese Sequestration" data-dismech-type="pathophysiology">
                 <div class="item-name">Astrocytic Manganese Sequestration</div>
 
+
                 <div class="item-desc">Astrocytes are the metal&#39;s reservoir, concentrating it far above neuronal levels because they carry the transporters. That is protective up to a point and then becomes the mechanism: a loaded astrocyte stops doing its day job, which in the basal ganglia is clearing glutamate.</div>
 
 
@@ -5894,6 +5939,7 @@ This pathophysiological event involves astrocyte (CL:0000127). CL:0000127 is a c
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-astrocytic-glutamate-transporter-downregulation" data-dismech-node="Astrocytic Glutamate Transporter Downregulation" data-dismech-type="pathophysiology">
                 <div class="item-name">Astrocytic Glutamate Transporter Downregulation</div>
+
 
                 <div class="item-desc">Loss of the two transporters that clear synaptic glutamate, GLAST (SLC1A3) and GLT-1 (SLC1A2). Glutamate then accumulates outside the cell not because more is released but because less is removed.</div>
 
@@ -6056,6 +6102,7 @@ This pathophysiological event involves decreased L-glutamate import (GO:0051938)
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-glutamate-excitotoxicity" data-dismech-node="Glutamate Excitotoxicity" data-dismech-type="pathophysiology">
                 <div class="item-name">Glutamate Excitotoxicity</div>
 
+
                 <div class="item-desc">Sustained overstimulation of postsynaptic glutamate receptors, with the calcium load and cell death that follow. This is the non-cell-autonomous half of the lesion: the neuron dies from a failure in the astrocyte beside it.</div>
 
 
@@ -6096,6 +6143,7 @@ This pathophysiological event involves decreased L-glutamate import (GO:0051938)
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-mitochondrial-dysfunction-and-oxidative-stress" data-dismech-node="Mitochondrial Dysfunction and Oxidative Stress" data-dismech-type="pathophysiology">
                 <div class="item-name">Mitochondrial Dysfunction and Oxidative Stress</div>
+
 
                 <div class="item-desc">Manganese impairs mitochondrial respiration and generates reactive oxygen species. The basal ganglia are a bad place for this to happen: high oxygen consumption, and in the dopaminergic compartment a transmitter that oxidises into radicals of its own.</div>
 
@@ -6222,6 +6270,7 @@ This pathophysiological event involves increased response to oxidative stress (G
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-microglial-complex-ii-dependent-reactive-oxygen-species-production" data-dismech-node="Microglial Complex II-Dependent Reactive Oxygen Species Production" data-dismech-type="pathophysiology">
                 <div class="item-name">Microglial Complex II-Dependent Reactive Oxygen Species Production</div>
+
 
                 <div class="item-desc">Divalent manganese drives hydrogen peroxide production in the mitochondrial fraction of microglia, and the route is specifically complex II: the effect is supported by the complex II substrate succinate and abolished by complex II inhibition, while complex I substrates do not support it and complex I inhibition does not abolish it. The resulting microglial free-radical output in turn facilitates dopaminergic neurotoxicity. This is a narrower claim than the general oxidative-stress node, about a named respiratory complex in a named cell type, which is why the two are kept apart.</div>
 
@@ -6427,6 +6476,7 @@ This pathophysiological event involves increased reactive oxygen species biosynt
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-neuroinflammation" data-dismech-node="Neuroinflammation" data-dismech-type="pathophysiology">
                 <div class="item-name">Neuroinflammation</div>
 
+
                 <div class="item-desc">Activated astrocytes and microglia releasing cytokines and nitric oxide synthase products into the pallidum. It is a consequence of the metal load and then an independent source of injury.</div>
 
 
@@ -6505,6 +6555,7 @@ This pathophysiological event involves increased neuroinflammatory response (GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-alpha-synuclein-aggregation" data-dismech-node="Alpha-Synuclein Aggregation" data-dismech-type="pathophysiology">
                 <div class="item-name">Alpha-Synuclein Aggregation</div>
+
 
                 <div class="item-desc">Manganese shifts alpha-synuclein towards its aggregation-prone conformation. This is the point where manganism and the synucleinopathies come closest, and it is worth being careful: aggregation is documented in the cortex of exposed primates, while the human neuropathology of manganism is specifically Lewy-body negative. The two are compatible only if the aggregates here are not Lewy bodies.</div>
 
@@ -6714,6 +6765,7 @@ This pathophysiological event involves increased protein destabilization (GO:003
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-striatal-dopamine-release" data-dismech-node="Impaired Striatal Dopamine Release" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Striatal Dopamine Release</div>
 
+
                 <div class="item-desc">Dopaminergic terminals that are present but underperforming. This is the finding that stops manganism being a simple postsynaptic story: imaging in exposed people and primates shows the terminals are there, while dopamine release is markedly reduced. A functional presynaptic deficit, not a degenerative one.</div>
 
 
@@ -6902,6 +6954,7 @@ This pathophysiological event involves dopaminergic neuron (CL:0000700). CL:0000
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-globus-pallidus-neuronal-injury" data-dismech-node="Globus Pallidus Neuronal Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Globus Pallidus Neuronal Injury</div>
 
+
                 <div class="item-desc">Structural damage to the pallidum, with the internal segment preferentially affected, and with the substantia nigra pars compacta spared and no Lewy bodies. This is the neuropathological core of the disease and the fact that separates it from Parkinson disease.</div>
 
 
@@ -7002,6 +7055,7 @@ This pathophysiological event occurs in medial globus pallidus (UBERON:0002477).
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-basal-ganglia-output-failure" data-dismech-node="Basal Ganglia Output Failure" data-dismech-type="pathophysiology">
                 <div class="item-name">Basal Ganglia Output Failure</div>
+
 
                 <div class="item-desc">The final common pathway for the motor syndrome. Because the damage is at and beyond the pallidum rather than upstream of the dopamine synapse, supplying more dopamine precursor does not restore the circuit - which is the mechanistic reason levodopa disappoints here.</div>
 
@@ -7163,6 +7217,7 @@ This pathophysiological event occurs in basal ganglion (UBERON:0002420). UBERON:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cortical-and-white-matter-injury" data-dismech-node="Cortical and White Matter Injury" data-dismech-type="pathophysiology">
                 <div class="item-name">Cortical and White Matter Injury</div>
+
 
                 <div class="item-desc">The non-motor half of the disease, and historically the first half to appear: the psychiatric presentation that gave manganism its old names. Primate work puts manganese-induced alpha-synuclein aggregates in frontal cortex grey and white matter, which is a plausible substrate, though the link to the human psychiatric picture is not established.</div>
 
@@ -8838,6 +8893,9 @@ This disease-associated gene is SLC30A10 (hgnc:25355). hgnc:25355 is a gene from
 
 
                 </div>
+
+
+
 
 
 

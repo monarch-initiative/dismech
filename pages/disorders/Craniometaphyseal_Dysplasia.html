@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -2992,7 +2993,7 @@
         if (!data || !data.nodes || !data.nodes.length) return;
 
         /* -- Dagre layout -- */
-        var g = new dagre.graphlib.Graph();
+        var g = new dagre.graphlib.Graph({ multigraph: true });
         g.setGraph({ rankdir: "LR", nodesep: 40, ranksep: 80, marginx: 30, marginy: 30 });
         g.setDefaultEdgeLabel(function() { return {}; });
 
@@ -3007,8 +3008,9 @@
             var h = 44;
             g.setNode(n.id, { width: w, height: h, label: n.id });
         });
-        data.edges.forEach(function(e) {
-            g.setEdge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            // Different roles may connect the same variant and gene.
+            g.setEdge(e.source, e.target, {}, String(edgeIndex));
         });
         dagre.layout(g);
 
@@ -3116,8 +3118,8 @@
 
         /* -- Draw edges -- */
         var edgesG = rootG.append("g").attr("class", "pg-edges");
-        data.edges.forEach(function(e) {
-            var dagreEdge = g.edge(e.source, e.target);
+        data.edges.forEach(function(e, edgeIndex) {
+            var dagreEdge = g.edge(e.source, e.target, String(edgeIndex));
             if (!dagreEdge || !dagreEdge.points) return;
             var pts = dagreEdge.points;
             var line = d3.line().x(function(p){return p.x;}).y(function(p){return p.y;}).curve(d3.curveBasis);
@@ -3129,7 +3131,8 @@
                 .attr("stroke-dasharray", edgeDashArray(e))
                 .attr("marker-end", edgeMarker(e))
                 .attr("data-source", e.source)
-                .attr("data-target", e.target);
+                .attr("data-target", e.target)
+                .attr("data-predicate", e.predicate);
             edgePath.append("title").text(edgeTitle(e));
         });
 
@@ -3333,8 +3336,9 @@
 
             function formatGeneTerm(gene) {
                 if (typeof gene === "string") return gene;
-                var label = gene.label || gene.preferred_term || gene.term_label || "";
-                var id = gene.id || gene.term_id || "";
+                var term = gene.term || {};
+                var label = gene.label || gene.preferred_term || gene.term_label || term.label || "";
+                var id = gene.id || gene.term_id || term.id || "";
                 var modifier = gene.modifier || "";
                 var qualifiers = [];
                 if (id) qualifiers.push(id);
@@ -3343,12 +3347,37 @@
                 return label || id;
             }
 
+                        function formatGenomicRegion(region) {
+                var parts = [region.name];
+                if (region.chromosomal_region) parts.push(region.chromosomal_region);
+                if (region.regulatory_element_type) parts.push(humanizeEnum(region.regulatory_element_type));
+                if (region.between_genes && region.between_genes.length) {
+                    parts.push("between genes: " + region.between_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.within_gene) parts.push("within gene: " + formatGeneTerm(region.within_gene));
+                if (region.overlaps_genes && region.overlaps_genes.length) {
+                    parts.push("overlaps genes: " + region.overlaps_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.adjacent_to_genes && region.adjacent_to_genes.length) {
+                    parts.push("abuts genes (shared boundary): " + region.adjacent_to_genes.map(formatGeneTerm).join(", "));
+                }
+                if (region.description) parts.push(region.description);
+                return parts.join("; ");
+            }
+
             function formatGeneticContext(context) {
                 var parts = [];
                 if (context.gene_terms && context.gene_terms.length) {
                     parts.push(context.gene_terms.map(formatGeneTerm).join(", "));
                 }
                 if (context.complementation_group) parts.push(context.complementation_group);
+                if (context.variant_type) parts.push("Variant type: " + context.variant_type);
+                if (context.genomic_contexts && context.genomic_contexts.length) {
+                    parts.push("Genomic context: " + context.genomic_contexts.join(", "));
+                }
+                if (context.affected_regions && context.affected_regions.length) {
+                    parts.push("Affected regions (reference genome): " + context.affected_regions.map(formatGenomicRegion).join(" | "));
+                }
                 if (context.allele_type) parts.push(context.allele_type);
                 if (context.variant_origin) parts.push(humanizeEnum(context.variant_origin));
                 if (context.allelic_hit_role) parts.push(humanizeEnum(context.allelic_hit_role));
@@ -3379,11 +3408,13 @@
             if (meta.molecular_functions && meta.molecular_functions.length) metaParts.push('<span>Functions: ' + escapeHtml(meta.molecular_functions.join(", ")) + '</span>');
             if (meta.gene_terms && meta.gene_terms.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.gene_terms.map(formatGeneTerm).join(", ")) + '</span>');
             else if (meta.genes && meta.genes.length) metaParts.push('<span>Genes: ' + escapeHtml(meta.genes.join(", ")) + '</span>');
+            if (meta.regulatory_target_gene) metaParts.push('<span>Regulatory target: ' + escapeHtml(formatGeneTerm(meta.regulatory_target_gene)) + '</span>');
             if (meta.subtypes && meta.subtypes.length) metaParts.push('<span>Subtypes: ' + escapeHtml(meta.subtypes.join(", ")) + '</span>');
             if (meta.locations && meta.locations.length) metaParts.push('<span>Location: ' + escapeHtml(meta.locations.join(", ")) + '</span>');
             if (meta.association) metaParts.push('<span>Association: ' + escapeHtml(meta.association) + '</span>');
             if (meta.relationship_type) metaParts.push('<span>Gene-disease: ' + escapeHtml(humanizeEnum(meta.relationship_type)) + '</span>');
             if (meta.variant_origin) metaParts.push('<span>Variant origin: ' + escapeHtml(humanizeEnum(meta.variant_origin)) + '</span>');
+            if (meta.affected_regions && meta.affected_regions.length) metaParts.push('<span>Affected regions (reference genome): ' + escapeHtml(meta.affected_regions.map(formatGenomicRegion).join(" | ")) + '</span>');
             if (meta.genetic_context) metaParts.push('<span>Genetic context: ' + escapeHtml(formatGeneticContext(meta.genetic_context)) + '</span>');
             if (meta.presence) metaParts.push('<span>Presence: ' + escapeHtml(meta.presence) + '</span>');
             if (meta.specificity) metaParts.push('<span>Specificity: ' + escapeHtml(meta.specificity) + '</span>');
@@ -3400,8 +3431,16 @@
             if (meta.publication) metaParts.push('<span>Publication: ' + escapeHtml(meta.publication) + '</span>');
             if (meta.variant_count) metaParts.push('<span>Variants: ' + meta.variant_count + '</span>');
             if (meta.variant_type) metaParts.push('<span>Variant type: ' + escapeHtml(meta.variant_type) + '</span>');
+            if (meta.variant_type_detail) metaParts.push('<span>Variant detail: ' + escapeHtml(meta.variant_type_detail) + '</span>');
+            if (meta.genomic_contexts && meta.genomic_contexts.length) metaParts.push('<span>Genomic context: ' + escapeHtml(meta.genomic_contexts.join(", ")) + '</span>');
             if (meta.clinical_significance) metaParts.push('<span>Clinical significance: ' + escapeHtml(meta.clinical_significance) + '</span>');
-            if (meta.regulatory_category) metaParts.push('<span>Regulatory category: ' + escapeHtml(meta.regulatory_category) + '</span>');
+            if (meta.regulatory_category) {
+                var categoryLabel = "Regulatory category: " + meta.regulatory_category;
+                if (meta.mechanism_confidence) categoryLabel += " (" + humanizeEnum(meta.mechanism_confidence) + ")";
+                metaParts.push('<span>' + escapeHtml(categoryLabel) + '</span>');
+            } else if (meta.mechanism_confidence) {
+                metaParts.push('<span>Mechanism confidence: ' + escapeHtml(humanizeEnum(meta.mechanism_confidence)) + '</span>');
+            }
             if (meta.term_id) metaParts.push('<span>Term: ' + escapeHtml(meta.term_id) + '</span>');
             if (meta.term_label) metaParts.push('<span>Term label: ' + escapeHtml(meta.term_label) + '</span>');
             if (meta.histopathology_terms && meta.histopathology_terms.length) {
@@ -5069,6 +5108,7 @@ A second refinement this model has NOT absorbed: the substrate itself is dispute
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-reduced-ankh-mediated-pyrophosphate-export" data-dismech-node="Reduced ANKH-Mediated Pyrophosphate Export" data-dismech-type="pathophysiology">
                 <div class="item-name">Reduced ANKH-Mediated Pyrophosphate Export</div>
 
+
                 <div class="item-desc">ANKH encodes a multipass transmembrane protein classically described as moving inorganic pyrophosphate (PPi) from the cytosol into the extracellular matrix. That substrate assignment has been revised: more recent work describes ANK/ANKH as a transporter of small molecules including citrate and ATP, with extracellular PPi generated downstream from exported ATP by ENPP1 rather than exported as PPi in appreciable amounts. The node is retained because the *direction* of the lesion is unchanged under either reading — less ANKH activity means less extracellular pyrophosphate — but curators should not treat &#34;ANKH is the PPi transporter&#34; as settled. AD-CMD-causing variants cluster within a few amino acids of one cytosolic domain and abolish measurable PPi transport in the oocyte assay. The mutant protein is also short-lived and mislocalized: steady-state ANK/ANKH levels fall through rapid proteasomal and lysosomal degradation, and what protein remains is found in the cytoplasm rather than at the plasma membrane. Notably, co-expression experiments show mutant ANK does not impair wild-type ANK, arguing against the classical dominant-negative reading of the original report.
 </div>
 
@@ -5348,6 +5388,7 @@ This pathophysiological event involves decreased Inorganic pyrophosphate export 
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-connexin-43-gap-junction-dysfunction" data-dismech-node="Connexin 43 Gap Junction Dysfunction" data-dismech-type="pathophysiology">
                 <div class="item-name">Connexin 43 Gap Junction Dysfunction</div>
+
 
                 <div class="item-desc">The autosomal recessive arm. GJA1 encodes connexin 43, the predominant gap junction protein of osteoblasts, osteocytes, osteoclasts, and chondrocytes, through which small molecules and ions are exchanged between adjacent bone cells. The recessive CMD allele p.Arg239Gln lies in the connexin 43 C-terminus and produces altered spatial expression of the protein with mild reduction of gap junction and hemichannel activity. Importantly, the knock-in mouse phenotype is not reproduced by Cx43 ablation models, so simple loss of connexin 43 function is unlikely to be the whole mechanism and the downstream bone-remodeling defect remains to be worked out.
 </div>
@@ -5739,6 +5780,7 @@ This pathophysiological event involves decreased Gap junction hemichannel activi
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-extracellular-pyrophosphate-depletion" data-dismech-node="Extracellular Pyrophosphate Depletion" data-dismech-type="pathophysiology">
                 <div class="item-name">Extracellular Pyrophosphate Depletion</div>
 
+
                 <div class="item-desc">Extracellular inorganic pyrophosphate is a physiological inhibitor of hydroxyapatite crystal nucleation and growth, and also of bone resorption. When ANKH export fails, the local and circulating PPi concentration falls and the constitutive brake on mineral deposition is released. The size of this effect within bone is contested: plasma PPi is significantly reduced in the knock-in mouse, but compensatory upregulation of ENPP1, which generates PPi from ATP, can leave extracellular PPi around mutant osteoblasts comparable to wild type.
 </div>
 
@@ -5949,6 +5991,7 @@ This pathophysiological event occurs in Bone, annotated with bone element (UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-osteoclast-differentiation-and-bone-resorption" data-dismech-node="Impaired Osteoclast Differentiation and Bone Resorption" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Osteoclast Differentiation and Bone Resorption</div>
+
 
                 <div class="item-desc">Osteoclast formation and function are reduced in CMD. Bone marrow-derived macrophage cultures from the knock-in mouse and peripheral blood cultures from CMD patients both show decreased osteoclastogenesis; the osteoclasts that do form have disrupted actin rings, impaired fusion, and reduced resorptive activity. Because bone mass is set by the balance of formation and resorption, a resorption deficit alone will raise bone mass, and bone marrow transplantation partially corrects the phenotype in the mouse.
 </div>
@@ -6174,6 +6217,7 @@ This pathophysiological event involves decreased Bone resorption (GO:0045453). G
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-impaired-osteoblast-differentiation-and-matrix-mineralization" data-dismech-node="Impaired Osteoblast Differentiation and Matrix Mineralization" data-dismech-type="pathophysiology">
                 <div class="item-name">Impaired Osteoblast Differentiation and Matrix Mineralization</div>
 
+
                 <div class="item-desc">Osteoblasts carrying the CMD mutation deposit less mineral in culture and express reduced levels of mineralization-regulating genes. They also fail to support osteoclastogenesis adequately, so the osteoblast defect feeds the osteoclast defect. This node is the reason CMD cannot be read as a simple &#34;too much mineralization&#34; disease.
 </div>
 
@@ -6348,6 +6392,7 @@ This pathophysiological event involves decreased Osteoblast differentiation (GO:
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-high-craniofacial-bone-mass" data-dismech-node="High Craniofacial Bone Mass" data-dismech-type="pathophysiology">
                 <div class="item-name">High Craniofacial Bone Mass</div>
+
 
                 <div class="item-desc">Bone accumulates rather than being remodeled to a steady mass. This is the hinge of the entry: the two competing upstream models converge here, and everything clinically important follows from bone being laid down where it should not be. The accumulation is most consequential in the craniofacial skeleton, where it presents as progressive diffuse hyperostosis and sclerosis of the cranial base, cranial vault, facial bones, and mandible, progressing throughout life.
 </div>
@@ -6636,6 +6681,7 @@ This pathophysiological event occurs in Skull (UBERON:0003129). UBERON:0003129 i
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-hypomineralized-immature-bone-matrix" data-dismech-node="Hypomineralized, Immature Bone Matrix" data-dismech-type="pathophysiology">
                 <div class="item-name">Hypomineralized, Immature Bone Matrix</div>
 
+
                 <div class="item-desc">A counter-intuitive but well-documented feature: despite the hyperostotic, high-mass phenotype, the bone matrix itself is hypomineralized and less mature than normal, so its biomechanical properties may be compromised. This node is curated separately because it is precisely the observation that a naive &#34;excess mineralization&#34; reading of CMD would miss, and because it is what distinguishes CMD from a disease of pure mineral excess.
 </div>
 
@@ -6777,6 +6823,7 @@ This pathophysiological event occurs in Bone, annotated with bone element (UBERO
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-cranial-foraminal-narrowing-and-cranial-nerve-compression" data-dismech-node="Cranial Foraminal Narrowing and Cranial Nerve Compression" data-dismech-type="pathophysiology">
                 <div class="item-name">Cranial Foraminal Narrowing and Cranial Nerve Compression</div>
+
 
                 <div class="item-desc">Progressive hyperostosis narrows the cranial foramina, including the internal auditory canals and the foramen magnum. The cranial nerves passing through them are compressed, which is the proximate cause of the facial palsy, hearing loss, and visual impairment that dominate the clinical picture and the reason treatment is decompressive. Foramen magnum compromise, with cervicomedullary compression, is the mechanism by which severe disease shortens life.
 </div>
@@ -6962,6 +7009,7 @@ This pathophysiological event occurs in Skull (UBERON:0003129). UBERON:0003129 i
 
             <div class="item-box pathophys-box anchor-target" id="pathophysiology-metaphyseal-modeling-defect" data-dismech-node="Metaphyseal Modeling Defect" data-dismech-type="pathophysiology">
                 <div class="item-name">Metaphyseal Modeling Defect</div>
+
 
                 <div class="item-desc">Failure of normal metaphyseal modeling in the growing long bones, so the metaphysis stays broad instead of tapering toward the diaphysis. The radiographic result is club-shaped widening with cortical thinning and loss of the normal concave di-metaphyseal curve, classically described as Erlenmeyer-flask deformity of the distal femora. Unlike the craniofacial arm this is largely a radiographic diagnostic feature and is not usually itself disabling.
 </div>
@@ -9082,6 +9130,9 @@ This disease-associated gene is ANKH (hgnc:15492). hgnc:15492 is a gene from the
 
 
 
+
+
+
     <details class="evidence-details">
         <summary class="evidence-toggle">
             Show evidence (4 references)
@@ -9202,6 +9253,9 @@ This disease-associated gene is GJA1 (hgnc:4274). hgnc:4274 is a gene from the H
 
 
                 </div>
+
+
+
 
 
 
@@ -10635,10 +10689,10 @@ This treatment is genetic counseling (NCIT:C15240). NCIT:C15240 is a clinical in
 
                 </div>
 
-                <div class="evidence-snippet">"Cranial computed tomography scan showed diffuse calvarial and skull base hyperostosis with excessive bone narrowing the internal auditory canals and skull base foramina."</div>
+                <div class="evidence-snippet">"We report a 14-month-old male with craniometaphyseal dysplasia (CMD). The patient presented with a history of diminishing vision and hearing loss. Cranial computed tomography scan showed diffuse calvarial and skull base hyperostosis with excessive bone narrowing the internal auditory canals and..."</div>
 
 
-                <div class="evidence-explanation">Describes the CT appearance in a patient with ANKH-confirmed disease. The subtype scoping records where the finding was attested, not a claim that the appearance differs in AR-CMD.</div>
+                <div class="evidence-explanation">Restores the CMD case identification, clinical sensory deficits and ANKH confirmation around the CT findings. The source also used a skeletal survey; the excerpt does not establish that cranial CT alone settles the full skeletal-dysplasia differential.</div>
 
 
 
@@ -13489,11 +13543,16 @@ imaging_findings:
     reference_title: &#34;Craniometaphyseal dysplasia in a 14-month old: a case report and review of imaging differential diagnosis.&#34;
     supports: SUPPORT
     evidence_source: HUMAN_CLINICAL
-    snippet: &#34;Cranial computed tomography scan showed diffuse calvarial and skull base hyperostosis with excessive bone narrowing the internal auditory canals and skull base foramina.&#34;
+    snippet: &gt;-
+      We report a 14-month-old male with craniometaphyseal dysplasia (CMD). The patient presented
+      with a history of diminishing vision and hearing loss. Cranial computed tomography scan showed
+      diffuse calvarial and skull base hyperostosis with excessive bone narrowing the internal
+      auditory canals and skull base foramina. A subsequent skeletal survey revealed other skeletal
+      abnormalities, which led to the diagnosis of CMD. This was later confirmed by ANKH mutation.
     explanation: &gt;-
-      Describes the CT appearance in a patient with ANKH-confirmed disease. The
-      subtype scoping records where the finding was attested, not a claim that
-      the appearance differs in AR-CMD.
+      Restores the CMD case identification, clinical sensory deficits and ANKH confirmation around
+      the CT findings. The source also used a skeletal survey; the excerpt does not establish that
+      cranial CT alone settles the full skeletal-dysplasia differential.
 - name: Metaphyseal Widening and Radiolucency on Radiographs
   modality: XRAY
   description: &gt;
@@ -14812,7 +14871,7 @@ stub it fulfils.
         'use strict';
 
         // Config injected by Jinja2
-        const OS_CONFIG = {"diseaseName": "Craniometaphyseal Dysplasia", "mondoId": "MONDO:0015465", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Craniometaphyseal_Dysplasia", "yamlRevision": "027e2aa4cf51"};
+        const OS_CONFIG = {"diseaseName": "Craniometaphyseal Dysplasia", "mondoId": "MONDO:0015465", "proxyUrl": "https://dismech-openscientist.bbop.workers.dev", "slug": "Craniometaphyseal_Dysplasia", "yamlRevision": "ddd44ade2e01"};
 
         // --- DOM refs ---
         const questionInput = document.getElementById('os-question');
